@@ -26,7 +26,7 @@ const banner = (dark) => `<html><head>${head}</head><body style="width:1500px;he
   for (const [name, html, w, h] of [['ecrin-icon-dark', icon(true), 1024, 1024], ['ecrin-icon-light', icon(false), 1024, 1024], ['ecrin-banner-dark', banner(true), 1500, 500], ['ecrin-banner-light', banner(false), 1500, 500]]) {
     const p = await b.newPage({ viewport: { width: w, height: h } });
     const tmp = require('os').tmpdir() + '/' + name + '.html'; require('fs').writeFileSync(tmp, html); await p.goto('file://' + tmp); await p.evaluate(() => document.fonts.ready); await p.waitForTimeout(300);
-    await p.screenshot({ path: `' + __dirname + '/${name}.png` }); await p.close();
+    await p.screenshot({ path: `${__dirname}/${name}.png` }); await p.close();
   }
   await b.close();
 })();
