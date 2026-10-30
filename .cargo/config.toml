@@ -1,0 +1,3 @@
+# Solana's SBF toolchain ships an older cargo (1.79 with Solana 2.1), so pick dependency versions it can build.
+[resolver]
+incompatible-rust-versions = "fallback"

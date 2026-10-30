@@ -2,6 +2,7 @@
 name = "cooldown-vault"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.79"
 description = "On-chain Cooldown Vault: holds SOL in a PDA and enforces vault-core's rules."
 license = "MIT"
 
@@ -19,6 +20,6 @@ cpi = ["no-entrypoint"]
 idl-build = ["anchor-lang/idl-build"]
 
 [dependencies]
-anchor-lang = "0.31.1"
+anchor-lang = "=0.31.1"
 vault-core = { path = "../../crates/vault-core" }
 
