@@ -1,0 +1,45 @@
+name: ci
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: cargo test -p vault-core
+      - run: node app/vault.test.mjs
+
+  program:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cache/solana
+            target
+          key: anchor-${{ hashFiles('Cargo.lock') }}
+      - name: Install Solana
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/v2.1.21/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+      - name: Install Anchor
+        run: npm install -g @coral-xyz/anchor-cli@0.31.1
+      - name: Versions
+        run: solana --version && anchor --version && cargo --version
+      - name: Local wallet
+        run: solana-keygen new --no-bip39-passphrase --silent --outfile ~/.config/solana/id.json
+      - run: npm install
+      - name: Match program id to this build's keypair
+        run: anchor keys sync
+      - name: Build and test on a local validator
+        run: anchor test

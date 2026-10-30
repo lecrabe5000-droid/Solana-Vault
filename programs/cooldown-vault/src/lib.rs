@@ -221,13 +221,13 @@ pub struct WithdrawalSlot { pub id: u32, pub amount: u64, pub dest: Pubkey, pub 
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, InitSpace)]
 pub enum ChangeArg {
-    SetWithdrawDelay(i64),
-    SetRuleDelay(i64),
-    SetDailyLimit(Option<u64>),
-    SetLockedUntil(Option<i64>),
-    SetGuardian(Option<Pubkey>),
-    AddTrusted(Pubkey),
-    RemoveTrusted(Pubkey),
+    SetWithdrawDelay { seconds: i64 },
+    SetRuleDelay { seconds: i64 },
+    SetDailyLimit { limit: Option<u64> },
+    SetLockedUntil { until: Option<i64> },
+    SetGuardian { guardian: Option<Pubkey> },
+    AddTrusted { address: Pubkey },
+    RemoveTrusted { address: Pubkey },
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, InitSpace)]
@@ -299,13 +299,13 @@ impl VaultAccount {
 impl From<ChangeArg> for core::Change {
     fn from(c: ChangeArg) -> Self {
         match c {
-            ChangeArg::SetWithdrawDelay(s) => core::Change::SetWithdrawDelay(s),
-            ChangeArg::SetRuleDelay(s) => core::Change::SetRuleDelay(s),
-            ChangeArg::SetDailyLimit(l) => core::Change::SetDailyLimit(l),
-            ChangeArg::SetLockedUntil(t) => core::Change::SetLockedUntil(t),
-            ChangeArg::SetGuardian(g) => core::Change::SetGuardian(g.map(|g| g.to_bytes())),
-            ChangeArg::AddTrusted(a) => core::Change::AddTrusted(a.to_bytes()),
-            ChangeArg::RemoveTrusted(a) => core::Change::RemoveTrusted(a.to_bytes()),
+            ChangeArg::SetWithdrawDelay { seconds } => core::Change::SetWithdrawDelay(seconds),
+            ChangeArg::SetRuleDelay { seconds } => core::Change::SetRuleDelay(seconds),
+            ChangeArg::SetDailyLimit { limit } => core::Change::SetDailyLimit(limit),
+            ChangeArg::SetLockedUntil { until } => core::Change::SetLockedUntil(until),
+            ChangeArg::SetGuardian { guardian } => core::Change::SetGuardian(guardian.map(|g| g.to_bytes())),
+            ChangeArg::AddTrusted { address } => core::Change::AddTrusted(address.to_bytes()),
+            ChangeArg::RemoveTrusted { address } => core::Change::RemoveTrusted(address.to_bytes()),
         }
     }
 }
@@ -313,13 +313,13 @@ impl From<ChangeArg> for core::Change {
 impl From<core::Change> for ChangeArg {
     fn from(c: core::Change) -> Self {
         match c {
-            core::Change::SetWithdrawDelay(s) => ChangeArg::SetWithdrawDelay(s),
-            core::Change::SetRuleDelay(s) => ChangeArg::SetRuleDelay(s),
-            core::Change::SetDailyLimit(l) => ChangeArg::SetDailyLimit(l),
-            core::Change::SetLockedUntil(t) => ChangeArg::SetLockedUntil(t),
-            core::Change::SetGuardian(g) => ChangeArg::SetGuardian(g.map(Pubkey::new_from_array)),
-            core::Change::AddTrusted(a) => ChangeArg::AddTrusted(Pubkey::new_from_array(a)),
-            core::Change::RemoveTrusted(a) => ChangeArg::RemoveTrusted(Pubkey::new_from_array(a)),
+            core::Change::SetWithdrawDelay(seconds) => ChangeArg::SetWithdrawDelay { seconds },
+            core::Change::SetRuleDelay(seconds) => ChangeArg::SetRuleDelay { seconds },
+            core::Change::SetDailyLimit(limit) => ChangeArg::SetDailyLimit { limit },
+            core::Change::SetLockedUntil(until) => ChangeArg::SetLockedUntil { until },
+            core::Change::SetGuardian(g) => ChangeArg::SetGuardian { guardian: g.map(Pubkey::new_from_array) },
+            core::Change::AddTrusted(a) => ChangeArg::AddTrusted { address: Pubkey::new_from_array(a) },
+            core::Change::RemoveTrusted(a) => ChangeArg::RemoveTrusted { address: Pubkey::new_from_array(a) },
         }
     }
 }
