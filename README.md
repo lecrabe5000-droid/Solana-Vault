@@ -68,6 +68,21 @@ anchor build && anchor deploy       # needs the Solana + Anchor toolchains, devn
 
 Never reuse these accounts for real money. Never put a mainnet key in GitHub.
 
+## Ethereum (Sepolia)
+
+`evm/contracts/EcrinVault.sol` is the same vault for Ethereum: one contract, one vault per owner, ETH only, the same rules and limits. `evm/test/` mirrors the Solana rule tests and also runs the browser client (`app/evm.js`) against the contract.
+
+```sh
+cd evm && npm ci && npx hardhat test
+```
+
+To deploy:
+
+1. In MetaMask, make a **new** account for testnets only. Turn on Settings → Advanced → Show test networks, pick Sepolia.
+2. Get Sepolia ETH for it (0.05 is plenty) at https://cloud.google.com/application/web3/faucet/ethereum/sepolia.
+3. Export its private key (account menu → Account details → Show private key) and add it as the repository secret `SEPOLIA_DEPLOYER_KEY`. Optional: `SEPOLIA_RPC_URL`.
+4. Actions → **deploy-sepolia** → Run workflow. It tests, deploys, and commits the address to `app/config-evm.js`; the app's Ethereum tab switches to it.
+
 ## Status
 
 Early prototype. SOL only. **Not audited: do not put real funds in it.** Mainnet only after an independent security audit, with deposit caps at first and the upgrade authority removed afterwards.
