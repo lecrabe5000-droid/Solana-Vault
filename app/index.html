@@ -16,7 +16,7 @@
   <script src="site.js" defer></script>
 </head>
 <body class="site">
-  <header class="nav">
+  <header class="nav"><div class="progress" aria-hidden="true"><i></i></div>
     <div class="wrap nav-in">
       <a class="logo" href="/" aria-label="Ecrin home">
         <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="#2F5BFF" stroke-width="2.2"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="#2F5BFF"/></svg>
@@ -31,7 +31,7 @@
 
   <main>
     <!-- Hero -->
-    <section class="hero-s">
+    <section class="hero-s"><div class="glow" aria-hidden="true"></div>
       <div class="wrap hero-grid">
         <div class="hero-copy">
           <span class="eyebrow">On-chain security vault for Solana · devnet beta</span>
@@ -104,16 +104,34 @@
       </div>
     </section>
 
-    <!-- What happens -->
-    <section class="sec">
+    <!-- What happens: scroll story with a pinned vault -->
+    <section class="sec story-s" id="story">
       <div class="wrap">
         <div class="sec-head"><span class="eyebrow">A bad day, with Ecrin</span><h2>The attack works. The money still doesn't move.</h2></div>
-        <ol class="timeline">
-          <li><span class="t-time">0:00</span><div><b>Your key leaks.</b><p>The thief signs a withdrawal of everything to their own address. On a normal wallet, this is the end of the story.</p></div></li>
-          <li><span class="t-time">0:00</span><div><b>The program queues it.</b><p>Solana itself holds it back for your delay, 72 hours on Strong. It shows up in your app with a countdown, and your guardian can see it too.</p></div></li>
-          <li><span class="t-time">0:20</span><div><b>You press Cancel.</b><p>Free and instant. Then you get out on your terms: pay your own trusted address, or request a withdrawal to a fresh wallet and have your guardian release it on the spot.</p></div></li>
-          <li class="done"><span class="t-time">72:00</span><div><b>Nothing was taken.</b><p>The thief can't shorten the delay, add their address as trusted, or name their own guardian without waiting days. A key can make the rules stricter, never looser, so the worst it can do is freeze the vault, not empty it.</p></div></li>
-        </ol>
+        <div class="story">
+          <div class="story-steps">
+            <article class="step" data-step="0"><span class="t-time">Before</span><h3>All quiet.</h3><p>Your savings sit in the vault. Your own trusted addresses can be paid instantly; everything else has to wait.</p></article>
+            <article class="step" data-step="1"><span class="t-time">0:00</span><h3>Your key leaks.</h3><p>A thief signs a withdrawal of everything to their own address. On a normal wallet, this is the end of the story. Here, Solana itself queues it for your delay, and it shows up with a countdown.</p></article>
+            <article class="step" data-step="2"><span class="t-time">0:20</span><h3>You press Cancel.</h3><p>Free and instant. Then you get out on your terms: pay your own trusted address, or request a withdrawal to a fresh wallet and have your guardian release it on the spot.</p></article>
+            <article class="step" data-step="3"><span class="t-time">72:00</span><h3>Nothing was taken.</h3><p>The thief can't shorten the delay, add their address as trusted, or name their own guardian without waiting days. A key can make the rules stricter, never looser: at worst it freezes the vault, it never empties it.</p></article>
+          </div>
+          <div class="story-pin" aria-hidden="true">
+            <div class="device" data-state="0">
+              <div class="dv-top"><span class="dv-k">Your vault</span><span class="dv-pill">Strong · 72 h</span></div>
+              <div class="dv-bal">31.40 <small>SOL</small></div>
+              <div class="dv-status">
+                <div class="st st0"><span class="st-dot ok"></span>All quiet. Nothing waiting to leave.</div>
+                <div class="st st1"><span class="st-dot bad"></span><b>Withdrawal requested</b>&nbsp;· 31.40 SOL to 9cRt…X2pa</div>
+                <div class="st st2"><span class="st-dot ok"></span><b>Cancelled</b>&nbsp;· it never left</div>
+                <div class="st st3"><span class="st-dot ok"></span><b>Still yours</b>&nbsp;· 72 hours later</div>
+              </div>
+              <div class="dv-clock"><span><b data-sc="h">71</b><small>hours</small></span><i>:</i><span><b data-sc="m">59</b><small>min</small></span><i>:</i><span><b data-sc="s">48</b><small>sec</small></span></div>
+              <div class="dv-keep"><svg viewBox="0 0 24 24" width="17" height="17"><path d="M12 2.5l7.5 3v6c0 4.6-3.2 8.6-7.5 10-4.3-1.4-7.5-5.4-7.5-10v-6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 12.2l2.4 2.4 4.6-4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Cancel and keep 31.40 SOL safe</div>
+              <div class="dv-safe"><svg viewBox="0 0 24 24" width="44" height="44"><path d="M12 2.5l7.5 3v6c0 4.6-3.2 8.6-7.5 10-4.3-1.4-7.5-5.4-7.5-10v-6z" fill="currentColor" opacity=".14"/><path d="M12 2.5l7.5 3v6c0 4.6-3.2 8.6-7.5 10-4.3-1.4-7.5-5.4-7.5-10v-6z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path class="tick" d="M8.5 12.2l2.4 2.4 4.6-4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><b>31.40 SOL never left.</b><span>The thief got a queued request and nothing else.</span></div>
+              <div class="dv-dots"><i></i><i></i><i></i><i></i></div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
