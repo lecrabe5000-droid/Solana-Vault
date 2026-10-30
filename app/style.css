@@ -82,7 +82,9 @@ main { max-width: 640px; margin: 0 auto; padding: 32px 20px 96px; }
 
 .log { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .log li { display: flex; gap: 12px; font-size: 13.5px; }
-.log time { flex: none; width: 96px; color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.log time { flex: none; min-width: 108px; white-space: nowrap; color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.log a { color: var(--blue); text-decoration: none; font-weight: 500; }
+.log a:hover { text-decoration: underline; }
 
 /* onboarding */
 .intro { text-align: center; padding: 40px 0 8px; }
@@ -123,7 +125,7 @@ main { max-width: 640px; margin: 0 auto; padding: 32px 20px 96px; }
   .intro h1 { font-size: 32px; }
   .clock .ff { margin-left: 0; width: 100%; }
   .clock .ff .btn { flex: 1; }
-  .log time { width: 80px; }
+  .log time { min-width: 0; }
   .actions .btn { font-size: 13px; padding: 0 8px; white-space: nowrap; }
 }
 
