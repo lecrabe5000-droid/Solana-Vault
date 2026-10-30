@@ -363,36 +363,43 @@ function netSwitch() {
 }
 
 function shell(content, { nav = true } = {}) {
-  const w = S.wallet, pending = S.vault?.withdrawals?.length || 0;
+  const w = S.wallet, pending = S.vault?.withdrawals?.length || 0, on = nav && w;
   const items = (cls) => TABS.map(([k, label, icon]) => `<button class="${cls}" data-act="tab" data-t="${k}" aria-current="${S.tab === k ? "page" : "false"}">${icon}<span>${label}</span>${k === "vault" && pending ? `<i class="badge">${pending}</i>` : ""}</button>`).join("");
-  return `<div class="shell${nav && w ? "" : " bare"}${S.hide ? " private" : ""}">
-    <aside class="side">
+  return `<div class="shell${S.hide ? " private" : ""}">
+    <header class="topbar">
       <a class="brand" href="/">${logo}<span>Ecrin</span></a>
-      ${nav && w ? `<nav class="side-nav" aria-label="Sections">${items("nav-i")}</nav>` : ""}
-      <div class="side-foot">
+      ${on ? `<nav class="pillnav" aria-label="Sections"><i class="pill-ind" aria-hidden="true"></i>${items("pill-i")}</nav>` : ""}
+      <div class="tb-right">
         ${netSwitch()}
-        <div class="net-note"><i class="live"></i>${C.name} ${C.net} · testnet</div>
-        <div class="foot-row">${w ? `<button class="acct-chip" data-act="disconnect" title="Disconnect ${esc(w.toBase58())}">${coin(S.net)}<span>${short(w)}</span>${I.power}</button>` : ""}${privacyBtn()}${themeBtn()}</div>
-      </div>
-    </aside>
-    <main class="main">
-      <header class="mtop">
-        <a class="brand" href="/">${logo}<span>Ecrin</span></a>
-        ${netSwitch()}
-        ${w ? `<button class="acct-chip" data-act="disconnect" title="Disconnect">${coin(S.net)}<span>${short(w)}</span></button>` : ""}
+        ${w ? `<button class="acct-chip" data-act="disconnect" title="${esc(w.toBase58())} · click to disconnect"><i class="live"></i><span>${short(w)}</span></button>` : ""}
         ${privacyBtn()}${themeBtn()}
-      </header>
+      </div>
+    </header>
+    <main class="main">
       ${S.err ? `<div class="notice">${esc(S.err)}</div>` : ""}
       ${content}
       <p class="foot">${C.contractWord[0].toUpperCase() + C.contractWord.slice(1)} ${C.contract ? `<a href="${explorer("address", C.contract)}" target="_blank" rel="noopener">${short(C.contract)}</a>` : "not deployed"} on ${C.name} ${C.net} · Not audited: test coins only</p>
     </main>
-    ${nav && w ? `<nav class="tabbar" aria-label="Sections">${items("tab-i")}</nav>` : ""}
+    ${on ? `<nav class="tabbar" aria-label="Sections">${items("tab-i")}</nav>` : ""}
   </div>`;
+}
+
+// Slides the pill highlight from the last section to the new one.
+function placePill() {
+  const nav = document.querySelector(".pillnav"), cur = nav?.querySelector('[aria-current="page"]'), ind = nav?.querySelector(".pill-ind");
+  if (!cur || !ind) return;
+  const to = { x: cur.offsetLeft, w: cur.offsetWidth }, from = S.pill || to;
+  ind.style.transition = "none"; ind.style.transform = `translateX(${from.x}px)`; ind.style.width = from.w + "px";
+  void ind.offsetWidth;
+  ind.style.transition = ""; ind.style.transform = `translateX(${to.x}px)`; ind.style.width = to.w + "px";
+  S.pill = to;
 }
 
 // ------------------------------------------------------------------ views
 
-function render() {
+function render() { renderView(); placePill(); }
+
+function renderView() {
   const app = $("#app");
   if (!C.x) {
     app.innerHTML = shell(`<section class="glass hello"><div class="mark">${I.shield}</div><h1>Ecrin isn't on ${C.name} ${C.net} yet</h1><p>The ${C.contractWord} is being deployed. Meanwhile the demo runs the same rules with pretend money.</p><a class="btn primary lg" href="/demo">Open the demo</a></section>`, { nav: false });
