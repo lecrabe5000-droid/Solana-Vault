@@ -1,5 +1,5 @@
-// Cloudflare Worker that serves the site in app/. worker/index.js only redirects other hostnames to
-// ecrinprotocol.app; everything else is static assets.
+// Cloudflare Worker for ecrinprotocol.app: the site in app/, redirects to the canonical host, and Ecrin alerts.
+// Alerts need one secret on the Worker: TELEGRAM_BOT_TOKEN (Settings → Variables and Secrets).
 {
   "name": "solana-vault",
   "compatibility_date": "2026-10-01",
@@ -9,5 +9,10 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "run_worker_first": true
-  }
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "HUB", "class_name": "AlertHub" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AlertHub"] }],
+  "triggers": { "crons": ["* * * * *"] }
 }

@@ -488,3 +488,11 @@ section.glass { border-radius: 20px; }
 .pill-i, .btn, .qa button { font-weight: 600; }
 @media (max-width: 900px) { .home-top .big { font-size: clamp(36px, 10vw, 52px); } .vs-facts b { font-size: 22px; } }
 @media (max-width: 560px) { .hello h1 { font-size: 24px; } .hello .wallets { flex-direction: column; } .hello .wallets .btn { width: 100%; } }
+
+/* alerts card */
+.alerts .al-row { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 16px; }
+.alerts .al-row p { margin: 0; font-size: 14px; }
+.al-ico { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid var(--line-2); border-radius: 12px; color: var(--accent); }
+.al-ico svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.alerts.on .al-ico { border-color: var(--accent); }
+.pill-on { display: inline-flex; align-items: center; gap: 6px; color: var(--pos); font-size: 13px; font-weight: 600; }

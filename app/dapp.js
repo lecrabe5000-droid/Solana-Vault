@@ -27,7 +27,9 @@ let savedNet = "sol";
 try { savedNet = new URLSearchParams(location.search).get("net") || localStorage.getItem("ecrin-net") || "sol"; } catch (_) {}
 let savedHide = false;
 try { savedHide = localStorage.getItem("ecrin-hide") === "1"; } catch (_) {}
-const S = { hide: savedHide, net: savedNet === "eth" ? "eth" : "sol", tab: "portfolio", range: "7", shown: null, chart: null, price: null, tokens: [], wallet: null, provider: null, walletSol: null, vault: undefined, view: "owner", watchOwner: "", watched: undefined, busy: false, clockOffset: 0, err: null, pick: "strong" };
+let savedTab = "portfolio";
+try { const t = new URLSearchParams(location.search).get("tab"); if (["portfolio", "vault", "activity", "guardian"].includes(t)) savedTab = t; } catch (_) {}
+const S = { hide: savedHide, net: savedNet === "eth" ? "eth" : "sol", tab: savedTab, range: "7", shown: null, chart: null, price: null, tokens: [], wallet: null, provider: null, walletSol: null, vault: undefined, view: "owner", watchOwner: "", watched: undefined, busy: false, clockOffset: 0, err: null, pick: "strong" };
 const now = () => Math.floor(Date.now() / 1000) + S.clockOffset;
 
 let toastTimer;
@@ -286,6 +288,7 @@ const I = {
   arrow: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`,
   eye: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>`,
   eyeOff: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4l16 16M9.9 5.8A9.8 9.8 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-3 3.7M6.3 7.6A16.6 16.6 0 0 0 2.5 12S6 18.5 12 18.5c1.6 0 3-.4 4.2-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>`,
+  bell: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16.5V11a6 6 0 1 1 12 0v5.5l1.5 2H4.5z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>`,
   sun: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>`,
   moon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>`,
   ext: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/></svg>`,
@@ -552,10 +555,47 @@ function vaultView(v) {
             <div class="rule">${I.up}<small>Daily limit</small><b>${v.dailyLimit ? sol(v.dailyLimit) + " " + C.unit : "None"}</b></div>
             <div class="rule">${I.lock}<small>Lock</small><b>${locked ? "Until " + new Date(v.lockedUntil * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "None"}</b></div>
           </div></section>
+        ${alertsCard()}
         <section class="glass"><div class="sec-h"><h2>Trusted addresses</h2><button class="btn sm" data-act="trust">Add</button></div>
           ${v.trusted.length ? `<div class="trusted">${v.trusted.map((k) => `<a class="addr" href="${explorer("address", k.toBase58())}" target="_blank" rel="noopener"><i class="live"></i>${short(k)}${I.ext}</a>`).join("")}</div>` : `<div class="empty">None yet. Money sent to a trusted address arrives instantly, so adding one takes time.</div>`}</section>
       </div>
     </div>`;
+}
+
+// ------------------------------------------------------------------ alerts
+
+const alertsKey = () => `ecrin-alerts-${S.net}-${S.wallet ? S.wallet.toBase58() : ""}`;
+const alertsOn = () => { try { return localStorage.getItem(alertsKey()) === "1"; } catch (_) { return false; } };
+
+function alertsCard() {
+  const on = alertsOn(), waiting = S.alertCode;
+  return `<section class="glass alerts${on ? " on" : ""}">
+    <div class="sec-h"><h2>Alerts</h2>${on ? `<span class="pill-on"><i class="live"></i>On</span>` : ""}</div>
+    <div class="al-row"><span class="al-ico">${I.bell}</span><p>${on
+      ? "Telegram messages you within a minute of any withdrawal, deposit or rule change on this vault. Send <b>/stop</b> to the bot to turn them off."
+      : "A delay only protects you if you notice. Get a Telegram message within a minute of anything happening to this vault."}</p></div>
+    ${on ? `<button class="btn sm" data-act="alerts">Add another chat</button>`
+      : `<button class="btn primary wide" data-act="alerts" ${waiting ? "disabled" : ""}>${waiting ? "Waiting for Telegram… press Start there" : "Get alerts on Telegram"}</button>`}
+  </section>`;
+}
+
+async function startAlerts() {
+  const body = { net: S.net, owner: S.wallet.toBase58(), vault: S.net === "sol" ? S.vault.address.toBase58() : undefined };
+  // Open the tab first so phone browsers don't block it as a pop-up.
+  const tab = window.open("", "_blank");
+  try {
+    const r = await fetch("/api/alerts/start", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const j = await r.json();
+    if (!r.ok || !j.url) throw new Error(j.error || "Alerts aren't available right now.");
+    if (tab) tab.location.href = j.url; else location.href = j.url;
+    S.alertCode = j.code; render();
+    for (let i = 0; i < 60 && S.alertCode === j.code; i++) {
+      await new Promise((res) => setTimeout(res, 3000));
+      const st = await fetch("/api/alerts/status?code=" + encodeURIComponent(j.code)).then((x) => x.json()).catch(() => ({}));
+      if (st.linked) { try { localStorage.setItem(alertsKey(), "1"); } catch (_) {} toast("Alerts are on. Telegram will message you.", "win"); break; }
+    }
+  } catch (e) { tab?.close(); toast(esc(e.message), "err"); }
+  S.alertCode = null; render();
 }
 
 function feedHTML(log) {
@@ -670,6 +710,7 @@ const actions = {
     scrollTo({ top: 0, behavior: "smooth" });
     if (S.tab === "guardian" && S.watchOwner) refresh();
   },
+  alerts: () => startAlerts(),
   privacy: () => { S.hide = !S.hide; try { localStorage.setItem("ecrin-hide", S.hide ? "1" : "0"); } catch (_) {} render(); },
   theme: () => {
     const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark";

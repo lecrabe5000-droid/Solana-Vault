@@ -32,6 +32,8 @@ jobs:
           npx hardhat test | tee /tmp/evm-test.log
           grep -Eq "^ +[0-9]+ passing" /tmp/evm-test.log
           ! grep -Eq "^ +[0-9]+ failing" /tmp/evm-test.log
+      - name: Alert logic tests (worker/alerts.js)
+        run: node ../worker/alerts.test.mjs
 
   program:
     runs-on: ubuntu-latest
