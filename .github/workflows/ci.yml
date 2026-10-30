@@ -32,14 +32,28 @@ jobs:
         run: |
           sh -c "$(curl -sSfL https://release.anza.xyz/v2.1.21/install)"
           echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
-      - name: Install Anchor
-        run: npm install -g @coral-xyz/anchor-cli@0.31.1
-      - name: Versions
-        run: solana --version && anchor --version && cargo --version
+      - name: Install Anchor (release binary, cargo as fallback)
+        run: |
+          mkdir -p "$HOME/.local/bin" && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          if curl -fsSL -o "$HOME/.local/bin/anchor" https://github.com/coral-xyz/anchor/releases/download/v0.31.1/anchor-0.31.1-x86_64-unknown-linux-gnu; then
+            chmod +x "$HOME/.local/bin/anchor"
+          else
+            cargo install --git https://github.com/coral-xyz/anchor --tag v0.31.1 anchor-cli --locked
+          fi
+      - name: Versions (fail if a tool is missing)
+        run: |
+          set -euo pipefail
+          solana --version
+          anchor --version | tee /dev/stderr | grep -q "0.31.1"
+          cargo --version
       - name: Local wallet
         run: solana-keygen new --no-bip39-passphrase --silent --outfile ~/.config/solana/id.json
       - run: npm install
       - name: Match program id to this build's keypair
         run: anchor keys sync
       - name: Build and test on a local validator
-        run: anchor test
+        run: |
+          set -o pipefail
+          anchor test 2>&1 | tee anchor-test.log
+          grep -Eq "[1-9][0-9]* passing" anchor-test.log
+          ! grep -Eq "[1-9][0-9]* failing" anchor-test.log
