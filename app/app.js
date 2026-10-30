@@ -85,7 +85,7 @@ function start() {
 
 function logo(size = 26) {
   // Ecrin mark: a jewel case (rounded frame) holding a gem.
-  return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg${size}" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#9945FF"/><stop offset="1" stop-color="#14F195"/></linearGradient></defs><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="url(#lg${size})" stroke-width="2.2"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="url(#lg${size})"/></svg>`;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg${size}" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#A8874F"/><stop offset="0.5" stop-color="#D4B47C"/><stop offset="1" stop-color="#EBD5A6"/></linearGradient></defs><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="url(#lg${size})" stroke-width="2.2"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="url(#lg${size})"/></svg>`;
 }
 
 function render() {
