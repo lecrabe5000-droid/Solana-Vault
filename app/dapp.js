@@ -3,6 +3,7 @@
 // network the wallet is set to). Ethereum: app/evm.js reads through a public Sepolia RPC and signs with MetaMask.
 // Both return the same vault shape, so every view below is shared. Nothing here holds keys or funds.
 import { createClient, explainError } from "./chain.js";
+import { isStricter } from "./vault.js";
 import { CONFIG } from "./config.js";
 import { createEvmClient, explainEvmError } from "./evm.js";
 import { EVM } from "./config-evm.js";
@@ -548,18 +549,94 @@ function vaultView(v) {
         ${changes ? `<section class="glass"><div class="sec-h"><h2>Rule changes waiting</h2><span class="muted">looser rules wait ${delayWords(v.ruleDelay)}</span></div><div class="rows">${changes}</div></section>` : ""}
       </div>
       <div class="col">
-        <section class="glass"><div class="sec-h"><h2>Rules</h2><button class="btn sm" data-act="rules">Change</button></div>
-          <div class="rules">
-            <div class="rule">${I.clock}<small>Withdrawals wait</small><b>${delayWords(v.withdrawDelay)}</b></div>
-            <div class="rule">${I.sliders}<small>Looser rules wait</small><b>${delayWords(v.ruleDelay)}</b></div>
-            <div class="rule">${I.up}<small>Daily limit</small><b>${v.dailyLimit ? sol(v.dailyLimit) + " " + C.unit : "None"}</b></div>
-            <div class="rule">${I.lock}<small>Lock</small><b>${locked ? "Until " + new Date(v.lockedUntil * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "None"}</b></div>
-          </div></section>
+        ${policyCard(v)}
         ${alertsCard()}
         <section class="glass"><div class="sec-h"><h2>Trusted addresses</h2><button class="btn sm" data-act="trust">Add</button></div>
           ${v.trusted.length ? `<div class="trusted">${v.trusted.map((k) => `<a class="addr" href="${explorer("address", k.toBase58())}" target="_blank" rel="noopener"><i class="live"></i>${short(k)}${I.ext}</a>`).join("")}</div>` : `<div class="empty">None yet. Money sent to a trusted address arrives instantly, so adding one takes time.</div>`}</section>
       </div>
     </div>`;
+}
+
+// ------------------------------------------------------------------ protection policy
+
+const dateShort = (t) => new Date(t * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+const RULES = {
+  withdraw: { kind: "SetWithdrawDelay", title: "Withdrawal delay", help: "Every withdrawal to an address that isn't trusted waits this long. You can cancel it at any moment.", icon: "clock",
+    value: (v) => delayWords(v.withdrawDelay), opts: () => [[HOUR, "1 hour"], [24 * HOUR, "24 hours"], [72 * HOUR, "72 hours"], [7 * DAY, "7 days"], [30 * DAY, "30 days"]], cur: (v) => v.withdrawDelay },
+  rule: { kind: "SetRuleDelay", title: "Rule-change delay", help: "Loosening any rule, adding a trusted address or changing the guardian waits this long. Tightening is instant.", icon: "sliders",
+    value: (v) => delayWords(v.ruleDelay), opts: () => [[3 * DAY, "3 days"], [7 * DAY, "7 days"], [14 * DAY, "14 days"], [30 * DAY, "30 days"]], cur: (v) => v.ruleDelay },
+  limit: { kind: "SetDailyLimit", title: "Daily limit", help: "The most that can leave in one day, sends to trusted addresses included.", icon: "up",
+    value: (v) => (v.dailyLimit ? `${sol(v.dailyLimit)} ${C.unit}` : "No limit"), opts: () => [[null, "No limit"], [0.1 * LAMPORTS, `0.1 ${C.unit}`], [1 * LAMPORTS, `1 ${C.unit}`], [5 * LAMPORTS, `5 ${C.unit}`], [25 * LAMPORTS, `25 ${C.unit}`]], cur: (v) => v.dailyLimit },
+  lock: { kind: "SetLockedUntil", title: "Time lock", help: "Nothing leaves before this date, except an emergency your guardian co-signs. Ending a lock early can't happen before it ends anyway.", icon: "lock",
+    value: (v) => (v.lockedUntil && now() < v.lockedUntil ? `Until ${dateShort(v.lockedUntil)}` : "None"), opts: (v) => [...(v.lockedUntil && now() < v.lockedUntil ? [[null, "End the lock"]] : []), ["d30", "30 days"], ["d90", "90 days"], ["d180", "6 months"], ["d365", "1 year"]], cur: (v) => v.lockedUntil },
+  guardian: { kind: "SetGuardian", title: "Guardian", help: "Someone you trust who can approve an emergency release or a new trusted address early. A guardian can never start a withdrawal or choose where money goes.", icon: "people",
+    value: (v) => (v.guardian ? short(v.guardian) : "None"), cur: (v) => v.guardian },
+};
+
+function pendingFor(v, kind) { return v.changes.filter((c) => c.change.kind === kind); }
+
+function policyCard(v) {
+  const rows = Object.entries(RULES).map(([k, r]) => {
+    const waiting = pendingFor(v, r.kind);
+    return `<div class="pol-row">
+      <span class="pol-ico">${I[r.icon]}</span>
+      <div class="pol-txt"><span class="pol-name">${r.title}</span><span class="pol-help">${r.help.split(". ")[0].replace(/\.$/, "")}.</span>
+        ${waiting.map((c) => `<span class="pol-wait">${I.clock}${esc(changeWords(c.change))} · <span class="count" data-ready="${c.readyAt}">${dur(c.readyAt - now())}</span></span>`).join("")}</div>
+      <div class="pol-val"><b class="num${k === "guardian" && v.guardian ? " addr-v" : ""}">${esc(r.value(v))}</b><button class="pol-btn" data-act="rule" data-k="${k}">Adjust</button></div>
+    </div>`;
+  }).join("");
+  return `<section class="glass policy"><div class="sec-h"><div><h2>Protection policy</h2><span class="pol-sub">${levelName(v)} · tightening is instant, loosening waits ${delayWords(v.ruleDelay)}</span></div></div>${rows}</section>`;
+}
+
+/** One rule's panel: options as cards, each saying whether it applies now or waits. */
+function openRule(key) {
+  const v = S.vault, r = RULES[key];
+  const lockValue = (raw) => (raw === null || raw === "null" ? null : String(raw).startsWith("d") ? now() + Number(String(raw).slice(1)) * DAY : Number(raw));
+  const verdict = (value) => (isStricter(v, { kind: r.kind, value }) ? ["now", "Applies now"] : ["wait", `Waits ${delayWords(v.ruleDelay)}`]);
+  let body;
+  if (key === "guardian") {
+    body = `<label class="field">New guardian address<input name="g" placeholder="A friend's ${C.name} address" spellcheck="false" autocomplete="off"/></label>
+      ${v.guardian ? `<label class="opt"><input type="checkbox" name="remove"/><span class="o-l">Remove the current guardian</span><span class="o-b wait">Waits ${delayWords(v.ruleDelay)}</span></label>` : ""}
+      <p class="note">Any guardian change waits ${delayWords(v.ruleDelay)}: a guardian can release money early, so nobody holding your key can name one on the spot.</p>`;
+  } else {
+    const cur = r.cur(v);
+    body = `<div class="opts">${r.opts(v).map(([raw, label]) => {
+      const value = key === "lock" ? lockValue(raw) : raw, isCur = key !== "lock" && (value ?? null) === (cur ?? null);
+      const [cls, txt] = isCur ? ["cur", "Current"] : verdict(value);
+      return `<label class="opt${isCur ? " is-cur" : ""}"><input type="radio" name="v" value="${raw}" ${isCur ? "disabled" : ""}/><span class="o-l">${label}</span><span class="o-b ${cls}">${txt}</span></label>`;
+    }).join("")}</div>`;
+  }
+  sheet(`<div class="rule-h"><span class="pol-ico">${I[r.icon]}</span><div><h3>${r.title}</h3><span class="muted small">Now: <b>${esc(r.value(v))}</b></span></div></div><p class="note">${r.help}</p>${body}`, async (fd) => {
+    let change;
+    if (key === "guardian") {
+      const g = String(fd.get("g") || "").trim();
+      if (g) { const k = keyOf(g); if (!k || k.equals(S.wallet)) { toast("Pick someone else's valid address", "err"); return false; } change = { kind: "SetGuardian", value: k }; }
+      else if (fd.get("remove")) change = { kind: "SetGuardian", value: null };
+      else { toast("Enter an address, or choose to remove the guardian", "err"); return false; }
+    } else {
+      const raw = fd.get("v");
+      if (raw === null) { toast("Pick an option", "err"); return false; }
+      const value = key === "lock" ? lockValue(raw) : raw === "null" ? null : Number(raw);
+      change = { kind: r.kind, value };
+    }
+    return send(`Changed a rule: ${changeWords(change)}`, () => C.x.ops.proposeChange(change));
+  });
+  const f = $("#sheet-form"), ok = f.querySelector('button[value="ok"]');
+  const label = () => {
+    const picked = f.querySelector('input[name="v"]:checked'), g = f.querySelector('input[name="g"]');
+    if (key === "guardian") { ok.textContent = `Request change · waits ${delayWords(v.ruleDelay)}`; ok.disabled = !(g?.value.trim() || f.querySelector('input[name="remove"]')?.checked); return; }
+    if (!picked) { ok.textContent = "Choose an option"; ok.disabled = true; return; }
+    const value = key === "lock" ? lockValue(picked.value) : picked.value === "null" ? null : Number(picked.value);
+    ok.disabled = false; ok.textContent = isStricter(v, { kind: r.kind, value }) ? "Apply now" : `Request change · waits ${delayWords(v.ruleDelay)}`;
+  };
+  f.addEventListener("input", label); label();
+}
+
+function openRuleMenu() {
+  const v = S.vault;
+  sheet(`<h3>Adjust your protection</h3><p class="note">Pick a rule. Tightening applies at once; loosening waits ${delayWords(v.ruleDelay)}.</p>
+    <div class="rule-menu">${Object.entries(RULES).map(([k, r]) => `<button type="button" class="rm-row" data-act="rule" data-k="${k}"><span class="pol-ico">${I[r.icon]}</span><span class="rm-t"><b>${r.title}</b><span>${esc(r.value(v))}</span></span>${I.arrow}</button>`).join("")}</div>`, () => true);
+  $("#sheet-form").querySelector('button[value="ok"]').hidden = true;
 }
 
 // ------------------------------------------------------------------ alerts
@@ -751,27 +828,8 @@ const actions = {
     const a = keyOf(fd.get("addr")); if (!a) { toast("That address isn't valid", "err"); return false; }
     return send("Asked to trust an address", () => C.x.ops.proposeChange({ kind: "AddTrusted", value: a }));
   }),
-  rules: () => {
-    const v = S.vault;
-    sheet(`<h3>Change a rule</h3><label class="field">Rule<select name="rule">
-      <option value="d24">Withdrawals wait 24 h</option><option value="d72">Withdrawals wait 72 h</option><option value="d168">Withdrawals wait 7 days</option>
-      <option value="l1">Daily limit 1 ${C.unit}</option><option value="l5">Daily limit 5 ${C.unit}</option><option value="l0">No daily limit</option>
-      <option value="k30">Lock for 30 days</option>${v.lockedUntil ? `<option value="k0">End the lock</option>` : ""}${v.guardian ? `<option value="g0">Remove the guardian</option>` : ""}
-    </select></label><label class="field">New guardian (optional)<input name="g" placeholder="Set a guardian's address instead" spellcheck="false" autocomplete="off"/></label>
-    <p class="note">Stricter rules apply at once. Looser rules, and any guardian change, wait ${delayWords(v.ruleDelay)}: a guardian can release money early, so nobody holding your key can name one on the spot.</p>`, async (fd) => {
-      const g = String(fd.get("g") || "").trim();
-      let change;
-      if (g) { const k = keyOf(g); if (!k || k.equals(S.wallet)) { toast("Pick someone else's valid address", "err"); return false; } change = { kind: "SetGuardian", value: k }; }
-      else {
-        const r = String(fd.get("rule"));
-        change = r.startsWith("d") ? { kind: "SetWithdrawDelay", value: Number(r.slice(1)) * HOUR }
-          : r.startsWith("l") ? { kind: "SetDailyLimit", value: r === "l0" ? null : Number(r.slice(1)) * LAMPORTS }
-          : r.startsWith("k") ? { kind: "SetLockedUntil", value: r === "k0" ? null : now() + 30 * DAY }
-          : { kind: "SetGuardian", value: null };
-      }
-      return send(`Changed a rule: ${changeWords(change)}`, () => C.x.ops.proposeChange(change));
-    });
-  },
+  rules: () => openRuleMenu(),
+  rule: (el) => { $("#sheet").close(); openRule(el.dataset.k); },
   "cancel-w": (el) => send(`Cancelled. ${sol(Number(el.dataset.amt))} ${C.unit} stays in your vault. That's a win.`, () => C.x.ops.cancelWithdrawal(Number(el.dataset.id))),
   run: (el) => send("Sent a withdrawal", () => C.x.ops.executeWithdrawal(S.wallet, Number(el.dataset.id), keyOf(el.dataset.dest))),
   "cancel-c": (el) => send("Cancelled a rule change", () => C.x.ops.cancelChange(Number(el.dataset.id))),
