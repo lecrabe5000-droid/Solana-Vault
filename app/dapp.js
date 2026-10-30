@@ -19,7 +19,7 @@ const logo = `<svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"
 const connection = new web3.Connection(CONFIG.rpc, "confirmed");
 const client = CONFIG.programId ? createClient({ web3, connection, programId: CONFIG.programId }) : null;
 
-const S = { wallet: null, provider: null, walletSol: null, vault: undefined, view: "owner", watchOwner: "", watched: undefined, busy: false, clockOffset: 0, err: null, pick: "strong" };
+const S = { price: null, tokens: [], wallet: null, provider: null, walletSol: null, vault: undefined, view: "owner", watchOwner: "", watched: undefined, busy: false, clockOffset: 0, err: null, pick: "strong" };
 const now = () => Math.floor(Date.now() / 1000) + S.clockOffset;
 
 let toastTimer;
@@ -87,12 +87,74 @@ function log(text, sig) { try { localStorage.setItem(logKey(), JSON.stringify([{
 async function refresh() {
   if (!client || !S.wallet) return render();
   try {
-    const [bal, vault, t] = await Promise.all([connection.getBalance(S.wallet, "confirmed"), client.fetchVault(S.wallet), client.chainTime().catch(() => null)]);
+    const [bal, vault, t] = await Promise.all([connection.getBalance(S.wallet, "confirmed"), client.fetchVault(S.wallet), client.chainTime().catch(() => null), loadTokens()]);
     S.walletSol = bal; S.vault = vault; S.err = null;
     if (t) S.clockOffset = t - Math.floor(Date.now() / 1000);
     if (S.view === "guardian" && S.watchOwner) S.watched = await client.fetchVault(new web3.PublicKey(S.watchOwner)).catch(() => null);
   } catch (e) { S.err = "Couldn't reach Solana devnet. Retrying…"; console.warn(e); }
   render();
+}
+
+// ------------------------------------------------------------------ prices and tokens
+
+// SOL price from CoinGecko: devnet SOL has no value, so we show what the same amount is worth on mainnet.
+async function loadPrice() {
+  try {
+    const [p, c] = await Promise.all([
+      fetch("https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true").then((r) => r.json()),
+      fetch("https://api.coingecko.com/api/v3/coins/solana/market_chart?vs_currency=usd&days=7").then((r) => r.json()),
+    ]);
+    const usd = p?.solana?.usd;
+    if (!usd) return;
+    S.price = { usd, change: p.solana.usd_24h_change || 0, series: (c?.prices || []).map(([, v]) => v).filter(Number.isFinite) };
+    render();
+  } catch (e) { console.warn("price", e); }
+}
+
+async function loadTokens() {
+  try {
+    const r = await connection.getParsedTokenAccountsByOwner(S.wallet, { programId: new web3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") });
+    S.tokens = r.value.map(({ account }) => account.data.parsed.info).filter((i) => Number(i.tokenAmount.uiAmount) > 0)
+      .map((i) => ({ mint: i.mint, amount: i.tokenAmount.uiAmountString }));
+  } catch (_) { S.tokens = []; }
+}
+
+const usd = (lamports) => S.price ? ((lamports / LAMPORTS) * S.price.usd).toLocaleString(undefined, { style: "currency", currency: "USD" }) : null;
+
+function spark(series) {
+  if (series.length < 2) return "";
+  const W = 600, H = 120, min = Math.min(...series), max = Math.max(...series), span = max - min || 1;
+  const pts = series.map((v, i) => [(i / (series.length - 1)) * W, H - 8 - ((v - min) / span) * (H - 16)]);
+  const line = pts.map(([x, y], i) => (i ? "L" : "M") + x.toFixed(1) + " " + y.toFixed(1)).join(" ");
+  const up = series[series.length - 1] >= series[0];
+  return `<svg class="spark ${up ? "up" : "down"}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+    <defs><linearGradient id="sg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".16"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs>
+    <path d="${line} L${W} ${H} L0 ${H} Z" fill="url(#sg)"/><path d="${line}" fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>`;
+}
+
+const SHIELD_SM = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 2.5l7.5 3v6c0 4.6-3.2 8.6-7.5 10-4.3-1.4-7.5-5.4-7.5-10v-6z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>`;
+const WALLET_SM = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M16 12.5h2" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>`;
+
+function portfolio(v, locked) {
+  const vaultL = v.balance, walletL = S.walletSol || 0, total = vaultL + walletL, queued = v.balance - v.available;
+  const pct = total ? Math.round((vaultL / total) * 100) : 0;
+  const ch = S.price?.change, chTxt = ch == null ? "" : `<span class="delta ${ch >= 0 ? "up" : "down"}">${ch >= 0 ? "▲" : "▼"} ${Math.abs(ch).toFixed(2)}% today</span>`;
+  return `<section class="card hero o-hero">
+    <div class="kicker">Total balance</div>
+    <div class="bal">${usd(total) ?? `${sol(total)}<small>SOL</small>`}</div>
+    <div class="bal-sub">${S.price ? `${sol(total)} SOL · ` : ""}${chTxt}${S.price ? ` <span class="muted">· test SOL at the real SOL price</span>` : ""}</div>
+    ${S.price?.series?.length ? `<div class="chart">${spark(S.price.series)}<div class="chart-l"><span>7 days</span><span>1 SOL = ${S.price.usd.toLocaleString(undefined, { style: "currency", currency: "USD" })}</span></div></div>` : ""}
+    <div class="split" role="img" aria-label="${pct}% protected in the vault"><i style="width:${pct}%"></i></div>
+    <div class="accts">
+      <div class="acct vault"><div class="acct-h">${SHIELD_SM}Vault <span class="tag">Protected</span></div><b>${sol(vaultL)} SOL</b><span class="muted">${usd(vaultL) ? usd(vaultL) + " · " : ""}${locked ? "locked until " + new Date(v.lockedUntil * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "withdrawals wait " + delayWords(v.withdrawDelay)}${queued ? ` · ${sol(queued)} leaving` : ""}</span></div>
+      <div class="acct"><div class="acct-h">${WALLET_SM}Wallet <span class="tag plain">Spendable</span></div><b>${sol(walletL)} SOL</b><span class="muted">${usd(walletL) ? usd(walletL) + " · " : ""}moves instantly</span>${S.tokens.length ? `<span class="muted">+ ${S.tokens.length} token${S.tokens.length > 1 ? "s" : ""}</span>` : ""}</div>
+    </div>
+    <div class="chips">
+      ${v.guardian ? `<span class="chip good">Guardian ${short(v.guardian)}</span>` : ""}
+      <a class="chip" href="${explorer("address", v.address.toBase58())}" target="_blank" rel="noopener">Vault on-chain ↗</a>
+    </div>
+    <div class="actions"><button class="btn" data-act="deposit">Deposit</button><button class="btn" data-act="withdraw">Withdraw</button><button class="btn primary" data-act="send">Send to trusted</button></div>
+  </section>`;
 }
 
 // ------------------------------------------------------------------ views
@@ -194,23 +256,27 @@ function rowsChanges(v, asGuardian) {
   }).join("");
 }
 
-function vaultCards(v, asGuardian) {
-  const t = now(), locked = v.lockedUntil && t < v.lockedUntil, queued = v.balance - v.available;
-  const changes = rowsChanges(v, asGuardian);
-  return `<div class="layout"><div class="col-main">
-    <section class="card hero o-hero">
-      <div class="kicker">${asGuardian ? `Vault of ${short(v.owner)}` : "In your vault"}</div>
+function guardianHero(v, locked) {
+  const queued = v.balance - v.available;
+  return `<section class="card hero o-hero">
+      <div class="kicker">Vault of ${short(v.owner)}</div>
       <div class="bal">${sol(v.balance)}<small>SOL</small></div>
-      <div class="bal-sub">${sol(v.available)} SOL available${queued ? ` · ${sol(queued)} SOL waiting to leave` : ""}${asGuardian ? "" : ` · wallet ${sol(S.walletSol)} SOL`}</div>
+      <div class="bal-sub">${sol(v.available)} SOL available${queued ? ` · ${sol(queued)} SOL waiting to leave` : ""}</div>
       <div class="chips">
         <span class="chip">Withdrawals wait ${delayWords(v.withdrawDelay)}</span>
         ${locked ? `<span class="chip lock">Locked until ${new Date(v.lockedUntil * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short" })}</span>` : ""}
         ${v.guardian ? `<span class="chip good">Guardian ${short(v.guardian)}</span>` : ""}
         <a class="chip" href="${explorer("address", v.address.toBase58())}" target="_blank" rel="noopener">On-chain ↗</a>
       </div>
-      ${asGuardian ? `<p class="small muted" style="margin:16px 0 0">${S.wallet && v.guardian?.equals(S.wallet) ? "You're this vault's guardian: you can approve an emergency release or a new trusted address. You can never start a withdrawal or choose where money goes." : "Your wallet isn't this vault's guardian, so you can only watch."}</p>`
-        : `<div class="actions"><button class="btn" data-act="deposit">Deposit</button><button class="btn" data-act="withdraw">Withdraw</button><button class="btn primary" data-act="send">Send to trusted</button></div>`}
-    </section>
+      <p class="small muted" style="margin:16px 0 0">${S.wallet && v.guardian?.equals(S.wallet) ? "You're this vault's guardian: you can approve an emergency release or a new trusted address. You can never start a withdrawal or choose where money goes." : "Your wallet isn't this vault's guardian, so you can only watch."}</p>
+    </section>`;
+}
+
+function vaultCards(v, asGuardian) {
+  const t = now(), locked = v.lockedUntil && t < v.lockedUntil, queued = v.balance - v.available;
+  const changes = rowsChanges(v, asGuardian);
+  return `<div class="layout"><div class="col-main">
+    ${asGuardian ? guardianHero(v, locked) : portfolio(v, locked)}
     <section class="card o-wait"><div class="card-h"><h2>Waiting to leave</h2><span class="small muted">${asGuardian ? "" : "cancel any time"}</span></div><div class="rows">${rowsWithdrawals(v, asGuardian)}</div></section>
     ${changes ? `<section class="card o-changes"><div class="card-h"><h2>Rule changes waiting</h2><span class="small muted">looser rules wait ${delayWords(v.ruleDelay)}</span></div><div class="rows">${changes}</div></section>` : ""}
     </div><div class="col-side">
@@ -329,6 +395,8 @@ setInterval(() => {
 setInterval(() => { if (S.wallet && !S.busy && document.visibilityState === "visible") refresh(); }, 30000);
 
 render();
+loadPrice();
+setInterval(() => { if (document.visibilityState === "visible") loadPrice(); }, 120000);
 // Reconnect silently if this site was trusted before.
 try {
   if (localStorage.getItem("ecrin-wallet")) {
