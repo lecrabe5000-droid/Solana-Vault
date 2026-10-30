@@ -34,6 +34,14 @@ docs/spec.md             the product spec
 app/                     the demo web app (static, deploys to Cloudflare Pages)
 ```
 
+## Site
+
+| Path | What it is |
+| --- | --- |
+| `/` | Landing page |
+| `/app` | The real app: connects Phantom, Solflare or Backpack and uses the program on Solana devnet |
+| `/demo` | The same rules with pretend money and a fast-forward clock, no wallet needed |
+
 ## Try the demo
 
 Live demo: **https://solana-vault.lecrabe5000.workers.dev** (or run `npx serve app`). Pick a preset, request a withdrawal, cancel it, fast-forward the clock, and switch to the guardian view.
@@ -43,9 +51,22 @@ Live demo: **https://solana-vault.lecrabe5000.workers.dev** (or run `npx serve a
 ```bash
 cargo test -p vault-core            # the rules, runs anywhere
 node app/vault.test.mjs             # the same rules, as used by the demo
+anchor test                         # on-chain tests on a local validator
+node tests/client.test.mjs          # the browser client against a running local validator
 cd programs/cooldown-vault && cargo check   # type-checks the program on your machine
 anchor build && anchor deploy       # needs the Solana + Anchor toolchains, devnet only
 ```
+
+## Deploy to devnet
+
+1. In Phantom, make two **new** accounts for devnet only (one to pay and own upgrades, one to be the program's address). Export each private key (Settings → the account → Show private key).
+2. On GitHub: Settings → Secrets and variables → Actions → New repository secret:
+   - `DEVNET_DEPLOYER_KEY`: the first account's private key
+   - `DEVNET_PROGRAM_KEY`: the second account's private key
+3. Get about 4 devnet SOL for the first account at https://faucet.solana.com.
+4. Actions → **deploy-devnet** → Run workflow. It builds, deploys (or upgrades), checks the program from the browser client, and commits its address to `app/config.js`, so the site switches to it.
+
+Never reuse these accounts for real money. Never put a mainnet key in GitHub.
 
 ## Status
 

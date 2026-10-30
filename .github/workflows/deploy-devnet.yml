@@ -1,0 +1,93 @@
+name: deploy-devnet
+# Run by hand: Actions → deploy-devnet → Run workflow.
+# Needs two repository secrets (Settings → Secrets and variables → Actions):
+#   DEVNET_DEPLOYER_KEY  pays for the deploy and is the program's upgrade authority (needs ~4 devnet SOL)
+#   DEVNET_PROGRAM_KEY   the program's address on devnet (a fresh, empty account)
+# Both are base58 secret keys as Phantom's "Export private key" shows them. Use devnet-only accounts.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency: deploy-devnet
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cache/solana
+            target
+          key: anchor-${{ hashFiles('Cargo.lock') }}
+      - name: Install Solana
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/v2.1.21/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+      - name: Install Anchor
+        run: |
+          mkdir -p "$HOME/.local/bin" && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          curl -fsSL -o "$HOME/.local/bin/anchor" https://github.com/coral-xyz/anchor/releases/download/v0.31.1/anchor-0.31.1-x86_64-unknown-linux-gnu
+          chmod +x "$HOME/.local/bin/anchor"
+      - run: npm install
+      - name: Keys from secrets
+        env:
+          DEPLOYER_KEY: ${{ secrets.DEVNET_DEPLOYER_KEY }}
+          PROGRAM_KEY: ${{ secrets.DEVNET_PROGRAM_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DEPLOYER_KEY" ] || [ -z "$PROGRAM_KEY" ]; then echo "::error::Add the DEVNET_DEPLOYER_KEY and DEVNET_PROGRAM_KEY repository secrets first"; exit 1; fi
+          mkdir -p ~/.config/solana target/deploy
+          node scripts/b58-keypair.mjs "$DEPLOYER_KEY" > ~/.config/solana/id.json
+          node scripts/b58-keypair.mjs "$PROGRAM_KEY" > target/deploy/cooldown_vault-keypair.json
+          solana config set --url "${{ secrets.DEVNET_RPC_URL || 'https://api.devnet.solana.com' }}" >/dev/null
+          echo "PROGRAM_ID=$(solana address -k target/deploy/cooldown_vault-keypair.json)" >> "$GITHUB_ENV"
+          echo "DEPLOYER=$(solana address)" >> "$GITHUB_ENV"
+      - name: Point the program at its devnet address
+        run: |
+          sed -i "s/declare_id!(\"[A-Za-z0-9]*\");/declare_id!(\"$PROGRAM_ID\");/" programs/cooldown-vault/src/lib.rs
+          python3 - <<'PY'
+          import os, re
+          p = "Anchor.toml"; s = open(p).read()
+          s = re.sub(r'(\[programs\.devnet\]\n(?:#.*\n)*cooldown_vault = )"[^"]*"', r'\g<1>"%s"' % os.environ["PROGRAM_ID"], s)
+          open(p, "w").write(s)
+          PY
+          grep -q "declare_id!(\"$PROGRAM_ID\")" programs/cooldown-vault/src/lib.rs
+      - run: anchor build
+      - name: Check the deployer has enough devnet SOL
+        run: |
+          set -euo pipefail
+          size=$(stat -c%s target/deploy/cooldown_vault.so)
+          need=$(solana rent $((size * 2)) | awk '/Rent-exempt minimum/ {print $3}')
+          have=$(solana balance | awk '{print $1}')
+          echo "program $size bytes; deploy needs about $need SOL (plus fees); deployer $DEPLOYER has $have SOL"
+          python3 -c "import sys; sys.exit(0 if float('$have') >= float('$need') + 0.1 else 1)" || { echo "::error::Not enough devnet SOL. Get some at https://faucet.solana.com for $DEPLOYER and run again."; exit 1; }
+      - name: Deploy (first time) or upgrade
+        run: solana program deploy target/deploy/cooldown_vault.so --program-id target/deploy/cooldown_vault-keypair.json --max-sign-attempts 60 --with-compute-unit-price 10000
+      - name: Check it from the browser client
+        run: RPC="$(solana config get json_rpc_url | awk '{print $NF}')" node scripts/devnet-check.mjs
+      - name: Point the website at it
+        run: |
+          set -euo pipefail
+          cat > app/config.js <<JS
+          // Written by the deploy-devnet workflow after each deploy. programId null = not deployed yet.
+          export const CONFIG = { cluster: "devnet", rpc: "https://api.devnet.solana.com", programId: "$PROGRAM_ID" };
+          JS
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/config.js
+          git diff --cached --quiet || { git commit -m "Devnet program: $PROGRAM_ID"; git push; }
+          {
+            echo "### Ecrin is on devnet"
+            echo ""
+            echo "Program: [\`$PROGRAM_ID\`](https://explorer.solana.com/address/$PROGRAM_ID?cluster=devnet)"
+            echo ""
+            echo "Upgrade authority: \`$DEPLOYER\`"
+          } >> "$GITHUB_STEP_SUMMARY"

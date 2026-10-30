@@ -67,3 +67,10 @@ jobs:
           anchor test --skip-build 2>&1 | tee anchor-test.log
           grep -Eq "[1-9][0-9]* passing" anchor-test.log
           ! grep -Eq "[1-9][0-9]* failing" anchor-test.log
+      - name: Browser client (app/chain.js) against a local validator
+        run: |
+          set -euo pipefail
+          id=$(solana address -k target/deploy/cooldown_vault-keypair.json)
+          solana-test-validator --reset --quiet --bpf-program "$id" target/deploy/cooldown_vault.so &
+          for i in $(seq 1 60); do solana cluster-version -u http://127.0.0.1:8899 >/dev/null 2>&1 && break; sleep 1; done
+          node tests/client.test.mjs
