@@ -34,7 +34,7 @@ app/                     the demo web app (static, deploys to Cloudflare Pages)
 
 ## Try the demo
 
-Open the Cloudflare Pages link (or `npx serve app`). Pick a preset, request a withdrawal, cancel it, fast-forward the clock, and switch to the guardian view.
+Live demo: **https://solana-vault.lecrabe5000.workers.dev** (or run `npx serve app`). Pick a preset, request a withdrawal, cancel it, fast-forward the clock, and switch to the guardian view.
 
 ## Develop
 
