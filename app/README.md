@@ -8,4 +8,4 @@ A static demo with no build step: `index.html`, `app.js`, `style.css` and `vault
 
 Run locally: `npx serve app` (or any static server), then open the printed address.
 
-Deploy on Cloudflare Pages: framework preset **None**, build command empty, build output directory **app**.
+Deploy: the repo root has `wrangler.jsonc`, so Cloudflare Workers (Git integration) serves this folder as static assets. Leave the build command empty; the deploy command is `npx wrangler deploy`.

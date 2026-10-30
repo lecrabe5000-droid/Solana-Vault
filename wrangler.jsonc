@@ -1,0 +1,9 @@
+// Cloudflare Worker that serves the static demo in app/ (no server code).
+{
+  "name": "solana-vault",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./app",
+    "not_found_handling": "single-page-application"
+  }
+}
