@@ -29,13 +29,18 @@ There is no receipt token, so there is nothing to sell to get around the delay. 
 crates/vault-core        every rule, in plain Rust with no Solana dependency, fully unit-tested
 programs/cooldown-vault  the Anchor program: stores the vault in a PDA, calls vault-core, moves lamports
 docs/spec.md             the product spec
-app/                     the web app (not started)
+app/                     the demo web app (static, deploys to Cloudflare Pages)
 ```
+
+## Try the demo
+
+Open the Cloudflare Pages link (or `npx serve app`). Pick a preset, request a withdrawal, cancel it, fast-forward the clock, and switch to the guardian view.
 
 ## Develop
 
 ```bash
 cargo test -p vault-core            # the rules, runs anywhere
+node app/vault.test.mjs             # the same rules, as used by the demo
 cd programs/cooldown-vault && cargo check   # type-checks the program on your machine
 anchor build && anchor deploy       # needs the Solana + Anchor toolchains, devnet only
 ```
