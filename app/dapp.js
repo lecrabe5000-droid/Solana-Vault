@@ -7,6 +7,7 @@ import { isStricter } from "./vault.js";
 import { CONFIG } from "./config.js";
 import { createEvmClient, explainEvmError } from "./evm.js";
 import { EVM } from "./config-evm.js";
+import { WC } from "./config-wc.js";
 
 const web3 = window.solanaWeb3;
 const $ = (s) => document.querySelector(s);
@@ -189,8 +190,8 @@ async function connect(provider) {
   finally { connecting = false; }
 }
 function disconnect() {
-  try { S.provider?.disconnect?.(); } catch (_) {}
-  S.wallet = null; S.provider = null; S.vault = undefined; S.readOnly = false;
+  try { S.viaWC ? wcMod?.disconnectWalletConnect() : S.provider?.disconnect?.(); } catch (_) {}
+  S.wallet = null; S.provider = null; S.vault = undefined; S.readOnly = false; S.viaWC = false;
   try { localStorage.removeItem("ecrin-wallet-" + S.net); localStorage.removeItem("ecrin-view-" + S.net); } catch (_) {}
   render();
 }
@@ -237,6 +238,38 @@ async function refresh() {
   render();
 }
 
+// ------------------------------------------------------------------ WalletConnect
+
+let wcMod = null;
+const wcOn = () => !!WC.projectId;
+async function wc() {
+  if (!wcMod) wcMod = await import("./vendor/wc/walletconnect.js");
+  wcMod.initWalletConnect({ projectId: WC.projectId, theme: document.documentElement.dataset.theme === "dark" ? "dark" : "light" });
+  return wcMod;
+}
+/** Connects through the WalletConnect modal (QR code on computers, wallet apps on phones). */
+async function connectWC() {
+  if (connecting) return;
+  connecting = true;
+  try {
+    const m = await wc();
+    const { provider, address } = await m.connectWith(S.net === "sol" ? "solana" : "eip155");
+    S.readOnly = false; S.viaWC = true; S.vault = undefined;
+    if (S.net === "eth") {
+      await ensureSepolia(provider);
+      S.provider = provider; S.wallet = evmX.key(address);
+      provider.on?.("accountsChanged", (a) => { if (S.net === "eth" && S.viaWC) { if (a?.length) { S.wallet = evmX.key(a[0]); S.vault = undefined; refresh(); } else disconnect(); } });
+    } else {
+      S.provider = provider; S.wallet = new web3.PublicKey(address);
+    }
+    try { localStorage.removeItem(viewKey()); } catch (_) {}
+    toast("Connected with WalletConnect", "win");
+    await refresh();
+  } catch (e) {
+    if (e?.code !== 4001) toast(esc((C.x?.explain || explainError)(e).message), "err");
+  } finally { connecting = false; }
+}
+
 // ------------------------------------------------------------------ home screen and view mode
 
 const standalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
@@ -279,9 +312,11 @@ function signElsewhere() {
   const [name, href] = walletLinks()[0];
   sheet(`<div class="rule-h"><span class="pol-ico">${I.lock}</span><div><h3>Sign in ${name}</h3><span class="muted small">You're in view mode</span></div></div>
     <p class="note">The home-screen app can watch your vault but can't sign. ${name} opens Ecrin in its own browser, already on your vault, where you can confirm this.</p>
-    <a class="btn primary wide" href="${esc(href)}">Open in ${name}</a>`, () => true);
+    ${wcOn() ? `<button type="button" class="btn primary wide wc-btn" data-act="wc">${WC_ICON}<span>Connect with WalletConnect</span></button>` : ""}
+    <a class="btn ${wcOn() ? "" : "primary "}wide" href="${esc(href)}">Open in ${name}</a>`, () => true);
   $("#sheet-form").querySelector('button[value="ok"]').hidden = true;
 }
+const WC_ICON = `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6.1 8.6c3.3-3.2 8.5-3.2 11.8 0l.4.4a.4.4 0 0 1 0 .6l-1.3 1.3a.2.2 0 0 1-.3 0l-.5-.5a6.1 6.1 0 0 0-8.4 0l-.6.6a.2.2 0 0 1-.3 0L5.6 9.7a.4.4 0 0 1 0-.6zm14.6 2.7 1.2 1.1a.4.4 0 0 1 0 .6l-5.3 5.2a.4.4 0 0 1-.6 0l-3.8-3.7a.1.1 0 0 0-.2 0l-3.8 3.7a.4.4 0 0 1-.6 0L2.1 13a.4.4 0 0 1 0-.6l1.2-1.1a.4.4 0 0 1 .6 0l3.8 3.7a.1.1 0 0 0 .2 0l3.8-3.7a.4.4 0 0 1 .6 0l3.8 3.7a.1.1 0 0 0 .2 0l3.8-3.7a.4.4 0 0 1 .6 0z" fill="#3b99fc"/></svg>`;
 const SIGNING = new Set(["create", "deposit", "withdraw", "send", "trust", "rules", "rule", "cancel-w", "run", "cancel-c", "apply", "release", "approve"]);
 
 // ------------------------------------------------------------------ prices and tokens
@@ -477,6 +512,7 @@ function renderView() {
       <div class="mark">${I.shield}</div>
       <h1>Your crypto, out of reach of anyone in a hurry.</h1>
       <p>Connect the wallet you already use. Ecrin never holds your keys: your wallet signs, the ${C.name} ${C.contractWord} enforces the rules.</p>
+      ${wcOn() ? `<button class="btn lg wc-btn" data-act="wc">${WC_ICON}<span>WalletConnect</span></button>` : ""}
       <div class="wallets">${list.length ? list.map(([n], i) => `<button class="btn primary lg" data-act="connect" data-i="${i}">Connect ${esc(n)}</button>`).join("")
         : isPhone() ? walletLinks().map(([n, href], i) => `<a class="btn ${i ? "" : "primary "}lg" href="${esc(href)}">Open in ${n}</a>`).join("")
         : `<a class="btn primary lg" href="${C.getWallet[1]}" target="_blank" rel="noopener">${C.getWallet[0]}</a>`}</div>
@@ -865,6 +901,7 @@ const actions = {
     if (S.tab === "guardian" && S.watchOwner) refresh();
   },
   alerts: () => startAlerts(),
+  wc: () => { $("#sheet").close(); connectWC(); },
   install: () => installGuide(),
   "install-off": () => { try { localStorage.setItem("ecrin-install-off", "1"); } catch (_) {} render(); },
   "view-start": () => startView($("#view-addr")?.value),

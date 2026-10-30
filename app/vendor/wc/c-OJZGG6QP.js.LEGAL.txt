@@ -1,0 +1,5 @@
+Bundled license information:
+
+@noble/curves/esm/nist.js:
+@noble/curves/esm/p256.js:
+  /*! noble-curves - MIT License (c) 2022 Paul Miller (paulmillr.com) */

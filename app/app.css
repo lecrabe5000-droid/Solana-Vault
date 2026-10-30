@@ -487,7 +487,7 @@ section.glass { border-radius: 20px; }
 .sec-h h2 { font-weight: 700; letter-spacing: -.01em; }
 .pill-i, .btn, .qa button { font-weight: 600; }
 @media (max-width: 900px) { .home-top .big { font-size: clamp(36px, 10vw, 52px); } .vs-facts b { font-size: 22px; } }
-@media (max-width: 560px) { .hello h1 { font-size: 24px; } .hello .wallets { flex-direction: column; } .hello .wallets .btn { width: 100%; } }
+@media (max-width: 560px) { .hello h1 { font-size: 24px; } .hello .wallets { flex-direction: column; } .hello .wallets .btn, .hello .wc-btn { width: 100%; } }
 
 /* alerts card */
 .alerts .al-row { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 16px; }
@@ -567,3 +567,6 @@ section.glass { border-radius: 20px; }
 .al-mail { display: grid; gap: 10px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
 .al-sent { display: flex; gap: 10px; align-items: flex-start; margin: 0; font-size: 13px; color: var(--text); }
 .al-sent svg { flex: none; width: 16px; height: 16px; margin-top: 2px; fill: none; stroke: var(--accent); stroke-width: 1.8; }
+.wc-btn { gap: 10px; }
+.hello .wc-btn { margin: 26px auto 0; min-width: 240px; }
+.hello .wc-btn + .wallets { margin-top: 10px; }
