@@ -71,6 +71,8 @@ jobs:
         run: |
           set -euo pipefail
           id=$(solana address -k target/deploy/cooldown_vault-keypair.json)
-          solana-test-validator --reset --quiet --bpf-program "$id" target/deploy/cooldown_vault.so &
-          for i in $(seq 1 60); do solana cluster-version -u http://127.0.0.1:8899 >/dev/null 2>&1 && break; sleep 1; done
-          node tests/client.test.mjs
+          # Own ports and ledger, so a validator left over from anchor test can't collide.
+          solana-test-validator --reset --quiet --ledger /tmp/client-ledger --rpc-port 8999 --faucet-port 9999 --bpf-program "$id" target/deploy/cooldown_vault.so &
+          for i in $(seq 1 90); do solana cluster-version -u http://127.0.0.1:8999 >/dev/null 2>&1 && break; sleep 1; done
+          solana cluster-version -u http://127.0.0.1:8999
+          RPC=http://127.0.0.1:8999 node tests/client.test.mjs
