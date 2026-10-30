@@ -473,7 +473,7 @@ function caseCard(v, { link = true } = {}) {
   return `<${link ? `button data-act="tab" data-t="vault"` : "div"} class="case${next ? " leaving" : ""}" data-tilt>
     ${GUILLOCHE}<i class="sheen"></i>
     <div class="case-top"><span class="case-mark">${logo}<b>ECRIN</b></span><span class="case-lvl">${levelName(v)} · ${delayWords(v.withdrawDelay)}</span></div>
-    <div class="case-mid"><span class="case-k">${I.shield}Protected</span><div class="case-bal"><span class="serif m">${sol(v.balance)}</span><small>${C.unit}</small></div><span class="case-usd m">${usd(v.balance) ?? ""}</span></div>
+    <div class="case-mid"><span class="case-k">${I.shield}Protected</span><div class="case-bal"><span class="num m">${sol(v.balance)}</span><small>${C.unit}</small></div><span class="case-usd m">${usd(v.balance) ?? ""}</span></div>
     <div class="case-foot">${state}<span class="case-id">${coin(S.net)}•••• ${String(v.owner).slice(-4)}</span></div>
   </${link ? "button" : "div"}>`;
 }
@@ -482,7 +482,7 @@ function walletCard() {
   const w = S.walletSol || 0;
   return `<div class="wcard">
     <div class="case-top"><span class="case-k">${I.wallet}Wallet</span><span class="case-lvl">Spendable · instant</span></div>
-    <div class="case-bal"><span class="serif m">${sol(w)}</span><small>${C.unit}</small></div>
+    <div class="case-bal"><span class="num m">${sol(w)}</span><small>${C.unit}</small></div>
     <span class="case-usd m">${usd(w) ?? ""}</span>
   </div>`;
 }
@@ -496,7 +496,7 @@ function portfolioView(v) {
     <section class="home-top">
       <div>
         <span class="label">Total balance</span>
-        <div class="big serif m" data-count="${totalUsd ?? total / LAMPORTS}" data-fmt="${totalUsd != null ? "usd" : "coin"}">${totalUsd != null ? money(totalUsd) : sol(total)}</div>
+        <div class="big num m" data-count="${totalUsd ?? total / LAMPORTS}" data-fmt="${totalUsd != null ? "usd" : "coin"}">${totalUsd != null ? money(totalUsd) : sol(total)}</div>
         <div class="sub">${ch != null ? `<span class="pill ${ch >= 0 ? "pos" : "neg"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}% today</span>` : ""}<span class="m">${sol(total)} ${C.unit}</span><span class="dotsep"></span><span><b class="acc">${pct}%</b> protected</span></div>
       </div>
       ${actionsRow()}
@@ -520,8 +520,8 @@ function vaultView(v) {
       <div class="vault-side">
         ${actionsRow()}
         <div class="vs-facts">
-          <div><span class="label">Available</span><b class="serif m">${sol(v.available)}</b><small>${C.unit}</small></div>
-          <div><span class="label">Leaving</span><b class="serif m">${sol(queued)}</b><small>${C.unit}</small></div>
+          <div><span class="label">Available</span><b class="num m">${sol(v.available)}</b><small>${C.unit}</small></div>
+          <div><span class="label">Leaving</span><b class="num m">${sol(queued)}</b><small>${C.unit}</small></div>
         </div>
         <div class="chips">${v.guardian ? `<span class="chip">${I.people}Guardian ${short(v.guardian)}</span>` : `<span class="chip">${I.people}No guardian</span>`}<a class="chip" href="${explorer("address", v.address.toBase58())}" target="_blank" rel="noopener">${I.ext}View on-chain</a></div>
       </div>
@@ -567,7 +567,7 @@ function dialHTML(opens, total) {
   const ticks = Array.from({ length: 60 }, (_, i) => { const a = (i / 60) * 2 * Math.PI, r1 = i % 5 ? 92 : 89, x = (r) => 100 + r * Math.sin(a), y = (r) => 100 - r * Math.cos(a); return `<line x1="${x(r1).toFixed(1)}" y1="${y(r1).toFixed(1)}" x2="${x(96).toFixed(1)}" y2="${y(96).toFixed(1)}"${i % 5 ? "" : ' class="maj"'}/>`; }).join("");
   return `<div class="dial" data-ready="${opens}" data-total="${total}" role="timer" aria-label="Time left before this can leave: ${main} ${sec}">
     <svg viewBox="0 0 200 200" aria-hidden="true"><g class="ticks">${ticks}</g><circle class="d-track" cx="100" cy="100" r="${DIAL_R}"/><circle class="d-arc" cx="100" cy="100" r="${DIAL_R}" stroke-dasharray="${DIAL_C}" stroke-dashoffset="${(DIAL_C * (1 - frac)).toFixed(2)}" transform="rotate(-90 100 100) scale(1 -1) translate(0 -200)"/></svg>
-    <div class="d-in"><b class="serif">${main}</b><span>${sec}</span><small>until it can leave</small></div>
+    <div class="d-in"><b class="num">${main}</b><span>${sec}</span><small>until it can leave</small></div>
   </div>`;
 }
 function tickDial(el) {

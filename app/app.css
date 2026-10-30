@@ -1,3 +1,12 @@
+/* Fonts are self-hosted (fonts/, OFL): Manrope for text, Unbounded for numbers and brand moments. */
+@font-face { font-family: "Manrope"; font-weight: 400; font-style: normal; font-display: swap; src: url("fonts/manrope-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Manrope"; font-weight: 500; font-style: normal; font-display: swap; src: url("fonts/manrope-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Manrope"; font-weight: 600; font-style: normal; font-display: swap; src: url("fonts/manrope-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Manrope"; font-weight: 700; font-style: normal; font-display: swap; src: url("fonts/manrope-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "Unbounded"; font-weight: 400; font-style: normal; font-display: swap; src: url("fonts/unbounded-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Unbounded"; font-weight: 500; font-style: normal; font-display: swap; src: url("fonts/unbounded-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Unbounded"; font-weight: 600; font-style: normal; font-display: swap; src: url("fonts/unbounded-latin-600-normal.woff2") format("woff2"); }
+
 /* Ecrin app. Flat surfaces, hairlines, one accent used only for what matters (protection, time).
    Light and dark share every rule; only the tokens change. The landing page has its own sheet (site.css). */
 :root, [data-theme="light"] {
@@ -14,7 +23,7 @@
   --pos: #3ccf8e; --neg: #ff7088; --warn: #f0b04a;
   color-scheme: dark;
 }
-:root { --r: 18px; --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+:root { --r: 18px; --num: "Unbounded", "Manrope", ui-sans-serif, system-ui, sans-serif; --font: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font: 400 15px/1.5 var(--font); -webkit-font-smoothing: antialiased; transition: background .25s, color .25s; }
 a { color: var(--ink); text-underline-offset: 3px; text-decoration-color: var(--line-2); }
@@ -461,3 +470,20 @@ section.glass { border-radius: 20px; }
   .tb-right .theme { width: 36px; height: 36px; }
 }
 @media (prefers-reduced-motion: reduce) { .pill-ind { transition: none; } }
+
+/* ------------------------------------------------------------------ type: Unbounded for numbers, Manrope for text */
+.num, .serif { font-family: var(--num); font-weight: 500; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
+.big { font-family: var(--num); font-weight: 500; letter-spacing: -.04em; }
+.home-top .big { font: 500 clamp(40px, 6.4vw, 80px)/1 var(--num); letter-spacing: -.045em; }
+.case-bal .num { font-size: clamp(38px, 4.6vw, 50px); line-height: 1; }
+.wcard .case-bal .num { font-size: 30px; }
+.vs-facts b { font-size: 26px; }
+.d-in b { font-size: clamp(22px, 5vw, 30px); letter-spacing: -.03em; }
+.seal b { font: 500 22px/1.2 var(--num); letter-spacing: -.02em; }
+.ring-in b { font-family: var(--num); font-weight: 500; font-size: 24px; }
+.case-mark b { font-family: var(--num); font-weight: 500; letter-spacing: .28em; font-size: 11px; }
+.brand span { font-family: var(--num); font-weight: 500; letter-spacing: -.02em; }
+.hello h1, .create-h h1 { font-family: var(--num); font-weight: 500; letter-spacing: -.04em; line-height: 1.12; }
+.sec-h h2 { font-weight: 700; letter-spacing: -.01em; }
+.pill-i, .btn, .qa button { font-weight: 600; }
+@media (max-width: 900px) { .home-top .big { font-size: clamp(36px, 10vw, 52px); } .vs-facts b { font-size: 22px; } }
