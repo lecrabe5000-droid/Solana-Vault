@@ -7,12 +7,34 @@
   const p = (n) => String(n).padStart(2, "0");
 
   // Theme switch (theme.js already applied the saved or device theme before paint).
-  document.querySelector("[data-theme-toggle]")?.addEventListener("click", () => {
+  document.querySelectorAll("[data-theme-toggle]").forEach((b) => b.addEventListener("click", () => {
     const t = root.dataset.theme === "dark" ? "light" : "dark";
     root.dataset.theme = t;
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "dark" ? "#0c0d0f" : "#f6f6f3");
     try { localStorage.setItem("ecrin-theme", t); } catch (_) {}
+  }));
+
+  // Phone menu: a full-screen sheet; any link inside closes it.
+  const menuBtn = document.querySelector("[data-menu]"), menu = document.querySelector("[data-mmenu]");
+  const setMenu = (open) => { menu.hidden = !open; menuBtn.setAttribute("aria-expanded", open); root.classList.toggle("menu-open", open); };
+  menuBtn?.addEventListener("click", () => setMenu(menu.hidden));
+  menu?.addEventListener("click", (e) => { if (e.target.closest("a")) setMenu(false); });
+  addEventListener("keydown", (e) => { if (e.key === "Escape" && menu && !menu.hidden) setMenu(false); });
+
+  // Comparison and security tables become stacked cards on phones: each cell carries its column name.
+  document.querySelectorAll("table").forEach((t) => {
+    const heads = [...t.querySelectorAll("thead th")].map((th) => th.textContent.trim());
+    t.querySelectorAll("tbody tr").forEach((tr) => [...tr.children].forEach((td, i) => td.setAttribute("data-label", heads[i] || "")));
   });
+
+  // Sticky "Open the app" bar on phones once the hero is passed, hidden again at the final call to action.
+  const mcta = document.querySelector("[data-mcta]"), heroEnd = document.querySelector(".hero-s"), finalCta = document.querySelector(".cta-s");
+  if (mcta && heroEnd && "IntersectionObserver" in window) {
+    let pastHero = false, atEnd = false;
+    const show = () => mcta.classList.toggle("on", pastHero && !atEnd);
+    new IntersectionObserver(([e]) => { pastHero = !e.isIntersecting && e.boundingClientRect.top < 0; show(); }).observe(heroEnd);
+    if (finalCta) new IntersectionObserver(([e]) => { atEnd = e.isIntersecting; show(); }).observe(finalCta);
+  }
 
   // The engraved pattern on every case, and the hero dial's ticks.
   document.querySelectorAll("[data-guilloche]").forEach((svg) => {
@@ -56,13 +78,15 @@
   // Reveal on scroll, staggered within each group.
   const groups = [".sec-head", ".threat", ".path", ".steps li", ".feat", ".tier", ".table-card", ".status-row", ".stage", ".who article", ".help", ".faq details", ".cta-s .wrap > *"];
   const els = [];
+  const phone = matchMedia("(max-width: 560px)").matches, carousel = ".threats, .paths, .feats, .tiers, .road, .who";
   groups.forEach((sel) => document.querySelectorAll(sel).forEach((el) => {
+    if (phone && el.parentElement.matches(carousel)) return;
     const sibs = [...el.parentElement.children].filter((c) => c.matches(sel));
     el.style.setProperty("--d", Math.min(sibs.indexOf(el), 6) * 0.07 + "s");
     el.classList.add("rv"); els.push(el);
   }));
   if ("IntersectionObserver" in window) {
-    const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { rootMargin: "0px 0px -10% 0px" });
+    const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { rootMargin: "0px 0px 8% 0px" });
     els.forEach((el) => io.observe(el));
   } else els.forEach((el) => el.classList.add("in"));
 

@@ -441,3 +441,79 @@ h3 { font-weight: 700; letter-spacing: -.01em; }
 @media (max-width: 960px) { .hero-visual .case { width: 100%; } .float-dial { width: 190px; } }
 @media (max-width: 560px) { .hero-visual { padding-bottom: 24px; } .float-dial { width: 70%; margin-top: -24px; } }
 [data-theme="dark"] .case, [data-theme="dark"] .device, [data-theme="dark"] .threat.cta-card { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .09), inset 0 1px 0 rgba(255, 255, 255, .1), 0 40px 80px -36px rgba(0, 0, 0, .9); }
+
+/* ------------------------------------------------------------------ phones: menu, sticky bar, swipe rows, table cards */
+.menu-btn, .mmenu, .mcta { display: none; }
+.feats { background: transparent; border: 0; gap: 12px; overflow: visible; }
+.feat { border: 1px solid var(--line); border-radius: 18px; }
+.rv { transition-duration: .5s; }
+
+@media (max-width: 960px) {
+  .nav-cta .theme, .nav-cta .ghost { display: none; }
+  .menu-btn { position: relative; display: inline-grid; place-content: center; gap: 5px; width: 42px; height: 42px; border: 1px solid var(--line-2); border-radius: 999px; background: transparent; cursor: pointer; }
+  .menu-btn i { display: block; width: 16px; height: 1.6px; border-radius: 2px; background: var(--ink); transition: transform .25s; }
+  .menu-open .menu-btn i:first-child { transform: translateY(3.3px) rotate(45deg); }
+  .menu-open .menu-btn i:last-child { transform: translateY(-3.3px) rotate(-45deg); }
+  .mmenu:not([hidden]) { position: fixed; inset: 64px 0 0; z-index: 30; display: flex; flex-direction: column; justify-content: space-between; padding: 22px 20px calc(24px + env(safe-area-inset-bottom, 0px)); background: var(--bg); animation: sheet .25s cubic-bezier(.2, .7, .2, 1); }
+  @keyframes sheet { from { opacity: 0; transform: translateY(-8px); } }
+  .mmenu nav { display: grid; }
+  .mmenu nav a { padding: 16px 2px; border-bottom: 1px solid var(--line); color: var(--ink); font: 500 22px/1.2 var(--num); letter-spacing: -.03em; text-decoration: none; }
+  .mmenu-foot { display: grid; gap: 10px; }
+  .mmenu-foot .btn { width: 100%; }
+  .t-d, [data-theme="dark"] .t-l { display: none; } [data-theme="dark"] .t-d { display: inline; }
+  .menu-open, .menu-open body { overflow: hidden; }
+}
+
+@media (max-width: 560px) {
+  /* sticky call to action */
+  .mcta { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 8px 8px 18px; border: 1px solid var(--line); border-radius: 999px; background: color-mix(in srgb, var(--panel) 92%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .35); font-size: 13.5px; color: var(--muted); transform: translateY(140%); transition: transform .35s cubic-bezier(.2, .7, .2, 1); }
+  .mcta b { color: var(--ink); font-family: var(--num); font-weight: 500; letter-spacing: -.02em; }
+  .mcta.on { transform: none; }
+  .mcta .btn { height: 40px; }
+  .foot-s { padding-bottom: 96px; }
+
+  /* tighter rhythm */
+  .sec { padding: 56px 0; }
+  .band { padding: 56px 0; }
+  .sec-head { margin-bottom: 26px; }
+  .muted-p { font-size: 15.5px; }
+  .hero-s { padding: 28px 0 36px; }
+  .lede { font-size: 16px; margin-top: 16px; }
+  .hero-cta { margin-top: 24px; }
+  .trust { margin-top: 18px; }
+
+  /* hero: the case, then the dial as a compact strip under it */
+  .hero-grid { gap: 30px; }
+  .hero-visual { padding-bottom: 0; }
+  .float-dial { position: relative; right: auto; bottom: auto; width: 100%; margin: 12px 0 0; display: grid; grid-template-columns: 112px 1fr; align-items: center; gap: 16px; padding: 14px 16px; border-radius: 20px; transform: none; }
+  .float-dial .dial { width: 112px; }
+  .float-dial .d-in b { font-size: 17px; } .float-dial .d-in span { font-size: 10px; } .float-dial .d-in small { display: none; }
+  .float-dial .mock-keep { margin: 0; height: 44px; }
+
+  /* swipe rows instead of long stacks */
+  .threats, .paths, .feats, .tiers, .road, .who { display: flex; gap: 12px; margin: 0 -18px; padding: 4px 18px 14px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding: 0 18px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .threats::-webkit-scrollbar, .paths::-webkit-scrollbar, .feats::-webkit-scrollbar, .tiers::-webkit-scrollbar, .road::-webkit-scrollbar, .who::-webkit-scrollbar { display: none; }
+  .threats > *, .paths > *, .feats > *, .tiers > *, .road > *, .who > * { flex: 0 0 84%; scroll-snap-align: start; }
+  .tiers { padding-top: 18px; }
+  .threat:hover, .path:hover, .stage:hover { transform: none; }
+  .swipe-hint { display: flex; }
+
+  /* tables become cards */
+  .table-card { border: 0; background: transparent; overflow: visible; }
+  .table-card table, .table-card tbody { display: block; }
+  .table-card thead { display: none; }
+  .table-card tr { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin-bottom: 10px; padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); }
+  .table-card td { padding: 0; border: 0; width: auto !important; text-align: left !important; font-size: 14px; }
+  .table-card td:first-child { grid-column: 1 / -1; color: var(--ink); font-weight: 600; font-size: 15px; }
+  .table-card td:not(:first-child)::before { content: attr(data-label); display: block; margin-bottom: 2px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+  .compare tr { grid-template-columns: 1fr 1fr 1.2fr; }
+  .compare td.us { margin: -6px -8px; padding: 6px 8px; border-radius: 10px; }
+  .compare table { min-width: 0; }
+  .sec-grid .table-card tr { grid-template-columns: 1fr; }
+  .sec-grid .table-card td:not(:first-child)::before { display: none; }
+
+  .timeline li, .step h3 { font-size: 22px; }
+  .faq summary { font-size: 16px; padding: 18px 2px; }
+}
+.swipe-hint { display: none; align-items: center; gap: 8px; margin: -12px 0 14px; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.swipe-hint::after { content: ""; width: 26px; height: 1px; background: currentColor; }
