@@ -699,13 +699,19 @@ const alertsOn = () => { try { return localStorage.getItem(alertsKey()) === "1";
 
 function alertsCard() {
   const on = alertsOn(), waiting = S.alertCode;
+  let mailed = null; try { mailed = localStorage.getItem(alertsKey() + "-mail"); } catch (_) {}
   return `<section class="glass alerts${on ? " on" : ""}">
     <div class="sec-h"><h2>Alerts</h2>${on ? `<span class="pill-on"><i class="live"></i>On</span>` : ""}</div>
     <div class="al-row"><span class="al-ico">${I.bell}</span><p>${on
       ? "Telegram messages you within a minute of any withdrawal, deposit or rule change on this vault. Send <b>/stop</b> to the bot to turn them off."
-      : "A delay only protects you if you notice. Get a Telegram message within a minute of anything happening to this vault."}</p></div>
+      : "A delay only protects you if you notice. Get a Telegram message or an email within a minute of anything happening to this vault."}</p></div>
     ${on ? `<button class="btn sm" data-act="alerts">Add another chat</button>`
       : `<button class="btn primary wide" data-act="alerts" ${waiting ? "disabled" : ""}>${waiting ? "Waiting for Telegram… press Start there" : "Get alerts on Telegram"}</button>`}
+    <div class="al-mail">
+      <span class="label">Or by email</span>
+      ${mailed ? `<p class="al-sent">${I.bell}<span>We sent a confirmation link to <b>${esc(mailed)}</b>. Alerts start once you click it.</span></p>` : ""}
+      <form class="lookup" data-mailform><input name="email" type="email" class="input" placeholder="you@example.com" autocomplete="email" required/><button class="btn" ${S.mailBusy ? "disabled" : ""}>${S.mailBusy ? "Sending…" : "Email me"}</button></form>
+    </div>
   </section>`;
 }
 
@@ -727,6 +733,24 @@ async function startAlerts() {
   } catch (e) { tab?.close(); toast(esc(e.message), "err"); }
   S.alertCode = null; render();
 }
+
+async function startEmail(email) {
+  S.mailBusy = true; render();
+  try {
+    const body = { net: S.net, owner: S.wallet.toBase58(), vault: S.net === "sol" ? S.vault.address.toBase58() : undefined, email };
+    const r = await fetch("/api/alerts/email", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || "Email alerts aren't available right now.");
+    try { localStorage.setItem(alertsKey() + "-mail", email); } catch (_) {}
+    toast(j.already ? "Email alerts are already on for this address." : "Check your inbox to confirm.", "win");
+  } catch (e) { toast(esc(e.message), "err"); }
+  S.mailBusy = false; render();
+}
+document.addEventListener("submit", (e) => {
+  if (!e.target.matches?.("[data-mailform]")) return;
+  e.preventDefault();
+  startEmail(String(new FormData(e.target).get("email") || "").trim());
+});
 
 function feedHTML(log) {
   const kind = (t) => /^Cancelled/.test(t) ? ["win", I.shield] : /^Deposited/.test(t) ? ["in", I.down] : /withdraw|Sent/i.test(t) ? ["out", I.up] : /rule|trust/i.test(t) ? ["rule", I.sliders] : ["other", I.clock];

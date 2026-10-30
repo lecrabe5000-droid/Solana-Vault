@@ -564,3 +564,6 @@ section.glass { border-radius: 20px; }
 [hidden] { display: none !important; }
 .guide li { align-items: flex-start; }
 .guide li > span { flex: 1; }
+.al-mail { display: grid; gap: 10px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.al-sent { display: flex; gap: 10px; align-items: flex-start; margin: 0; font-size: 13px; color: var(--text); }
+.al-sent svg { flex: none; width: 16px; height: 16px; margin-top: 2px; fill: none; stroke: var(--accent); stroke-width: 1.8; }

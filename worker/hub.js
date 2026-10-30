@@ -1,5 +1,6 @@
 // AlertHub: one Durable Object (SQLite) that holds alert subscriptions and runs the minute-by-minute check.
-// Telegram is the only channel for now; it needs the TELEGRAM_BOT_TOKEN secret on the Worker.
+// Channels: Telegram (TELEGRAM_BOT_TOKEN secret) and email through Resend (RESEND_API_KEY secret, from
+// ALERTS_FROM or alerts@ecrinprotocol.app). Each channel switches on when its secret is set.
 import { DurableObject } from "cloudflare:workers";
 import { CONFIG } from "../app/config.js";
 import { EVM } from "../app/config-evm.js";
@@ -7,15 +8,16 @@ import { b64, decodeSolVault, diffSol, decodeEvmLog, message, ownerTopic, short,
 
 const SITE = "https://ecrinprotocol.app";
 const NET_NAME = { sol: "Solana devnet", eth: "Ethereum Sepolia" };
-const SOL_ADDR = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/, ETH_ADDR = /^0x[0-9a-fA-F]{40}$/;
+const SOL_ADDR = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/, ETH_ADDR = /^0x[0-9a-fA-F]{40}$/, EMAIL = /^[^\s@<>"']{1,64}@[^\s@<>"']{1,190}\.[a-z]{2,24}$/i;
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
+const token = (n = 24) => [...crypto.getRandomValues(new Uint8Array(n))].map((b) => "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]).join("");
 
 async function sha256hex(s) {
   const d = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)));
   return [...d].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 /** The secret Telegram echoes back on every webhook call, derived from the bot token so there is nothing else to configure. */
-export const webhookSecret = async (token) => (await sha256hex("ecrin-webhook:" + token)).slice(0, 48);
+export const webhookSecret = async (tok) => (await sha256hex("ecrin-webhook:" + tok)).slice(0, 48);
 
 async function rpc(url, method, params) {
   const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
@@ -24,12 +26,43 @@ async function rpc(url, method, params) {
   return j.result;
 }
 
+// ------------------------------------------------------------------ email rendering
+
+/** Turns the Telegram text (b, code, newlines) into the email's subject and body. */
+export function emailFrom(text) {
+  const lines = text.split("\n").filter((l, i, a) => !(l === "" && a[i - 1] === ""));
+  const subject = (lines.find((l, i) => i > 0 && /<b>/.test(l)) || lines[0]).replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
+  const html = lines.map((l) => l.replace(/<code>/g, '<code style="font-family:ui-monospace,Menlo,monospace;background:#f1f1ed;padding:1px 5px;border-radius:5px">')).join("<br>");
+  return { subject: "Ecrin · " + subject, html };
+}
+
+export function emailPage({ body, button, unsub }) {
+  return `<!doctype html><html><body style="margin:0;background:#f6f6f3;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#101114">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f6f3;padding:32px 12px"><tr><td align="center">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #e6e6e1;border-radius:18px">
+      <tr><td style="padding:26px 28px 6px;font-size:13px;letter-spacing:.3em;font-weight:700;color:#2f5bff">ECRIN</td></tr>
+      <tr><td style="padding:10px 28px 4px;font-size:15px;line-height:1.6;color:#45484f">${body}</td></tr>
+      ${button ? `<tr><td style="padding:18px 28px 26px"><a href="${button[1]}" style="display:inline-block;background:#101114;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 22px;border-radius:999px">${button[0]}</a></td></tr>` : ""}
+    </table>
+    <p style="max-width:520px;margin:16px auto 0;font-size:12px;line-height:1.5;color:#8b8d93">Ecrin testnet beta · Not audited: test coins only.${unsub ? ` <a href="${unsub}" style="color:#8b8d93">Unsubscribe</a>` : ""}</p>
+  </td></tr></table></body></html>`;
+}
+
+const page = (title, text) => new Response(`<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · Ecrin</title>
+  <body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#f6f6f3;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#101114">
+  <main style="max-width:420px;margin:24px;padding:32px;background:#fff;border:1px solid #e6e6e1;border-radius:20px;text-align:center">
+  <p style="margin:0 0 10px;font-size:12px;letter-spacing:.3em;font-weight:700;color:#2f5bff">ECRIN</p><h1 style="margin:0 0 10px;font-size:22px">${title}</h1>
+  <p style="margin:0 0 22px;color:#45484f;line-height:1.55">${text}</p><a href="${SITE}/app" style="display:inline-block;background:#101114;color:#fff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:999px">Open Ecrin</a></main>`, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
+
+// ------------------------------------------------------------------ the hub
+
 export class AlertHub extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.sql = ctx.storage.sql;
     this.sql.exec(`CREATE TABLE IF NOT EXISTS pending (code TEXT PRIMARY KEY, net TEXT, owner TEXT, vault TEXT, created INTEGER, chat TEXT);
       CREATE TABLE IF NOT EXISTS subs (chat TEXT, net TEXT, owner TEXT, vault TEXT, created INTEGER, PRIMARY KEY (chat, net, owner));
+      CREATE TABLE IF NOT EXISTS emails (email TEXT, net TEXT, owner TEXT, vault TEXT, token TEXT UNIQUE, confirmed INTEGER, created INTEGER, PRIMARY KEY (email, net, owner));
       CREATE TABLE IF NOT EXISTS snaps (net TEXT, k TEXT, data TEXT, PRIMARY KEY (net, k));
       CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT);`);
   }
@@ -37,6 +70,7 @@ export class AlertHub extends DurableObject {
   get(k) { return this.sql.exec("SELECT v FROM kv WHERE k = ?", k).toArray()[0]?.v ?? null; }
   set(k, v) { this.sql.exec("INSERT INTO kv (k, v) VALUES (?, ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v", k, String(v)); }
 
+  // --- Telegram
   async tg(method, body) {
     const r = await fetch(`https://api.telegram.org/bot${this.env.TELEGRAM_BOT_TOKEN}/${method}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     return r.json().catch(() => ({ ok: false }));
@@ -50,26 +84,55 @@ export class AlertHub extends DurableObject {
     return r.ok;
   }
 
+  // --- email
+  async mail(to, subject, html, unsub) {
+    const headers = unsub ? { "List-Unsubscribe": `<${unsub}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } : undefined;
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST", headers: { authorization: `Bearer ${this.env.RESEND_API_KEY}`, "content-type": "application/json" },
+      body: JSON.stringify({ from: this.env.ALERTS_FROM || "Ecrin Alerts <alerts@ecrinprotocol.app>", to: [to], subject, html, headers }),
+    });
+    if (!r.ok) console.error("resend", r.status, await r.text().catch(() => ""));
+    return r.ok;
+  }
+  async emailAlert(row, text, net) {
+    const { subject, html } = emailFrom(text), unsub = `${SITE}/api/alerts/unsub?t=${row.token}`;
+    return this.mail(row.email, subject, emailPage({ body: html, button: ["Open Ecrin", `${SITE}/app?net=${net}&tab=vault`], unsub }), unsub);
+  }
+
+  /** Sends one alert to every Telegram chat and confirmed email watching this vault. */
+  async notify(net, match, text) {
+    if (this.env.TELEGRAM_BOT_TOKEN) for (const s of this.sql.exec(`SELECT chat FROM subs WHERE net = ? AND ${match.col} = ?`, net, match.val).toArray()) await this.say(s.chat, text, net);
+    if (this.env.RESEND_API_KEY) for (const e of this.sql.exec(`SELECT email, token FROM emails WHERE confirmed = 1 AND net = ? AND ${match.col} = ?`, net, match.val).toArray()) await this.emailAlert(e, text, net);
+  }
+
   async fetch(request) {
-    const url = new URL(request.url);
-    if (!this.env.TELEGRAM_BOT_TOKEN) return json({ error: "Alerts aren't switched on yet." }, 503);
+    const url = new URL(request.url), tg = !!this.env.TELEGRAM_BOT_TOKEN, mail = !!this.env.RESEND_API_KEY;
     try {
-      if (url.pathname === "/start" && request.method === "POST") return await this.start(await request.json());
+      if (url.pathname === "/start" && request.method === "POST") return tg ? await this.start(await request.json()) : json({ error: "Telegram alerts aren't switched on yet." }, 503);
       if (url.pathname === "/status") return this.status(url.searchParams.get("code") || "");
-      if (url.pathname === "/telegram" && request.method === "POST") return await this.telegram(request);
+      if (url.pathname === "/telegram" && request.method === "POST") return tg ? await this.telegram(request) : json({ ok: false }, 503);
+      if (url.pathname === "/email" && request.method === "POST") return mail ? await this.subscribeEmail(await request.json()) : json({ error: "Email alerts aren't switched on yet." }, 503);
+      if (url.pathname === "/confirm") return this.confirmEmail(url.searchParams.get("t") || "");
+      if (url.pathname === "/unsub") return this.unsubscribe(url.searchParams.get("t") || "", request.method);
       if (url.pathname === "/tick") { await this.tick(); return json({ ok: true }); }
     } catch (e) { console.error(e); return json({ error: "Something went wrong. Try again." }, 500); }
     return json({ error: "Not found" }, 404);
   }
 
+  validVault(net, owner, vault) {
+    if (!(net in NET_NAME)) return "Unknown network";
+    if (net === "sol" ? !(SOL_ADDR.test(owner || "") && SOL_ADDR.test(vault || "")) : !ETH_ADDR.test(owner || "")) return "That address isn't valid";
+    return null;
+  }
+
   /** The app asks for a Telegram link for one vault; the person proves the chat is theirs by pressing Start. */
   async start({ net, owner, vault }) {
-    if (!(net in NET_NAME)) return json({ error: "Unknown network" }, 400);
-    if (net === "sol" ? !(SOL_ADDR.test(owner || "") && SOL_ADDR.test(vault || "")) : !ETH_ADDR.test(owner || "")) return json({ error: "That address isn't valid" }, 400);
+    const bad = this.validVault(net, owner, vault);
+    if (bad) return json({ error: bad }, 400);
     const now = Date.now();
     this.sql.exec("DELETE FROM pending WHERE created < ?", now - 3600_000);
     if (this.sql.exec("SELECT COUNT(*) AS n FROM pending").one().n > 5000) return json({ error: "Too many requests right now. Try again in a minute." }, 429);
-    const code = [...crypto.getRandomValues(new Uint8Array(12))].map((b) => "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]).join("");
+    const code = token(12);
     this.sql.exec("INSERT INTO pending (code, net, owner, vault, created) VALUES (?, ?, ?, ?, ?)", code, net, net === "eth" ? owner.toLowerCase() : owner, vault || "", now);
     let bot = this.get("bot");
     if (!bot) { const me = await this.tg("getMe", {}); bot = me.result?.username; if (!bot) return json({ error: "The Telegram bot isn't reachable." }, 503); this.set("bot", bot); }
@@ -80,6 +143,40 @@ export class AlertHub extends DurableObject {
   status(code) {
     const row = this.sql.exec("SELECT chat FROM pending WHERE code = ?", code).toArray()[0];
     return json({ linked: !!row?.chat });
+  }
+
+  /** Email sign-up is double opt-in: nothing is sent to an address until its owner clicks the link. */
+  async subscribeEmail({ net, owner, vault, email }) {
+    const bad = this.validVault(net, owner, vault);
+    if (bad) return json({ error: bad }, 400);
+    email = String(email || "").trim().toLowerCase();
+    if (!EMAIL.test(email)) return json({ error: "That email address doesn't look right." }, 400);
+    owner = net === "eth" ? owner.toLowerCase() : owner;
+    const row = this.sql.exec("SELECT confirmed, created FROM emails WHERE email = ? AND net = ? AND owner = ?", email, net, owner).toArray()[0];
+    if (row?.confirmed) return json({ ok: true, already: true });
+    if (row && Date.now() - row.created < 120_000) return json({ ok: true, sent: true });
+    if (this.sql.exec("SELECT COUNT(*) AS n FROM emails WHERE email = ?", email).one().n >= 10) return json({ error: "That address already follows 10 vaults." }, 429);
+    if (this.sql.exec("SELECT COUNT(*) AS n FROM emails WHERE confirmed = 0 AND created > ?", Date.now() - 3600_000).one().n > 500) return json({ error: "Too many requests right now. Try again later." }, 429);
+    const t = token();
+    this.sql.exec("INSERT OR REPLACE INTO emails (email, net, owner, vault, token, confirmed, created) VALUES (?, ?, ?, ?, ?, 0, ?)", email, net, owner, vault || "", t, Date.now());
+    const ok = await this.mail(email, "Confirm your Ecrin alerts", emailPage({
+      body: `Confirm that you want an email the moment anything happens to vault <b>${esc(short(owner))}</b> (${NET_NAME[net]}): withdrawals, deposits and rule changes.<br><br>If you didn't ask for this, ignore this email and nothing will be sent.`,
+      button: ["Confirm alerts", `${SITE}/api/alerts/confirm?t=${t}`],
+    }));
+    return ok ? json({ ok: true, sent: true }) : json({ error: "We couldn't send the email. Try again in a minute." }, 502);
+  }
+
+  confirmEmail(t) {
+    const row = this.sql.exec("SELECT email, net, owner FROM emails WHERE token = ?", t).toArray()[0];
+    if (!row) return page("Link expired", "This confirmation link isn't valid anymore. Ask for alerts again from your vault in Ecrin.");
+    this.sql.exec("UPDATE emails SET confirmed = 1 WHERE token = ?", t);
+    return page("Email alerts are on", `We'll email <b>${esc(row.email)}</b> within a minute of any withdrawal, deposit or rule change on vault <b>${esc(short(row.owner))}</b>. Every email has an unsubscribe link.`);
+  }
+
+  unsubscribe(t, method) {
+    const gone = this.sql.exec("DELETE FROM emails WHERE token = ? RETURNING email", t).toArray().length;
+    if (method === "POST") return json({ ok: true });
+    return page(gone ? "You're unsubscribed" : "Already unsubscribed", "Ecrin won't email you about this vault anymore. You can turn alerts back on from your vault any time.");
   }
 
   async telegram(request) {
@@ -108,6 +205,7 @@ export class AlertHub extends DurableObject {
   }
 
   async ensureWebhook() {
+    if (!this.env.TELEGRAM_BOT_TOKEN) return;
     const want = `${SITE}/api/telegram`;
     if (this.get("webhook") === want) return;
     const r = await this.tg("setWebhook", { url: want, secret_token: await webhookSecret(this.env.TELEGRAM_BOT_TOKEN), allowed_updates: ["message"] });
@@ -121,10 +219,17 @@ export class AlertHub extends DurableObject {
     await this.tickEth(now).catch((e) => console.error("eth", e));
   }
 
+  /** Vaults (Solana) or owners (Ethereum) someone watches on any channel. */
+  watched(net, col) {
+    return [...new Set([
+      ...this.sql.exec(`SELECT ${col} AS v FROM subs WHERE net = ?`, net).toArray(),
+      ...this.sql.exec(`SELECT ${col} AS v FROM emails WHERE net = ? AND confirmed = 1`, net).toArray(),
+    ].map((r) => r.v))];
+  }
+
   async tickSol(now) {
-    const subs = this.sql.exec("SELECT chat, owner, vault FROM subs WHERE net = 'sol'").toArray();
-    if (!subs.length || !CONFIG.programId) return;
-    const vaults = [...new Set(subs.map((s) => s.vault))];
+    const vaults = this.watched("sol", "vault");
+    if (!vaults.length || !CONFIG.programId) return;
     const disc = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("account:VaultAccount"))).slice(0, 8);
     for (let i = 0; i < vaults.length; i += 100) {
       const batch = vaults.slice(i, i + 100);
@@ -140,8 +245,8 @@ export class AlertHub extends DurableObject {
         if (row) {
           const prev = JSON.parse(row.data);
           for (const ev of diffSol(prev, next)) {
-            const owner = next?.owner || prev?.owner || vault, m = message(ev, { net: "sol", owner, now });
-            if (m) for (const s of subs.filter((s) => s.vault === vault)) await this.say(s.chat, m.text, "sol");
+            const m = message(ev, { net: "sol", owner: next?.owner || prev?.owner || vault, now });
+            if (m) await this.notify("sol", { col: "vault", val: vault }, m.text);
           }
         }
         this.sql.exec("INSERT OR REPLACE INTO snaps (net, k, data) VALUES ('sol', ?, ?)", vault, JSON.stringify(next));
@@ -154,11 +259,10 @@ export class AlertHub extends DurableObject {
     const head = parseInt(await rpc(EVM.rpc, "eth_blockNumber", []), 16) - 2; // a couple of confirmations
     const cursor = Number(this.get("eth_cursor") || 0);
     if (!cursor) { this.set("eth_cursor", head); return; }
-    const subs = this.sql.exec("SELECT chat, owner FROM subs WHERE net = 'eth'").toArray();
+    const owners = this.watched("eth", "owner");
     const from = cursor + 1, to = Math.min(head, from + 1999);
     if (from > to) return;
-    if (subs.length) {
-      const owners = [...new Set(subs.map((s) => s.owner))];
+    if (owners.length) {
       const logs = await rpc(EVM.rpc, "eth_getLogs", [{ address: EVM.address, fromBlock: "0x" + from.toString(16), toBlock: "0x" + to.toString(16), topics: [null, owners.map(ownerTopic)] }]);
       for (const log of logs) {
         const d = decodeEvmLog(log);
@@ -171,7 +275,7 @@ export class AlertHub extends DurableObject {
           if (q) { Object.assign(d.event, { amount: JSON.parse(q.data).amount }); this.sql.exec("DELETE FROM snaps WHERE net = 'eth' AND k = ?", key); }
         }
         const m = message(d.event, { net: "eth", owner: d.owner, now });
-        if (m) for (const s of subs.filter((s) => s.owner === d.owner)) await this.say(s.chat, m.text, "eth");
+        if (m) await this.notify("eth", { col: "owner", val: d.owner }, m.text);
       }
     }
     this.set("eth_cursor", to);

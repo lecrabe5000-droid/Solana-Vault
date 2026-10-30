@@ -1,5 +1,6 @@
 // Cloudflare Worker for ecrinprotocol.app: the site in app/, redirects to the canonical host, and Ecrin alerts.
-// Alerts need one secret on the Worker: TELEGRAM_BOT_TOKEN (Settings → Variables and Secrets).
+// Alerts: set TELEGRAM_BOT_TOKEN and/or RESEND_API_KEY as secrets (Settings → Variables and Secrets).
+// Optional ALERTS_FROM, e.g. "Ecrin Alerts <alerts@ecrinprotocol.app>" (the domain must be verified in Resend).
 {
   "name": "solana-vault",
   "compatibility_date": "2026-10-01",
