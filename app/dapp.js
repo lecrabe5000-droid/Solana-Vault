@@ -25,7 +25,7 @@ const client = CONFIG.programId ? createClient({ web3, connection, programId: CO
 
 let savedNet = "sol";
 try { savedNet = new URLSearchParams(location.search).get("net") || localStorage.getItem("ecrin-net") || "sol"; } catch (_) {}
-const S = { net: savedNet === "eth" ? "eth" : "sol", price: null, tokens: [], wallet: null, provider: null, walletSol: null, vault: undefined, view: "owner", watchOwner: "", watched: undefined, busy: false, clockOffset: 0, err: null, pick: "strong" };
+const S = { net: savedNet === "eth" ? "eth" : "sol", tab: "portfolio", range: "7", shown: null, chart: null, price: null, tokens: [], wallet: null, provider: null, walletSol: null, vault: undefined, view: "owner", watchOwner: "", watched: undefined, busy: false, clockOffset: 0, err: null, pick: "strong" };
 const now = () => Math.floor(Date.now() / 1000) + S.clockOffset;
 
 let toastTimer;
@@ -117,7 +117,7 @@ let C = NETS[S.net];
 function switchNet(n) {
   if (!NETS[n] || n === S.net) return;
   try { S.provider?.disconnect?.(); } catch (_) {}
-  Object.assign(S, { net: n, wallet: null, provider: null, walletSol: null, vault: undefined, price: null, tokens: [], view: "owner", watchOwner: "", watched: undefined, err: null });
+  Object.assign(S, { net: n, wallet: null, provider: null, walletSol: null, vault: undefined, price: null, tokens: [], tab: "portfolio", shown: null, chart: null, watchOwner: "", watched: undefined, err: null });
   C = NETS[n];
   try { localStorage.setItem("ecrin-net", n); } catch (_) {}
   render(); loadPrice(); reconnect();
@@ -201,26 +201,37 @@ async function refresh() {
     const [bal, vault, t] = await Promise.all([C.x.balance(S.wallet), C.x.fetchVault(S.wallet), C.x.chainTime().catch(() => null), S.net === "sol" ? loadTokens() : (S.tokens = [])]);
     S.walletSol = bal; S.vault = vault; S.err = null;
     if (t) S.clockOffset = t - Math.floor(Date.now() / 1000);
-    if (S.view === "guardian" && S.watchOwner) S.watched = await C.x.fetchVault(C.x.key(S.watchOwner)).catch(() => null);
+    if (S.tab === "guardian" && S.watchOwner) S.watched = await C.x.fetchVault(C.x.key(S.watchOwner)).catch(() => null);
   } catch (e) { S.err = `Couldn't reach ${C.name} ${C.net}. Retrying…`; console.warn(e); }
   render();
 }
 
 // ------------------------------------------------------------------ prices and tokens
 
+const RANGES = [["1", "1D"], ["7", "1W"], ["30", "1M"], ["365", "1Y"]];
+
 // Price from CoinGecko: test coins have no value, so we show what the same amount is worth on mainnet.
 async function loadPrice() {
   const cg = C.cg;
   try {
-    const [p, c] = await Promise.all([
-      fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${cg}&vs_currencies=usd&include_24hr_change=true`).then((r) => r.json()),
-      fetch(`https://api.coingecko.com/api/v3/coins/${cg}/market_chart?vs_currency=usd&days=7`).then((r) => r.json()),
-    ]);
+    const p = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${cg}&vs_currencies=usd&include_24hr_change=true`).then((r) => r.json());
     const usd = p?.[cg]?.usd;
     if (!usd || cg !== C.cg) return;
-    S.price = { usd, change: p[cg].usd_24h_change || 0, series: (c?.prices || []).map(([, v]) => v).filter(Number.isFinite) };
+    S.price = { usd, change: p[cg].usd_24h_change || 0, series: {} };
     render();
+    loadSeries(S.range);
   } catch (e) { console.warn("price", e); }
+}
+
+async function loadSeries(days) {
+  const cg = C.cg;
+  if (!S.price || S.price.series[days]) return;
+  try {
+    const c = await fetch(`https://api.coingecko.com/api/v3/coins/${cg}/market_chart?vs_currency=usd&days=${days}`).then((r) => r.json());
+    if (cg !== C.cg || !S.price) return;
+    S.price.series[days] = (c?.prices || []).filter(([t, v]) => Number.isFinite(t) && Number.isFinite(v));
+    render();
+  } catch (e) { console.warn("chart", e); }
 }
 
 async function loadTokens() {
@@ -231,88 +242,279 @@ async function loadTokens() {
   } catch (_) { S.tokens = []; }
 }
 
-const usd = (lamports) => S.price ? ((lamports / LAMPORTS) * S.price.usd).toLocaleString(undefined, { style: "currency", currency: "USD" }) : null;
+const money = (n) => n.toLocaleString(undefined, { style: "currency", currency: "USD" });
+const usd = (lamports) => (S.price ? money((lamports / LAMPORTS) * S.price.usd) : null);
 
-function spark(series) {
-  if (series.length < 2) return "";
-  const W = 600, H = 120, min = Math.min(...series), max = Math.max(...series), span = max - min || 1;
-  const pts = series.map((v, i) => [(i / (series.length - 1)) * W, H - 8 - ((v - min) / span) * (H - 16)]);
-  const line = pts.map(([x, y], i) => (i ? "L" : "M") + x.toFixed(1) + " " + y.toFixed(1)).join(" ");
-  const up = series[series.length - 1] >= series[0];
-  return `<svg class="spark ${up ? "up" : "down"}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
-    <defs><linearGradient id="sg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".16"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs>
-    <path d="${line} L${W} ${H} L0 ${H} Z" fill="url(#sg)"/><path d="${line}" fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>`;
+// ------------------------------------------------------------------ icons
+
+const I = {
+  shield: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l7.5 3v6c0 4.6-3.2 8.6-7.5 10-4.3-1.4-7.5-5.4-7.5-10v-6z"/><path d="M8.5 12.2l2.4 2.4 4.6-4.8"/></svg>`,
+  home: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 11.5L12 4l8.5 7.5"/><path d="M6 10v9.5h12V10"/></svg>`,
+  list: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.5h12M8 12h12M8 17.5h12"/><circle cx="4" cy="6.5" r=".6"/><circle cx="4" cy="12" r=".6"/><circle cx="4" cy="17.5" r=".6"/></svg>`,
+  people: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.4 3.4-5.2 6.5-5.2s5.7 1.8 6.5 5.2"/><path d="M15.5 4.8a3.4 3.4 0 0 1 0 6.4M17.5 14.9c2 .6 3.4 2.3 4 5.1"/></svg>`,
+  down: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v15M5.5 12.5L12 19l6.5-6.5"/></svg>`,
+  up: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V5M5.5 11.5L12 5l6.5 6.5"/></svg>`,
+  send: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg>`,
+  sliders: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>`,
+  clock: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>`,
+  lock: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>`,
+  wallet: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M16 12.5h2"/></svg>`,
+  power: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v8"/><path d="M7 6.5a7 7 0 1 0 10 0"/></svg>`,
+  arrow: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`,
+  sun: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>`,
+  moon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>`,
+  ext: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/></svg>`,
+};
+const coin = (net) => net === "eth"
+  ? `<span class="coin eth" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M16 4l7 11.6-7 4.2-7-4.2z" fill="#fff" opacity=".95"/><path d="M16 21.2l7-4.2-7 10-7-10z" fill="#fff" opacity=".7"/></svg></span>`
+  : `<span class="coin sol" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M10 10.5h13.5l-2.5 2.6H7.5zM10 15.2h13.5L21 17.8H7.5zM10 20h13.5L21 22.6H7.5z" fill="#fff"/></svg></span>`;
+
+// ------------------------------------------------------------------ chart
+
+/** Portfolio value over time: today's holdings priced along the chosen range. */
+function chartHTML(units) {
+  const pts = S.price?.series?.[S.range];
+  const tabs = `<div class="ranges" role="group" aria-label="Range">${RANGES.map(([d, l]) => `<button data-act="range" data-d="${d}" aria-pressed="${S.range === d}">${l}</button>`).join("")}</div>`;
+  if (!pts?.length) return `<div class="chart-card"><div class="chart-top"><span class="label">Portfolio value</span>${tabs}</div><div class="chart-wait">${S.price ? "Loading the chart…" : "Prices unavailable right now."}</div></div>`;
+  const vals = pts.map(([, v]) => v * (units / LAMPORTS)), W = 1000, H = 260, pad = 12;
+  const min = Math.min(...vals), max = Math.max(...vals), span = max - min || 1;
+  const xy = vals.map((v, i) => [(i / (vals.length - 1)) * W, pad + (1 - (v - min) / span) * (H - pad * 2)]);
+  const line = xy.map(([x, y], i) => (i ? "L" : "M") + x.toFixed(1) + " " + y.toFixed(1)).join(" ");
+  const up = vals[vals.length - 1] >= vals[0], delta = vals[vals.length - 1] - vals[0], pct = vals[0] ? (delta / vals[0]) * 100 : 0;
+  S.chart = { pts, vals, W, H, xy };
+  return `<div class="chart-card ${up ? "up" : "down"}">
+    <div class="chart-top"><span class="label">Portfolio value <b class="${up ? "pos" : "neg"}">${up ? "+" : "−"}${money(Math.abs(delta))} (${Math.abs(pct).toFixed(2)}%)</b></span>${tabs}</div>
+    <div class="chart" data-chart>
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+        <defs><linearGradient id="cg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--c)" stop-opacity=".12"/><stop offset="1" stop-color="var(--c)" stop-opacity="0"/></linearGradient></defs>
+        <path d="${line} L${W} ${H} L0 ${H} Z" fill="url(#cg)"/>
+        <path class="ln" d="${line}" fill="none" stroke="var(--c)" stroke-width="1.75" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>
+      </svg>
+      <div class="cross" hidden><i class="vline"></i><i class="dot"></i><div class="tip"><b></b><span></span></div></div>
+    </div></div>`;
 }
 
-const SHIELD_SM = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 2.5l7.5 3v6c0 4.6-3.2 8.6-7.5 10-4.3-1.4-7.5-5.4-7.5-10v-6z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>`;
-const WALLET_SM = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M16 12.5h2" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>`;
+document.addEventListener("pointermove", (e) => {
+  const el = e.target.closest?.("[data-chart]");
+  if (!el || !S.chart) return;
+  const r = el.getBoundingClientRect(), f = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+  const i = Math.round(f * (S.chart.vals.length - 1)), [x, y] = S.chart.xy[i];
+  const cross = el.querySelector(".cross"); cross.hidden = false;
+  const px = (x / S.chart.W) * r.width, py = (y / S.chart.H) * r.height;
+  cross.querySelector(".vline").style.left = px + "px";
+  Object.assign(cross.querySelector(".dot").style, { left: px + "px", top: py + "px" });
+  const tip = cross.querySelector(".tip");
+  tip.style.left = Math.min(r.width - 120, Math.max(0, px - 60)) + "px";
+  tip.querySelector("b").textContent = money(S.chart.vals[i]);
+  tip.querySelector("span").textContent = new Date(S.chart.pts[i][0]).toLocaleString(undefined, S.range === "1" ? { hour: "2-digit", minute: "2-digit" } : { day: "numeric", month: "short", year: S.range === "365" ? "numeric" : undefined });
+}, { passive: true });
+document.addEventListener("pointerout", (e) => { const el = e.target.closest?.("[data-chart]"); if (el && !el.contains(e.relatedTarget)) el.querySelector(".cross").hidden = true; });
 
-function portfolio(v, locked) {
-  const vaultL = v.balance, walletL = S.walletSol || 0, total = vaultL + walletL, queued = v.balance - v.available;
-  const pct = total ? Math.round((vaultL / total) * 100) : 0;
-  const ch = S.price?.change, chTxt = ch == null ? "" : `<span class="delta ${ch >= 0 ? "up" : "down"}">${ch >= 0 ? "▲" : "▼"} ${Math.abs(ch).toFixed(2)}% today</span>`;
-  return `<section class="card hero o-hero">
-    <div class="kicker">Total balance</div>
-    <div class="bal">${usd(total) ?? `${sol(total)}<small>${C.unit}</small>`}</div>
-    <div class="bal-sub">${S.price ? `${sol(total)} ${C.unit} · ` : ""}${chTxt}${S.price ? ` <span class="muted">· test ${C.unit} at the real ${C.unit} price</span>` : ""}</div>
-    ${S.price?.series?.length ? `<div class="chart">${spark(S.price.series)}<div class="chart-l"><span>7 days</span><span>1 ${C.unit} = ${S.price.usd.toLocaleString(undefined, { style: "currency", currency: "USD" })}</span></div></div>` : ""}
-    <div class="split" role="img" aria-label="${pct}% protected in the vault"><i style="width:${pct}%"></i></div>
-    <div class="accts">
-      <div class="acct vault"><div class="acct-h">${SHIELD_SM}Vault <span class="tag">Protected</span></div><b>${sol(vaultL)} ${C.unit}</b><span class="muted">${usd(vaultL) ? usd(vaultL) + " · " : ""}${locked ? "locked until " + new Date(v.lockedUntil * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "withdrawals wait " + delayWords(v.withdrawDelay)}${queued ? ` · ${sol(queued)} leaving` : ""}</span></div>
-      <div class="acct"><div class="acct-h">${WALLET_SM}Wallet <span class="tag plain">Spendable</span></div><b>${sol(walletL)} ${C.unit}</b><span class="muted">${usd(walletL) ? usd(walletL) + " · " : ""}moves instantly</span>${S.tokens.length ? `<span class="muted">+ ${S.tokens.length} token${S.tokens.length > 1 ? "s" : ""}</span>` : ""}</div>
-    </div>
-    <div class="chips">
-      ${v.guardian ? `<span class="chip good">Guardian ${short(v.guardian)}</span>` : ""}
-      <a class="chip" href="${explorer("address", v.address.toBase58())}" target="_blank" rel="noopener">Vault on-chain ↗</a>
-    </div>
-    <div class="actions"><button class="btn" data-act="deposit">Deposit</button><button class="btn" data-act="withdraw">Withdraw</button><button class="btn primary" data-act="send">Send to trusted</button></div>
-  </section>`;
+/** Donut: share of the balance that is protected in the vault. */
+function ring(pct) {
+  const r = 52, c = 2 * Math.PI * r, on = (pct / 100) * c;
+  return `<div class="ring" role="img" aria-label="${pct}% protected"><svg viewBox="0 0 128 128">
+    <circle cx="64" cy="64" r="${r}" class="track"/><circle cx="64" cy="64" r="${r}" class="arc" stroke-dasharray="${on} ${c}" transform="rotate(-90 64 64)"/></svg>
+    <div class="ring-in"><b>${pct}%</b><span>protected</span></div></div>`;
+}
+
+// Animates the big balance from the last shown value to the new one.
+function countUp() {
+  const el = document.querySelector("[data-count]");
+  if (!el) return;
+  const to = Number(el.dataset.count), from = S.shown ?? to;
+  S.shown = to;
+  if (from === to || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const t0 = performance.now(), fmt = el.dataset.fmt === "usd" ? money : (n) => sol(n * LAMPORTS);
+  const step = (t) => { const k = Math.min(1, (t - t0) / 900), e = 1 - Math.pow(1 - k, 3); el.textContent = fmt(from + (to - from) * e); if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+
+// ------------------------------------------------------------------ shell
+
+const TABS = [["portfolio", "Portfolio", I.home], ["vault", "Vault", I.shield], ["activity", "Activity", I.list], ["guardian", "Guardian", I.people]];
+
+function themeBtn() {
+  const dark = document.documentElement.dataset.theme === "dark";
+  return `<button class="theme" data-act="theme" aria-label="Switch to ${dark ? "light" : "dark"} mode" title="Switch to ${dark ? "light" : "dark"} mode">${dark ? I.sun : I.moon}</button>`;
+}
+
+function netSwitch() {
+  return `<div class="netsw" role="group" aria-label="Network">${["sol", "eth"].map((n) => `<button data-act="net" data-n="${n}" aria-pressed="${S.net === n}">${coin(n)}<span>${NETS[n].name}</span></button>`).join("")}</div>`;
+}
+
+function shell(content, { nav = true } = {}) {
+  const w = S.wallet, pending = S.vault?.withdrawals?.length || 0;
+  const items = (cls) => TABS.map(([k, label, icon]) => `<button class="${cls}" data-act="tab" data-t="${k}" aria-current="${S.tab === k ? "page" : "false"}">${icon}<span>${label}</span>${k === "vault" && pending ? `<i class="badge">${pending}</i>` : ""}</button>`).join("");
+  return `<div class="shell${nav && w ? "" : " bare"}">
+    <aside class="side">
+      <a class="brand" href="/">${logo}<span>Ecrin</span></a>
+      ${nav && w ? `<nav class="side-nav" aria-label="Sections">${items("nav-i")}</nav>` : ""}
+      <div class="side-foot">
+        ${netSwitch()}
+        <div class="net-note"><i class="live"></i>${C.name} ${C.net} · testnet</div>
+        <div class="foot-row">${w ? `<button class="acct-chip" data-act="disconnect" title="Disconnect ${esc(w.toBase58())}">${coin(S.net)}<span>${short(w)}</span>${I.power}</button>` : ""}${themeBtn()}</div>
+      </div>
+    </aside>
+    <main class="main">
+      <header class="mtop">
+        <a class="brand" href="/">${logo}<span>Ecrin</span></a>
+        ${netSwitch()}
+        ${w ? `<button class="acct-chip" data-act="disconnect" title="Disconnect">${coin(S.net)}<span>${short(w)}</span></button>` : ""}
+        ${themeBtn()}
+      </header>
+      ${S.err ? `<div class="notice">${esc(S.err)}</div>` : ""}
+      ${content}
+      <p class="foot">${C.contractWord[0].toUpperCase() + C.contractWord.slice(1)} ${C.contract ? `<a href="${explorer("address", C.contract)}" target="_blank" rel="noopener">${short(C.contract)}</a>` : "not deployed"} on ${C.name} ${C.net} · Not audited: test coins only</p>
+    </main>
+    ${nav && w ? `<nav class="tabbar" aria-label="Sections">${items("tab-i")}</nav>` : ""}
+  </div>`;
 }
 
 // ------------------------------------------------------------------ views
 
-function header() {
-  const w = S.wallet;
-  return `<header class="top">
-    <a class="brand" href="/" style="text-decoration:none">${logo}Ecrin</a>
-    <div class="seg netsw" role="group" aria-label="Network"><button data-act="net" data-n="sol" aria-pressed="${S.net === "sol"}">Solana</button><button data-act="net" data-n="eth" aria-pressed="${S.net === "eth"}">Ethereum</button></div><span class="net">${C.net}</span><div class="spacer"></div>
-    ${w ? `<div class="seg" role="group" aria-label="View as"><button data-act="view" data-v="owner" aria-pressed="${S.view === "owner"}">My vault</button><button data-act="view" data-v="guardian" aria-pressed="${S.view === "guardian"}">Guardian</button></div>
-      <button class="btn sm wallet" data-act="disconnect" title="Disconnect ${esc(w.toBase58())}"><i class="live"></i>${short(w)}</button>` : ""}
-  </header>`;
-}
-
 function render() {
   const app = $("#app");
   if (!C.x) {
-    app.innerHTML = header() + `<section class="card center-card"><div class="big-ico">${logo}</div><h2>The Ecrin ${C.contractWord} isn't on ${C.name} ${C.net} yet</h2><p class="muted">It's being deployed. In the meantime, the demo runs the same rules with pretend money.</p><a class="btn primary" href="/demo">Open the demo</a></section>`;
+    app.innerHTML = shell(`<section class="glass hello"><div class="mark">${I.shield}</div><h1>Ecrin isn't on ${C.name} ${C.net} yet</h1><p>The ${C.contractWord} is being deployed. Meanwhile the demo runs the same rules with pretend money.</p><a class="btn primary lg" href="/demo">Open the demo</a></section>`, { nav: false });
     return;
   }
   if (!S.wallet) {
     const list = providers();
-    app.innerHTML = header() + `<section class="card center-card">
-      <div class="big-ico">${logo}</div><h2>Connect your wallet</h2>
-      <p class="muted">Ecrin never holds your keys. Your wallet signs, the ${C.name} ${C.contractWord} enforces the rules.</p>
-      <div class="wallets">${list.length ? list.map(([n], i) => `<button class="btn primary" data-act="connect" data-i="${i}">Connect ${esc(n)}</button>`).join("") : `<a class="btn primary" href="${C.getWallet[1]}" target="_blank" rel="noopener">${C.getWallet[0]}</a>`}</div>
-      <ol class="howto"><li>${C.setup}</li><li>Get free test ${C.unit} at <a href="${C.faucet}" target="_blank" rel="noopener">${C.faucetName}</a>.</li><li>Connect, create your vault, and try a withdrawal.</li></ol>
-    </section>`;
+    app.innerHTML = shell(`<section class="glass hello">
+      <div class="mark">${I.shield}</div>
+      <h1>Your crypto, out of reach of anyone in a hurry.</h1>
+      <p>Connect the wallet you already use. Ecrin never holds your keys: your wallet signs, the ${C.name} ${C.contractWord} enforces the rules.</p>
+      <div class="wallets">${list.length ? list.map(([n], i) => `<button class="btn primary lg" data-act="connect" data-i="${i}">Connect ${esc(n)}</button>`).join("") : `<a class="btn primary lg" href="${C.getWallet[1]}" target="_blank" rel="noopener">${C.getWallet[0]}</a>`}</div>
+      <ol class="steps"><li><b>1</b><span>${C.setup}</span></li><li><b>2</b><span>Get free test ${C.unit} at <a href="${C.faucet}" target="_blank" rel="noopener">${C.faucetName}</a>.</span></li><li><b>3</b><span>Create your vault and try a withdrawal. Watch the clock, then cancel it.</span></li></ol>
+    </section>`, { nav: false });
     return;
   }
-  if (S.view === "guardian") return renderGuardian(app);
-  if (S.vault === undefined) { app.innerHTML = header() + `<section class="card center-card"><p class="muted">Reading your vault from ${C.name} ${C.net}…</p></section>`; return; }
-  if (S.vault === null) return renderCreate(app);
-  renderVault(app, S.vault);
+  if (S.tab === "guardian") { app.innerHTML = shell(guardianView()); return; }
+  if (S.vault === undefined) { app.innerHTML = shell(`<section class="glass hello"><div class="spinner"></div><p>Reading your vault from ${C.name} ${C.net}…</p></section>`); return; }
+  if (S.vault === null) { app.innerHTML = shell(createView(), { nav: false }); return; }
+  const v = S.vault;
+  app.innerHTML = shell(S.tab === "vault" ? vaultView(v) : S.tab === "activity" ? activityView() : portfolioView(v));
+  countUp();
 }
 
-function renderCreate(app) {
-  const presets = [["gentle", "Gentle", "Withdrawals wait 24 h. Loosening a rule waits 3 days."], ["strong", "Strong", "Withdrawals wait 72 h. Loosening a rule waits 7 days."], ["locked", "Locked", "Nothing leaves before a date you pick, except an emergency your guardian co-signs."]];
-  app.innerHTML = header() + `<div class="onb">
-    <section class="intro"><h1>Create your vault</h1><p>One vault per wallet. You can make it stricter any time; loosening it always waits.</p></section>
+function createView() {
+  const presets = [
+    ["gentle", "Gentle", "Everyday savings", ["Withdrawals wait 24 h", "Looser rules wait 3 days", "Guardian optional"], I.clock],
+    ["strong", "Strong", "Recommended", ["Withdrawals wait 72 h", "Looser rules wait 7 days", "Guardian for emergencies"], I.shield],
+    ["locked", "Locked", "Must not move", ["Nothing leaves before your date", "Emergency exit with your guardian", "Guardian required"], I.lock],
+  ];
+  return `<section class="create">
+    <div class="create-h"><h1>Create your vault</h1><p>One vault per wallet on ${C.name}. You can make it stricter any time; loosening it always waits.</p></div>
     ${S.walletSol < C.lowBal * LAMPORTS ? `<div class="notice">Your wallet has ${sol(S.walletSol)} ${C.unit} on ${C.net}. Get free test ${C.unit} at <a href="${C.faucet}" target="_blank" rel="noopener">${C.faucetName}</a> for <b>${short(S.wallet)}</b>, then come back.</div>` : ""}
-    <div class="presets">${presets.map(([k, n, d]) => `<button type="button" class="preset" data-act="pick" data-k="${k}" aria-pressed="${S.pick === k}"><i class="dot"></i><b>${n}</b><span>${d}</span></button>`).join("")}</div>
-    <label class="field">Guardian wallet address ${S.pick === "locked" ? "(required)" : "(optional)"}<input id="g-addr" placeholder="A friend's ${C.name} address" autocomplete="off" spellcheck="false"/></label>
-    ${S.pick === "locked" ? `<label class="field" style="margin-top:12px">Locked until<input id="lock-date" type="date"/></label>` : ""}
-    <button class="btn primary" style="width:100%;height:50px;margin-top:20px" data-act="create" ${S.busy ? "disabled" : ""}>${S.busy ? "Confirm in your wallet…" : "Create vault"}</button>
-    <p class="foot">${C.createCost}</p></div>`;
+    <div class="presets">${presets.map(([k, n, tag, pts, icon]) => `<button type="button" class="preset glass" data-act="pick" data-k="${k}" aria-pressed="${S.pick === k}"><span class="p-ico">${icon}</span><span class="p-tag">${tag}</span><b>${n}</b><ul>${pts.map((x) => `<li>${x}</li>`).join("")}</ul></button>`).join("")}</div>
+    <div class="glass create-f">
+      <label class="field">Guardian wallet address ${S.pick === "locked" ? "(required)" : "(optional)"}<input id="g-addr" placeholder="A friend's ${C.name} address" autocomplete="off" spellcheck="false"/></label>
+      ${S.pick === "locked" ? `<label class="field">Locked until<input id="lock-date" type="date"/></label>` : ""}
+      <button class="btn primary lg wide" data-act="create" ${S.busy ? "disabled" : ""}>${S.busy ? "Confirm in your wallet…" : "Create vault"}</button>
+      <p class="hint">${C.createCost}</p>
+    </div></section>`;
+}
+
+function levelName(v) {
+  const locked = v.lockedUntil && now() < v.lockedUntil;
+  if (locked) return "Locked";
+  if (v.withdrawDelay >= 72 * HOUR) return "Strong";
+  if (v.withdrawDelay >= 24 * HOUR) return "Gentle";
+  return "Custom";
+}
+
+function actionsRow() {
+  return `<div class="qa">
+    <button data-act="deposit"><span>${I.down}</span>Deposit</button>
+    <button data-act="withdraw"><span>${I.up}</span>Withdraw</button>
+    <button data-act="send" title="Send to a trusted address"><span>${I.send}</span>Send</button>
+    <button data-act="rules"><span>${I.sliders}</span>Rules</button>
+  </div>`;
+}
+
+function portfolioView(v) {
+  const t = now(), locked = v.lockedUntil && t < v.lockedUntil;
+  const vaultL = v.balance, walletL = S.walletSol || 0, total = vaultL + walletL, queued = v.balance - v.available;
+  const pct = total ? Math.round((vaultL / total) * 100) : 0, ch = S.price?.change;
+  const totalUsd = S.price ? (total / LAMPORTS) * S.price.usd : null;
+  const next = v.withdrawals.slice().sort((a, b) => a.readyAt - b.readyAt)[0];
+  const opens = next ? Math.max(next.readyAt, locked ? v.lockedUntil : 0) : 0;
+  return `
+    ${next ? `<button class="alert glass" data-act="tab" data-t="vault"><span class="a-ico">${I.clock}</span><span class="a-txt"><b>${sol(next.amount)} ${C.unit} is waiting to leave</b><span>${opens > t ? `Can leave in <span class="count" data-ready="${opens}">${dur(opens - t)}</span>. Not you? Cancel it now.` : "Ready. It only leaves if you send it."}</span></span>${I.arrow}</button>` : ""}
+    <section class="hero glass">
+      <div class="hero-l">
+        <span class="label">Total balance</span>
+        <div class="big" data-count="${totalUsd ?? total / LAMPORTS}" data-fmt="${totalUsd != null ? "usd" : "coin"}">${totalUsd != null ? money(totalUsd) : sol(total)}</div>
+        <div class="sub">${ch != null ? `<span class="pill ${ch >= 0 ? "pos" : "neg"}">${ch >= 0 ? "▲" : "▼"} ${Math.abs(ch).toFixed(2)}%</span>` : ""}<span>${sol(total)} ${C.unit}</span>${S.price ? `<span class="muted">· test ${C.unit} at the real price</span>` : ""}</div>
+        ${actionsRow()}
+      </div>
+      <div class="hero-r">${ring(pct)}
+        <ul class="legend"><li><i class="sw a"></i>Vault<b>${sol(vaultL)}</b></li><li><i class="sw b"></i>Wallet<b>${sol(walletL)}</b></li></ul>
+      </div>
+    </section>
+    ${chartHTML(total)}
+    <section class="glass assets">
+      <div class="sec-h"><h2>Assets</h2><span class="muted">${S.price ? `1 ${C.unit} = ${money(S.price.usd)}` : ""}</span></div>
+      <button class="asset" data-act="tab" data-t="vault">${coin(S.net)}<span class="a-name"><b>${C.unit} · Vault</b><span class="tag pro">${I.shield}Protected · ${levelName(v)}</span></span>
+        <span class="a-amt"><b>${usd(vaultL) ?? sol(vaultL) + " " + C.unit}</b><span>${sol(vaultL)} ${C.unit}${queued ? ` · ${sol(queued)} leaving` : ""}</span></span></button>
+      <div class="asset">${coin(S.net)}<span class="a-name"><b>${C.unit} · Wallet</b><span class="tag">${I.wallet}Spendable</span></span>
+        <span class="a-amt"><b>${usd(walletL) ?? sol(walletL) + " " + C.unit}</b><span>${sol(walletL)} ${C.unit}</span></span></div>
+      ${S.tokens.length ? `<div class="asset"><span class="coin tok" aria-hidden="true">+${S.tokens.length}</span><span class="a-name"><b>Other tokens</b><span class="tag">In your wallet</span></span><span class="a-amt"><b>${S.tokens.length}</b><span>token${S.tokens.length > 1 ? "s" : ""}</span></span></div>` : ""}
+    </section>`;
+}
+
+function vaultView(v) {
+  const t = now(), locked = v.lockedUntil && t < v.lockedUntil, queued = v.balance - v.available;
+  const changes = rowsChanges(v, false);
+  return `
+    <section class="vhero glass">
+      <div class="vh-shield">${I.shield}</div>
+      <div class="vh-txt"><span class="label">Protected in your vault · ${levelName(v)}</span>
+        <div class="big" data-count="${v.balance / LAMPORTS}" data-fmt="coin">${sol(v.balance)}</div><span class="unit">${C.unit}${usd(v.balance) ? ` · ${usd(v.balance)}` : ""}</span>
+        <div class="chips"><span class="chip">${I.clock}Withdrawals wait ${delayWords(v.withdrawDelay)}</span>${locked ? `<span class="chip">${I.lock}Locked until ${new Date(v.lockedUntil * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short" })}</span>` : ""}${v.guardian ? `<span class="chip">${I.people}Guardian ${short(v.guardian)}</span>` : ""}<a class="chip" href="${explorer("address", v.address.toBase58())}" target="_blank" rel="noopener">${I.ext}On-chain</a></div>
+      </div>
+      ${actionsRow()}
+    </section>
+    <div class="cols">
+      <div class="col">
+        <section class="glass"><div class="sec-h"><h2>Waiting to leave</h2><span class="muted">${queued ? `${sol(queued)} ${C.unit}` : "cancel any time"}</span></div><div class="rows">${rowsWithdrawals(v, false)}</div></section>
+        ${changes ? `<section class="glass"><div class="sec-h"><h2>Rule changes waiting</h2><span class="muted">looser rules wait ${delayWords(v.ruleDelay)}</span></div><div class="rows">${changes}</div></section>` : ""}
+      </div>
+      <div class="col">
+        <section class="glass"><div class="sec-h"><h2>Rules</h2><button class="btn sm" data-act="rules">Change</button></div>
+          <div class="rules">
+            <div class="rule">${I.clock}<small>Withdrawals wait</small><b>${delayWords(v.withdrawDelay)}</b></div>
+            <div class="rule">${I.sliders}<small>Looser rules wait</small><b>${delayWords(v.ruleDelay)}</b></div>
+            <div class="rule">${I.up}<small>Daily limit</small><b>${v.dailyLimit ? sol(v.dailyLimit) + " " + C.unit : "None"}</b></div>
+            <div class="rule">${I.lock}<small>Lock</small><b>${locked ? "Until " + new Date(v.lockedUntil * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "None"}</b></div>
+          </div></section>
+        <section class="glass"><div class="sec-h"><h2>Trusted addresses</h2><button class="btn sm" data-act="trust">Add</button></div>
+          ${v.trusted.length ? `<div class="trusted">${v.trusted.map((k) => `<a class="addr" href="${explorer("address", k.toBase58())}" target="_blank" rel="noopener"><i class="live"></i>${short(k)}${I.ext}</a>`).join("")}</div>` : `<div class="empty">None yet. Money sent to a trusted address arrives instantly, so adding one takes time.</div>`}</section>
+      </div>
+    </div>`;
+}
+
+function activityView() {
+  const log = readLog();
+  const kind = (t) => /^Cancelled/.test(t) ? ["win", I.shield] : /^Deposited/.test(t) ? ["in", I.down] : /withdraw|Sent/i.test(t) ? ["out", I.up] : /rule|trust/i.test(t) ? ["rule", I.sliders] : ["other", I.clock];
+  return `<section class="glass"><div class="sec-h"><h2>Activity</h2><span class="muted">from this browser</span></div>
+    ${log.length ? `<ul class="feed">${log.map((l) => { const [k, ic] = kind(l.text); return `<li class="${k}"><span class="f-ico">${ic}</span><span class="f-txt"><b>${esc(l.text)}</b><time>${new Date(l.at * 1000).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</time></span><a href="${explorer("tx", l.sig)}" target="_blank" rel="noopener" aria-label="View on the explorer">${I.ext}</a></li>`; }).join("")}</ul>` : `<div class="empty">Your transactions from this browser show up here.</div>`}
+  </section>`;
+}
+
+function guardianView() {
+  const v = S.watched, t = now();
+  const g = v && S.wallet && v.guardian?.equals(S.wallet), locked = v && v.lockedUntil && t < v.lockedUntil;
+  const changes = v ? rowsChanges(v, true) : "";
+  return `<section class="glass"><div class="sec-h"><h2>Look up a vault you guard</h2></div>
+      <div class="lookup"><input id="watch" class="input" placeholder="The vault owner's ${C.name} address" value="${esc(S.watchOwner)}" spellcheck="false" autocomplete="off"/><button class="btn primary" data-act="watch">Look up</button></div>
+      <p class="hint">Guardians can approve an emergency release of a withdrawal the owner requested, or a trusted address the owner proposed. Nothing else.</p></section>
+    ${!S.watchOwner ? "" : v === undefined ? `<section class="glass"><div class="spinner"></div></section>` : v === null ? `<section class="glass"><div class="empty">No Ecrin vault for that wallet on ${C.name}.</div></section>` : `
+      <section class="vhero glass"><div class="vh-shield">${I.people}</div><div class="vh-txt"><span class="label">Vault of ${short(v.owner)}</span><div class="big">${sol(v.balance)}</div><span class="unit">${C.unit}</span>
+        <div class="chips"><span class="chip">${I.clock}Withdrawals wait ${delayWords(v.withdrawDelay)}</span>${locked ? `<span class="chip">${I.lock}Locked</span>` : ""}<span class="chip">${g ? "You're the guardian" : "You're not this vault's guardian"}</span></div></div></section>
+      <section class="glass"><div class="sec-h"><h2>Waiting to leave</h2></div><div class="rows">${rowsWithdrawals(v, true)}</div></section>
+      ${changes ? `<section class="glass"><div class="sec-h"><h2>Rule changes waiting</h2></div><div class="rows">${changes}</div></section>` : ""}`}`;
 }
 
 // Big ticking clock for a queued withdrawal: days (if any), then hh:mm:ss.
@@ -322,7 +524,6 @@ function clockParts(left) {
   return (d ? [[d, d === 1 ? "day" : "days"]] : []).concat([[p(h), "hours"], [p(m), "min"], [p(sec), "sec"]]);
 }
 const clockHTML = (left) => clockParts(left).map(([n, u]) => `<span class="seg-t"><b>${n}</b><small>${u}</small></span>`).join(`<i class="colon">:</i>`);
-const SHIELD = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 2.5l7.5 3v6c0 4.6-3.2 8.6-7.5 10-4.3-1.4-7.5-5.4-7.5-10v-6z" fill="currentColor" opacity=".18"/><path d="M12 2.5l7.5 3v6c0 4.6-3.2 8.6-7.5 10-4.3-1.4-7.5-5.4-7.5-10v-6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 12.2l2.4 2.4 4.6-4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
 function rowsWithdrawals(v, asGuardian) {
   const t = now(), locked = v.lockedUntil && t < v.lockedUntil;
@@ -333,15 +534,15 @@ function rowsWithdrawals(v, asGuardian) {
       : `<div class="clock" data-ready="${opens}" role="timer" aria-label="Time left before this can leave">${clockHTML(opens - t)}</div>`;
     const guard = asGuardian
       ? (S.wallet && v.guardian?.equals(S.wallet) ? `<div class="row-acts"><button class="btn sm good" data-act="release" data-id="${w.id}" data-dest="${w.dest.toBase58()}" ${S.busy ? "disabled" : ""}>Approve emergency release</button></div>` : "")
-      : `<button class="keep" data-act="cancel-w" data-id="${w.id}" data-amt="${w.amount}" ${S.busy ? "disabled" : ""}>${SHIELD}<span>Cancel and keep ${sol(w.amount)} ${C.unit} safe</span></button>
+      : `<button class="keep" data-act="cancel-w" data-id="${w.id}" data-amt="${w.amount}" ${S.busy ? "disabled" : ""}>${I.shield}<span>Cancel and keep ${sol(w.amount)} ${C.unit} safe</span></button>
         <div class="keep-note">Free, instant, and nobody else is told.${ready ? ` <button class="link danger" data-act="run" data-id="${w.id}" data-dest="${w.dest.toBase58()}" ${S.busy ? "disabled" : ""}>Send it now</button>` : ""}</div>`;
     return `<div class="row wd${ready ? " is-ready" : ""}">
-      <div class="row-top"><b>${sol(w.amount)} ${C.unit} <span class="muted" style="font-weight:500">leaving</span></b><span class="small muted">to <a href="${explorer("address", w.dest.toBase58())}" target="_blank" rel="noopener">${short(w.dest)}</a></span></div>
+      <div class="row-top"><b>${sol(w.amount)} ${C.unit} <span class="muted">leaving</span></b><span class="muted">to <a href="${explorer("address", w.dest.toBase58())}" target="_blank" rel="noopener">${short(w.dest)}</a></span></div>
       ${status}
       <div class="bar"><i style="width:${pct}%"></i></div>
-      <div class="small muted">${ready ? "Unlocked" : "Unlocks"} ${when(opens)}${locked && left <= 0 ? " · held by your lock" : ""}</div>
+      <div class="muted small">${ready ? "Unlocked" : "Unlocks"} ${when(opens)}${locked && left <= 0 ? " · held by your lock" : ""}</div>
       ${guard}</div>`;
-  }).join("") || `<div class="empty">Nothing waiting to leave.</div>`;
+  }).join("") || `<div class="empty">Nothing waiting to leave. Every withdrawal shows up here with a countdown, and you can cancel it until it runs.</div>`;
 }
 
 function changeWords({ kind, value }) {
@@ -363,58 +564,10 @@ function rowsChanges(v, asGuardian) {
     const left = c.readyAt - t, pct = Math.min(100, Math.max(2, (1 - left / Math.max(1, v.ruleDelay)) * 100));
     const g = S.wallet && v.guardian?.equals(S.wallet);
     const acts = asGuardian
-      ? (g && c.change.kind === "AddTrusted" ? `<button class="btn sm good" data-act="approve" data-id="${c.id}" ${S.busy ? "disabled" : ""}>Approve now</button>` : `<span class="small muted">Guardians can't speed this up.</span>`)
-      : `<button class="btn sm" data-act="cancel-c" data-id="${c.id}" ${S.busy ? "disabled" : ""}>Cancel change</button>${left <= 0 ? `<button class="btn sm" data-act="apply" data-id="${c.id}" ${S.busy ? "disabled" : ""}>Apply</button>` : ""}`;
-    return `<div class="row"><div class="row-top"><b style="font-size:15px">${esc(changeWords(c.change))}</b><span class="count">${dur(left)}</span></div><div class="bar"><i style="width:${pct}%"></i></div><div class="row-acts">${acts}</div></div>`;
+      ? (g && c.change.kind === "AddTrusted" ? `<button class="btn sm good" data-act="approve" data-id="${c.id}" ${S.busy ? "disabled" : ""}>Approve now</button>` : `<span class="muted small">Guardians can't speed this up.</span>`)
+      : `<button class="btn sm" data-act="cancel-c" data-id="${c.id}" ${S.busy ? "disabled" : ""}>Cancel change</button>${left <= 0 ? `<button class="btn sm primary" data-act="apply" data-id="${c.id}" ${S.busy ? "disabled" : ""}>Apply</button>` : ""}`;
+    return `<div class="row"><div class="row-top"><b>${esc(changeWords(c.change))}</b><span class="count" data-ready="${c.readyAt}">${dur(left)}</span></div><div class="bar"><i style="width:${pct}%"></i></div><div class="row-acts">${acts}</div></div>`;
   }).join("");
-}
-
-function guardianHero(v, locked) {
-  const queued = v.balance - v.available;
-  return `<section class="card hero o-hero">
-      <div class="kicker">Vault of ${short(v.owner)}</div>
-      <div class="bal">${sol(v.balance)}<small>${C.unit}</small></div>
-      <div class="bal-sub">${sol(v.available)} ${C.unit} available${queued ? ` · ${sol(queued)} ${C.unit} waiting to leave` : ""}</div>
-      <div class="chips">
-        <span class="chip">Withdrawals wait ${delayWords(v.withdrawDelay)}</span>
-        ${locked ? `<span class="chip lock">Locked until ${new Date(v.lockedUntil * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short" })}</span>` : ""}
-        ${v.guardian ? `<span class="chip good">Guardian ${short(v.guardian)}</span>` : ""}
-        <a class="chip" href="${explorer("address", v.address.toBase58())}" target="_blank" rel="noopener">On-chain ↗</a>
-      </div>
-      <p class="small muted" style="margin:16px 0 0">${S.wallet && v.guardian?.equals(S.wallet) ? "You're this vault's guardian: you can approve an emergency release or a new trusted address. You can never start a withdrawal or choose where money goes." : "Your wallet isn't this vault's guardian, so you can only watch."}</p>
-    </section>`;
-}
-
-function vaultCards(v, asGuardian) {
-  const t = now(), locked = v.lockedUntil && t < v.lockedUntil, queued = v.balance - v.available;
-  const changes = rowsChanges(v, asGuardian);
-  return `<div class="layout"><div class="col-main">
-    ${asGuardian ? guardianHero(v, locked) : portfolio(v, locked)}
-    <section class="card o-wait"><div class="card-h"><h2>Waiting to leave</h2><span class="small muted">${asGuardian ? "" : "cancel any time"}</span></div><div class="rows">${rowsWithdrawals(v, asGuardian)}</div></section>
-    ${changes ? `<section class="card o-changes"><div class="card-h"><h2>Rule changes waiting</h2><span class="small muted">looser rules wait ${delayWords(v.ruleDelay)}</span></div><div class="rows">${changes}</div></section>` : ""}
-    </div><div class="col-side">
-    <section class="card o-rules"><div class="card-h"><h2>Rules</h2>${asGuardian ? "" : `<button class="btn sm" data-act="rules">Change rules</button>`}</div>
-      <div class="rules">
-        <div class="rule"><small>Withdrawals wait</small><b>${delayWords(v.withdrawDelay)}</b></div>
-        <div class="rule"><small>Looser rules wait</small><b>${delayWords(v.ruleDelay)}</b></div>
-        <div class="rule"><small>Daily limit</small><b>${v.dailyLimit ? sol(v.dailyLimit) + " " + C.unit : "None"}</b></div>
-        <div class="rule"><small>Lock</small><b>${locked ? "Until " + new Date(v.lockedUntil * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "None"}</b></div>
-      </div></section>
-    <section class="card o-trusted"><div class="card-h"><h2>Trusted addresses</h2>${asGuardian ? "" : `<button class="btn sm" data-act="trust">Add</button>`}</div>
-      ${v.trusted.length ? `<div class="chips" style="margin:0">${v.trusted.map((k) => `<a class="chip good" href="${explorer("address", k.toBase58())}" target="_blank" rel="noopener">${short(k)}</a>`).join("")}</div>` : `<div class="empty">None yet. Money sent here arrives instantly, so adding one takes time.</div>`}</section>
-    ${asGuardian ? "" : `<section class="card o-log"><div class="card-h"><h2>Activity</h2></div>${readLog().length ? `<ul class="log">${readLog().map((l) => `<li><time>${new Date(l.at * 1000).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</time><span>${esc(l.text)} · <a href="${explorer("tx", l.sig)}" target="_blank" rel="noopener">tx</a></span></li>`).join("")}</ul>` : `<div class="empty">Your transactions from this browser show up here.</div>`}</section>`}
-    </div></div>`;
-}
-
-function renderVault(app, v) {
-  app.innerHTML = header() + (S.err ? `<div class="notice">${esc(S.err)}</div>` : "") + vaultCards(v, false) + `<p class="foot">${C.contractWord[0].toUpperCase() + C.contractWord.slice(1)} <a href="${explorer("address", C.contract)}" target="_blank" rel="noopener">${short(C.contract)}</a> on ${C.name} ${C.net} · <a href="/">Ecrin</a></p>`;
-}
-
-function renderGuardian(app) {
-  app.innerHTML = header() + `<section class="card"><div class="card-h"><h2>Look up a vault you guard</h2></div>
-    <div class="lookup"><input id="watch" class="input" placeholder="The vault owner's wallet address" value="${esc(S.watchOwner)}" spellcheck="false" autocomplete="off"/><button class="btn primary" data-act="watch">Look up</button></div>
-    <p class="small muted" style="margin:10px 0 0">Guardians can approve an emergency release of a withdrawal the owner requested, or a new trusted address the owner proposed. Nothing else.</p></section>`
-    + (S.watchOwner ? (S.watched === undefined ? `<section class="card"><p class="muted">Reading…</p></section>` : S.watched === null ? `<section class="card"><div class="empty">No Ecrin vault for that wallet.</div></section>` : vaultCards(S.watched, true)) : "");
 }
 
 // ------------------------------------------------------------------ sheets
@@ -432,7 +585,15 @@ const keyOf = (s) => (s ? C.x?.key(s) ?? null : null);
 const actions = {
   connect: (el) => connect(providers()[Number(el.dataset.i)][1]),
   disconnect: () => { if (confirm("Disconnect your wallet?")) disconnect(); },
-  view: (el) => { S.view = el.dataset.v; render(); },
+  tab: (el) => { S.tab = el.dataset.t; S.shown = null; render(); scrollTo({ top: 0, behavior: "smooth" }); if (S.tab === "guardian" && S.watchOwner) refresh(); },
+  theme: () => {
+    const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = t;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "dark" ? "#0c0d0f" : "#f6f6f3");
+    try { localStorage.setItem("ecrin-theme", t); } catch (_) {}
+    render();
+  },
+  range: (el) => { S.range = el.dataset.d; render(); loadSeries(S.range); },
   net: (el) => switchNet(el.dataset.n),
   pick: (el) => { S.pick = el.dataset.k; render(); },
   create: async () => {
