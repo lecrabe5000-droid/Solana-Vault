@@ -1,0 +1,5 @@
+[workspace]
+members = ["crates/vault-core"]
+# The on-chain program is its own workspace: it is built with `anchor build`, which needs the Solana toolchain.
+exclude = ["programs/cooldown-vault"]
+resolver = "2"

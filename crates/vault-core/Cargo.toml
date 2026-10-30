@@ -1,0 +1,8 @@
+[package]
+name = "vault-core"
+version = "0.1.0"
+edition = "2021"
+description = "The Cooldown Vault rules, with no Solana dependency, so they can be tested anywhere."
+license = "MIT"
+
+[dependencies]
