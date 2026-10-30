@@ -30,8 +30,10 @@
   // Sticky "Open the app" bar on phones once the hero is passed, hidden again at the final call to action.
   const mcta = document.querySelector("[data-mcta]"), heroEnd = document.querySelector(".hero-s"), finalCta = document.querySelector(".cta-s");
   if (mcta && heroEnd && "IntersectionObserver" in window) {
-    let pastHero = false, atEnd = false;
-    const show = () => mcta.classList.toggle("on", pastHero && !atEnd);
+    let pastHero = false, atEnd = false, inStory = false;
+    const show = () => mcta.classList.toggle("on", pastHero && !atEnd && !inStory);
+    const story = document.querySelector("#story .story");
+    if (story) new IntersectionObserver(([e]) => { inStory = e.isIntersecting; show(); }, { rootMargin: "-10% 0px -10% 0px" }).observe(story);
     new IntersectionObserver(([e]) => { pastHero = !e.isIntersecting && e.boundingClientRect.top < 0; show(); }).observe(heroEnd);
     if (finalCta) new IntersectionObserver(([e]) => { atEnd = e.isIntersecting; show(); }).observe(finalCta);
   }
@@ -61,16 +63,26 @@
     device.querySelector('[data-sc="s"]').textContent = p(storyLeft % 60);
   }, 1000);
 
-  // Story steps drive the pinned device.
+  // Story steps drive the pinned device. The active step is the last one whose top has passed a line on
+  // screen (lower on phones, where the pinned vault covers the top). Read from the scroll position on every
+  // frame, so it stays right on iPhone Safari while its toolbar grows and shrinks.
   const steps = [...document.querySelectorAll(".step")];
-  if (steps.length && "IntersectionObserver" in window) {
-    const io = new IntersectionObserver((es) => es.forEach((e) => {
-      if (!e.isIntersecting) return;
-      steps.forEach((s) => s.classList.toggle("on", s === e.target));
-      if (device) device.dataset.state = e.target.dataset.step;
-    }), { rootMargin: matchMedia("(max-width: 960px)").matches ? "-66% 0px -26% 0px" : "-45% 0px -45% 0px" }); // phones: the pinned vault covers the top half
-    steps.forEach((s) => io.observe(s));
-    steps[0].classList.add("on");
+  if (steps.length && device) {
+    let active = -1, queued = false;
+    const pick = () => {
+      queued = false;
+      const line = innerHeight * (innerWidth <= 960 ? 0.78 : 0.55);
+      let i = 0;
+      steps.forEach((s, k) => { if (s.getBoundingClientRect().top < line) i = k; });
+      if (i === active) return;
+      active = i;
+      steps.forEach((s, k) => s.classList.toggle("on", k === i));
+      device.dataset.state = steps[i].dataset.step;
+    };
+    const onScroll = () => { if (!queued) { queued = true; requestAnimationFrame(pick); } };
+    addEventListener("scroll", onScroll, { passive: true });
+    addEventListener("resize", onScroll, { passive: true });
+    pick();
   }
 
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});

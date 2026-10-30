@@ -517,3 +517,8 @@ h3 { font-weight: 700; letter-spacing: -.01em; }
 }
 .swipe-hint { display: none; align-items: center; gap: 8px; margin: -12px 0 14px; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
 .swipe-hint::after { content: ""; width: 26px; height: 1px; background: currentColor; }
+
+/* story: status lines swap without overlapping; on phones the step text is never dimmed */
+.st { transition: opacity .12s ease, transform .2s ease; }
+.device[data-state="0"] .st0, .device[data-state="1"] .st1, .device[data-state="2"] .st2, .device[data-state="3"] .st3 { transition: opacity .3s ease .12s, transform .3s ease .12s; }
+@media (max-width: 960px) { .step { opacity: 1; } .step:not(.on) .t-time { color: var(--muted); } }
