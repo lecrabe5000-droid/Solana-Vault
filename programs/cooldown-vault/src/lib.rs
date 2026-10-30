@@ -7,7 +7,7 @@
 use anchor_lang::prelude::*;
 use vault_core as rules;
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("FbyskcdPd2WTnU35m2AfCzDZ6GEYhYDj4EuWSLPV49Sy");
 
 #[program]
 pub mod cooldown_vault {

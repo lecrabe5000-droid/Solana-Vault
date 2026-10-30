@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-cooldown_vault = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+cooldown_vault = "FbyskcdPd2WTnU35m2AfCzDZ6GEYhYDj4EuWSLPV49Sy"
 
 [programs.devnet]
 # `anchor keys sync` writes the real address here after the first build.

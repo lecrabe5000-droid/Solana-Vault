@@ -49,11 +49,18 @@ jobs:
       - name: Local wallet
         run: solana-keygen new --no-bip39-passphrase --silent --outfile ~/.config/solana/id.json
       - run: npm install
-      - name: Build, then match the program id to this build's keypair, then rebuild
+      - name: Use the test-only program keypair, so the address matches declare_id
+        run: mkdir -p target/deploy && cp keys/localnet-program-keypair.json target/deploy/cooldown_vault-keypair.json
+      - name: Build
+        run: anchor build
+      - name: Check the program id everywhere agrees
         run: |
-          anchor build
-          anchor keys sync
-          anchor build
+          set -euo pipefail
+          want=$(solana address -k target/deploy/cooldown_vault-keypair.json)
+          echo "program id: $want"
+          grep -q "declare_id!(\"$want\")" programs/cooldown-vault/src/lib.rs
+          grep -q "cooldown_vault = \"$want\"" Anchor.toml
+          grep -q "\"address\": \"$want\"" target/idl/cooldown_vault.json
       - name: Test on a local validator
         run: |
           set -o pipefail
