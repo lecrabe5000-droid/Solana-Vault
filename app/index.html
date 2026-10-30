@@ -3,16 +3,17 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Ecrin · Where your crypto is kept</title>
-  <meta name="description" content="Ecrin is a Solana vault with a built-in cooldown. Every way out of your savings takes time, so no impulse, scam or bad night can empty it. Open source, non-custodial, on-chain." />
+  <title>Ecrin · Crypto that can't be taken in a hurry</title>
+  <meta name="description" content="Ecrin is an on-chain vault for Solana. Nothing leaves without a delay you choose, so a drainer, a phishing signature, a stolen key or a bad night all hit the same wall: time. You see it coming, and you cancel." />
   <meta name="theme-color" content="#fafafa" />
-  <meta property="og:title" content="Ecrin · Where your crypto is kept" />
-  <meta property="og:description" content="A Solana vault with a built-in cooldown. Every way out takes time, and you can cancel any time." />
+  <meta property="og:title" content="Ecrin · Crypto that can't be taken in a hurry" />
+  <meta property="og:description" content="An on-chain Solana vault. Every way out takes time, and you can cancel any time." />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ffffff'/%3E%3Crect x='5' y='5' width='22' height='22' rx='7' fill='none' stroke='%232F5BFF' stroke-width='2.2'/%3E%3Cpath d='M16 10.5l4.8 5.5L16 21.5 11.2 16z' fill='%232F5BFF'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="site.css" />
+  <script src="site.js" defer></script>
 </head>
 <body class="site">
   <header class="nav">
@@ -22,7 +23,7 @@
         Ecrin
       </a>
       <nav class="nav-links" aria-label="Sections">
-        <a href="#how">How it works</a><a href="#features">Features</a><a href="#security">Security</a><a href="#faq">FAQ</a>
+        <a href="#threats">Threats</a><a href="#how">How it works</a><a href="#security">Security</a><a href="#roadmap">Roadmap</a><a href="#faq">FAQ</a>
       </nav>
       <div class="nav-cta"><a class="btn ghost" href="/demo">Try the demo</a><a class="btn primary" href="/app">Open app</a></div>
     </div>
@@ -33,67 +34,137 @@
     <section class="hero-s">
       <div class="wrap hero-grid">
         <div class="hero-copy">
-          <span class="eyebrow">Solana vault · open source · devnet beta</span>
-          <h1>Where your crypto<br /><span class="accent">is kept.</span></h1>
-          <p class="lede">Ecrin is a vault with a built-in cooldown. Every way out of your savings takes time, so no impulse, scam or bad night can empty it. And you can cancel any time.</p>
+          <span class="eyebrow">On-chain security vault for Solana · devnet beta</span>
+          <h1>Crypto that can't be <span class="accent">taken in a hurry.</span></h1>
+          <p class="lede">Ecrin is a vault where nothing leaves without a delay you choose. A drainer, a phishing signature, a stolen key or a bad night all hit the same wall: time. You see it coming, and you cancel.</p>
           <div class="hero-cta"><a class="btn primary lg" href="/app">Open the app</a><a class="btn ghost lg" href="/demo">Try the demo, no wallet</a></div>
           <ul class="trust">
-            <li>Non-custodial</li><li>Rules enforced on-chain</li><li>No token to sell</li><li>Open source</li>
+            <li>Non-custodial</li><li>Rules enforced by Solana</li><li>Cancel any time</li><li>Open source</li>
           </ul>
         </div>
         <div class="hero-visual" aria-hidden="true">
           <div class="mock">
-            <div class="mock-top"><span class="mock-k">In your vault</span><span class="pill-s">Strong</span></div>
-            <div class="mock-bal">24.80 <small>SOL</small></div>
-            <div class="mock-sub">22.30 available · 2.50 waiting to leave</div>
-            <div class="mock-row">
-              <div class="mock-row-top"><b>2.50 SOL</b><span class="mock-count">2d 14h</span></div>
-              <div class="mock-dest">to an unknown address</div>
-              <div class="mock-bar"><i></i></div>
-              <div class="mock-btn">Cancel, keep it in the vault</div>
+            <div class="mock-alert"><span class="pulse"></span><div><b>Withdrawal requested</b><span>24.00 SOL to 7xKp…Qm2V · not one of your addresses</span></div></div>
+            <div class="mock-clock" data-hero-clock>
+              <span><b>2</b><small>days</small></span><i>:</i><span><b>23</b><small>hours</small></span><i>:</i><span><b>59</b><small>min</small></span><i>:</i><span><b>41</b><small>sec</small></span>
             </div>
-            <div class="mock-toast">Cancelled. That's a win: it stays yours.</div>
+            <div class="mock-bar"><i></i></div>
+            <div class="mock-keep">
+              <svg viewBox="0 0 24 24" width="17" height="17"><path d="M12 2.5l7.5 3v6c0 4.6-3.2 8.6-7.5 10-4.3-1.4-7.5-5.4-7.5-10v-6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 12.2l2.4 2.4 4.6-4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Cancel and keep 24.00 SOL safe
+            </div>
+            <div class="mock-foot"><span>Vault 31.40 SOL</span><span>Strong · 72 h</span></div>
+            <div class="mock-toast">Cancelled. 24 SOL never left.</div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Problem -->
-    <section class="band">
-      <div class="wrap narrow center">
-        <h2>Crypto puts every exit one tap away.</h2>
-        <p class="muted-p">A blocker app turns off in a minute. Staked coins unstake in hours, and liquid staking tokens sell instantly. When the urge, the scammer or the panic arrives, nothing stands in the way. Ecrin puts time between you and your savings, enforced by the blockchain itself.</p>
+    <!-- Threats -->
+    <section id="threats" class="band">
+      <div class="wrap">
+        <div class="sec-head center"><span class="eyebrow">The problem</span><h2>On Solana, a transfer is final in under a second.</h2><p class="muted-p">One bad signature, one leaked seed phrase, one person standing over you, and it's gone before you understand what happened. Every one of these attacks needs your money to move <em>now</em>. Ecrin is built so it can't.</p></div>
+        <div class="threats">
+          <article class="threat">
+            <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h7"/><path d="M17 14l4 4M21 14l-4 4"/></svg></div>
+            <h3>Wallet drainers</h3>
+            <p>A fake mint or airdrop asks you to sign. Your vault isn't in your wallet's reach: the most a signature can do is ask to withdraw, and that waits.</p>
+            <div class="vs"><span class="bad">Normal wallet: gone in one block</span><span class="ok">Ecrin: queued, you cancel</span></div>
+          </article>
+          <article class="threat">
+            <div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div>
+            <h3>Phishing</h3>
+            <p>A copied support page, a fake connect screen. Even if you approve the wrong thing, a withdrawal to a new address sits in plain sight for days.</p>
+            <div class="vs"><span class="bad">Normal wallet: no undo</span><span class="ok">Ecrin: days to notice</span></div>
+          </article>
+          <article class="threat">
+            <div class="ico"><svg viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/></svg></div>
+            <h3>Stolen keys</h3>
+            <p>A thief with your seed phrase still has to wait out your delay, and can't loosen a rule or name their own guardian without waiting too. You cancel each request, and your guardian can help you move out.</p>
+            <div class="vs"><span class="bad">Normal wallet: emptied</span><span class="ok">Ecrin: they can't cash out</span></div>
+          </article>
+          <article class="threat">
+            <div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></div>
+            <h3>Someone forcing you</h3>
+            <p>Being pressured in person or over a call is a real crypto risk. No one can make the vault pay out on the spot, because you can't either.</p>
+            <div class="vs"><span class="bad">Normal wallet: one tap</span><span class="ok">Ecrin: "it takes 3 days"</span></div>
+          </article>
+          <article class="threat">
+            <div class="ico"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></div>
+            <h3>Your own 3 a.m.</h3>
+            <p>Panic selling, revenge trades, a casino at the end of a long night. The urge passes long before the delay does, and the cancel button is right there.</p>
+            <div class="vs"><span class="bad">Normal wallet: instant regret</span><span class="ok">Ecrin: sleep on it</span></div>
+          </article>
+          <article class="threat cta-card">
+            <h3>See it for yourself.</h3>
+            <p>Request a withdrawal on devnet with test SOL, watch the clock, then cancel it.</p>
+            <a class="btn primary" href="/app">Open the app</a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- What happens -->
+    <section class="sec">
+      <div class="wrap">
+        <div class="sec-head"><span class="eyebrow">A bad day, with Ecrin</span><h2>The attack works. The money still doesn't move.</h2></div>
+        <ol class="timeline">
+          <li><span class="t-time">0:00</span><div><b>Your key leaks.</b><p>The thief signs a withdrawal of everything to their own address. On a normal wallet, this is the end of the story.</p></div></li>
+          <li><span class="t-time">0:00</span><div><b>The program queues it.</b><p>Solana itself holds it back for your delay, 72 hours on Strong. It shows up in your app with a countdown, and your guardian can see it too.</p></div></li>
+          <li><span class="t-time">0:20</span><div><b>You press Cancel.</b><p>Free and instant. Then you get out on your terms: pay your own trusted address, or request a withdrawal to a fresh wallet and have your guardian release it on the spot.</p></div></li>
+          <li class="done"><span class="t-time">72:00</span><div><b>Nothing was taken.</b><p>The thief can't shorten the delay, add their address as trusted, or name their own guardian without waiting days. A key can make the rules stricter, never looser, so the worst it can do is freeze the vault, not empty it.</p></div></li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- Compare -->
+    <section class="sec alt">
+      <div class="wrap">
+        <div class="sec-head"><span class="eyebrow">Compared</span><h2>A hardware wallet protects your key. Ecrin protects your money.</h2><p class="muted-p" style="margin-left:0">They work best together: sign for your vault with a hardware wallet, and both have to fail before you lose anything.</p></div>
+        <div class="table-card compare">
+          <table>
+            <thead><tr><th></th><th>Hot wallet</th><th>Hardware wallet</th><th class="us">Ecrin vault</th></tr></thead>
+            <tbody>
+              <tr><td>You sign a drainer by mistake</td><td><i class="no">Lost</i></td><td><i class="no">Lost</i></td><td class="us"><i class="yes">Cancel it</i></td></tr>
+              <tr><td>Your seed phrase leaks</td><td><i class="no">Lost</i></td><td><i class="no">Lost</i></td><td class="us"><i class="yes">Time to react</i></td></tr>
+              <tr><td>Someone forces a transfer</td><td><i class="no">Instant</i></td><td><i class="no">Instant</i></td><td class="us"><i class="yes">Days away</i></td></tr>
+              <tr><td>A 3 a.m. impulse</td><td><i class="no">Instant</i></td><td><i class="no">Instant</i></td><td class="us"><i class="yes">Sleep on it</i></td></tr>
+              <tr><td>Paying your own accounts</td><td><i class="yes">Instant</i></td><td><i class="yes">Instant</i></td><td class="us"><i class="yes">Instant to trusted</i></td></tr>
+              <tr><td>Undo a mistake</td><td><i class="no">Never</i></td><td><i class="no">Never</i></td><td class="us"><i class="yes">Any time before it runs</i></td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
 
     <!-- How it works -->
     <section id="how" class="sec">
       <div class="wrap">
-        <div class="sec-head"><span class="eyebrow">How it works</span><h2>Three ways out. Each one slower than an impulse.</h2></div>
+        <div class="sec-head"><span class="eyebrow">How it works</span><h2>Three ways out. Only your own addresses are fast.</h2></div>
         <div class="paths">
           <article class="path">
             <div class="path-n">01</div>
             <h3>Trusted addresses</h3>
-            <p>Your bank off-ramp, your rent. Money sent here arrives instantly. Adding a new one waits days, or needs your guardian.</p>
+            <p>Your exchange account, your bank off-ramp, your cold wallet. Money sent here arrives instantly. Adding a new one waits days, or needs your guardian.</p>
             <div class="path-tag fast">Instant</div>
           </article>
           <article class="path">
             <div class="path-n">02</div>
             <h3>Any other withdrawal</h3>
-            <p>Waits 24 to 72 hours before it can run. You can cancel at any moment, and your guardian is notified.</p>
-            <div class="path-tag">24 to 72 hours</div>
+            <p>Waits out your delay, from 1 hour to a year, before anyone can run it. You can cancel at any moment, for free.</p>
+            <div class="path-tag">Your delay</div>
           </article>
           <article class="path">
             <div class="path-n">03</div>
             <h3>Loosening a rule</h3>
-            <p>Shorter delay, no guardian, higher limit: these wait 3 to 7 days. Making rules stricter applies at once.</p>
-            <div class="path-tag slow">3 to 7 days</div>
+            <p>A shorter delay, a higher limit, a new trusted address, any guardian change: these wait days. Making rules stricter applies at once.</p>
+            <div class="path-tag slow">Days</div>
           </article>
         </div>
         <ol class="steps">
-          <li><b>Deposit.</b> Move SOL into your vault. It's a program account on Solana that only your wallet controls.</li>
-          <li><b>Pick your protection.</b> Gentle, Strong or Locked, and optionally a guardian you trust.</li>
-          <li><b>Live normally.</b> Pay trusted addresses instantly. Everything else waits, and you can always change your mind.</li>
+          <li><b>Create a vault.</b> A program account on Solana that only your wallet controls. Ecrin never touches your keys.</li>
+          <li><b>Pick your protection.</b> Gentle, Strong or Locked, add your trusted addresses, and optionally a guardian.</li>
+          <li><b>Live normally.</b> Pay your own accounts instantly. Everything else waits, and you can always change your mind.</li>
         </ol>
       </div>
     </section>
@@ -101,14 +172,14 @@
     <!-- Features -->
     <section id="features" class="sec alt">
       <div class="wrap">
-        <div class="sec-head"><span class="eyebrow">Features</span><h2>Small rules. Real distance.</h2></div>
+        <div class="sec-head"><span class="eyebrow">Features</span><h2>A few strict rules. Enforced by the chain, not by us.</h2></div>
         <div class="feats">
-          <article class="feat"><div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><h3>Cooldown</h3><p>Every withdrawal waits out a delay you choose. Cravings and panics pass; your savings stay.</p></article>
-          <article class="feat"><div class="ico"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div><h3>Guardian</h3><p>A friend or family member is notified of every request and can approve an emergency. They can never move your money.</p></article>
-          <article class="feat"><div class="ico"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></div><h3>Trusted addresses</h3><p>Up to 8 places money can go instantly. New ones take days to add, so a scammer can't sneak one in.</p></article>
-          <article class="feat"><div class="ico"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><h3>Lock until a date</h3><p>Nothing leaves before the date you pick. Only a guardian-approved emergency can open it early.</p></article>
+          <article class="feat"><div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><h3>Withdrawal delay</h3><p>Every withdrawal to a new address waits out a delay you choose, with a live countdown you can watch.</p></article>
+          <article class="feat"><div class="ico"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div><h3>One-tap cancel</h3><p>Anything queued can be cancelled until the moment it runs. It costs a fraction of a cent and takes a second.</p></article>
+          <article class="feat"><div class="ico"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></div><h3>Trusted addresses</h3><p>Up to 8 places your money can go instantly. New ones take days to add, so no one can sneak one in.</p></article>
+          <article class="feat"><div class="ico"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c.8-3.4 3.2-5 6-5s5.2 1.6 6 5M15 15.2c2.6-.4 4.8 1 5.6 3.8"/></svg></div><h3>Guardian</h3><p>Someone you trust can approve a real emergency early. They can never start a withdrawal or choose where money goes.</p></article>
+          <article class="feat"><div class="ico"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><h3>Lock until a date</h3><p>Nothing leaves before the date you pick. Only a guardian-approved emergency opens it early.</p></article>
           <article class="feat"><div class="ico"><svg viewBox="0 0 24 24"><path d="M4 18h16"/><path d="M7 14l3-3 3 3 4-5"/></svg></div><h3>Daily limit</h3><p>Cap how much can leave in a day, trusted sends included. Lowering it is instant; raising it waits.</p></article>
-          <article class="feat"><div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 8l8 8"/></svg></div><h3>No receipt token</h3><p>Unlike staking, the vault never hands you a token. There's nothing to sell to get around the wait.</p></article>
         </div>
       </div>
     </section>
@@ -118,8 +189,8 @@
       <div class="wrap">
         <div class="sec-head"><span class="eyebrow">Protection levels</span><h2>Choose how strong. Change it any time, slowly.</h2></div>
         <div class="tiers">
-          <article class="tier"><h3>Gentle</h3><p class="tier-d">For a little breathing room.</p><ul><li>Withdrawals wait 24 hours</li><li>Looser rules wait 3 days</li><li>Guardian optional</li></ul></article>
-          <article class="tier hot"><span class="badge">Most chosen</span><h3>Strong</h3><p class="tier-d">For real distance from impulses.</p><ul><li>Withdrawals wait 72 hours</li><li>Looser rules wait 7 days</li><li>Guardian notified of every request</li></ul></article>
+          <article class="tier"><h3>Gentle</h3><p class="tier-d">Everyday savings with a safety net.</p><ul><li>Withdrawals wait 24 hours</li><li>Looser rules wait 3 days</li><li>Guardian optional</li></ul></article>
+          <article class="tier hot"><span class="badge">Recommended</span><h3>Strong</h3><p class="tier-d">For the money you really can't lose.</p><ul><li>Withdrawals wait 72 hours</li><li>Looser rules wait 7 days</li><li>Guardian for emergencies</li></ul></article>
           <article class="tier"><h3>Locked</h3><p class="tier-d">For savings that must not move.</p><ul><li>Nothing leaves before your date</li><li>Emergency exit with your guardian</li><li>Looser rules wait until the date</li></ul></article>
         </div>
       </div>
@@ -128,23 +199,24 @@
     <!-- Security -->
     <section id="security" class="sec alt">
       <div class="wrap">
-        <div class="sec-head"><span class="eyebrow">Security</span><h2>The rules live on Solana, not in an app.</h2></div>
+        <div class="sec-head"><span class="eyebrow">Security</span><h2>The rules live on Solana, not in an app.</h2><p class="muted-p" style="margin-left:0">Close the website, delete the app, import your key somewhere else: the program still enforces every delay. Here is every shortcut we know of, and why it fails.</p></div>
         <div class="sec-grid">
           <div class="table-card">
             <table>
               <thead><tr><th>Way around it</th><th>Why it fails</th></tr></thead>
               <tbody>
-                <tr><td>Sell the position for instant SOL</td><td>There is no receipt token to sell.</td></tr>
                 <tr><td>Import your key into another wallet</td><td>The key can only request a withdrawal. The program still enforces the wait.</td></tr>
-                <tr><td>Turn the rules off</td><td>Loosening a rule waits 3 to 7 days.</td></tr>
-                <tr><td>Add a casino as trusted</td><td>New trusted addresses wait days, or need your guardian.</td></tr>
+                <tr><td>Turn the rules off</td><td>Loosening any rule waits days, and never before a lock ends.</td></tr>
+                <tr><td>Add the attacker's address as trusted</td><td>New trusted addresses wait days, or need your guardian's approval.</td></tr>
+                <tr><td>Name a second wallet as guardian</td><td>Any guardian change waits days, so no one can approve their own withdrawal.</td></tr>
+                <tr><td>Sell a receipt token for instant SOL</td><td>Unlike liquid staking, there is no token to sell.</td></tr>
                 <tr><td>The developer changes the code</td><td>The program will be made immutable after its audit.</td></tr>
               </tbody>
             </table>
           </div>
           <div class="status">
             <div class="status-row"><span class="dot ok"></span><div><b>Open source</b><p>Every line is on <a href="https://github.com/lecrabe5000-droid/Solana-Vault" target="_blank" rel="noopener">GitHub</a>.</p></div></div>
-            <div class="status-row"><span class="dot ok"></span><div><b>Tested on every change</b><p>Rule tests plus on-chain tests against a real Solana validator, on every push.</p></div></div>
+            <div class="status-row"><span class="dot ok"></span><div><b>Tested on every change</b><p>Rule tests, plus on-chain tests against a real Solana validator, on every push.</p></div></div>
             <div class="status-row"><span class="dot ok"></span><div><b>Non-custodial</b><p>Ecrin never holds your keys or your funds. Only your wallet can request a withdrawal.</p></div></div>
             <div class="status-row"><span class="dot warn"></span><div><b>Not audited yet</b><p>Devnet only, with test SOL. Mainnet comes after an independent security audit.</p></div></div>
           </div>
@@ -152,24 +224,41 @@
       </div>
     </section>
 
+    <!-- Roadmap -->
+    <section id="roadmap" class="sec">
+      <div class="wrap">
+        <div class="sec-head"><span class="eyebrow">Roadmap</span><h2>Security first. Then make the safe place the best place.</h2></div>
+        <div class="road">
+          <article class="stage now"><span class="stage-k">Now</span><h3>Devnet beta</h3><ul><li>SOL vault with delays, trusted addresses, guardian, lock and daily limit</li><li>Live countdown and one-tap cancel</li><li>Open source, tested on a real validator</li></ul></article>
+          <article class="stage"><span class="stage-k">Next</span><h3>Alerts and tokens</h3><ul><li>Email and Telegram alerts the moment anything is requested</li><li>USDC and other SPL tokens</li><li>Independent security audit</li></ul></article>
+          <article class="stage"><span class="stage-k">Later</span><h3>Mainnet and yield</h3><ul><li>Mainnet with deposit caps at first</li><li>Native SOL staking inside the vault: earn yield, keep every delay</li><li>Opt-in lending, only after its own audit</li></ul></article>
+        </div>
+      </div>
+    </section>
+
     <!-- Who -->
-    <section class="sec">
-      <div class="wrap narrow center">
-        <span class="eyebrow">Who it's for</span>
-        <h2>Built first for people who want distance from gambling.</h2>
-        <p class="muted-p">It's for anyone who has lost money to a 3 a.m. decision, and for the people who love them. It works just as well against scams, hacked wallets and panic selling: anything that needs your money to move fast.</p>
+    <section class="sec alt">
+      <div class="wrap">
+        <div class="sec-head"><span class="eyebrow">Who it's for</span><h2>Anyone whose savings shouldn't be one tap away.</h2></div>
+        <div class="who">
+          <article><h3>Long-term holders</h3><p>Keep a cold stack that drainers, phishing and leaked keys can't reach in time, and still pay your own accounts instantly.</p></article>
+          <article><h3>People stepping back from gambling</h3><p>Ecrin started here. Put real time between an urge and your savings, with someone you trust as guardian.</p></article>
+          <article><h3>Families and small teams</h3><p>A treasury where no single bad day, or single person, can move everything at once.</p></article>
+        </div>
         <p class="help">If gambling is hurting you right now, you're not alone. Search for your country's gambling helpline; most are free, confidential and open all night.</p>
       </div>
     </section>
 
     <!-- FAQ -->
-    <section id="faq" class="sec alt">
+    <section id="faq" class="sec">
       <div class="wrap narrow">
         <div class="sec-head center"><span class="eyebrow">FAQ</span><h2>Questions, answered.</h2></div>
         <div class="faq">
           <details><summary>Is my money safe? Who holds it?</summary><p>Your funds sit in a program account on Solana tied to your wallet. Ecrin never has your keys and can't move your funds. Only your wallet can request a withdrawal, and only the program's rules decide when it can run.</p></details>
-          <details><summary>What if I have a real emergency?</summary><p>Your guardian can co-sign a withdrawal you already requested so it runs immediately. They can't start one, change the amount or pick where it goes. Without a guardian, the normal delay applies.</p></details>
-          <details><summary>Can my guardian take my money?</summary><p>No. A guardian can only approve something you asked for: an emergency release of your own withdrawal, or adding a trusted address you proposed.</p></details>
+          <details><summary>What if someone steals my key?</summary><p>They can only ask to withdraw, and that waits your full delay, so cancel each request before it runs (alerts that tell you right away are next on the roadmap). To move out, pay one of your trusted addresses, or request a withdrawal to a fresh wallet and have your guardian release it at once. A stolen key can make your rules stricter but never looser: it can't add its own trusted address, shorten a delay or name a guardian without waiting days, so at worst your funds are frozen, not taken. That's why we recommend a guardian on Strong.</p></details>
+          <details><summary>What if I have a real emergency?</summary><p>Your guardian can co-sign a withdrawal you already requested so it runs immediately. They can't start one, change the amount or pick where it goes. You can also always pay your trusted addresses instantly.</p></details>
+          <details><summary>Can my guardian take my money?</summary><p>No. A guardian can only approve something you asked for: an emergency release of your own withdrawal, or a trusted address you proposed.</p></details>
+          <details><summary>Will I be able to earn yield?</summary><p>That's the plan: native SOL staking where the stake stays inside the vault, so you earn rewards without creating a fast way out. It comes after the audit.</p></details>
           <details><summary>What can I store?</summary><p>SOL during the beta. USDC and other tokens are next.</p></details>
           <details><summary>Does it cost anything?</summary><p>The devnet beta is free, using test SOL. You only pay normal Solana network fees, a fraction of a cent.</p></details>
           <details><summary>Is it live on mainnet?</summary><p>Not yet. Ecrin is on Solana devnet while it's being tested. Mainnet comes after an independent security audit, with deposit caps at first.</p></details>
@@ -181,7 +270,7 @@
     <!-- CTA -->
     <section class="cta-s">
       <div class="wrap narrow center">
-        <h2>Give your savings a little time.</h2>
+        <h2>Give your savings the one thing attackers don't have: time.</h2>
         <p class="muted-p">Try it with test SOL on devnet, or play with the demo first.</p>
         <div class="hero-cta center-row"><a class="btn primary lg" href="/app">Open the app</a><a class="btn ghost lg" href="/demo">Try the demo</a></div>
       </div>
