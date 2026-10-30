@@ -39,7 +39,8 @@ export function explainEvmError(err, iface) {
   if (hit) return { code: hit[0], message: hit[1] };
   if (EXTRA_ERRORS[name]) return { code: name, message: EXTRA_ERRORS[name] };
   const text = String(err?.shortMessage || err?.message || err);
-  if (err?.code === "ACTION_REJECTED" || /user rejected|denied/i.test(text)) return { code: "Rejected", message: "You cancelled it in your wallet." };
+  if (err?.code === "ACTION_REJECTED" || err?.code === 4001 || /user rejected|denied/i.test(text)) return { code: "Rejected", message: "You cancelled it in your wallet." };
+  if (err?.code === -32002 || /already pending|resource not available|resource unavailable/i.test(text)) return { code: "Pending", message: "Your wallet already has a request waiting. Click its icon in the browser toolbar, approve or reject it, then try again." };
   if (err?.code === "INSUFFICIENT_FUNDS" || /insufficient funds/i.test(text)) return { code: "NoEth", message: "Your wallet doesn't have enough Sepolia ETH for this (and the gas)." };
   return { code: "Unknown", message: text.slice(0, 200) };
 }

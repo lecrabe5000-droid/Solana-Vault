@@ -125,8 +125,24 @@ function switchNet(n) {
 
 // ------------------------------------------------------------------ wallet
 
+// Ethereum wallets announce themselves (EIP-6963), so MetaMask and Phantom each get their own button even when
+// one of them has taken over window.ethereum.
+const evmWallets = new Map();
+window.addEventListener("eip6963:announceProvider", (e) => {
+  const { info, provider } = e.detail || {};
+  if (!info?.rdns || !provider || evmWallets.has(info.rdns)) return;
+  evmWallets.set(info.rdns, [info.name, provider]);
+  if (S.net === "eth" && !S.wallet) render();
+});
+window.dispatchEvent(new Event("eip6963:requestProvider"));
+
 function providers() {
-  if (S.net === "eth") return window.ethereum ? [[window.ethereum.isMetaMask ? "MetaMask" : "Wallet", window.ethereum]] : [];
+  if (S.net === "eth") {
+    const list = [...evmWallets.entries()].sort(([a], [b]) => (b === "io.metamask") - (a === "io.metamask")).map(([, w]) => w);
+    if (list.length) return list;
+    const e = window.ethereum;
+    return e ? [[e.isPhantom ? "Phantom" : e.isMetaMask ? "MetaMask" : "Wallet", e]] : [];
+  }
   const out = [];
   const ph = window.phantom?.solana; if (ph?.isPhantom) out.push(["Phantom", ph]);
   if (window.solflare?.isSolflare) out.push(["Solflare", window.solflare]);
@@ -134,7 +150,10 @@ function providers() {
   if (!out.length && window.solana) out.push(["Wallet", window.solana]);
   return out;
 }
+let connecting = false;
 async function connect(provider) {
+  if (connecting) return;
+  connecting = true;
   try {
     if (S.net === "eth") {
       const acc = await provider.request({ method: "eth_requestAccounts" });
@@ -152,6 +171,7 @@ async function connect(provider) {
     try { localStorage.setItem("ecrin-wallet-" + S.net, "1"); } catch (_) {}
     await refresh();
   } catch (e) { toast(esc((C.x?.explain || explainError)(e).message), "err"); }
+  finally { connecting = false; }
 }
 function disconnect() { try { S.provider?.disconnect?.(); } catch (_) {} S.wallet = null; S.provider = null; S.vault = undefined; try { localStorage.removeItem("ecrin-wallet-" + S.net); } catch (_) {} render(); }
 
