@@ -1,7 +1,7 @@
 name: verify-sepolia
 
 # Run by hand: Actions → verify-sepolia → Run workflow.
-# Publishes the source of the contract in app/config-evm.js on Sepolia Etherscan (and Sourcify), so anyone,
+# Publishes the source of the contract in app/config-evm.js on Sepolia Etherscan, so anyone,
 # wallet scanners included, can read exactly what it does. Needs the ETHERSCAN_API_KEY secret.
 on:
   workflow_dispatch:
