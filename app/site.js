@@ -73,6 +73,8 @@
     steps[0].classList.add("on");
   }
 
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+
   if (calm) return;
 
   // Reveal on scroll, staggered within each group.

@@ -1,14 +1,19 @@
 {
+  "id": "/app",
   "name": "Ecrin",
   "short_name": "Ecrin",
-  "description": "Your Ecrin vault and wallet on Solana.",
-  "start_url": "/app",
+  "description": "Your Ecrin vault: crypto that can't be taken in a hurry.",
+  "start_url": "/app?source=homescreen",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#07080f",
-  "theme_color": "#07080f",
+  "orientation": "portrait",
+  "background_color": "#0c0d0f",
+  "theme_color": "#0c0d0f",
+  "categories": ["finance", "security"],
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

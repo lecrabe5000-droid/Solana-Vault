@@ -122,7 +122,7 @@ let C = NETS[S.net];
 function switchNet(n) {
   if (!NETS[n] || n === S.net) return;
   try { S.provider?.disconnect?.(); } catch (_) {}
-  Object.assign(S, { net: n, wallet: null, provider: null, walletSol: null, vault: undefined, price: null, tokens: [], tab: "portfolio", shown: null, chart: null, watchOwner: "", watched: undefined, err: null });
+  Object.assign(S, { readOnly: false, net: n, wallet: null, provider: null, walletSol: null, vault: undefined, price: null, tokens: [], tab: "portfolio", shown: null, chart: null, watchOwner: "", watched: undefined, err: null });
   C = NETS[n];
   try { localStorage.setItem("ecrin-net", n); } catch (_) {}
   render(); loadPrice(); reconnect();
@@ -188,7 +188,12 @@ async function connect(provider) {
   } catch (e) { toast(esc((C.x?.explain || explainError)(e).message), "err"); }
   finally { connecting = false; }
 }
-function disconnect() { try { S.provider?.disconnect?.(); } catch (_) {} S.wallet = null; S.provider = null; S.vault = undefined; try { localStorage.removeItem("ecrin-wallet-" + S.net); } catch (_) {} render(); }
+function disconnect() {
+  try { S.provider?.disconnect?.(); } catch (_) {}
+  S.wallet = null; S.provider = null; S.vault = undefined; S.readOnly = false;
+  try { localStorage.removeItem("ecrin-wallet-" + S.net); localStorage.removeItem("ecrin-view-" + S.net); } catch (_) {}
+  render();
+}
 
 /** The reward for cancelling: the case seals with a drawn check (and a short buzz on phones). */
 function seal() {
@@ -231,6 +236,53 @@ async function refresh() {
   } catch (e) { S.err = `Couldn't reach ${C.name} ${C.net}. Retrying…`; console.warn(e); }
   render();
 }
+
+// ------------------------------------------------------------------ home screen and view mode
+
+const standalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const isIOS = () => /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));
+const inWalletBrowser = () => isPhone() && !!(window.phantom?.solana || window.solflare || window.ethereum);
+let installPrompt = null;
+addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installPrompt = e; render(); });
+addEventListener("appinstalled", () => { installPrompt = null; render(); });
+
+function installCard() {
+  if (!isPhone() || standalone()) return "";
+  try { if (localStorage.getItem("ecrin-install-off") === "1") return ""; } catch (_) {}
+  return `<section class="glass install"><span class="in-ico">${logo}</span><div class="in-t"><b>Add Ecrin to your home screen</b><span>Your vault, one tap away. Opens like an app.</span></div><button class="btn primary sm" data-act="install">Install</button><button class="in-x" data-act="install-off" aria-label="Hide">×</button></section>`;
+}
+
+function installGuide() {
+  if (installPrompt) { installPrompt.prompt(); installPrompt.userChoice.finally(() => { installPrompt = null; render(); }); return; }
+  const url = location.origin + "/app";
+  const steps = inWalletBrowser()
+    ? `<p class="note">Wallet browsers can't add apps to the home screen. Open Ecrin in ${isIOS() ? "Safari" : "Chrome"} and install it from there.</p><div class="copy-row"><code>${esc(url.replace(/^https?:\/\//, ""))}</code><button type="button" class="btn sm" data-act="copy" data-v="${esc(url)}">Copy link</button></div>`
+    : isIOS()
+      ? `<ol class="guide"><li><b>1</b><span>Tap <b>Share</b> at the bottom of Safari (the square with an arrow).</span></li><li><b>2</b><span>Scroll and tap <b>Add to Home Screen</b>.</span></li><li><b>3</b><span>Tap <b>Add</b>. Ecrin appears with your other apps.</span></li></ol>`
+      : `<ol class="guide"><li><b>1</b><span>Open Chrome's menu <b>⋮</b> at the top right.</span></li><li><b>2</b><span>Tap <b>Install app</b> (or <b>Add to Home screen</b>).</span></li><li><b>3</b><span>Confirm. Ecrin appears with your other apps.</span></li></ol>`;
+  sheet(`<div class="rule-h"><span class="pol-ico">${logo}</span><div><h3>Install Ecrin</h3><span class="muted small">Takes ten seconds</span></div></div>${steps}
+    <p class="note">On the home screen, Ecrin opens in view mode: your vault, balance, countdowns and alerts. To sign something, it hands you to your wallet app.</p>`, () => true);
+  $("#sheet-form").querySelector('button[value="ok"]').hidden = true;
+}
+
+// View mode: watch a vault by address, with no wallet connected (what the home-screen app uses on phones).
+const viewKey = () => "ecrin-view-" + S.net;
+function startView(addr) {
+  const k = keyOf(addr);
+  if (!k) return toast("That address isn't valid", "err");
+  S.wallet = k; S.provider = null; S.readOnly = true; S.vault = undefined;
+  try { localStorage.setItem(viewKey(), k.toBase58()); } catch (_) {}
+  refresh();
+}
+/** In view mode, anything that needs a signature is handed to the wallet app. */
+function signElsewhere() {
+  const [name, href] = walletLinks()[0];
+  sheet(`<div class="rule-h"><span class="pol-ico">${I.lock}</span><div><h3>Sign in ${name}</h3><span class="muted small">You're in view mode</span></div></div>
+    <p class="note">The home-screen app can watch your vault but can't sign. ${name} opens Ecrin in its own browser, already on your vault, where you can confirm this.</p>
+    <a class="btn primary wide" href="${esc(href)}">Open in ${name}</a>`, () => true);
+  $("#sheet-form").querySelector('button[value="ok"]').hidden = true;
+}
+const SIGNING = new Set(["create", "deposit", "withdraw", "send", "trust", "rules", "rule", "cancel-w", "run", "cancel-c", "apply", "release", "approve"]);
 
 // ------------------------------------------------------------------ prices and tokens
 
@@ -428,8 +480,9 @@ function renderView() {
       <div class="wallets">${list.length ? list.map(([n], i) => `<button class="btn primary lg" data-act="connect" data-i="${i}">Connect ${esc(n)}</button>`).join("")
         : isPhone() ? walletLinks().map(([n, href], i) => `<a class="btn ${i ? "" : "primary "}lg" href="${esc(href)}">Open in ${n}</a>`).join("")
         : `<a class="btn primary lg" href="${C.getWallet[1]}" target="_blank" rel="noopener">${C.getWallet[0]}</a>`}</div>
-      ${!list.length && isPhone() ? `<p class="hint">Phone browsers can't reach wallet apps directly, so Ecrin opens inside your wallet's own browser. Don't have it yet? <a href="${C.getWallet[1]}" target="_blank" rel="noopener">${C.getWallet[0]}</a>.</p>` : ""}
-      <ol class="steps"><li><b>1</b><span>${C.setup}</span></li><li><b>2</b><span>Get free test ${C.unit} at <a href="${C.faucet}" target="_blank" rel="noopener">${C.faucetName}</a>.</span></li><li><b>3</b><span>Create your vault and try a withdrawal. Watch the clock, then cancel it.</span></li></ol>
+      ${!list.length && isPhone() ? `<p class="hint">Phone browsers can't reach wallet apps directly, so Ecrin opens inside your wallet's own browser. Don't have it yet? <a href="${C.getWallet[1]}" target="_blank" rel="noopener">${C.getWallet[0]}</a>.</p>
+        <div class="viewmode"><span class="label">Or just watch your vault</span><div class="lookup"><input id="view-addr" class="input" placeholder="Your ${C.name} wallet address" spellcheck="false" autocomplete="off"/><button class="btn" data-act="view-start">View</button></div><p class="hint">View mode shows your vault, countdowns and alerts. Signing opens your wallet app.</p></div>` : ""}
+      <ol class="steps"><li><b>1</b><span><span>${C.setup}</span></span></li><li><b>2</b><span><span>Get free test ${C.unit} at <a href="${C.faucet}" target="_blank" rel="noopener">${C.faucetName}</a>.</span></span></li><li><b>3</b><span><span>Create your vault and try a withdrawal. Watch the clock, then cancel it.</span></span></li></ol>
     </section>`, { nav: false });
     return;
   }
@@ -437,7 +490,7 @@ function renderView() {
   if (S.vault === undefined) { app.innerHTML = shell(`<section class="glass hello"><div class="spinner"></div><p>Reading your vault from ${C.name} ${C.net}…</p></section>`); return; }
   if (S.vault === null) { app.innerHTML = shell(createView(), { nav: false }); return; }
   const v = S.vault;
-  app.innerHTML = shell(S.tab === "vault" ? vaultView(v) : S.tab === "activity" ? activityView() : portfolioView(v));
+  app.innerHTML = shell((S.tab === "portfolio" ? installCard() : "") + (S.readOnly ? `<div class="viewbar">${I.eye}<span><b>View mode</b> · signing opens your wallet app</span><button class="link" data-act="disconnect">Exit</button></div>` : "") + (S.tab === "vault" ? vaultView(v) : S.tab === "activity" ? activityView() : portfolioView(v)));
   countUp();
 }
 
@@ -788,6 +841,10 @@ const actions = {
     if (S.tab === "guardian" && S.watchOwner) refresh();
   },
   alerts: () => startAlerts(),
+  install: () => installGuide(),
+  "install-off": () => { try { localStorage.setItem("ecrin-install-off", "1"); } catch (_) {} render(); },
+  "view-start": () => startView($("#view-addr")?.value),
+  copy: async (el) => { try { await navigator.clipboard.writeText(el.dataset.v); toast("Link copied"); } catch (_) { toast("Copy failed: press and hold the link", "err"); } },
   privacy: () => { S.hide = !S.hide; try { localStorage.setItem("ecrin-hide", S.hide ? "1" : "0"); } catch (_) {} render(); },
   theme: () => {
     const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
@@ -843,7 +900,12 @@ const actions = {
   approve: (el) => send("Approved a trusted address", () => C.x.ops.guardianApproveChange(keyOf(S.watchOwner), Number(el.dataset.id))),
 };
 
-document.addEventListener("click", (e) => { const el = e.target.closest("[data-act]"); if (!el || el.disabled) return; actions[el.dataset.act]?.(el); });
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-act]");
+  if (!el || el.disabled) return;
+  if (S.readOnly && SIGNING.has(el.dataset.act)) { $("#sheet").close(); return signElsewhere(); }
+  actions[el.dataset.act]?.(el);
+});
 // Live countdowns between refreshes: the withdrawal clocks tick every second; when one hits zero, reload the vault.
 setInterval(() => {
   let done = false;
@@ -866,7 +928,10 @@ function reconnect() {
     else p.connect?.({ onlyIfTrusted: true }).then((r) => { if (r?.publicKey || p.publicKey) connect(p); }).catch(() => {});
   } catch (_) {}
 }
+// Phones without an injected wallet (Safari, Chrome, the home-screen app) reopen the last watched vault.
+try { const a = localStorage.getItem(viewKey()); if (a && !providers().length && C.x) startView(a); } catch (_) {}
 reconnect();
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
 
 // The case leans toward the pointer and catches the light (mouse and pen only).
 if (matchMedia("(pointer: fine)").matches && !matchMedia("(prefers-reduced-motion: reduce)").matches) {

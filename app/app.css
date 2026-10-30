@@ -544,3 +544,23 @@ section.glass { border-radius: 20px; }
 }
 .pol-val b.addr-v { font-family: var(--font); font-size: 14.5px; font-weight: 700; letter-spacing: 0; }
 @media (max-width: 560px) { .pol-val { display: flex; justify-content: space-between; width: 100%; } }
+
+/* install card, view mode, guides */
+.install { display: flex; align-items: center; gap: 14px; padding: 14px 16px !important; }
+.in-ico svg { width: 34px; height: 34px; }
+.in-t { display: grid; flex: 1; min-width: 0; }
+.in-t b { font-size: 14px; } .in-t span { color: var(--muted); font-size: 12.5px; }
+.in-x { flex: none; width: 28px; height: 28px; border: 0; border-radius: 50%; background: none; color: var(--muted); font-size: 20px; line-height: 1; }
+.viewbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding: 10px 14px; border: 1px dashed var(--line-2); border-radius: 12px; color: var(--text); font-size: 13px; }
+.viewbar svg { width: 17px; height: 17px; fill: none; stroke: var(--accent); stroke-width: 1.8; }
+.viewbar span { flex: 1; } .viewbar .link { color: var(--ink); font-weight: 600; }
+.viewmode { display: grid; gap: 10px; margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--line); text-align: left; }
+.guide { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.guide li { display: flex; gap: 12px; align-items: baseline; font-size: 14.5px; color: var(--text); }
+.guide li > b:first-child { flex: none; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: var(--on-ink); font-size: 12px; }
+.copy-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; }
+.copy-row code { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; }
+.demo-bar { padding-top: calc(7px + env(safe-area-inset-top, 0px)); }
+[hidden] { display: none !important; }
+.guide li { align-items: flex-start; }
+.guide li > span { flex: 1; }
