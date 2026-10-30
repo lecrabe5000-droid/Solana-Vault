@@ -299,3 +299,130 @@ a.chip:hover { color: var(--ink); }
   .lookup { flex-direction: column; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } .chart .ln { stroke-dashoffset: 0; } }
+
+/* ------------------------------------------------------------------ signature: the case, the dial, the seal */
+.serif { font-family: "Instrument Serif", ui-serif, Georgia, serif; font-weight: 400; letter-spacing: -.01em; }
+.acc { color: var(--accent); font-weight: 600; }
+.center { text-align: center; }
+.dotsep { width: 3px; height: 3px; border-radius: 50%; background: var(--line-2); }
+
+/* home */
+.home-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin: 4px 0 26px; }
+.home-top .big { font: 400 clamp(56px, 8.5vw, 104px)/.95 "Instrument Serif", ui-serif, Georgia, serif; letter-spacing: -.02em; margin-top: 8px; }
+.home-top .qa { margin: 0; }
+.home-grid { display: grid; grid-template-columns: minmax(300px, 420px) 1fr; gap: 16px; margin-bottom: 16px; align-items: stretch; }
+.home-grid .chart-card { margin: 0; display: flex; flex-direction: column; }
+.home-grid .chart { flex: 1; min-height: 220px; }
+.stack { display: grid; gap: 12px; align-content: start; }
+
+/* the vault case: always obsidian, in both themes */
+.case { --mx: 50%; --my: 0%; position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: 22px; width: 100%; aspect-ratio: 1.58; min-height: 230px; padding: 24px 24px 20px; border: 0; border-radius: 22px; overflow: hidden; text-align: left; color: #f1f0ea; isolation: isolate;
+  background: radial-gradient(120% 90% at 85% 0%, #23263a 0%, #121318 55%, #0b0b0e 100%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .08) inset, 0 0 0 1px rgba(255, 255, 255, .04) inset, 0 30px 60px -30px rgba(10, 12, 30, .7), 0 12px 24px -16px rgba(10, 12, 30, .5);
+  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform .5s cubic-bezier(.2, .7, .2, 1), box-shadow .3s; }
+.case.tilting { transition: transform .08s linear; }
+button.case { cursor: pointer; }
+.case .guilloche { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; fill: none; stroke: rgba(160, 175, 255, .085); stroke-width: .6; }
+.case .sheen { position: absolute; inset: 0; z-index: -1; background: radial-gradient(420px circle at var(--mx) var(--my), rgba(140, 160, 255, .16), transparent 45%); pointer-events: none; }
+.case::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, .06) 48%, transparent 60%); background-size: 250% 100%; animation: glint 7s ease-in-out infinite; }
+@keyframes glint { 0%, 60% { background-position: 120% 0; } 100% { background-position: -60% 0; } }
+.case-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.case-mark { display: inline-flex; align-items: center; gap: 8px; }
+.case-mark svg { width: 20px; height: 20px; }
+.case-mark b { color: #f1f0ea; font-size: 12px; font-weight: 600; letter-spacing: .32em; }
+.case-lvl { padding: 4px 10px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 999px; color: #c9cbe0; font-size: 11.5px; font-weight: 500; letter-spacing: .02em; }
+.case-k { display: inline-flex; align-items: center; gap: 6px; color: #9aa3cf; font-size: 11.5px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; }
+.case-k svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.case-bal { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; }
+.case-bal .serif { color: #fff; font-size: clamp(48px, 6vw, 64px); line-height: .95; }
+.case-bal small { color: #9aa3cf; font-size: 15px; font-weight: 500; }
+.case-usd { display: block; margin-top: 6px; color: #9aa3cf; font-size: 14px; font-variant-numeric: tabular-nums; }
+.case-foot { display: flex; align-items: center; gap: 10px; color: #c9cbe0; font-size: 13px; }
+.case-foot b { color: #fff; }
+.case-foot .count { color: #ffc66b; }
+.cs-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #7d97ff; box-shadow: 0 0 0 4px rgba(125, 151, 255, .18); }
+.cs-dot.warn { background: #ffb547; box-shadow: 0 0 0 4px rgba(255, 181, 71, .2); animation: beat 1.6s ease-in-out infinite; }
+@keyframes beat { 50% { box-shadow: 0 0 0 7px rgba(255, 181, 71, 0); } }
+.case-id { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; color: #8e93ad; font-size: 12.5px; letter-spacing: .08em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.case-id .coin { width: 20px; height: 20px; background: rgba(255, 255, 255, .12); }
+.case-id .coin svg path { fill: #fff; }
+.case.leaving { box-shadow: 0 1px 0 rgba(255, 255, 255, .08) inset, 0 0 0 1px rgba(255, 181, 71, .28) inset, 0 30px 60px -30px rgba(10, 12, 30, .7); }
+
+/* the wallet card: the lighter companion */
+.wcard { display: grid; gap: 4px; padding: 20px 22px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); }
+.wcard .case-top { margin-bottom: 8px; }
+.wcard .case-k { color: var(--muted); }
+.wcard .case-lvl { border-color: var(--line); color: var(--muted); }
+.wcard .case-bal { margin: 0; }
+.wcard .case-bal .serif { color: var(--ink); font-size: 40px; }
+.wcard .case-bal small, .wcard .case-usd { color: var(--muted); margin-top: 0; }
+
+/* vault page */
+.vault-top { display: grid; grid-template-columns: minmax(300px, 460px) 1fr; gap: 28px; align-items: center; margin-bottom: 22px; }
+.vault-side { display: grid; gap: 22px; align-content: center; }
+.vault-side .qa { margin: 0; }
+.vs-facts { display: flex; gap: 34px; }
+.vs-facts div { display: grid; gap: 4px; }
+.vs-facts b { font-size: 34px; line-height: 1; }
+.vs-facts small { color: var(--muted); font-size: 12px; }
+.vault-side .chips { margin: 0; }
+
+/* the dial */
+.dial { position: relative; width: min(260px, 72vw); aspect-ratio: 1; margin: 6px auto 0; }
+.dial svg { width: 100%; height: 100%; overflow: visible; }
+.dial .ticks line { stroke: var(--line-2); stroke-width: 1; stroke-linecap: round; }
+.dial .ticks line.maj { stroke: var(--muted); stroke-width: 1.5; }
+.dial .d-track { fill: none; stroke: var(--line); stroke-width: 3; }
+.dial .d-arc { fill: none; stroke: var(--warn); stroke-width: 3; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+.d-in { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; text-align: center; }
+.d-in b { color: var(--ink); font-size: clamp(40px, 9vw, 54px); line-height: 1; font-variant-numeric: tabular-nums; }
+.d-in span { margin-top: 4px; color: var(--warn); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.d-in small { margin-top: 6px; color: var(--muted); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; }
+.row.wd { gap: 14px; padding: 22px; }
+
+/* the seal after a cancel */
+.seal { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; pointer-events: none; background: color-mix(in srgb, var(--bg) 55%, transparent); animation: seal-bg 1.9s ease forwards; }
+.seal-in { display: grid; justify-items: center; gap: 8px; padding: 30px 40px; border-radius: 26px; background: var(--surface); box-shadow: 0 0 0 1px var(--line), 0 40px 80px -30px rgba(0, 0, 0, .45); animation: seal-pop 1.9s cubic-bezier(.2, .8, .2, 1) forwards; }
+.seal svg { width: 64px; height: 64px; fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.seal circle { stroke-dasharray: 183; stroke-dashoffset: 183; animation: draw-c .55s .1s ease-out forwards; }
+.seal path { stroke-dasharray: 40; stroke-dashoffset: 40; animation: draw-c .35s .55s ease-out forwards; }
+.seal b { font: 400 32px/1 "Instrument Serif", ui-serif, Georgia, serif; }
+.seal span { color: var(--muted); font-size: 13.5px; }
+@keyframes draw-c { to { stroke-dashoffset: 0; } }
+@keyframes seal-pop { 0% { opacity: 0; transform: scale(.9); } 14% { opacity: 1; transform: scale(1); } 80% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(.98); } }
+@keyframes seal-bg { 0% { opacity: 0; } 12%, 80% { opacity: 1; } 100% { opacity: 0; } }
+
+/* privacy: hide every amount */
+.private .m, .private .big, .private .tip b, .private .legend b { filter: blur(9px); user-select: none; transition: filter .2s; }
+.private .chart svg .ln, .private .chart svg path { opacity: .35; }
+.m { transition: filter .2s; }
+
+/* tab changes cross-fade where the browser supports view transitions */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .22s; }
+
+/* small refinements over the base sheet */
+.main { padding-top: 34px; }
+section.glass { border-radius: 20px; }
+.qa span { width: 50px; height: 50px; }
+.feed li { padding: 13px 2px; }
+
+@media (max-width: 900px) {
+  .home-top { margin-bottom: 18px; }
+  .home-top .qa { width: 100%; }
+  .home-grid, .vault-top { grid-template-columns: 1fr; gap: 14px; }
+  .case { aspect-ratio: auto; min-height: 210px; padding: 20px; }
+  .vs-facts b { font-size: 28px; }
+}
+@media (prefers-reduced-motion: reduce) { .case { transform: none !important; } }
+
+/* fit fixes */
+.netsw button { min-width: 0; padding: 0 6px; }
+.side .netsw button span:not(.coin) { overflow: hidden; text-overflow: ellipsis; }
+.d-in b { font-size: clamp(32px, 7.5vw, 44px); }
+@media (max-width: 560px) {
+  .mtop { gap: 6px; }
+  .mtop .brand span { display: none; }
+  .mtop .acct-chip .coin { display: none; }
+  .mtop .acct-chip { padding: 0 9px; }
+  .mtop .theme { width: 36px; height: 36px; border-radius: 10px; }
+}

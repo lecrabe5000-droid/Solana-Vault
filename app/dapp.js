@@ -25,7 +25,9 @@ const client = CONFIG.programId ? createClient({ web3, connection, programId: CO
 
 let savedNet = "sol";
 try { savedNet = new URLSearchParams(location.search).get("net") || localStorage.getItem("ecrin-net") || "sol"; } catch (_) {}
-const S = { net: savedNet === "eth" ? "eth" : "sol", tab: "portfolio", range: "7", shown: null, chart: null, price: null, tokens: [], wallet: null, provider: null, walletSol: null, vault: undefined, view: "owner", watchOwner: "", watched: undefined, busy: false, clockOffset: 0, err: null, pick: "strong" };
+let savedHide = false;
+try { savedHide = localStorage.getItem("ecrin-hide") === "1"; } catch (_) {}
+const S = { hide: savedHide, net: savedNet === "eth" ? "eth" : "sol", tab: "portfolio", range: "7", shown: null, chart: null, price: null, tokens: [], wallet: null, provider: null, walletSol: null, vault: undefined, view: "owner", watchOwner: "", watched: undefined, busy: false, clockOffset: 0, err: null, pick: "strong" };
 const now = () => Math.floor(Date.now() / 1000) + S.clockOffset;
 
 let toastTimer;
@@ -175,6 +177,16 @@ async function connect(provider) {
 }
 function disconnect() { try { S.provider?.disconnect?.(); } catch (_) {} S.wallet = null; S.provider = null; S.vault = undefined; try { localStorage.removeItem("ecrin-wallet-" + S.net); } catch (_) {} render(); }
 
+/** The reward for cancelling: the case seals with a drawn check (and a short buzz on phones). */
+function seal() {
+  navigator.vibrate?.([14, 40, 22]);
+  const el = document.createElement("div");
+  el.className = "seal";
+  el.innerHTML = `<div class="seal-in"><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29"/><path d="M20 33l8 8 16-17"/></svg><b>Kept safe</b><span>It never left your vault.</span></div>`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1900);
+}
+
 /** Runs one signed operation, then logs it, tells the person, and reloads the vault. */
 async function send(label, op) {
   if (S.busy) return null;
@@ -183,6 +195,7 @@ async function send(label, op) {
     const sig = await op();
     log(label, sig);
     toast(`${esc(label)} · <a href="${explorer("tx", sig)}" target="_blank" rel="noopener" style="color:inherit">view</a>`, label.startsWith("Cancelled") ? "win" : "");
+    if (label.startsWith("Cancelled")) seal();
     return sig;
   } catch (e) {
     console.warn(e);
@@ -261,6 +274,8 @@ const I = {
   wallet: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M16 12.5h2"/></svg>`,
   power: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v8"/><path d="M7 6.5a7 7 0 1 0 10 0"/></svg>`,
   arrow: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`,
+  eye: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>`,
+  eyeOff: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4l16 16M9.9 5.8A9.8 9.8 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-3 3.7M6.3 7.6A16.6 16.6 0 0 0 2.5 12S6 18.5 12 18.5c1.6 0 3-.4 4.2-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>`,
   sun: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>`,
   moon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>`,
   ext: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/></svg>`,
@@ -334,6 +349,10 @@ function countUp() {
 
 const TABS = [["portfolio", "Portfolio", I.home], ["vault", "Vault", I.shield], ["activity", "Activity", I.list], ["guardian", "Guardian", I.people]];
 
+function privacyBtn() {
+  return `<button class="theme" data-act="privacy" aria-pressed="${S.hide}" aria-label="${S.hide ? "Show" : "Hide"} balances" title="${S.hide ? "Show" : "Hide"} balances">${S.hide ? I.eyeOff : I.eye}</button>`;
+}
+
 function themeBtn() {
   const dark = document.documentElement.dataset.theme === "dark";
   return `<button class="theme" data-act="theme" aria-label="Switch to ${dark ? "light" : "dark"} mode" title="Switch to ${dark ? "light" : "dark"} mode">${dark ? I.sun : I.moon}</button>`;
@@ -346,14 +365,14 @@ function netSwitch() {
 function shell(content, { nav = true } = {}) {
   const w = S.wallet, pending = S.vault?.withdrawals?.length || 0;
   const items = (cls) => TABS.map(([k, label, icon]) => `<button class="${cls}" data-act="tab" data-t="${k}" aria-current="${S.tab === k ? "page" : "false"}">${icon}<span>${label}</span>${k === "vault" && pending ? `<i class="badge">${pending}</i>` : ""}</button>`).join("");
-  return `<div class="shell${nav && w ? "" : " bare"}">
+  return `<div class="shell${nav && w ? "" : " bare"}${S.hide ? " private" : ""}">
     <aside class="side">
       <a class="brand" href="/">${logo}<span>Ecrin</span></a>
       ${nav && w ? `<nav class="side-nav" aria-label="Sections">${items("nav-i")}</nav>` : ""}
       <div class="side-foot">
         ${netSwitch()}
         <div class="net-note"><i class="live"></i>${C.name} ${C.net} · testnet</div>
-        <div class="foot-row">${w ? `<button class="acct-chip" data-act="disconnect" title="Disconnect ${esc(w.toBase58())}">${coin(S.net)}<span>${short(w)}</span>${I.power}</button>` : ""}${themeBtn()}</div>
+        <div class="foot-row">${w ? `<button class="acct-chip" data-act="disconnect" title="Disconnect ${esc(w.toBase58())}">${coin(S.net)}<span>${short(w)}</span>${I.power}</button>` : ""}${privacyBtn()}${themeBtn()}</div>
       </div>
     </aside>
     <main class="main">
@@ -361,7 +380,7 @@ function shell(content, { nav = true } = {}) {
         <a class="brand" href="/">${logo}<span>Ecrin</span></a>
         ${netSwitch()}
         ${w ? `<button class="acct-chip" data-act="disconnect" title="Disconnect">${coin(S.net)}<span>${short(w)}</span></button>` : ""}
-        ${themeBtn()}
+        ${privacyBtn()}${themeBtn()}
       </header>
       ${S.err ? `<div class="notice">${esc(S.err)}</div>` : ""}
       ${content}
@@ -433,34 +452,55 @@ function actionsRow() {
   </div>`;
 }
 
-function portfolioView(v) {
+// Engraved wave pattern for the vault case, drawn once: offset circles like a watch dial's guilloché.
+const GUILLOCHE = `<svg class="guilloche" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${Array.from({ length: 34 }, (_, i) => `<circle cx="${330 + Math.cos(i / 2.2) * 14}" cy="${40 + Math.sin(i / 2.2) * 14}" r="${18 + i * 9}"/>`).join("")}</svg>`;
+
+/** The vault as an object: an obsidian case with the protected balance and its state. */
+function caseCard(v, { link = true } = {}) {
   const t = now(), locked = v.lockedUntil && t < v.lockedUntil;
-  const vaultL = v.balance, walletL = S.walletSol || 0, total = vaultL + walletL, queued = v.balance - v.available;
-  const pct = total ? Math.round((vaultL / total) * 100) : 0, ch = S.price?.change;
-  const totalUsd = S.price ? (total / LAMPORTS) * S.price.usd : null;
   const next = v.withdrawals.slice().sort((a, b) => a.readyAt - b.readyAt)[0];
   const opens = next ? Math.max(next.readyAt, locked ? v.lockedUntil : 0) : 0;
+  const state = next
+    ? `<span class="cs-dot warn"></span><span><b>${sol(next.amount)} ${C.unit}</b> leaving${opens > t ? ` in <span class="count" data-ready="${opens}">${dur(opens - t)}</span>` : " · ready"}</span>`
+    : `<span class="cs-dot"></span><span>${locked ? "Locked until " + new Date(v.lockedUntil * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "Sealed · nothing waiting to leave"}</span>`;
+  return `<${link ? `button data-act="tab" data-t="vault"` : "div"} class="case${next ? " leaving" : ""}" data-tilt>
+    ${GUILLOCHE}<i class="sheen"></i>
+    <div class="case-top"><span class="case-mark">${logo}<b>ECRIN</b></span><span class="case-lvl">${levelName(v)} · ${delayWords(v.withdrawDelay)}</span></div>
+    <div class="case-mid"><span class="case-k">${I.shield}Protected</span><div class="case-bal"><span class="serif m">${sol(v.balance)}</span><small>${C.unit}</small></div><span class="case-usd m">${usd(v.balance) ?? ""}</span></div>
+    <div class="case-foot">${state}<span class="case-id">${coin(S.net)}•••• ${String(v.owner).slice(-4)}</span></div>
+  </${link ? "button" : "div"}>`;
+}
+
+function walletCard() {
+  const w = S.walletSol || 0;
+  return `<div class="wcard">
+    <div class="case-top"><span class="case-k">${I.wallet}Wallet</span><span class="case-lvl">Spendable · instant</span></div>
+    <div class="case-bal"><span class="serif m">${sol(w)}</span><small>${C.unit}</small></div>
+    <span class="case-usd m">${usd(w) ?? ""}</span>
+  </div>`;
+}
+
+function portfolioView(v) {
+  const vaultL = v.balance, walletL = S.walletSol || 0, total = vaultL + walletL;
+  const pct = total ? Math.round((vaultL / total) * 100) : 0, ch = S.price?.change;
+  const totalUsd = S.price ? (total / LAMPORTS) * S.price.usd : null;
+  const recent = readLog().slice(0, 4);
   return `
-    ${next ? `<button class="alert glass" data-act="tab" data-t="vault"><span class="a-ico">${I.clock}</span><span class="a-txt"><b>${sol(next.amount)} ${C.unit} is waiting to leave</b><span>${opens > t ? `Can leave in <span class="count" data-ready="${opens}">${dur(opens - t)}</span>. Not you? Cancel it now.` : "Ready. It only leaves if you send it."}</span></span>${I.arrow}</button>` : ""}
-    <section class="hero glass">
-      <div class="hero-l">
+    <section class="home-top">
+      <div>
         <span class="label">Total balance</span>
-        <div class="big" data-count="${totalUsd ?? total / LAMPORTS}" data-fmt="${totalUsd != null ? "usd" : "coin"}">${totalUsd != null ? money(totalUsd) : sol(total)}</div>
-        <div class="sub">${ch != null ? `<span class="pill ${ch >= 0 ? "pos" : "neg"}">${ch >= 0 ? "▲" : "▼"} ${Math.abs(ch).toFixed(2)}%</span>` : ""}<span>${sol(total)} ${C.unit}</span>${S.price ? `<span class="muted">· test ${C.unit} at the real price</span>` : ""}</div>
-        ${actionsRow()}
+        <div class="big serif m" data-count="${totalUsd ?? total / LAMPORTS}" data-fmt="${totalUsd != null ? "usd" : "coin"}">${totalUsd != null ? money(totalUsd) : sol(total)}</div>
+        <div class="sub">${ch != null ? `<span class="pill ${ch >= 0 ? "pos" : "neg"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}% today</span>` : ""}<span class="m">${sol(total)} ${C.unit}</span><span class="dotsep"></span><span><b class="acc">${pct}%</b> protected</span></div>
       </div>
-      <div class="hero-r">${ring(pct)}
-        <ul class="legend"><li><i class="sw a"></i>Vault<b>${sol(vaultL)}</b></li><li><i class="sw b"></i>Wallet<b>${sol(walletL)}</b></li></ul>
-      </div>
+      ${actionsRow()}
     </section>
-    ${chartHTML(total)}
-    <section class="glass assets">
-      <div class="sec-h"><h2>Assets</h2><span class="muted">${S.price ? `1 ${C.unit} = ${money(S.price.usd)}` : ""}</span></div>
-      <button class="asset" data-act="tab" data-t="vault">${coin(S.net)}<span class="a-name"><b>${C.unit} · Vault</b><span class="tag pro">${I.shield}Protected · ${levelName(v)}</span></span>
-        <span class="a-amt"><b>${usd(vaultL) ?? sol(vaultL) + " " + C.unit}</b><span>${sol(vaultL)} ${C.unit}${queued ? ` · ${sol(queued)} leaving` : ""}</span></span></button>
-      <div class="asset">${coin(S.net)}<span class="a-name"><b>${C.unit} · Wallet</b><span class="tag">${I.wallet}Spendable</span></span>
-        <span class="a-amt"><b>${usd(walletL) ?? sol(walletL) + " " + C.unit}</b><span>${sol(walletL)} ${C.unit}</span></span></div>
-      ${S.tokens.length ? `<div class="asset"><span class="coin tok" aria-hidden="true">+${S.tokens.length}</span><span class="a-name"><b>Other tokens</b><span class="tag">In your wallet</span></span><span class="a-amt"><b>${S.tokens.length}</b><span>token${S.tokens.length > 1 ? "s" : ""}</span></span></div>` : ""}
+    <div class="home-grid">
+      <div class="stack">${caseCard(v)}${walletCard()}</div>
+      ${chartHTML(total)}
+    </div>
+    <section class="glass">
+      <div class="sec-h"><h2>Recent</h2>${recent.length ? `<button class="btn sm" data-act="tab" data-t="activity">See all</button>` : ""}</div>
+      ${recent.length ? feedHTML(recent) : `<div class="empty">Nothing yet. Deposits, withdrawals and rule changes show up here.</div>`}
     </section>`;
 }
 
@@ -468,17 +508,20 @@ function vaultView(v) {
   const t = now(), locked = v.lockedUntil && t < v.lockedUntil, queued = v.balance - v.available;
   const changes = rowsChanges(v, false);
   return `
-    <section class="vhero glass">
-      <div class="vh-shield">${I.shield}</div>
-      <div class="vh-txt"><span class="label">Protected in your vault · ${levelName(v)}</span>
-        <div class="big" data-count="${v.balance / LAMPORTS}" data-fmt="coin">${sol(v.balance)}</div><span class="unit">${C.unit}${usd(v.balance) ? ` · ${usd(v.balance)}` : ""}</span>
-        <div class="chips"><span class="chip">${I.clock}Withdrawals wait ${delayWords(v.withdrawDelay)}</span>${locked ? `<span class="chip">${I.lock}Locked until ${new Date(v.lockedUntil * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short" })}</span>` : ""}${v.guardian ? `<span class="chip">${I.people}Guardian ${short(v.guardian)}</span>` : ""}<a class="chip" href="${explorer("address", v.address.toBase58())}" target="_blank" rel="noopener">${I.ext}On-chain</a></div>
+    <section class="vault-top">
+      ${caseCard(v, { link: false })}
+      <div class="vault-side">
+        ${actionsRow()}
+        <div class="vs-facts">
+          <div><span class="label">Available</span><b class="serif m">${sol(v.available)}</b><small>${C.unit}</small></div>
+          <div><span class="label">Leaving</span><b class="serif m">${sol(queued)}</b><small>${C.unit}</small></div>
+        </div>
+        <div class="chips">${v.guardian ? `<span class="chip">${I.people}Guardian ${short(v.guardian)}</span>` : `<span class="chip">${I.people}No guardian</span>`}<a class="chip" href="${explorer("address", v.address.toBase58())}" target="_blank" rel="noopener">${I.ext}View on-chain</a></div>
       </div>
-      ${actionsRow()}
     </section>
     <div class="cols">
       <div class="col">
-        <section class="glass"><div class="sec-h"><h2>Waiting to leave</h2><span class="muted">${queued ? `${sol(queued)} ${C.unit}` : "cancel any time"}</span></div><div class="rows">${rowsWithdrawals(v, false)}</div></section>
+        <section class="glass"><div class="sec-h"><h2>Waiting to leave</h2><span class="muted">cancel any time</span></div><div class="rows">${rowsWithdrawals(v, false)}</div></section>
         ${changes ? `<section class="glass"><div class="sec-h"><h2>Rule changes waiting</h2><span class="muted">looser rules wait ${delayWords(v.ruleDelay)}</span></div><div class="rows">${changes}</div></section>` : ""}
       </div>
       <div class="col">
@@ -495,12 +538,55 @@ function vaultView(v) {
     </div>`;
 }
 
+function feedHTML(log) {
+  const kind = (t) => /^Cancelled/.test(t) ? ["win", I.shield] : /^Deposited/.test(t) ? ["in", I.down] : /withdraw|Sent/i.test(t) ? ["out", I.up] : /rule|trust/i.test(t) ? ["rule", I.sliders] : ["other", I.clock];
+  return `<ul class="feed">${log.map((l) => { const [k, ic] = kind(l.text); return `<li class="${k}"><span class="f-ico">${ic}</span><span class="f-txt"><b>${esc(l.text)}</b><time>${new Date(l.at * 1000).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</time></span><a href="${explorer("tx", l.sig)}" target="_blank" rel="noopener" aria-label="View on the explorer">${I.ext}</a></li>`; }).join("")}</ul>`;
+}
+
 function activityView() {
   const log = readLog();
-  const kind = (t) => /^Cancelled/.test(t) ? ["win", I.shield] : /^Deposited/.test(t) ? ["in", I.down] : /withdraw|Sent/i.test(t) ? ["out", I.up] : /rule|trust/i.test(t) ? ["rule", I.sliders] : ["other", I.clock];
   return `<section class="glass"><div class="sec-h"><h2>Activity</h2><span class="muted">from this browser</span></div>
-    ${log.length ? `<ul class="feed">${log.map((l) => { const [k, ic] = kind(l.text); return `<li class="${k}"><span class="f-ico">${ic}</span><span class="f-txt"><b>${esc(l.text)}</b><time>${new Date(l.at * 1000).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</time></span><a href="${explorer("tx", l.sig)}" target="_blank" rel="noopener" aria-label="View on the explorer">${I.ext}</a></li>`; }).join("")}</ul>` : `<div class="empty">Your transactions from this browser show up here.</div>`}
-  </section>`;
+    ${log.length ? feedHTML(log) : `<div class="empty">Your transactions from this browser show up here.</div>`}</section>`;
+}
+
+// A watch dial for a queued withdrawal: 60 ticks, an arc that runs down, the time left in the middle.
+const DIAL_R = 84, DIAL_C = 2 * Math.PI * DIAL_R;
+function dialText(left) {
+  const l = Math.max(0, left), d = Math.floor(l / DAY), h = Math.floor((l % DAY) / HOUR), m = Math.floor((l % HOUR) / 60), s = l % 60, p = (n) => String(n).padStart(2, "0");
+  return { main: d ? `${d}d ${p(h)}:${p(m)}` : `${p(h)}:${p(m)}`, sec: `${p(s)}s` };
+}
+function dialHTML(opens, total) {
+  const left = opens - now(), { main, sec } = dialText(left), frac = Math.max(0, Math.min(1, left / Math.max(1, total)));
+  const ticks = Array.from({ length: 60 }, (_, i) => { const a = (i / 60) * 2 * Math.PI, r1 = i % 5 ? 92 : 89, x = (r) => 100 + r * Math.sin(a), y = (r) => 100 - r * Math.cos(a); return `<line x1="${x(r1).toFixed(1)}" y1="${y(r1).toFixed(1)}" x2="${x(96).toFixed(1)}" y2="${y(96).toFixed(1)}"${i % 5 ? "" : ' class="maj"'}/>`; }).join("");
+  return `<div class="dial" data-ready="${opens}" data-total="${total}" role="timer" aria-label="Time left before this can leave: ${main} ${sec}">
+    <svg viewBox="0 0 200 200" aria-hidden="true"><g class="ticks">${ticks}</g><circle class="d-track" cx="100" cy="100" r="${DIAL_R}"/><circle class="d-arc" cx="100" cy="100" r="${DIAL_R}" stroke-dasharray="${DIAL_C}" stroke-dashoffset="${(DIAL_C * (1 - frac)).toFixed(2)}" transform="rotate(-90 100 100) scale(1 -1) translate(0 -200)"/></svg>
+    <div class="d-in"><b class="serif">${main}</b><span>${sec}</span><small>until it can leave</small></div>
+  </div>`;
+}
+function tickDial(el) {
+  const opens = Number(el.dataset.ready), total = Number(el.dataset.total), left = opens - now();
+  if (left <= 0) return false;
+  const { main, sec } = dialText(left);
+  el.querySelector(".d-in b").textContent = main; el.querySelector(".d-in span").textContent = sec;
+  el.querySelector(".d-arc").setAttribute("stroke-dashoffset", (DIAL_C * (1 - Math.min(1, left / Math.max(1, total)))).toFixed(2));
+  return true;
+}
+
+function rowsWithdrawals(v, asGuardian) {
+  const t = now(), locked = v.lockedUntil && t < v.lockedUntil;
+  return v.withdrawals.map((w) => {
+    const left = w.readyAt - t, ready = left <= 0 && !locked, opens = Math.max(w.readyAt, locked ? v.lockedUntil : 0);
+    const status = ready ? `<div class="clock-done">Ready. It only leaves if you press send.</div>` : dialHTML(opens, Math.max(v.withdrawDelay, opens - (w.readyAt - v.withdrawDelay)));
+    const guard = asGuardian
+      ? (S.wallet && v.guardian?.equals(S.wallet) ? `<div class="row-acts"><button class="btn sm good" data-act="release" data-id="${w.id}" data-dest="${w.dest.toBase58()}" ${S.busy ? "disabled" : ""}>Approve emergency release</button></div>` : "")
+      : `<button class="keep" data-act="cancel-w" data-id="${w.id}" data-amt="${w.amount}" ${S.busy ? "disabled" : ""}>${I.shield}<span>Cancel and keep ${sol(w.amount)} ${C.unit} safe</span></button>
+        <div class="keep-note">Free, instant, and nobody else is told.${ready ? ` <button class="link danger" data-act="run" data-id="${w.id}" data-dest="${w.dest.toBase58()}" ${S.busy ? "disabled" : ""}>Send it now</button>` : ""}</div>`;
+    return `<div class="row wd${ready ? " is-ready" : ""}">
+      <div class="row-top"><b><span class="m">${sol(w.amount)}</span> ${C.unit} <span class="muted">leaving</span></b><span class="muted">to <a href="${explorer("address", w.dest.toBase58())}" target="_blank" rel="noopener">${short(w.dest)}</a></span></div>
+      ${status}
+      <div class="muted small center">${ready ? "Unlocked" : "Unlocks"} ${when(opens)}${locked && left <= 0 ? " · held by your lock" : ""}</div>
+      ${guard}</div>`;
+  }).join("") || `<div class="empty">Nothing waiting to leave. Every withdrawal shows up here with a countdown, and you can cancel it until it runs.</div>`;
 }
 
 function guardianView() {
@@ -515,34 +601,6 @@ function guardianView() {
         <div class="chips"><span class="chip">${I.clock}Withdrawals wait ${delayWords(v.withdrawDelay)}</span>${locked ? `<span class="chip">${I.lock}Locked</span>` : ""}<span class="chip">${g ? "You're the guardian" : "You're not this vault's guardian"}</span></div></div></section>
       <section class="glass"><div class="sec-h"><h2>Waiting to leave</h2></div><div class="rows">${rowsWithdrawals(v, true)}</div></section>
       ${changes ? `<section class="glass"><div class="sec-h"><h2>Rule changes waiting</h2></div><div class="rows">${changes}</div></section>` : ""}`}`;
-}
-
-// Big ticking clock for a queued withdrawal: days (if any), then hh:mm:ss.
-function clockParts(left) {
-  const l = Math.max(0, left), d = Math.floor(l / DAY), h = Math.floor((l % DAY) / HOUR), m = Math.floor((l % HOUR) / 60), sec = l % 60;
-  const p = (n) => String(n).padStart(2, "0");
-  return (d ? [[d, d === 1 ? "day" : "days"]] : []).concat([[p(h), "hours"], [p(m), "min"], [p(sec), "sec"]]);
-}
-const clockHTML = (left) => clockParts(left).map(([n, u]) => `<span class="seg-t"><b>${n}</b><small>${u}</small></span>`).join(`<i class="colon">:</i>`);
-
-function rowsWithdrawals(v, asGuardian) {
-  const t = now(), locked = v.lockedUntil && t < v.lockedUntil;
-  return v.withdrawals.map((w) => {
-    const total = Math.max(1, v.withdrawDelay), left = w.readyAt - t, pct = Math.min(100, Math.max(2, (1 - left / total) * 100));
-    const ready = left <= 0 && !locked, opens = Math.max(w.readyAt, locked ? v.lockedUntil : 0);
-    const status = ready ? `<div class="clock-done">Ready. It only leaves if you press send.</div>`
-      : `<div class="clock" data-ready="${opens}" role="timer" aria-label="Time left before this can leave">${clockHTML(opens - t)}</div>`;
-    const guard = asGuardian
-      ? (S.wallet && v.guardian?.equals(S.wallet) ? `<div class="row-acts"><button class="btn sm good" data-act="release" data-id="${w.id}" data-dest="${w.dest.toBase58()}" ${S.busy ? "disabled" : ""}>Approve emergency release</button></div>` : "")
-      : `<button class="keep" data-act="cancel-w" data-id="${w.id}" data-amt="${w.amount}" ${S.busy ? "disabled" : ""}>${I.shield}<span>Cancel and keep ${sol(w.amount)} ${C.unit} safe</span></button>
-        <div class="keep-note">Free, instant, and nobody else is told.${ready ? ` <button class="link danger" data-act="run" data-id="${w.id}" data-dest="${w.dest.toBase58()}" ${S.busy ? "disabled" : ""}>Send it now</button>` : ""}</div>`;
-    return `<div class="row wd${ready ? " is-ready" : ""}">
-      <div class="row-top"><b>${sol(w.amount)} ${C.unit} <span class="muted">leaving</span></b><span class="muted">to <a href="${explorer("address", w.dest.toBase58())}" target="_blank" rel="noopener">${short(w.dest)}</a></span></div>
-      ${status}
-      <div class="bar"><i style="width:${pct}%"></i></div>
-      <div class="muted small">${ready ? "Unlocked" : "Unlocks"} ${when(opens)}${locked && left <= 0 ? " · held by your lock" : ""}</div>
-      ${guard}</div>`;
-  }).join("") || `<div class="empty">Nothing waiting to leave. Every withdrawal shows up here with a countdown, and you can cancel it until it runs.</div>`;
 }
 
 function changeWords({ kind, value }) {
@@ -585,7 +643,14 @@ const keyOf = (s) => (s ? C.x?.key(s) ?? null : null);
 const actions = {
   connect: (el) => connect(providers()[Number(el.dataset.i)][1]),
   disconnect: () => { if (confirm("Disconnect your wallet?")) disconnect(); },
-  tab: (el) => { S.tab = el.dataset.t; S.shown = null; render(); scrollTo({ top: 0, behavior: "smooth" }); if (S.tab === "guardian" && S.watchOwner) refresh(); },
+  tab: (el) => {
+    if (S.tab === el.dataset.t) return;
+    S.tab = el.dataset.t; S.shown = null;
+    document.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches ? document.startViewTransition(render) : render();
+    scrollTo({ top: 0, behavior: "smooth" });
+    if (S.tab === "guardian" && S.watchOwner) refresh();
+  },
+  privacy: () => { S.hide = !S.hide; try { localStorage.setItem("ecrin-hide", S.hide ? "1" : "0"); } catch (_) {} render(); },
   theme: () => {
     const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
     document.documentElement.dataset.theme = t;
@@ -663,7 +728,7 @@ document.addEventListener("click", (e) => { const el = e.target.closest("[data-a
 // Live countdowns between refreshes: the withdrawal clocks tick every second; when one hits zero, reload the vault.
 setInterval(() => {
   let done = false;
-  document.querySelectorAll(".clock[data-ready]").forEach((n) => { const left = Number(n.dataset.ready) - now(); if (left > 0) n.innerHTML = clockHTML(left); else done = true; });
+  document.querySelectorAll(".dial[data-ready]").forEach((n) => { if (!tickDial(n)) done = true; });
   document.querySelectorAll(".count[data-ready]").forEach((n) => { const left = Number(n.dataset.ready) - now(); if (left > 0) n.textContent = dur(left); });
   if (done && !S.busy && Date.now() - (S.tickRefresh || 0) > 10000) { S.tickRefresh = Date.now(); refresh(); }
 }, 1000);
@@ -683,3 +748,18 @@ function reconnect() {
   } catch (_) {}
 }
 reconnect();
+
+// The case leans toward the pointer and catches the light (mouse and pen only).
+if (matchMedia("(pointer: fine)").matches && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  document.addEventListener("pointermove", (e) => {
+    const c = e.target.closest?.("[data-tilt]");
+    document.querySelectorAll("[data-tilt].tilting").forEach((n) => { if (n !== c) { n.classList.remove("tilting"); n.style.removeProperty("--rx"); n.style.removeProperty("--ry"); } });
+    if (!c) return;
+    const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+    c.classList.add("tilting");
+    c.style.setProperty("--ry", ((x - 0.5) * 9).toFixed(2) + "deg"); c.style.setProperty("--rx", ((0.5 - y) * 7).toFixed(2) + "deg");
+    c.style.setProperty("--mx", (x * 100).toFixed(1) + "%"); c.style.setProperty("--my", (y * 100).toFixed(1) + "%");
+  }, { passive: true });
+}
+// A short buzz on phones for the buttons that matter.
+document.addEventListener("pointerdown", (e) => { if (e.target.closest?.(".qa button, .keep, .tab-i, .case")) navigator.vibrate?.(8); }, { passive: true });
