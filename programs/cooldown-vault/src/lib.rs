@@ -5,7 +5,7 @@
 //! NOT AUDITED. Devnet only until an independent audit is done.
 
 use anchor_lang::prelude::*;
-use vault_core as core;
+use vault_core as rules;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
@@ -15,11 +15,11 @@ pub mod cooldown_vault {
 
     pub fn initialize(ctx: Context<Initialize>, preset: Preset) -> Result<()> {
         let policy = match preset {
-            Preset::Gentle => core::Policy::gentle(),
-            Preset::Strong { guardian } => core::Policy::strong(guardian.map(|g| g.to_bytes())),
-            Preset::Locked { until, guardian } => core::Policy::locked(until, guardian.to_bytes()),
+            Preset::Gentle => rules::Policy::gentle(),
+            Preset::Strong { guardian } => rules::Policy::strong(guardian.map(|g| g.to_bytes())),
+            Preset::Locked { until, guardian } => rules::Policy::locked(until, guardian.to_bytes()),
         };
-        let v = core::Vault::new(ctx.accounts.owner.key().to_bytes(), policy).map_err(err)?;
+        let v = rules::Vault::new(ctx.accounts.owner.key().to_bytes(), policy).map_err(err)?;
         ctx.accounts.vault.store(&v, ctx.bumps.vault);
         Ok(())
     }
@@ -53,7 +53,7 @@ pub mod cooldown_vault {
         let now = Clock::get()?.unix_timestamp;
         let mut v = ctx.accounts.vault.load();
         let out = v.request_withdrawal(&ctx.accounts.owner.key().to_bytes(), dest.to_bytes(), amount, now).map_err(err)?;
-        if let core::Outcome::WithdrawalQueued { id, ready_at } = out {
+        if let rules::Outcome::WithdrawalQueued { id, ready_at } = out {
             emit!(WithdrawalQueued { owner: ctx.accounts.owner.key(), id, amount, dest, ready_at });
         }
         let bump = ctx.accounts.vault.bump;
@@ -127,8 +127,8 @@ pub mod cooldown_vault {
 
 /// Moves lamports out of the vault PDA (owned by this program, so no CPI is needed) and checks the
 /// destination account is the one the rules chose.
-fn pay<'info>(vault: &Account<'info, VaultAccount>, dest: &AccountInfo<'info>, out: core::Outcome) -> Result<()> {
-    let core::Outcome::Send { amount, dest: want } = out else { return Ok(()) };
+fn pay<'info>(vault: &Account<'info, VaultAccount>, dest: &AccountInfo<'info>, out: rules::Outcome) -> Result<()> {
+    let rules::Outcome::Send { amount, dest: want } = out else { return Ok(()) };
     require_keys_eq!(dest.key(), Pubkey::new_from_array(want), VaultErr::WrongDestination);
     let from = vault.to_account_info();
     **from.try_borrow_mut_lamports()? = from.lamports().checked_sub(amount).ok_or(VaultErr::Overflow)?;
@@ -255,14 +255,14 @@ pub struct VaultAccount {
     pub spent_today: u64,
 }
 
-const _: () = assert!(core::MAX_TRUSTED == 8 && core::MAX_PENDING_WITHDRAWALS == 4 && core::MAX_PENDING_CHANGES == 4);
+const _: () = assert!(rules::MAX_TRUSTED == 8 && rules::MAX_PENDING_WITHDRAWALS == 4 && rules::MAX_PENDING_CHANGES == 4);
 
 impl VaultAccount {
-    fn load(&self) -> core::Vault {
-        core::Vault {
+    fn load(&self) -> rules::Vault {
+        rules::Vault {
             owner: self.owner.to_bytes(),
             balance: self.balance,
-            policy: core::Policy {
+            policy: rules::Policy {
                 withdraw_delay: self.withdraw_delay,
                 rule_delay: self.rule_delay,
                 daily_limit: self.daily_limit,
@@ -270,15 +270,15 @@ impl VaultAccount {
                 guardian: self.guardian.map(|g| g.to_bytes()),
             },
             trusted: self.trusted.iter().map(|t| t.to_bytes()).collect(),
-            withdrawals: self.withdrawals.iter().map(|w| core::PendingWithdrawal { id: w.id, amount: w.amount, dest: w.dest.to_bytes(), ready_at: w.ready_at }).collect(),
-            changes: self.changes.iter().map(|c| core::PendingChange { id: c.id, change: c.change.into(), ready_at: c.ready_at }).collect(),
+            withdrawals: self.withdrawals.iter().map(|w| rules::PendingWithdrawal { id: w.id, amount: w.amount, dest: w.dest.to_bytes(), ready_at: w.ready_at }).collect(),
+            changes: self.changes.iter().map(|c| rules::PendingChange { id: c.id, change: c.change.into(), ready_at: c.ready_at }).collect(),
             next_id: self.next_id,
             spent_day: self.spent_day,
             spent_today: self.spent_today,
         }
     }
 
-    fn store(&mut self, v: &core::Vault, bump: u8) {
+    fn store(&mut self, v: &rules::Vault, bump: u8) {
         self.owner = Pubkey::new_from_array(v.owner);
         self.bump = bump;
         self.balance = v.balance;
@@ -296,30 +296,30 @@ impl VaultAccount {
     }
 }
 
-impl From<ChangeArg> for core::Change {
+impl From<ChangeArg> for rules::Change {
     fn from(c: ChangeArg) -> Self {
         match c {
-            ChangeArg::SetWithdrawDelay { seconds } => core::Change::SetWithdrawDelay(seconds),
-            ChangeArg::SetRuleDelay { seconds } => core::Change::SetRuleDelay(seconds),
-            ChangeArg::SetDailyLimit { limit } => core::Change::SetDailyLimit(limit),
-            ChangeArg::SetLockedUntil { until } => core::Change::SetLockedUntil(until),
-            ChangeArg::SetGuardian { guardian } => core::Change::SetGuardian(guardian.map(|g| g.to_bytes())),
-            ChangeArg::AddTrusted { address } => core::Change::AddTrusted(address.to_bytes()),
-            ChangeArg::RemoveTrusted { address } => core::Change::RemoveTrusted(address.to_bytes()),
+            ChangeArg::SetWithdrawDelay { seconds } => rules::Change::SetWithdrawDelay(seconds),
+            ChangeArg::SetRuleDelay { seconds } => rules::Change::SetRuleDelay(seconds),
+            ChangeArg::SetDailyLimit { limit } => rules::Change::SetDailyLimit(limit),
+            ChangeArg::SetLockedUntil { until } => rules::Change::SetLockedUntil(until),
+            ChangeArg::SetGuardian { guardian } => rules::Change::SetGuardian(guardian.map(|g| g.to_bytes())),
+            ChangeArg::AddTrusted { address } => rules::Change::AddTrusted(address.to_bytes()),
+            ChangeArg::RemoveTrusted { address } => rules::Change::RemoveTrusted(address.to_bytes()),
         }
     }
 }
 
-impl From<core::Change> for ChangeArg {
-    fn from(c: core::Change) -> Self {
+impl From<rules::Change> for ChangeArg {
+    fn from(c: rules::Change) -> Self {
         match c {
-            core::Change::SetWithdrawDelay(seconds) => ChangeArg::SetWithdrawDelay { seconds },
-            core::Change::SetRuleDelay(seconds) => ChangeArg::SetRuleDelay { seconds },
-            core::Change::SetDailyLimit(limit) => ChangeArg::SetDailyLimit { limit },
-            core::Change::SetLockedUntil(until) => ChangeArg::SetLockedUntil { until },
-            core::Change::SetGuardian(g) => ChangeArg::SetGuardian { guardian: g.map(Pubkey::new_from_array) },
-            core::Change::AddTrusted(a) => ChangeArg::AddTrusted { address: Pubkey::new_from_array(a) },
-            core::Change::RemoveTrusted(a) => ChangeArg::RemoveTrusted { address: Pubkey::new_from_array(a) },
+            rules::Change::SetWithdrawDelay(seconds) => ChangeArg::SetWithdrawDelay { seconds },
+            rules::Change::SetRuleDelay(seconds) => ChangeArg::SetRuleDelay { seconds },
+            rules::Change::SetDailyLimit(limit) => ChangeArg::SetDailyLimit { limit },
+            rules::Change::SetLockedUntil(until) => ChangeArg::SetLockedUntil { until },
+            rules::Change::SetGuardian(g) => ChangeArg::SetGuardian { guardian: g.map(Pubkey::new_from_array) },
+            rules::Change::AddTrusted(a) => ChangeArg::AddTrusted { address: Pubkey::new_from_array(a) },
+            rules::Change::RemoveTrusted(a) => ChangeArg::RemoveTrusted { address: Pubkey::new_from_array(a) },
         }
     }
 }
@@ -348,8 +348,8 @@ pub enum VaultErr {
     #[msg("Destination account doesn't match")] WrongDestination,
 }
 
-fn err(e: core::VaultError) -> anchor_lang::error::Error {
-    use core::VaultError as E;
+fn err(e: rules::VaultError) -> anchor_lang::error::Error {
+    use rules::VaultError as E;
     match e {
         E::NotOwner => VaultErr::NotOwner, E::NotGuardian => VaultErr::NotGuardian, E::NoGuardian => VaultErr::NoGuardian,
         E::ZeroAmount => VaultErr::ZeroAmount, E::InsufficientFunds => VaultErr::InsufficientFunds, E::NotTrusted => VaultErr::NotTrusted,
