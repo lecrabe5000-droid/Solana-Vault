@@ -56,7 +56,7 @@ function renderIntro() {
     ["strong", "Strong", "Withdrawals wait 72 h. Loosening a rule waits 7 days. Your guardian is notified."],
     ["locked", "Locked", "Nothing leaves for 30 days, except an emergency your guardian co-signs."],
   ];
-  $("#app").innerHTML = `
+  $("#app").innerHTML = `<div class="onb">
     <section class="intro">
       ${logo(44)}
       <h1 style="margin-top:18px">Where your crypto <span>is kept.</span></h1>
@@ -67,7 +67,7 @@ function renderIntro() {
     </div>
     <label class="toggle"><input type="checkbox" id="g" ${withGuardian || pick === "locked" ? "checked" : ""} ${pick === "locked" ? "disabled" : ""}/> Add a guardian (Alex, a friend who gets notified and can approve an emergency)</label>
     <button class="btn primary" style="width:100%;height:48px" data-act="start">Start the demo with 10 SOL</button>
-    <p class="foot">A demo with pretend money. The rules are the same ones the Solana program enforces.</p>`;
+    <p class="foot">A demo with pretend money. The rules are the same ones the Solana program enforces.</p></div>`;
 }
 
 function start() {
@@ -85,7 +85,7 @@ function start() {
 
 function logo(size = 26) {
   // Ecrin mark: a jewel case (rounded frame) holding a gem.
-  return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg${size}" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#A8874F"/><stop offset="0.5" stop-color="#D4B47C"/><stop offset="1" stop-color="#EBD5A6"/></linearGradient></defs><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="url(#lg${size})" stroke-width="2.2"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="url(#lg${size})"/></svg>`;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg${size}" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#2F5BFF"/><stop offset="1" stop-color="#2F5BFF"/></linearGradient></defs><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="url(#lg${size})" stroke-width="2.2"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="url(#lg${size})"/></svg>`;
 }
 
 function render() {
@@ -127,12 +127,8 @@ function render() {
       </div>
     </header>
 
-    <section class="card clock">
-      <span class="small muted">Demo time</span><b>${when(now)}</b>
-      <div class="ff"><button class="btn sm" data-act="ff" data-s="${HOUR}">+1h</button><button class="btn sm" data-act="ff" data-s="${DAY}">+1d</button><button class="btn sm" data-act="ff" data-s="${3 * DAY}">+3d</button><button class="btn sm" data-act="ff" data-s="${7 * DAY}">+7d</button></div>
-    </section>
-
-    <section class="card hero">
+    <div class="layout"><div class="col-main">
+    <section class="card hero o-hero">
       <div class="kicker">${guardian ? "Alex's view · guardian" : "In your vault"}</div>
       <div class="bal">${sol(v.balance)}<small>SOL</small></div>
       <div class="bal-sub">${sol(v.available())} SOL available${queued ? ` · ${sol(queued)} SOL waiting to leave` : ""}</div>
@@ -147,11 +143,17 @@ function render() {
         : `<div class="actions"><button class="btn" data-act="deposit">Deposit</button><button class="btn" data-act="withdraw">Withdraw</button><button class="btn primary" data-act="send">Send to trusted</button></div>`}
     </section>
 
-    <section class="card"><div class="card-h"><h2>Waiting to leave</h2><span class="small muted">cancel any time</span></div><div class="rows">${withdrawals}</div></section>
+    <section class="card o-wait"><div class="card-h"><h2>Waiting to leave</h2><span class="small muted">cancel any time</span></div><div class="rows">${withdrawals}</div></section>
 
-    ${changes ? `<section class="card"><div class="card-h"><h2>Rule changes waiting</h2><span class="small muted">looser rules wait ${delayWords(p.ruleDelay)}</span></div><div class="rows">${changes}</div></section>` : ""}
+    ${changes ? `<section class="card o-changes"><div class="card-h"><h2>Rule changes waiting</h2><span class="small muted">looser rules wait ${delayWords(p.ruleDelay)}</span></div><div class="rows">${changes}</div></section>` : ""}
 
-    <section class="card">
+    </div><div class="col-side">
+    <section class="card clock o-clock">
+      <span class="small muted">Demo time</span><b>${when(now)}</b>
+      <div class="ff"><button class="btn sm" data-act="ff" data-s="${HOUR}">+1h</button><button class="btn sm" data-act="ff" data-s="${DAY}">+1d</button><button class="btn sm" data-act="ff" data-s="${3 * DAY}">+3d</button><button class="btn sm" data-act="ff" data-s="${7 * DAY}">+7d</button></div>
+    </section>
+
+    <section class="card o-rules">
       <div class="card-h"><h2>Your rules</h2>${guardian ? "" : `<button class="btn sm" data-act="rules">Change rules</button>`}</div>
       <div class="rules">
         <div class="rule"><small>Withdrawals wait</small><b>${delayWords(p.withdrawDelay)}</b></div>
@@ -161,14 +163,15 @@ function render() {
       </div>
     </section>
 
-    <section class="card">
+    <section class="card o-trusted">
       <div class="card-h"><h2>Trusted addresses</h2>${guardian ? "" : `<button class="btn sm" data-act="trust">Add</button>`}</div>
       ${v.trusted.length ? `<div class="chips" style="margin:0">${v.trusted.map((t) => `<span class="chip good">${esc(place(t))}</span>`).join("")}</div>` : `<div class="empty">None yet. Money sent here arrives instantly, so adding one takes time.</div>`}
     </section>
 
-    <section class="card"><div class="card-h"><h2>Activity</h2></div>
+    <section class="card o-log"><div class="card-h"><h2>Activity</h2></div>
       <ul class="log">${S.log.map((l) => `<li><time>${new Date(l.at * 1000).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</time><span>${esc(l.text)}</span></li>`).join("")}</ul>
     </section>
+    </div></div>
 
     <p class="foot">Open source · <a href="https://github.com/lecrabe5000-droid/Solana-Vault" target="_blank" rel="noopener">GitHub</a> · <button class="link" data-act="reset">Reset demo</button></p>`;
 }
