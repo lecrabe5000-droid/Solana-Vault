@@ -49,11 +49,14 @@ jobs:
       - name: Local wallet
         run: solana-keygen new --no-bip39-passphrase --silent --outfile ~/.config/solana/id.json
       - run: npm install
-      - name: Match program id to this build's keypair
-        run: anchor keys sync
-      - name: Build and test on a local validator
+      - name: Build, then match the program id to this build's keypair, then rebuild
+        run: |
+          anchor build
+          anchor keys sync
+          anchor build
+      - name: Test on a local validator
         run: |
           set -o pipefail
-          anchor test 2>&1 | tee anchor-test.log
+          anchor test --skip-build 2>&1 | tee anchor-test.log
           grep -Eq "[1-9][0-9]* passing" anchor-test.log
           ! grep -Eq "[1-9][0-9]* failing" anchor-test.log
