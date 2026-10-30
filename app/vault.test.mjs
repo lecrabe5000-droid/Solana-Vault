@@ -61,10 +61,18 @@ test("stricter changes apply at once", () => {
   const v = vault(Policy.gentle());
   eq(v.proposeChange(OWNER, { kind: "SetWithdrawDelay", value: 72 * HOUR }, T0).type, "ChangeApplied");
   eq(v.proposeChange(OWNER, { kind: "SetDailyLimit", value: 200 }, T0).type, "ChangeApplied");
-  eq(v.proposeChange(OWNER, { kind: "SetGuardian", value: GUARDIAN }, T0).type, "ChangeApplied");
+  eq(v.proposeChange(OWNER, { kind: "SetGuardian", value: GUARDIAN }, T0).type, "ChangeQueued");
   eq(v.policy.withdrawDelay, 72 * HOUR);
   eq(v.proposeChange(OWNER, { kind: "SetWithdrawDelay", value: 24 * HOUR }, T0).type, "ChangeQueued");
   eq(v.proposeChange(OWNER, { kind: "SetGuardian", value: null }, T0).type, "ChangeQueued");
+});
+
+test("a stolen key cannot name its own guardian and rush a withdrawal", () => {
+  const v = vault(Policy.gentle());
+  eq(v.proposeChange(OWNER, { kind: "SetGuardian", value: "thief" }, T0).type, "ChangeQueued");
+  const { id } = v.requestWithdrawal(OWNER, "thief", 1000, T0);
+  err(() => v.guardianRelease("thief", id, T0), "NoGuardian");
+  eq(v.balance, 1000);
 });
 
 test("lock blocks everything until its date", () => {

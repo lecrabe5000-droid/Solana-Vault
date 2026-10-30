@@ -334,8 +334,9 @@ pub fn is_stricter(p: &Policy, change: &Change) -> bool {
             (None, Some(_)) => true,
             (Some(old), Some(new)) => new >= old,
         },
-        // Adding a guardian where there was none is stricter; removing or swapping one is not.
-        Change::SetGuardian(g) => p.guardian.is_none() && g.is_some(),
+        // Any guardian change waits, adding one included: a guardian can release a withdrawal at once,
+        // so a key thief (or the owner on a bad night) could otherwise name a second wallet and empty the vault.
+        Change::SetGuardian(_) => false,
         Change::AddTrusted(_) => false,
         Change::RemoveTrusted(_) => true,
     }

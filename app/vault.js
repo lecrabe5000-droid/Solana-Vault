@@ -38,7 +38,7 @@ export function isStricter(p, { kind, value }) {
     case "SetLockedUntil":
       if (value === null) return p.lockedUntil === null;
       return p.lockedUntil === null || value >= p.lockedUntil;
-    case "SetGuardian": return p.guardian === null && value !== null;
+    case "SetGuardian": return false; // a new guardian could release at once, so every guardian change waits
     case "AddTrusted": return false;
     case "RemoveTrusted": return true;
     default: fail("InvalidValue");

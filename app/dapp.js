@@ -140,17 +140,32 @@ function renderCreate(app) {
     <p class="foot">Creating the vault costs a small amount of devnet SOL for the account's rent.</p></div>`;
 }
 
+// Big ticking clock for a queued withdrawal: days (if any), then hh:mm:ss.
+function clockParts(left) {
+  const l = Math.max(0, left), d = Math.floor(l / DAY), h = Math.floor((l % DAY) / HOUR), m = Math.floor((l % HOUR) / 60), sec = l % 60;
+  const p = (n) => String(n).padStart(2, "0");
+  return (d ? [[d, d === 1 ? "day" : "days"]] : []).concat([[p(h), "hours"], [p(m), "min"], [p(sec), "sec"]]);
+}
+const clockHTML = (left) => clockParts(left).map(([n, u]) => `<span class="seg-t"><b>${n}</b><small>${u}</small></span>`).join(`<i class="colon">:</i>`);
+const SHIELD = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 2.5l7.5 3v6c0 4.6-3.2 8.6-7.5 10-4.3-1.4-7.5-5.4-7.5-10v-6z" fill="currentColor" opacity=".18"/><path d="M12 2.5l7.5 3v6c0 4.6-3.2 8.6-7.5 10-4.3-1.4-7.5-5.4-7.5-10v-6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 12.2l2.4 2.4 4.6-4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
 function rowsWithdrawals(v, asGuardian) {
   const t = now(), locked = v.lockedUntil && t < v.lockedUntil;
   return v.withdrawals.map((w) => {
     const total = Math.max(1, v.withdrawDelay), left = w.readyAt - t, pct = Math.min(100, Math.max(2, (1 - left / total) * 100));
-    const ready = left <= 0 && !locked;
-    const acts = asGuardian
-      ? (S.wallet && v.guardian?.equals(S.wallet) ? `<button class="btn sm good" data-act="release" data-id="${w.id}" data-dest="${w.dest.toBase58()}" ${S.busy ? "disabled" : ""}>Approve emergency release</button>` : "")
-      : `<button class="btn sm" data-act="cancel-w" data-id="${w.id}" ${S.busy ? "disabled" : ""}>Cancel, keep it in the vault</button>${ready ? `<button class="btn sm danger" data-act="run" data-id="${w.id}" data-dest="${w.dest.toBase58()}" ${S.busy ? "disabled" : ""}>Send it now</button>` : ""}`;
-    return `<div class="row"><div class="row-top"><b>${sol(w.amount)} SOL</b><span class="count" data-ready="${w.readyAt}">${ready ? "Ready" : locked && left <= 0 ? "Locked" : dur(left)}</span></div>
-      <div class="small muted">to <a href="${explorer("address", w.dest.toBase58())}" target="_blank" rel="noopener">${short(w.dest)}</a> · unlocks ${when(Math.max(w.readyAt, locked ? v.lockedUntil : 0))}</div>
-      <div class="bar"><i style="width:${pct}%"></i></div>${acts ? `<div class="row-acts">${acts}</div>` : ""}</div>`;
+    const ready = left <= 0 && !locked, opens = Math.max(w.readyAt, locked ? v.lockedUntil : 0);
+    const status = ready ? `<div class="clock-done">Ready. It only leaves if you press send.</div>`
+      : `<div class="clock" data-ready="${opens}" role="timer" aria-label="Time left before this can leave">${clockHTML(opens - t)}</div>`;
+    const guard = asGuardian
+      ? (S.wallet && v.guardian?.equals(S.wallet) ? `<div class="row-acts"><button class="btn sm good" data-act="release" data-id="${w.id}" data-dest="${w.dest.toBase58()}" ${S.busy ? "disabled" : ""}>Approve emergency release</button></div>` : "")
+      : `<button class="keep" data-act="cancel-w" data-id="${w.id}" data-amt="${w.amount}" ${S.busy ? "disabled" : ""}>${SHIELD}<span>Cancel and keep ${sol(w.amount)} SOL safe</span></button>
+        <div class="keep-note">Free, instant, and nobody else is told.${ready ? ` <button class="link danger" data-act="run" data-id="${w.id}" data-dest="${w.dest.toBase58()}" ${S.busy ? "disabled" : ""}>Send it now</button>` : ""}</div>`;
+    return `<div class="row wd${ready ? " is-ready" : ""}">
+      <div class="row-top"><b>${sol(w.amount)} SOL <span class="muted" style="font-weight:500">leaving</span></b><span class="small muted">to <a href="${explorer("address", w.dest.toBase58())}" target="_blank" rel="noopener">${short(w.dest)}</a></span></div>
+      ${status}
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="small muted">${ready ? "Unlocked" : "Unlocks"} ${when(opens)}${locked && left <= 0 ? " · held by your lock" : ""}</div>
+      ${guard}</div>`;
   }).join("") || `<div class="empty">Nothing waiting to leave.</div>`;
 }
 
@@ -245,7 +260,7 @@ const actions = {
     if (gRaw && !guardian) return toast("That guardian address isn't valid", "err");
     if (guardian?.equals(S.wallet)) return toast("Your guardian must be someone else's wallet", "err");
     let preset;
-    if (S.pick === "gentle") { if (guardian) toast("Gentle has no guardian; add one later as a stricter rule"); preset = { kind: "gentle" }; }
+    if (S.pick === "gentle") { if (guardian) toast("Gentle starts without a guardian; you can add one later (it waits your rule delay)"); preset = { kind: "gentle" }; }
     else if (S.pick === "strong") preset = { kind: "strong", guardian };
     else {
       const d = $("#lock-date")?.value; if (!guardian) return toast("Locked needs a guardian for emergencies", "err");
@@ -276,7 +291,7 @@ const actions = {
       <option value="l1">Daily limit 1 SOL</option><option value="l5">Daily limit 5 SOL</option><option value="l0">No daily limit</option>
       <option value="k30">Lock for 30 days</option>${v.lockedUntil ? `<option value="k0">End the lock</option>` : ""}${v.guardian ? `<option value="g0">Remove the guardian</option>` : ""}
     </select></label><label class="field">New guardian (optional)<input name="g" placeholder="Set a guardian's address instead" spellcheck="false" autocomplete="off"/></label>
-    <p class="note">Stricter rules apply at once. Looser rules wait ${delayWords(v.ruleDelay)}.</p>`, async (fd) => {
+    <p class="note">Stricter rules apply at once. Looser rules, and any guardian change, wait ${delayWords(v.ruleDelay)}: a guardian can release money early, so nobody holding your key can name one on the spot.</p>`, async (fd) => {
       const g = String(fd.get("g") || "").trim();
       let change;
       if (g) { const k = keyOf(g); if (!k || k.equals(S.wallet)) { toast("Pick someone else's valid address", "err"); return false; } change = { kind: "SetGuardian", value: k }; }
@@ -290,7 +305,7 @@ const actions = {
       return send(`Changed a rule: ${changeWords(change)}`, client.build.proposeChange(S.wallet, change));
     });
   },
-  "cancel-w": (el) => send("Cancelled a withdrawal. That's a win.", client.build.cancelWithdrawal(S.wallet, Number(el.dataset.id))),
+  "cancel-w": (el) => send(`Cancelled. ${sol(Number(el.dataset.amt))} SOL stays in your vault. That's a win.`, client.build.cancelWithdrawal(S.wallet, Number(el.dataset.id))),
   run: (el) => send("Sent a withdrawal", client.build.executeWithdrawal(S.wallet, S.wallet, Number(el.dataset.id), new web3.PublicKey(el.dataset.dest))),
   "cancel-c": (el) => send("Cancelled a rule change", client.build.cancelChange(S.wallet, Number(el.dataset.id))),
   apply: (el) => send("Applied a rule change", client.build.applyChange(S.wallet, S.wallet, Number(el.dataset.id))),
@@ -304,8 +319,13 @@ const actions = {
 };
 
 document.addEventListener("click", (e) => { const el = e.target.closest("[data-act]"); if (!el || el.disabled) return; actions[el.dataset.act]?.(el); });
-// Live countdowns between refreshes.
-setInterval(() => document.querySelectorAll(".count[data-ready]").forEach((n) => { const left = Number(n.dataset.ready) - now(); if (left > 0) n.textContent = dur(left); }), 15000);
+// Live countdowns between refreshes: the withdrawal clocks tick every second; when one hits zero, reload the vault.
+setInterval(() => {
+  let done = false;
+  document.querySelectorAll(".clock[data-ready]").forEach((n) => { const left = Number(n.dataset.ready) - now(); if (left > 0) n.innerHTML = clockHTML(left); else done = true; });
+  document.querySelectorAll(".count[data-ready]").forEach((n) => { const left = Number(n.dataset.ready) - now(); if (left > 0) n.textContent = dur(left); });
+  if (done && !S.busy && Date.now() - (S.tickRefresh || 0) > 10000) { S.tickRefresh = Date.now(); refresh(); }
+}, 1000);
 setInterval(() => { if (S.wallet && !S.busy && document.visibilityState === "visible") refresh(); }, 30000);
 
 render();

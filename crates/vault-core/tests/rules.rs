@@ -71,7 +71,7 @@ fn stricter_changes_apply_at_once() {
     let mut v = vault(Policy::gentle());
     assert_eq!(v.propose_change(&OWNER, Change::SetWithdrawDelay(72 * HOUR), T0), Ok(Outcome::ChangeApplied));
     assert_eq!(v.propose_change(&OWNER, Change::SetDailyLimit(Some(200)), T0), Ok(Outcome::ChangeApplied));
-    assert_eq!(v.propose_change(&OWNER, Change::SetGuardian(Some(GUARDIAN)), T0), Ok(Outcome::ChangeApplied));
+    assert!(matches!(v.propose_change(&OWNER, Change::SetGuardian(Some(GUARDIAN)), T0), Ok(Outcome::ChangeQueued { .. })));
     assert_eq!(v.policy.withdraw_delay, 72 * HOUR);
     // Loosening back waits.
     assert!(matches!(v.propose_change(&OWNER, Change::SetWithdrawDelay(24 * HOUR), T0), Ok(Outcome::ChangeQueued { .. })));
@@ -140,4 +140,15 @@ fn a_lock_added_later_still_holds_back_a_queued_withdrawal() {
     assert_eq!(v.propose_change(&OWNER, Change::SetLockedUntil(Some(T0 + 10 * DAY)), T0), Ok(Outcome::ChangeApplied));
     assert_eq!(v.execute_withdrawal(id, ready_at), Err(VaultError::Locked));
     assert!(v.execute_withdrawal(id, T0 + 10 * DAY).is_ok());
+}
+
+#[test]
+fn a_stolen_key_cannot_name_its_own_guardian_and_rush_a_withdrawal() {
+    // Whoever holds the owner key names a second wallet as guardian, then tries to release at once.
+    let thief: Address = [9; 32];
+    let mut v = vault(Policy::gentle());
+    assert!(matches!(v.propose_change(&OWNER, Change::SetGuardian(Some(thief)), T0), Ok(Outcome::ChangeQueued { .. })));
+    let Outcome::WithdrawalQueued { id, .. } = v.request_withdrawal(&OWNER, thief, 1_000, T0).unwrap() else { panic!() };
+    assert_eq!(v.guardian_release(&thief, id, T0), Err(VaultError::NoGuardian));
+    assert_eq!(v.balance, 1_000);
 }

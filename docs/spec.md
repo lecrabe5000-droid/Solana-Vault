@@ -13,8 +13,8 @@ The living version of this spec is in the shared doc; this file is the snapshot 
 - `execute_withdrawal`: anyone can run it once due (a crank); the money only goes to the owner's chosen address. A lock added after the request still holds it back.
 - `guardian_release`: the guardian co-signs a withdrawal the owner requested and it runs now (the emergency exit). The guardian cannot create a withdrawal or change its amount or destination.
 - `propose_change`: stricter changes apply at once; looser ones wait `rule_delay`, and never before the lock ends.
-  - Stricter: longer delays, a lower or new daily limit, a later or new lock, adding a guardian where there was none, removing a trusted address.
-  - Looser: everything else, including adding a trusted address and removing or swapping the guardian.
+  - Stricter: longer delays, a lower or new daily limit, a later or new lock, removing a trusted address.
+  - Looser: everything else, including adding a trusted address and any guardian change. Adding a guardian waits too: a guardian can release a withdrawal at once, so a key thief who could name their own wallet as guardian would skip every delay.
 - `guardian_approve_change`: the guardian can approve only `AddTrusted` early. Every other loosening always waits.
 - Limits: 8 trusted addresses, 4 pending withdrawals, 4 pending changes. Delays between 1 hour and 365 days.
 

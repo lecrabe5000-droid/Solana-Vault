@@ -12,7 +12,7 @@ Crypto puts a casino one tap away. DNS blockers are switched off in a minute, st
 | --- | --- |
 | Send to a **trusted address** (your bank off-ramp, your rent) | Arrives now. Adding a trusted address waits for the rule delay, or needs the guardian. |
 | **Any other withdrawal** | Waits 24 to 72 h. You can cancel any time; the guardian is notified. |
-| **Loosening a rule** (shorter delay, removing the guardian) | Waits 3 to 7 days. Stricter rules apply at once. |
+| **Loosening a rule** (shorter delay, any guardian change) | Waits 3 to 7 days. Stricter rules apply at once. |
 | **Emergency** | Your guardian co-signs a withdrawal you requested and it runs now. The guardian can never start one or choose where it goes. |
 
 There is no receipt token, so there is nothing to sell to get around the delay. Importing your key into another wallet changes nothing: the program enforces the rules.
