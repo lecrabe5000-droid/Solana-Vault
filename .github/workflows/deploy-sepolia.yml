@@ -1,0 +1,43 @@
+name: deploy-sepolia
+
+# Run by hand: Actions → deploy-sepolia → Run workflow.
+# Needs the repository secret SEPOLIA_DEPLOYER_KEY: the private key of a MetaMask account used only for testnets,
+# holding a little Sepolia ETH. Optional: SEPOLIA_RPC_URL (defaults to a public Sepolia RPC).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency: deploy-sepolia
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: evm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: evm/package-lock.json
+      - run: npm ci
+      - name: Test before deploying
+        run: npx hardhat test
+      - name: Deploy
+        env:
+          SEPOLIA_DEPLOYER_KEY: ${{ secrets.SEPOLIA_DEPLOYER_KEY }}
+          SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+        run: |
+          if [ -z "$SEPOLIA_DEPLOYER_KEY" ]; then echo "::error::Add the SEPOLIA_DEPLOYER_KEY secret first (Settings → Secrets and variables → Actions)."; exit 1; fi
+          npx hardhat run scripts/deploy.js --network sepolia
+      - name: Point the website at it
+        working-directory: .
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/config-evm.js
+          git diff --cached --quiet || { git commit -m "Sepolia contract: $(grep -o '0x[0-9a-fA-F]\{40\}' app/config-evm.js)"; git push; }
