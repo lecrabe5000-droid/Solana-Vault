@@ -21,27 +21,22 @@ const banner = (dark) => `<html><head>${head}</head><body style="width:1500px;he
       <div style="font:500 64px/1 U;letter-spacing:-.04em">71:59</div>
       <div style="margin-top:10px;font:600 15px/1 M;letter-spacing:.16em;color:${dark ? '#8e93ad' : '#8b8d93'}">UNTIL IT CAN LEAVE</div>
     </div></div></body></html>`;
-// X header that pairs with the profile picture: the avatar (bottom left on X) becomes the centre of a dial.
+// X header that pairs with the profile picture: fine engraved rings ripple out from the avatar's spot
+// (measured on X: centre about 215 x 500 of 1500 x 500), so the picture sits at their centre at any crop.
 const xBanner = (dark) => {
-  const cx = 190, cy = 470, ink = dark ? '#f3f3ef' : '#101114', mute = dark ? '#8e93ad' : '#8b8d93', acc = dark ? '#7D97FF' : '#2F5BFF';
-  const rings = Array.from({ length: 70 }, (_, i) => `<circle cx="${cx}" cy="${cy}" r="${150 + i * 19}" fill="none" stroke="${dark ? 'rgba(160,175,255,.075)' : 'rgba(16,17,20,.055)'}" stroke-width="1"/>`).join('');
-  const tick = Array.from({ length: 120 }, (_, i) => { const a = (i / 120) * 2 * Math.PI, maj = i % 10 === 0, r1 = maj ? 236 : 246, r2 = 258; const x = (r) => (cx + r * Math.sin(a)).toFixed(1), y = (r) => (cy - r * Math.cos(a)).toFixed(1); return `<line x1="${x(r1)}" y1="${y(r1)}" x2="${x(r2)}" y2="${y(r2)}" stroke="${dark ? 'rgba(255,255,255,' + (maj ? .45 : .22) + ')' : 'rgba(16,17,20,' + (maj ? .45 : .2) + ')'}" stroke-width="${maj ? 2.4 : 1.2}" stroke-linecap="round"/>`; }).join('');
-  const R = 212, C = 2 * Math.PI * R;
+  const cx = 215, cy = 500, ink = dark ? '#f3f3ef' : '#101114', mute = dark ? '#8e93ad' : '#8b8d93', acc = dark ? '#7D97FF' : '#2F5BFF';
+  const rings = Array.from({ length: 80 }, (_, i) => { const r = 205 + i * 17, o = Math.max(0, (dark ? .1 : .075) * (1 - i / 95)); return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${dark ? `rgba(160,175,255,${o.toFixed(3)})` : `rgba(16,17,20,${o.toFixed(3)})`}" stroke-width="1"/>`; }).join('');
   return `<html><head>${head}</head><body style="width:1500px;height:500px;background:${dark ? OBS : '#f6f6f3'};position:relative;color:${ink};font-family:M">
-    <svg style="position:absolute;inset:0" width="1500" height="500" viewBox="0 0 1500 500">${rings}${tick}
-      <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${dark ? 'rgba(255,255,255,.08)' : 'rgba(16,17,20,.08)'}" stroke-width="4"/>
-      <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${dark ? '#f0b04a' : '#b7700a'}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${(C * 0.3).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 ${cx} ${cy})"/>
-    </svg>
+    <svg style="position:absolute;inset:0" width="1500" height="500" viewBox="0 0 1500 500">${rings}</svg>
     <div style="position:absolute;right:110px;top:0;bottom:0;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;text-align:right">
-      <div style="font:500 15px/1 U;letter-spacing:.42em;color:${mute}">ECRIN</div>
-      <div style="margin-top:26px;font:500 58px/1.06 U;letter-spacing:-.045em">Crypto that can't be<br><span style="color:${acc}">taken in a hurry.</span></div>
-      <div style="margin-top:28px;display:flex;gap:14px;align-items:center;font:600 17px/1 M;letter-spacing:.12em;text-transform:uppercase;color:${mute}"><span>Solana</span><i style="width:4px;height:4px;border-radius:50%;background:${mute}"></i><span>Ethereum</span><i style="width:4px;height:4px;border-radius:50%;background:${mute}"></i><span style="color:${ink}">ecrinprotocol.app</span></div>
+      <div style="font:500 60px/1.06 U;letter-spacing:-.045em">Crypto that can't be<br><span style="color:${acc}">taken in a hurry.</span></div>
+      <div style="margin-top:26px;display:flex;gap:14px;align-items:center;font:600 17px/1 M;letter-spacing:.12em;text-transform:uppercase;color:${mute}"><span>On-chain vault</span><i style="width:4px;height:4px;border-radius:50%;background:${mute}"></i><span>Solana · Ethereum</span><i style="width:4px;height:4px;border-radius:50%;background:${mute}"></i><span style="color:${ink}">ecrinprotocol.app</span></div>
     </div></body></html>`;
 };
 // A preview of the header with the avatar where X puts it, to check the pairing.
-const xPreview = () => `<html><head>${head}</head><body style="width:1500px;height:640px;background:#000;position:relative">
-  <img src="ecrin-x-banner-dark.png" style="position:absolute;left:0;top:0;width:1500px;height:500px">
-  <img src="ecrin-icon-dark.png" style="position:absolute;left:60px;top:345px;width:260px;height:260px;border-radius:50%;border:6px solid #000"></body></html>`;
+const xPreview = (theme = 'dark') => `<html><head>${head}</head><body style="width:1500px;height:640px;background:#000;position:relative">
+  <img src="ecrin-x-banner-${theme}.png" style="position:absolute;left:0;top:0;width:1500px;height:500px">
+  <img src="ecrin-icon-${theme}.png" style="position:absolute;left:${215 - 175}px;top:${500 - 175}px;width:350px;height:350px;border-radius:50%;border:12px solid #000;box-sizing:border-box"></body></html>`;
 
 (async () => {
   const b = await chromium.launch();
@@ -51,7 +46,10 @@ const xPreview = () => `<html><head>${head}</head><body style="width:1500px;heig
     await p.screenshot({ path: `${__dirname}/${name}.png` }); await p.close();
   }
   const p = await b.newPage({ viewport: { width: 1500, height: 640 } });
-  require('fs').writeFileSync(__dirname + '/_preview.html', xPreview()); await p.goto('file://' + __dirname + '/_preview.html'); await p.waitForTimeout(300);
-  await p.screenshot({ path: require('os').tmpdir() + '/ecrin-x-preview.png' }); require('fs').unlinkSync(__dirname + '/_preview.html');
+  for (const th of ['dark', 'light']) {
+    require('fs').writeFileSync(__dirname + '/_preview.html', xPreview(th)); await p.goto('file://' + __dirname + '/_preview.html'); await p.waitForTimeout(300);
+    await p.screenshot({ path: require('os').tmpdir() + `/ecrin-x-preview-${th}.png` });
+  }
+  require('fs').unlinkSync(__dirname + '/_preview.html');
   await b.close();
 })();
