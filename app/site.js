@@ -6,16 +6,26 @@
   root.classList.add("js");
   const p = (n) => String(n).padStart(2, "0");
 
-  // Hero mock countdown.
-  const hero = document.querySelector("[data-hero-clock]");
-  if (hero) {
-    const b = hero.querySelectorAll("b");
-    let left = 2 * 86400 + 23 * 3600 + 59 * 60 + 41;
-    setInterval(() => {
-      left = left > 0 ? left - 1 : 3 * 86400;
-      b[0].textContent = Math.floor(left / 86400); b[1].textContent = p(Math.floor((left % 86400) / 3600));
-      b[2].textContent = p(Math.floor((left % 3600) / 60)); b[3].textContent = p(left % 60);
-    }, 1000);
+  // Theme switch (theme.js already applied the saved or device theme before paint).
+  document.querySelector("[data-theme-toggle]")?.addEventListener("click", () => {
+    const t = root.dataset.theme === "dark" ? "light" : "dark";
+    root.dataset.theme = t;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "dark" ? "#0c0d0f" : "#f6f6f3");
+    try { localStorage.setItem("ecrin-theme", t); } catch (_) {}
+  });
+
+  // The engraved pattern on every case, and the hero dial's ticks.
+  document.querySelectorAll("[data-guilloche]").forEach((svg) => {
+    svg.innerHTML = Array.from({ length: 34 }, (_, i) => `<circle cx="${330 + Math.cos(i / 2.2) * 14}" cy="${40 + Math.sin(i / 2.2) * 14}" r="${18 + i * 9}"/>`).join("");
+  });
+  const dial = document.querySelector("[data-hero-dial]");
+  if (dial) {
+    dial.querySelector(".ticks").innerHTML = Array.from({ length: 60 }, (_, i) => { const an = (i / 60) * 2 * Math.PI, r1 = i % 5 ? 92 : 89, x = (r) => (100 + r * Math.sin(an)).toFixed(1), y = (r) => (100 - r * Math.cos(an)).toFixed(1); return `<line x1="${x(r1)}" y1="${y(r1)}" x2="${x(96)}" y2="${y(96)}"${i % 5 ? "" : ' class="maj"'}/>`; }).join("");
+    const C = 2 * Math.PI * 84, total = 72 * 3600, arc = dial.querySelector(".d-arc"), b = dial.querySelector(".d-in b"), sp = dial.querySelector(".d-in span");
+    arc.setAttribute("stroke-dasharray", C.toFixed(2));
+    let left = total - 12;
+    const draw = () => { b.textContent = `${p(Math.floor(left / 3600))}:${p(Math.floor((left % 3600) / 60))}`; sp.textContent = `${p(left % 60)}s`; arc.setAttribute("stroke-dashoffset", (C * (1 - left / total)).toFixed(2)); };
+    draw(); setInterval(() => { left = left > 1 ? left - 1 : total - 12; draw(); }, 1000);
   }
 
   // Story clock: ticks only while the "queued" step is showing.
@@ -71,11 +81,12 @@
   addEventListener("scroll", onScroll, { passive: true }); onScroll();
 
   // Hero card tilts toward the pointer (desktop pointers only).
-  const mock = document.querySelector(".mock"), heroS = document.querySelector(".hero-s");
+  const mock = document.querySelector(".hero-visual .case"), heroS = document.querySelector(".hero-s");
   if (mock && heroS && matchMedia("(pointer: fine)").matches) {
     heroS.addEventListener("pointermove", (e) => {
       const r = heroS.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - 0.5, yy = (e.clientY - r.top) / r.height - 0.5;
-      mock.style.setProperty("--ry", (x * 8).toFixed(2) + "deg"); mock.style.setProperty("--rx", (-yy * 6).toFixed(2) + "deg");
+      mock.style.setProperty("--ry", (x * 10).toFixed(2) + "deg"); mock.style.setProperty("--rx", (-yy * 8).toFixed(2) + "deg");
+      mock.style.setProperty("--mx", ((x + 0.5) * 100).toFixed(1) + "%"); mock.style.setProperty("--my", ((yy + 0.5) * 100).toFixed(1) + "%");
     });
     heroS.addEventListener("pointerleave", () => { mock.style.setProperty("--ry", "0deg"); mock.style.setProperty("--rx", "0deg"); });
   }
