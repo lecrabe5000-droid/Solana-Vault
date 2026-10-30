@@ -1,4 +1,6 @@
-# Cooldown Vault: spec
+# Ecrin: spec
+
+Ecrin is the product (wallet vault + protocol); Cooldown is its headline feature.
 
 The living version of this spec is in the shared doc; this file is the snapshot that lives with the code.
 

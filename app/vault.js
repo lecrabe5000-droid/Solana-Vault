@@ -1,4 +1,4 @@
-// The Cooldown Vault rules for the browser demo: a line-for-line port of crates/vault-core/src/lib.rs.
+// The Ecrin vault rules for the browser demo: a line-for-line port of crates/vault-core/src/lib.rs.
 // Same names, same checks, same order. If you change a rule in Rust, change it here and in vault.test.mjs.
 // Amounts are whole numbers (the app uses 1 unit = 0.001 SOL); times are unix seconds.
 

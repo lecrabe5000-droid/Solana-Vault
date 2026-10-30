@@ -1,8 +1,10 @@
-# Cooldown Vault
+# Ecrin
 
-A Solana vault that makes every way out of your savings slower than a gambling urge.
+*Where your crypto is kept.*
 
-Crypto puts a casino one tap away. DNS blockers are switched off in a minute, staking unstakes in hours, and liquid staking tokens sell instantly. Cooldown Vault moves the protection on-chain, where no app, wallet or setting can skip it.
+Ecrin is a Solana wallet vault and on-chain protocol with a built-in **cooldown**: every way out of your savings takes time, so no impulse, scam or bad night can empty it. It's built first for people fighting gambling urges, and it protects anyone who wants their crypto to stay put.
+
+Crypto puts a casino one tap away. DNS blockers are switched off in a minute, staking unstakes in hours, and liquid staking tokens sell instantly. Ecrin moves the protection on-chain, where no app, wallet or setting can skip it.
 
 ## How it works
 
@@ -27,7 +29,7 @@ There is no receipt token, so there is nothing to sell to get around the delay. 
 
 ```
 crates/vault-core        every rule, in plain Rust with no Solana dependency, fully unit-tested
-programs/cooldown-vault  the Anchor program: stores the vault in a PDA, calls vault-core, moves lamports
+programs/cooldown-vault  the Ecrin vault program (Anchor): stores the vault in a PDA, calls vault-core, moves lamports
 docs/spec.md             the product spec
 app/                     the demo web app (static, deploys to Cloudflare Pages)
 ```

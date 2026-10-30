@@ -1,4 +1,4 @@
-// Cooldown Vault demo: the real rules (vault.js) with a fake wallet, a fake guardian and a demo clock you can
+// Ecrin demo: the real rules (vault.js) with a fake wallet, a fake guardian and a demo clock you can
 // fast-forward. Everything is kept in this browser's localStorage; no network, no blockchain.
 import { Vault, Policy, VaultError, HOUR, DAY } from "./vault.js";
 
@@ -59,8 +59,8 @@ function renderIntro() {
   $("#app").innerHTML = `
     <section class="intro">
       ${logo(44)}
-      <h1 style="margin-top:18px">Slower than <span>the urge.</span></h1>
-      <p>Cooldown Vault keeps your crypto where a casino can't reach it on impulse. Every way out takes time, and you can cancel any time.</p>
+      <h1 style="margin-top:18px">Where your crypto <span>is kept.</span></h1>
+      <p>Ecrin is a Solana vault with a built-in cooldown. Every way out takes time, so no impulse, scam or bad night can empty it, and you can cancel any time.</p>
     </section>
     <div class="presets" role="radiogroup" aria-label="Protection level">
       ${presets.map(([k, n, d]) => `<button type="button" class="preset" data-act="pick" data-k="${k}" aria-pressed="${pick === k}"><i class="dot"></i><b>${n}</b><span>${d}</span></button>`).join("")}
@@ -84,7 +84,8 @@ function start() {
 // ------------------------------------------------------------------ main view
 
 function logo(size = 26) {
-  return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg${size}" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#9945FF"/><stop offset="1" stop-color="#14F195"/></linearGradient></defs><circle cx="16" cy="16" r="12" fill="none" stroke="url(#lg${size})" stroke-width="2.6"/><path d="M16 9v7l4.5 3" fill="none" stroke="url(#lg${size})" stroke-width="2.6" stroke-linecap="round"/></svg>`;
+  // Ecrin mark: a jewel case (rounded frame) holding a gem.
+  return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg${size}" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#9945FF"/><stop offset="1" stop-color="#14F195"/></linearGradient></defs><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="url(#lg${size})" stroke-width="2.2"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="url(#lg${size})"/></svg>`;
 }
 
 function render() {
@@ -119,7 +120,7 @@ function render() {
 
   $("#app").innerHTML = `
     <header class="top">
-      <div class="brand">${logo()}Cooldown Vault</div><div class="spacer"></div>
+      <div class="brand">${logo()}Ecrin</div><div class="spacer"></div>
       <div class="seg" role="group" aria-label="View as">
         <button data-act="role" data-r="owner" aria-pressed="${!guardian}">You</button>
         <button data-act="role" data-r="guardian" aria-pressed="${guardian}" ${p.guardian ? "" : "disabled title='This vault has no guardian'"}>Guardian</button>
