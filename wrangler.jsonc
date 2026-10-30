@@ -1,9 +1,13 @@
-// Cloudflare Worker that serves the static demo in app/ (no server code).
+// Cloudflare Worker that serves the site in app/. worker/index.js only redirects other hostnames to
+// ecrinprotocol.app; everything else is static assets.
 {
   "name": "solana-vault",
   "compatibility_date": "2026-10-01",
+  "main": "worker/index.js",
   "assets": {
     "directory": "./app",
-    "not_found_handling": "single-page-application"
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
   }
 }
