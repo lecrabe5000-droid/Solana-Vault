@@ -127,6 +127,16 @@ function switchNet(n) {
 
 // ------------------------------------------------------------------ wallet
 
+const isPhone = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));
+
+// On phones the wallet isn't injected into Safari or Chrome: these links reopen this page inside the wallet app's browser.
+function walletLinks() {
+  const url = location.href.split("#")[0], ref = location.origin;
+  return S.net === "eth"
+    ? [["MetaMask", `https://metamask.app.link/dapp/${url.replace(/^https?:\/\//, "")}`]]
+    : [["Phantom", `https://phantom.app/ul/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent(ref)}`], ["Solflare", `https://solflare.com/ul/v1/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent(ref)}`]];
+}
+
 // Ethereum wallets announce themselves (EIP-6963), so MetaMask and Phantom each get their own button even when
 // one of them has taken over window.ethereum.
 const evmWallets = new Map();
@@ -411,7 +421,10 @@ function renderView() {
       <div class="mark">${I.shield}</div>
       <h1>Your crypto, out of reach of anyone in a hurry.</h1>
       <p>Connect the wallet you already use. Ecrin never holds your keys: your wallet signs, the ${C.name} ${C.contractWord} enforces the rules.</p>
-      <div class="wallets">${list.length ? list.map(([n], i) => `<button class="btn primary lg" data-act="connect" data-i="${i}">Connect ${esc(n)}</button>`).join("") : `<a class="btn primary lg" href="${C.getWallet[1]}" target="_blank" rel="noopener">${C.getWallet[0]}</a>`}</div>
+      <div class="wallets">${list.length ? list.map(([n], i) => `<button class="btn primary lg" data-act="connect" data-i="${i}">Connect ${esc(n)}</button>`).join("")
+        : isPhone() ? walletLinks().map(([n, href], i) => `<a class="btn ${i ? "" : "primary "}lg" href="${esc(href)}">Open in ${n}</a>`).join("")
+        : `<a class="btn primary lg" href="${C.getWallet[1]}" target="_blank" rel="noopener">${C.getWallet[0]}</a>`}</div>
+      ${!list.length && isPhone() ? `<p class="hint">Phone browsers can't reach wallet apps directly, so Ecrin opens inside your wallet's own browser. Don't have it yet? <a href="${C.getWallet[1]}" target="_blank" rel="noopener">${C.getWallet[0]}</a>.</p>` : ""}
       <ol class="steps"><li><b>1</b><span>${C.setup}</span></li><li><b>2</b><span>Get free test ${C.unit} at <a href="${C.faucet}" target="_blank" rel="noopener">${C.faucetName}</a>.</span></li><li><b>3</b><span>Create your vault and try a withdrawal. Watch the clock, then cancel it.</span></li></ol>
     </section>`, { nav: false });
     return;
