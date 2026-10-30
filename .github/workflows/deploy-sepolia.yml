@@ -2,7 +2,8 @@ name: deploy-sepolia
 
 # Run by hand: Actions → deploy-sepolia → Run workflow.
 # Needs the repository secret SEPOLIA_DEPLOYER_KEY: the private key of a MetaMask account used only for testnets,
-# holding a little Sepolia ETH. Optional: SEPOLIA_RPC_URL (defaults to a public Sepolia RPC).
+# holding a little Sepolia ETH. Optional: SEPOLIA_RPC_URL (defaults to a public Sepolia RPC), ETHERSCAN_API_KEY
+# (publishes the source on Etherscan after deploying).
 on:
   workflow_dispatch:
 
@@ -34,6 +35,16 @@ jobs:
         run: |
           if [ -z "$SEPOLIA_DEPLOYER_KEY" ]; then echo "::error::Add the SEPOLIA_DEPLOYER_KEY secret first (Settings → Secrets and variables → Actions)."; exit 1; fi
           npx hardhat run scripts/deploy.js --network sepolia
+      - name: Publish the source on Etherscan
+        # Etherscan needs a moment to index a new contract; a failure here doesn't undo the deploy.
+        continue-on-error: true
+        env:
+          ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+          SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+        run: |
+          if [ -z "$ETHERSCAN_API_KEY" ]; then echo "No ETHERSCAN_API_KEY secret; skipping."; exit 0; fi
+          sleep 30
+          npx hardhat verify --network sepolia "$(grep -o '0x[0-9a-fA-F]\{40\}' ../app/config-evm.js | head -1)"
       - name: Point the website at it
         working-directory: .
         run: |
