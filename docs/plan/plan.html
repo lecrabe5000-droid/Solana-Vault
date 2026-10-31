@@ -1,0 +1,208 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Ecrin · Plan</title>
+<style>
+@font-face { font-family: Unb; src: url("../../app/fonts/unbounded-latin-500-normal.woff2"); font-weight: 500; }
+@font-face { font-family: Man; src: url("../../app/fonts/manrope-latin-400-normal.woff2"); font-weight: 400; }
+@font-face { font-family: Man; src: url("../../app/fonts/manrope-latin-600-normal.woff2"); font-weight: 600; }
+@font-face { font-family: Man; src: url("../../app/fonts/manrope-latin-700-normal.woff2"); font-weight: 700; }
+@page { size: Letter; margin: 16mm 16mm 18mm; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 400 10.4pt/1.55 Man, sans-serif; color: #33363d; }
+h1, h2 { font-family: Unb; font-weight: 500; letter-spacing: -.03em; color: #101114; margin: 0; }
+h3 { color: #101114; margin: 0; font-size: 11.2pt; }
+.cover { height: 245mm; display: flex; flex-direction: column; justify-content: space-between; padding: 14mm; border-radius: 8mm; color: #f1f0ea; page-break-after: always;
+  background: radial-gradient(120% 90% at 85% 0%, #23263a 0%, #121318 55%, #0b0b0e 100%); position: relative; overflow: hidden; }
+.cover svg.rib { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+.cover > * { position: relative; z-index: 1; }
+.brand { display: flex; align-items: center; gap: 10px; font: 500 15pt Unb; }
+.cover h1 { color: #fff; font-size: 40pt; line-height: 1.02; }
+.cover p { max-width: 120mm; color: #c9cbe0; font-size: 12pt; }
+.cover .meta { color: #8e93ad; font-size: 9.5pt; }
+.mk { display: inline-block; width: .8em; height: .8em; border-radius: .25em; background: #2f5bff; position: relative; vertical-align: -.06em; transform: rotate(-6deg); }
+.mk::after { content: ""; position: absolute; inset: 27%; background: #fff; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+section { margin: 0 0 7mm; }
+h2 { font-size: 19pt; margin: 0 0 3mm; }
+.phase { page-break-inside: auto; }
+.ph-head { display: flex; align-items: baseline; gap: 10px; margin: 0 0 1.5mm; }
+.ph-n { font: 500 9pt Unb; color: #fff; background: #2f5bff; padding: 2px 8px; border-radius: 99px; }
+.ph-n.you { background: #b7700a; }
+.lead { margin: 0 0 3mm; color: #5d6070; }
+table { width: 100%; border-collapse: collapse; font-size: 9.6pt; }
+th { text-align: left; color: #8b8d93; font-weight: 600; font-size: 8.4pt; text-transform: uppercase; letter-spacing: .06em; padding: 0 6px 4px; border-bottom: 1px solid #d6d6cf; }
+td { padding: 6px; border-bottom: 1px solid #ebebe6; vertical-align: top; }
+tr { page-break-inside: avoid; }
+td.n { width: 7mm; color: #2f5bff; font: 500 9pt Unb; }
+td.w { width: 20mm; } td.s { width: 13mm; text-align: center; }
+td b { color: #101114; }
+.tag { display: inline-block; padding: 1px 7px; border-radius: 99px; font-size: 8.2pt; font-weight: 700; }
+.you { background: #fbf3e4; color: #8a5506; } .me { background: #eef1ff; color: #2f5bff; } .both { background: #e6f4ed; color: #0d7a4d; } .pro { background: #f1f1ed; color: #45484f; }
+.box { padding: 4mm 5mm; border-radius: 4mm; background: #f3f2ee; margin: 0 0 4mm; page-break-inside: avoid; }
+.box.warn { background: #fbf3e4; } .box.blue { background: #eef1ff; }
+.box h3 { margin-bottom: 1.5mm; }
+.box ul { margin: 0; padding-left: 5mm; } .box li { margin: 1mm 0; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+.done li::marker { content: "✓  "; color: #10915c; }
+.small { font-size: 8.8pt; color: #8b8d93; }
+.order { counter-reset: o; list-style: none; padding: 0; margin: 0; }
+.order li { counter-increment: o; display: grid; grid-template-columns: 9mm 1fr; padding: 2.4mm 0; border-bottom: 1px solid #ebebe6; page-break-inside: avoid; }
+.order li::before { content: counter(o, decimal-leading-zero); font: 500 10pt Unb; color: #2f5bff; }
+.pb { page-break-before: always; }
+</style></head><body>
+
+<div class="cover">
+  <svg class="rib" viewBox="0 0 800 1000" preserveAspectRatio="xMidYMid slice"><g fill="none" stroke-linecap="round" opacity=".9">
+    <path d="M-80 820 C 150 700, 260 960, 480 840 S 720 600, 900 700" stroke="#2f5bff" stroke-width="70"/>
+    <path d="M-60 160 C 180 280, 300 80, 520 180 S 760 420, 900 300" stroke="#ffb547" stroke-width="64"/>
+    <path d="M700 -60 C 600 160, 760 300, 650 480 S 600 760, 720 1080" stroke="#e2603f" stroke-width="56"/>
+    <path d="M-60 560 C 160 500, 260 660, 460 620 S 700 760, 900 720" stroke="#f1f0ea" stroke-width="40" opacity=".5"/></g></svg>
+  <div class="brand"><svg width="30" height="30" viewBox="0 0 32 32"><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="#7D97FF" stroke-width="2.2"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="#7D97FF"/></svg>Ecrin</div>
+  <div>
+    <h1>The plan: from testnet beta to Ecrin <span class="mk"></span> Wallet.</h1>
+    <p>Everything left to do, every idea so far, and the order to do it in. Each step says who does it: you, Claude (code), or an outside professional.</p>
+  </div>
+  <div class="meta">Version 1 · 31 October 2026 · ecrinprotocol.app</div>
+</div>
+
+<section>
+  <h2>Where Ecrin is today</h2>
+  <div class="cols">
+    <div class="box"><h3>Done</h3><ul class="done">
+      <li>Vault program on Solana devnet, now with USDC (upgraded 31 Oct)</li>
+      <li>Ethereum contract with tokens, ready for Sepolia, Base, Arbitrum, Optimism, Polygon</li>
+      <li>App: portfolio, vault, rules, guardian, activity, network picker, USDC switch</li>
+      <li>Telegram and email alerts for every coin and network</li>
+      <li>WalletConnect, home-screen app (PWA), view mode on phones</li>
+      <li>New landing page, brand kit, X banner, ecrinprotocol.app</li>
+      <li>Tests on every change: rules, program, contract, browser app</li>
+    </ul></div>
+    <div class="box warn"><h3>Not yet</h3><ul>
+      <li>Ethereum-style contracts not deployed (needs test coins + one workflow run)</li>
+      <li>No independent security audit: test coins only</li>
+      <li>No real users testing it yet</li>
+      <li>No company, terms of service or legal review</li>
+      <li>Upgrade keys are single hot keys (fine for testnet, not for mainnet)</li>
+    </ul></div>
+  </div>
+  <p class="small">How to read the tables: <span class="tag you">You</span> you do it, <span class="tag me">Claude</span> code I can write, <span class="tag both">Both</span> together, <span class="tag pro">Pro</span> an outside professional. Size: S = hours, M = days, L = weeks.</p>
+</section>
+
+<section class="phase">
+  <div class="ph-head"><span class="ph-n you">Phase 0</span><h2>Finish the testnet launch</h2></div>
+  <p class="lead">This week. Nothing here needs new code; it makes everything already built actually usable.</p>
+  <table><tr><th></th><th>Step</th><th>Who</th><th>Size</th></tr>
+    <tr><td class="n">1</td><td><b>Try USDC on Solana devnet.</b> Free devnet USDC at faucet.circle.com, deposit in the app, request a withdrawal, cancel it, check the alert.</td><td class="w"><span class="tag you">You</span></td><td class="s">S</td></tr>
+    <tr><td class="n">2</td><td><b>Deploy the Ethereum-style networks.</b> Fund your testnet MetaMask account on Sepolia, Base Sepolia, Arbitrum Sepolia, OP Sepolia and Polygon Amoy, then Actions → deploy-evm → all. Optional: add ETHERSCAN_API_KEY so the source is published.</td><td class="w"><span class="tag you">You</span></td><td class="s">S</td></tr>
+    <tr><td class="n">3</td><td><b>Test each network once</b>: ETH and USDC deposit, withdraw, cancel. Report anything odd.</td><td class="w"><span class="tag both">Both</span></td><td class="s">S</td></tr>
+    <tr><td class="n">4</td><td><b>WalletConnect check</b>: ecrinprotocol.app in the Reown allow-list, connect once with Solflare and MetaMask on a phone.</td><td class="w"><span class="tag you">You</span></td><td class="s">S</td></tr>
+    <tr><td class="n">5</td><td><b>Find 10 to 20 testers</b>: crypto friends, and people in gambling recovery (where Ecrin started). A short form, a group chat, and a simple feedback list.</td><td class="w"><span class="tag you">You</span></td><td class="s">M</td></tr>
+  </table>
+</section>
+
+<section class="phase">
+  <div class="ph-head"><span class="ph-n">Phase 1</span><h2>Quick wins: site and app</h2></div>
+  <p class="lead">Next 2 to 3 weeks. Mostly front-end, so it doesn't touch the contracts and can ship while testers use the beta.</p>
+  <table><tr><th></th><th>Idea</th><th>Who</th><th>Size</th></tr>
+    <tr><td class="n">1</td><td><b>Playable hero.</b> A mini vault on the landing page: a "thief" requests a withdrawal, the visitor taps Cancel and sees "Kept safe". The whole idea in five seconds.</td><td class="w"><span class="tag me">Claude</span></td><td class="s">M</td></tr>
+    <tr><td class="n">2</td><td><b>French version</b> of the site, app and alerts. You're in Québec: it's the first audience to win.</td><td class="w"><span class="tag both">Both</span></td><td class="s">M</td></tr>
+    <tr><td class="n">3</td><td><b>Cancel straight from the alert.</b> The Telegram and email alerts get a one-tap link that opens the app on that exact withdrawal, ready to cancel.</td><td class="w"><span class="tag me">Claude</span></td><td class="s">S</td></tr>
+    <tr><td class="n">4</td><td><b>Phone push notifications</b> from the home-screen app, on top of Telegram and email.</td><td class="w"><span class="tag me">Claude</span></td><td class="s">M</td></tr>
+    <tr><td class="n">5</td><td><b>Live numbers from the chain</b> on the landing page: vaults created, value protected, withdrawals cancelled. Real and verifiable.</td><td class="w"><span class="tag me">Claude</span></td><td class="s">M</td></tr>
+    <tr><td class="n">6</td><td><b>Security page</b>: how it works, what's tested, audit status, how to report a bug, and the GitHub test results.</td><td class="w"><span class="tag me">Claude</span></td><td class="s">S</td></tr>
+    <tr><td class="n">7</td><td><b>Ecrin Wallet waitlist</b> on the site (email sign-up, stored by the existing worker).</td><td class="w"><span class="tag me">Claude</span></td><td class="s">S</td></tr>
+    <tr><td class="n">8</td><td><b>Named trusted addresses</b>: "Bank off-ramp", "Cold wallet" instead of raw addresses, with a warning when a withdrawal goes to a lookalike address.</td><td class="w"><span class="tag me">Claude</span></td><td class="s">S</td></tr>
+    <tr><td class="n">9</td><td><b>Guides</b>: "My seed phrase leaked, what now?", "Protecting crypto for your heirs", "Ecrin + a hardware wallet". Search traffic and trust.</td><td class="w"><span class="tag both">Both</span></td><td class="s">M</td></tr>
+    <tr><td class="n">10</td><td><b>Privacy-friendly analytics</b> (no cookies) to see where visitors drop off.</td><td class="w"><span class="tag both">Both</span></td><td class="s">S</td></tr>
+  </table>
+</section>
+
+<section class="phase pb">
+  <div class="ph-head"><span class="ph-n">Phase 2</span><h2>Vault features (before the audit)</h2></div>
+  <p class="lead">These change the program and the contract. They go in before the audit, so the auditors check the final code once. Pick the ones testers ask for; not all are needed for mainnet.</p>
+  <table><tr><th></th><th>Feature</th><th>Who</th><th>Size</th></tr>
+    <tr><td class="n">1</td><td><b>Panic freeze.</b> One tap locks everything for N days. Instant, because it only makes rules stricter. The button you want when you think you've been hacked.</td><td class="w"><span class="tag me">Claude</span></td><td class="s">M</td></tr>
+    <tr><td class="n">2</td><td><b>Spending allowance.</b> A small hot balance that refills from the vault each day, up to a cap. Daily convenience without daily risk.</td><td class="w"><span class="tag me">Claude</span></td><td class="s">L</td></tr>
+    <tr><td class="n">3</td><td><b>Several guardians</b> (2 of 3 must agree). Stronger emergencies and recovery than one person.</td><td class="w"><span class="tag me">Claude</span></td><td class="s">L</td></tr>
+    <tr><td class="n">4</td><td><b>Inheritance.</b> If you're inactive for N months, a beneficiary can request a withdrawal, still with a long delay you can cancel. Plus a printable "recovery kit" for your family.</td><td class="w"><span class="tag me">Claude</span></td><td class="s">L</td></tr>
+    <tr><td class="n">5</td><td><b>Scheduled payments</b> to trusted addresses (rent, savings plans).</td><td class="w"><span class="tag me">Claude</span></td><td class="s">M</td></tr>
+    <tr><td class="n">6</td><td><b>Recovery mode for gambling</b>: an optional "why am I withdrawing?" note, and the guardian is told about every request.</td><td class="w"><span class="tag me">Claude</span></td><td class="s">S</td></tr>
+    <tr><td class="n">7</td><td><b>Hardware wallet signing</b> tested end to end (Ledger with Phantom and MetaMask).</td><td class="w"><span class="tag both">Both</span></td><td class="s">S</td></tr>
+    <tr><td class="n">8</td><td><b>More stablecoins</b> (USDT on Ethereum, PYUSD) once USDC has been used for a while.</td><td class="w"><span class="tag me">Claude</span></td><td class="s">M</td></tr>
+    <tr><td class="n">9</td><td><b>Monthly "attack drill"</b>: a reminder to request and cancel a tiny withdrawal, so people know the cancel button works before they need it.</td><td class="w"><span class="tag me">Claude</span></td><td class="s">S</td></tr>
+  </table>
+</section>
+
+<section class="phase">
+  <div class="ph-head"><span class="ph-n">Phase 3</span><h2>Audit and mainnet</h2></div>
+  <p class="lead">The gate for real money. Nothing after this phase should ship before it.</p>
+  <table><tr><th></th><th>Step</th><th>Who</th><th>Size</th></tr>
+    <tr><td class="n">1</td><td><b>Code freeze and internal review</b>: extra property and fuzz tests on the rules ("no path moves funds without the delay").</td><td class="w"><span class="tag me">Claude</span></td><td class="s">M</td></tr>
+    <tr><td class="n">2</td><td><b>Company and legal</b>: a company behind Ecrin, terms of service, privacy policy, and a lawyer's check on Québec and Canadian rules for a non-custodial crypto app.</td><td class="w"><span class="tag you">You</span> <span class="tag pro">Pro</span></td><td class="s">L</td></tr>
+    <tr><td class="n">3</td><td><b>Independent audit</b> of the Solana program and the Ethereum contract by a firm that does Solana and Solidity. A public audit contest is a cheaper alternative or a good second pass. Budget for this early: it is the biggest cost before launch.</td><td class="w"><span class="tag pro">Pro</span></td><td class="s">L</td></tr>
+    <tr><td class="n">4</td><td><b>Fix findings</b>, get the fixes re-checked, publish the report.</td><td class="w"><span class="tag both">Both</span></td><td class="s">M</td></tr>
+    <tr><td class="n">5</td><td><b>Bug bounty</b> with a public reward for anyone who finds a flaw.</td><td class="w"><span class="tag you">You</span></td><td class="s">S</td></tr>
+    <tr><td class="n">6</td><td><b>Safer keys</b>: upgrade authority moved to a multisig (e.g. Squads), deployer keys out of GitHub secrets for mainnet, and later the program made immutable.</td><td class="w"><span class="tag both">Both</span></td><td class="s">M</td></tr>
+    <tr><td class="n">7</td><td><b>Mainnet with deposit caps</b>, raised step by step. Monitoring and a written incident plan.</td><td class="w"><span class="tag both">Both</span></td><td class="s">M</td></tr>
+  </table>
+</section>
+
+<section class="phase pb">
+  <div class="ph-head"><span class="ph-n">Phase 4</span><h2>Ecrin Protocol for existing wallets</h2></div>
+  <p class="lead">Bring Ecrin to people where they already are: Phantom, Solflare, MetaMask, Backpack, Rabby.</p>
+  <table><tr><th></th><th>Step</th><th>Who</th><th>Size</th></tr>
+    <tr><td class="n">1</td><td><b>SDK</b> (an npm package): any wallet or app can show a user's vault, countdowns and a Cancel button in a few lines.</td><td class="w"><span class="tag me">Claude</span></td><td class="s">M</td></tr>
+    <tr><td class="n">2</td><td><b>Solana Actions (Blinks)</b>: "Cancel this withdrawal" works right inside X and Telegram.</td><td class="w"><span class="tag me">Claude</span></td><td class="s">M</td></tr>
+    <tr><td class="n">3</td><td><b>Docs site</b> for developers and partners.</td><td class="w"><span class="tag me">Claude</span></td><td class="s">M</td></tr>
+    <tr><td class="n">4</td><td><b>Partnerships</b>: pitch "Protect with Ecrin" to wallets and to treasury tools (Squads). The audit report is what opens these doors.</td><td class="w"><span class="tag you">You</span></td><td class="s">L</td></tr>
+  </table>
+</section>
+
+<section class="phase">
+  <div class="ph-head"><span class="ph-n">Phase 5</span><h2>Yield, without a fast way out</h2></div>
+  <table><tr><th></th><th>Step</th><th>Who</th><th>Size</th></tr>
+    <tr><td class="n">1</td><td><b>Native SOL staking inside the vault</b>: earn rewards, keep every delay. No receipt token, so nothing to sell around the rules. Needs its own audit.</td><td class="w"><span class="tag me">Claude</span> <span class="tag pro">Pro</span></td><td class="s">L</td></tr>
+    <tr><td class="n">2</td><td><b>Opt-in stablecoin yield</b>, only with a well-known lending protocol and its own audit. Clearly marked as extra risk.</td><td class="w"><span class="tag me">Claude</span> <span class="tag pro">Pro</span></td><td class="s">L</td></tr>
+  </table>
+</section>
+
+<section class="phase">
+  <div class="ph-head"><span class="ph-n">Phase 6</span><h2>Ecrin Wallet: Chrome extension, then mobile app</h2></div>
+  <p class="lead">A wallet where savings live in the vault by default and only a small allowance is spendable.</p>
+  <div class="box blue"><h3>How it's built</h3><ul>
+    <li><b>One shared core</b> in TypeScript: keys, Solana and Ethereum support, the Ecrin vault client (chain.js / evm.js already exist), and a check of every transaction before signing.</li>
+    <li><b>Chrome extension</b> (Manifest V3): the key is stored encrypted with a password; websites see it the same way they see Phantom and MetaMask, so dApps work with it. React popup.</li>
+    <li><b>Mobile app</b> (React Native with Expo): keys in the phone's secure storage (Keychain / Keystore) behind Face ID or a fingerprint. Not a wrapped website: that's weaker for holding keys.</li>
+    <li><b>What makes it Ecrin</b>: vault by default, spending allowance, every outgoing transaction explained in plain words before you sign ("this goes to a new address and will wait 72 h"), cancel and alerts built in.</li>
+  </ul></div>
+  <table><tr><th></th><th>Step</th><th>Who</th><th>Size</th></tr>
+    <tr><td class="n">1</td><td><b>Shared core</b> with full tests.</td><td class="w"><span class="tag me">Claude</span></td><td class="s">L</td></tr>
+    <tr><td class="n">2</td><td><b>Chrome extension</b>: simpler to build and test, and store review is faster. Beta to the waitlist first.</td><td class="w"><span class="tag me">Claude</span></td><td class="s">L</td></tr>
+    <tr><td class="n">3</td><td><b>Wallet security audit</b> (key storage, the extension's connection to websites).</td><td class="w"><span class="tag pro">Pro</span></td><td class="s">L</td></tr>
+    <tr><td class="n">4</td><td><b>Mobile app</b> on iOS and Android. App stores need the company and terms from Phase 3.</td><td class="w"><span class="tag me">Claude</span> <span class="tag you">You</span></td><td class="s">L</td></tr>
+    <tr><td class="n">5</td><td><b>Later</b>: passkeys instead of seed phrases, family and team vaults, an Ecrin card for spending from the allowance.</td><td class="w"><span class="tag both">Both</span></td><td class="s">L</td></tr>
+  </table>
+</section>
+
+<section class="pb">
+  <h2>The order, in one list</h2>
+  <ol class="order">
+    <li><span><b>Test USDC on Solana</b>, deploy the Ethereum-style networks, test them, and check WalletConnect. <span class="tag you">You</span></span></li>
+    <li><span><b>Recruit 10 to 20 testers</b> and start a feedback list. <span class="tag you">You</span></span></li>
+    <li><span><b>Playable hero, French version, cancel from the alert</b>. <span class="tag me">Claude</span></span></li>
+    <li><span><b>Panic freeze</b> and the <b>recovery mode for gambling</b>: small program changes with a big impact. <span class="tag me">Claude</span></span></li>
+    <li><span><b>Push notifications, live numbers, security page, waitlist, named addresses</b>. <span class="tag me">Claude</span></span></li>
+    <li><span><b>Start the company and legal work</b> in parallel; it takes the longest. <span class="tag you">You</span></span></li>
+    <li><span><b>Decide which Phase 2 features go into v1</b>, based on what testers ask for (allowance, several guardians, inheritance, scheduled payments). <span class="tag both">Both</span></span></li>
+    <li><span><b>Code freeze, internal review, then the independent audit.</b> <span class="tag pro">Pro</span></span></li>
+    <li><span><b>Fix, publish the report, bug bounty, multisig keys, mainnet with caps.</b> <span class="tag both">Both</span></span></li>
+    <li><span><b>SDK, Blinks and docs</b>, then pitch wallets and treasury tools. <span class="tag me">Claude</span> <span class="tag you">You</span></span></li>
+    <li><span><b>Ecrin Wallet</b>: shared core, Chrome extension, wallet audit, mobile app. <span class="tag me">Claude</span> <span class="tag pro">Pro</span></span></li>
+    <li><span><b>Yield</b>: staking inside the vault, then opt-in stablecoin yield, each with its own audit. <span class="tag me">Claude</span> <span class="tag pro">Pro</span></span></li>
+  </ol>
+  <div class="box warn" style="margin-top:6mm"><h3>Rules that don't change</h3><ul>
+    <li>No real money before the independent audit.</li>
+    <li>Never paste private keys, seed phrases or API keys into chat or GitHub; secrets go into Cloudflare or GitHub secrets only. Testnet keys stay testnet-only.</li>
+    <li>Every contract change gets tests first, and goes into the next audit.</li>
+    <li>Be honest on the site: audit status, test coins, and that Circle can freeze USDC.</li>
+  </ul></div>
+  <p class="small">This plan will change as testers give feedback. Ask for a new version any time.</p>
+</section>
+</body></html>
