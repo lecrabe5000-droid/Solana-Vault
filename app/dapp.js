@@ -1,12 +1,15 @@
-// Ecrin app: your real vault on Solana devnet or Ethereum Sepolia, through the wallet you already use.
-// Solana: reads with app/chain.js, signs in the wallet, sends through our own devnet RPC (so it works whichever
-// network the wallet is set to). Ethereum: app/evm.js reads through a public Sepolia RPC and signs with MetaMask.
-// Both return the same vault shape, so every view below is shared. Nothing here holds keys or funds.
+// Ecrin app: your real vault on Solana devnet or an Ethereum-style test network (Sepolia, Base, Arbitrum, Optimism,
+// Polygon), through the wallet you already use. Solana: reads with app/chain.js, signs in the wallet, sends through our
+// own devnet RPC (so it works whichever network the wallet is set to). Ethereum-style: app/evm.js reads through a
+// public RPC and signs with MetaMask. Both return the same vault shape, so every view below is shared.
+// Each vault holds the network's own coin and USDC: one set of rules, a balance, a queue and a daily limit per coin.
+// Nothing here holds keys or funds.
 import { createClient, explainError } from "./chain.js";
 import { isStricter } from "./vault.js";
 import { CONFIG } from "./config.js";
 import { createEvmClient, explainEvmError } from "./evm.js";
-import { EVM } from "./config-evm.js";
+import { EVM_NETS } from "./config-evm.js";
+import { SOL_USDC } from "./config-tokens.js";
 import { WC } from "./config-wc.js";
 
 const web3 = window.solanaWeb3;
@@ -14,7 +17,9 @@ const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 // Amounts are in 1e9 base units per coin on both networks: lamports on Solana, gwei on Ethereum.
 const LAMPORTS = 1e9, HOUR = 3600, DAY = 86400;
-const sol = (l) => (l / LAMPORTS).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+// Amounts are in the coin's base units: 1e9 for the network's own coin (lamports, gwei), 1e6 for USDC.
+// `sol` formats for the asset being looked at unless told which.
+const sol = (l, a = A()) => (l / a.base).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: a.stable ? 2 : 4 });
 const short = (k) => { const s = String(k); return s.slice(0, 4) + "…" + s.slice(-4); };
 const when = (t) => new Date(t * 1000).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const dur = (s) => { if (s <= 0) return "ready"; const d = Math.floor(s / DAY), h = Math.floor((s % DAY) / HOUR), m = Math.floor((s % HOUR) / 60); return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${Math.max(1, m)}m`; };
@@ -31,7 +36,7 @@ let savedHide = false;
 try { savedHide = localStorage.getItem("ecrin-hide") === "1"; } catch (_) {}
 let savedTab = "portfolio";
 try { const t = new URLSearchParams(location.search).get("tab"); if (["portfolio", "vault", "activity", "guardian"].includes(t)) savedTab = t; } catch (_) {}
-const S = { hide: savedHide, net: savedNet === "eth" ? "eth" : "sol", tab: savedTab, range: "7", shown: null, chart: null, price: null, tokens: [], wallet: null, provider: null, walletSol: null, vault: undefined, view: "owner", watchOwner: "", watched: undefined, busy: false, clockOffset: 0, err: null, pick: "strong" };
+const S = { asset: "native", tok: {}, walletTok: {}, hide: savedHide, net: savedNet, tab: savedTab, range: "7", shown: null, chart: null, price: null, tokens: [], wallet: null, provider: null, walletSol: null, vault: undefined, view: "owner", watchOwner: "", watched: undefined, busy: false, clockOffset: 0, err: null, pick: "strong" };
 const now = () => Math.floor(Date.now() / 1000) + S.clockOffset;
 
 let toastTimer;
@@ -84,21 +89,33 @@ const solX = client && {
   },
 };
 
-/** Asks the wallet to switch to Sepolia, adding the network first if it doesn't know it. */
-async function ensureSepolia(p) {
-  const want = "0x" + EVM.chainId.toString(16);
+const isEvm = (n = S.net) => n !== "sol";
+
+/** Asks the wallet to switch to this network, adding it first if the wallet doesn't know it. */
+async function ensureChain(p, E = C.evm) {
+  const want = "0x" + E.chainId.toString(16);
   if ((await p.request({ method: "eth_chainId" })) === want) return;
   try { await p.request({ method: "wallet_switchEthereumChain", params: [{ chainId: want }] }); }
   catch (e) {
     if (e?.code !== 4902) throw e;
-    await p.request({ method: "wallet_addEthereumChain", params: [{ chainId: want, chainName: "Sepolia", nativeCurrency: { name: "Sepolia ETH", symbol: "ETH", decimals: 18 }, rpcUrls: [EVM.rpc], blockExplorerUrls: [EVM.explorer] }] });
+    await p.request({ method: "wallet_addEthereumChain", params: [{ chainId: want, chainName: `${E.name} ${E.net}`, nativeCurrency: { name: E.unit, symbol: E.unit, decimals: 18 }, rpcUrls: [E.rpc], blockExplorerUrls: [E.explorer] }] });
   }
 }
 
-const evmClient = EVM.address && window.ethers
-  ? createEvmClient({ ethers: window.ethers, EVM, getSigner: async () => { await ensureSepolia(S.provider); return new window.ethers.BrowserProvider(S.provider).getSigner(); } })
-  : null;
-const evmX = evmClient && { ...evmClient, explain: (e) => explainEvmError(e, evmClient.iface) };
+function evmNet(E) {
+  const c = E.address && window.ethers
+    ? createEvmClient({ ethers: window.ethers, EVM: E, getSigner: async () => { await ensureChain(S.provider, E); return new window.ethers.BrowserProvider(S.provider).getSigner(); } })
+    : null;
+  return {
+    name: E.name, net: E.net, unit: E.unit, cg: E.cg, x: c && { ...c, explain: (e) => explainEvmError(e, c.iface) }, contract: E.address, contractWord: "contract", evm: E,
+    explorer: (kind, id) => `${E.explorer}/${kind}/${id}`,
+    faucet: E.faucet, faucetName: E.faucetName, lowBal: E.unit === "POL" ? 0.05 : E.key === "eth" ? 0.002 : 0.0005,
+    setup: `In MetaMask: Settings → Advanced → turn on <b>Show test networks</b>. Ecrin asks MetaMask to switch to <b>${E.name} ${E.net}</b> for you.`,
+    getWallet: ["Get MetaMask", "https://metamask.io/download/"],
+    createCost: `Creating the vault costs a little test ${E.unit} in gas.`,
+    usdc: E.v >= 2 && E.usdc ? E.usdc : null,
+  };
+}
 
 const NETS = {
   sol: {
@@ -108,25 +125,73 @@ const NETS = {
     setup: "In Phantom: Settings → Developer Settings → turn on <b>Testnet Mode</b> and pick <b>Solana Devnet</b>.",
     getWallet: ["Get Phantom", "https://phantom.com/download"],
     createCost: "Creating the vault costs a small amount of devnet SOL for the account's rent.",
+    usdc: CONFIG.tokens ? SOL_USDC[CONFIG.cluster] || null : null,
   },
-  eth: {
-    name: "Ethereum", net: "Sepolia", unit: "ETH", cg: "ethereum", x: evmX, contract: EVM.address, contractWord: "contract",
-    explorer: (kind, id) => `${EVM.explorer}/${kind}/${id}`,
-    faucet: "https://cloud.google.com/application/web3/faucet/ethereum/sepolia", faucetName: "the Google Cloud Sepolia faucet", lowBal: 0.002,
-    setup: "In MetaMask: Settings → Advanced → turn on <b>Show test networks</b>. Ecrin asks MetaMask to switch to <b>Sepolia</b> for you.",
-    getWallet: ["Get MetaMask", "https://metamask.io/download/"],
-    createCost: "Creating the vault costs a little Sepolia ETH in gas.",
-  },
+  ...Object.fromEntries(Object.values(EVM_NETS).map((E) => [E.key, evmNet(E)])),
 };
+if (!NETS[S.net]) S.net = "sol";
 let C = NETS[S.net];
 
 function switchNet(n) {
   if (!NETS[n] || n === S.net) return;
   try { S.provider?.disconnect?.(); } catch (_) {}
-  Object.assign(S, { readOnly: false, net: n, wallet: null, provider: null, walletSol: null, vault: undefined, price: null, tokens: [], tab: "portfolio", shown: null, chart: null, watchOwner: "", watched: undefined, err: null });
+  Object.assign(S, { asset: "native", tok: {}, walletTok: {}, readOnly: false, net: n, wallet: null, provider: null, walletSol: null, vault: undefined, price: null, tokens: [], tab: "portfolio", shown: null, chart: null, watchOwner: "", watched: undefined, err: null });
   C = NETS[n];
   try { localStorage.setItem("ecrin-net", n); } catch (_) {}
   render(); loadPrice(); reconnect();
+}
+
+// ------------------------------------------------------------------ assets: the network's own coin, and USDC
+
+const USDC = { id: "usdc", unit: "USDC", base: 1e6, stable: true };
+/** What a vault on this network can hold. USDC shows once the deployed program or contract supports tokens. */
+const assets = () => [{ id: "native", unit: C.unit, base: LAMPORTS }, ...(C.usdc && C.x ? [USDC] : [])];
+const A = (id = S.asset) => assets().find((a) => a.id === id) || assets()[0];
+let tokCache = null;
+/** The USDC side of this network's client (same shape on Solana and Ethereum). */
+function tc() {
+  if (!tokCache || tokCache.net !== S.net) tokCache = { net: S.net, t: isEvm() ? C.x.token(C.usdc) : client.token(C.usdc) };
+  return tokCache.t;
+}
+
+/** The vault as seen for one asset: the shared rules, with that asset's balance, queue, limit and limit changes. */
+function assetView(v, id = S.asset) {
+  if (!v || id === "native") return v && { ...v, asset: "native" };
+  const t = v.tokens?.[id];
+  return {
+    ...v, asset: id, opened: !!t, balance: t?.balance || 0, available: t?.available || 0, withdrawals: t?.withdrawals || [], dailyLimit: t?.dailyLimit ?? null,
+    changes: [...v.changes.filter((c) => c.change.kind !== "SetDailyLimit"), ...(t?.changes || []).map((c) => ({ ...c, asset: id }))],
+  };
+}
+/** Every withdrawal waiting to leave, whatever the coin, each tagged with its asset. */
+const allWithdrawals = (v) => [...(v?.withdrawals || []).map((w) => ({ ...w, asset: "native" })), ...Object.entries(v?.tokens || {}).flatMap(([id, t]) => (t?.withdrawals || []).map((w) => ({ ...w, asset: id })))];
+
+/** The operations for one asset, with the native coin's signatures. Rules other than the daily limit are shared. */
+function assetOps(id = S.asset) {
+  if (id === "native") return C.x.ops;
+  const t = tc(), main = C.x.ops;
+  const limitOr = (f) => (ch) => (ch.kind === "SetDailyLimit" ? f(ch.value) : main.proposeChange(ch));
+  if (isEvm()) return { ...t.ops, proposeChange: limitOr(t.ops.proposeLimit) };
+  const b = t.build, me = () => S.wallet;
+  return {
+    // The first USDC deposit also opens the vault's USDC account, in the same transaction.
+    deposit: (u) => solTx(...(S.vault?.tokens?.[id] ? [] : [b.open(me())]), b.deposit(me(), u)),
+    sendToTrusted: (dest, u) => solTx(...b.sendToTrusted(me(), dest, u)),
+    requestWithdrawal: (dest, u) => solTx(b.requestWithdrawal(me(), dest, u)),
+    cancelWithdrawal: (wid) => solTx(b.cancelWithdrawal(me(), wid)),
+    executeWithdrawal: (o, wid, dest) => solTx(...b.executeWithdrawal(me(), o, wid, dest)),
+    guardianRelease: (o, wid, dest) => solTx(...b.guardianRelease(me(), o, wid, dest)),
+    proposeChange: limitOr((v) => solTx(b.proposeLimit(me(), v))),
+    cancelChange: (cid) => solTx(b.cancelChange(me(), cid)),
+    applyChange: (o, cid) => solTx(b.applyChange(me(), o, cid)),
+  };
+}
+
+/** Reads a vault and its USDC side together. */
+async function readVault(owner) {
+  const v = await C.x.fetchVault(owner);
+  if (v && C.usdc) v.tokens = { usdc: await tc().fetch(owner).catch(() => null) };
+  return v;
 }
 
 // ------------------------------------------------------------------ wallet
@@ -136,7 +201,7 @@ const isPhone = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (
 // On phones the wallet isn't injected into Safari or Chrome: these links reopen this page inside the wallet app's browser.
 function walletLinks() {
   const url = location.href.split("#")[0], ref = location.origin;
-  return S.net === "eth"
+  return isEvm()
     ? [["MetaMask", `https://metamask.app.link/dapp/${url.replace(/^https?:\/\//, "")}`]]
     : [["Phantom", `https://phantom.app/ul/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent(ref)}`], ["Solflare", `https://solflare.com/ul/v1/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent(ref)}`]];
 }
@@ -148,12 +213,12 @@ window.addEventListener("eip6963:announceProvider", (e) => {
   const { info, provider } = e.detail || {};
   if (!info?.rdns || !provider || evmWallets.has(info.rdns)) return;
   evmWallets.set(info.rdns, [info.name, provider]);
-  if (S.net === "eth" && !S.wallet) render();
+  if (isEvm() && !S.wallet) render();
 });
 window.dispatchEvent(new Event("eip6963:requestProvider"));
 
 function providers() {
-  if (S.net === "eth") {
+  if (isEvm()) {
     const list = [...evmWallets.entries()].sort(([a], [b]) => (b === "io.metamask") - (a === "io.metamask")).map(([, w]) => w);
     if (list.length) return list;
     const e = window.ethereum;
@@ -171,13 +236,13 @@ async function connect(provider) {
   if (connecting) return;
   connecting = true;
   try {
-    if (S.net === "eth") {
+    if (isEvm()) {
       const acc = await provider.request({ method: "eth_requestAccounts" });
-      await ensureSepolia(provider);
-      S.provider = provider; S.wallet = evmX.key(acc[0]);
+      await ensureChain(provider);
+      S.provider = provider; S.wallet = C.x.key(acc[0]);
       if (!provider.__ecrin) {
         provider.__ecrin = true;
-        provider.on?.("accountsChanged", (a) => { if (S.net !== "eth") return; if (a?.length) { S.wallet = evmX.key(a[0]); S.vault = undefined; refresh(); } else disconnect(); });
+        provider.on?.("accountsChanged", (a) => { if (!isEvm() || S.viaWC) return; if (a?.length) { S.wallet = C.x.key(a[0]); S.vault = undefined; refresh(); } else disconnect(); });
       }
     } else {
       const r = await provider.connect();
@@ -223,17 +288,18 @@ async function send(label, op) {
   } finally { S.busy = false; await refresh(); }
 }
 
-function logKey() { return "ecrin-log-" + (S.net === "eth" ? "eth-" : "") + (S.wallet ? S.wallet.toBase58() : ""); }
+function logKey() { return "ecrin-log-" + (S.net === "sol" ? "" : S.net + "-") + (S.wallet ? S.wallet.toBase58() : ""); }
 function readLog() { try { return JSON.parse(localStorage.getItem(logKey()) || "[]"); } catch (_) { return []; } }
 function log(text, sig) { try { localStorage.setItem(logKey(), JSON.stringify([{ at: now(), text, sig }, ...readLog()].slice(0, 30))); } catch (_) {} }
 
 async function refresh() {
   if (!C.x || !S.wallet) return render();
   try {
-    const [bal, vault, t] = await Promise.all([C.x.balance(S.wallet), C.x.fetchVault(S.wallet), C.x.chainTime().catch(() => null), S.net === "sol" ? loadTokens() : (S.tokens = [])]);
-    S.walletSol = bal; S.vault = vault; S.err = null;
+    const [bal, vault, t, wtok] = await Promise.all([C.x.balance(S.wallet), readVault(S.wallet), C.x.chainTime().catch(() => null), C.usdc ? tc().walletBalance(S.wallet).catch(() => 0) : 0]);
+    S.walletSol = bal; S.vault = vault; S.walletTok = { usdc: wtok }; S.err = null;
+    if (!assets().some((a) => a.id === S.asset)) S.asset = "native";
     if (t) S.clockOffset = t - Math.floor(Date.now() / 1000);
-    if (S.tab === "guardian" && S.watchOwner) S.watched = await C.x.fetchVault(C.x.key(S.watchOwner)).catch(() => null);
+    if (S.tab === "guardian" && S.watchOwner) S.watched = await readVault(C.x.key(S.watchOwner)).catch(() => null);
   } catch (e) { S.err = `Couldn't reach ${C.name} ${C.net}. Retrying…`; console.warn(e); }
   render();
 }
@@ -255,10 +321,10 @@ async function connectWC() {
     const m = await wc();
     const { provider, address } = await m.connectWith(S.net === "sol" ? "solana" : "eip155");
     S.readOnly = false; S.viaWC = true; S.vault = undefined;
-    if (S.net === "eth") {
-      await ensureSepolia(provider);
-      S.provider = provider; S.wallet = evmX.key(address);
-      provider.on?.("accountsChanged", (a) => { if (S.net === "eth" && S.viaWC) { if (a?.length) { S.wallet = evmX.key(a[0]); S.vault = undefined; refresh(); } else disconnect(); } });
+    if (isEvm()) {
+      await ensureChain(provider);
+      S.provider = provider; S.wallet = C.x.key(address);
+      provider.on?.("accountsChanged", (a) => { if (isEvm() && S.viaWC) { if (a?.length) { S.wallet = C.x.key(a[0]); S.vault = undefined; refresh(); } else disconnect(); } });
     } else {
       S.provider = provider; S.wallet = new web3.PublicKey(address);
     }
@@ -347,16 +413,10 @@ async function loadSeries(days) {
   } catch (e) { console.warn("chart", e); }
 }
 
-async function loadTokens() {
-  try {
-    const r = await connection.getParsedTokenAccountsByOwner(S.wallet, { programId: new web3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") });
-    S.tokens = r.value.map(({ account }) => account.data.parsed.info).filter((i) => Number(i.tokenAmount.uiAmount) > 0)
-      .map((i) => ({ mint: i.mint, amount: i.tokenAmount.uiAmountString }));
-  } catch (_) { S.tokens = []; }
-}
-
 const money = (n) => n.toLocaleString(undefined, { style: "currency", currency: "USD" });
-const usd = (lamports) => (S.price ? money((lamports / LAMPORTS) * S.price.usd) : null);
+/** What an amount is worth: USDC at $1, the network's coin at the mainnet price (null while it loads). */
+const usdOf = (amount, a = A()) => (a.stable ? amount / a.base : S.price ? (amount / a.base) * S.price.usd : null);
+const usd = (amount, a = A()) => { const v = usdOf(amount, a); return v == null ? null : money(v); };
 
 // ------------------------------------------------------------------ icons
 
@@ -379,20 +439,31 @@ const I = {
   bell: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16.5V11a6 6 0 1 1 12 0v5.5l1.5 2H4.5z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>`,
   sun: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>`,
   moon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>`,
+  check: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`,
   ext: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/></svg>`,
 };
-const coin = (net) => net === "eth"
-  ? `<span class="coin eth" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M16 4l7 11.6-7 4.2-7-4.2z" fill="#fff" opacity=".95"/><path d="M16 21.2l7-4.2-7 10-7-10z" fill="#fff" opacity=".7"/></svg></span>`
-  : `<span class="coin sol" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M10 10.5h13.5l-2.5 2.6H7.5zM10 15.2h13.5L21 17.8H7.5zM10 20h13.5L21 22.6H7.5z" fill="#fff"/></svg></span>`;
+// Simple marks for each network and for USDC, drawn here (no third-party logos).
+const COINS = {
+  sol: `<svg viewBox="0 0 32 32"><path d="M10 10.5h13.5l-2.5 2.6H7.5zM10 15.2h13.5L21 17.8H7.5zM10 20h13.5L21 22.6H7.5z" fill="#fff"/></svg>`,
+  eth: `<svg viewBox="0 0 32 32"><path d="M16 4l7 11.6-7 4.2-7-4.2z" fill="#fff" opacity=".95"/><path d="M16 21.2l7-4.2-7 10-7-10z" fill="#fff" opacity=".7"/></svg>`,
+  base: `<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="8.5" fill="#fff"/><path d="M7.6 15h12" stroke="#1d4ed8" stroke-width="2.6"/></svg>`,
+  arb: `<svg viewBox="0 0 32 32"><path d="M16 6.5l8.2 4.75v9.5L16 25.5l-8.2-4.75v-9.5z" fill="none" stroke="#fff" stroke-width="2"/><path d="M13.2 20.5l4.2-9.5 4 9.5" fill="none" stroke="#fff" stroke-width="2"/></svg>`,
+  op: `<svg viewBox="0 0 32 32"><text x="16" y="20.5" text-anchor="middle" font-family="Arial,sans-serif" font-weight="800" font-size="11.5" fill="#fff">OP</text></svg>`,
+  pol: `<svg viewBox="0 0 32 32"><path d="M10 12.5l4-2.3 4 2.3v4.6l-4 2.3-4-2.3zM14 17.1v4.6l4 2.3 4-2.3v-4.6l-4-2.3" fill="none" stroke="#fff" stroke-width="1.9" stroke-linejoin="round"/></svg>`,
+  usdc: `<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="9.5" fill="none" stroke="#fff" stroke-width="1.8"/><text x="16" y="20.3" text-anchor="middle" font-family="Arial,sans-serif" font-weight="800" font-size="12" fill="#fff">$</text></svg>`,
+};
+const coin = (k) => `<span class="coin ${k}" aria-hidden="true">${COINS[k] || COINS.eth}</span>`;
+/** The mark for an asset on the current network. */
+const assetCoin = (id = S.asset) => coin(id === "native" ? S.net : id);
 
 // ------------------------------------------------------------------ chart
 
 /** Portfolio value over time: today's holdings priced along the chosen range. */
-function chartHTML(units) {
+function chartHTML(units, stableUsd = 0) {
   const pts = S.price?.series?.[S.range];
   const tabs = `<div class="ranges" role="group" aria-label="Range">${RANGES.map(([d, l]) => `<button data-act="range" data-d="${d}" aria-pressed="${S.range === d}">${l}</button>`).join("")}</div>`;
   if (!pts?.length) return `<div class="chart-card"><div class="chart-top"><span class="label">Portfolio value</span>${tabs}</div><div class="chart-wait">${S.price ? "Loading the chart…" : "Prices unavailable right now."}</div></div>`;
-  const vals = pts.map(([, v]) => v * (units / LAMPORTS)), W = 1000, H = 260, pad = 12;
+  const vals = pts.map(([, v]) => v * (units / LAMPORTS) + stableUsd), W = 1000, H = 260, pad = 12;
   const min = Math.min(...vals), max = Math.max(...vals), span = max - min || 1;
   const xy = vals.map((v, i) => [(i / (vals.length - 1)) * W, pad + (1 - (v - min) / span) * (H - pad * 2)]);
   const line = xy.map(([x, y], i) => (i ? "L" : "M") + x.toFixed(1) + " " + y.toFixed(1)).join(" ");
@@ -441,7 +512,7 @@ function countUp() {
   const to = Number(el.dataset.count), from = S.shown ?? to;
   S.shown = to;
   if (from === to || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const t0 = performance.now(), fmt = el.dataset.fmt === "usd" ? money : (n) => sol(n * LAMPORTS);
+  const t0 = performance.now(), fmt = el.dataset.fmt === "usd" ? money : (n) => sol(n * LAMPORTS, A("native"));
   const step = (t) => { const k = Math.min(1, (t - t0) / 900), e = 1 - Math.pow(1 - k, 3); el.textContent = fmt(from + (to - from) * e); if (k < 1) requestAnimationFrame(step); };
   requestAnimationFrame(step);
 }
@@ -460,11 +531,23 @@ function themeBtn() {
 }
 
 function netSwitch() {
-  return `<div class="netsw" role="group" aria-label="Network">${["sol", "eth"].map((n) => `<button data-act="net" data-n="${n}" aria-pressed="${S.net === n}">${coin(n)}<span>${NETS[n].name}</span></button>`).join("")}</div>`;
+  return `<button class="netbtn" data-act="netmenu" aria-label="Network: ${C.name} ${C.net}. Change network" aria-haspopup="dialog">${coin(S.net)}<span>${C.name}</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button>`;
+}
+
+/** Network picker: Solana, then the Ethereum-style networks, each saying what it holds or that it's coming. */
+function netMenu() {
+  const row = (k) => {
+    const n = NETS[k], live = !!n.x, on = S.net === k;
+    return `<button type="button" class="net-row${on ? " on" : ""}" data-act="net" data-n="${k}" ${live || on ? "" : "disabled"}>${coin(k)}<span class="nr-t"><b>${n.name}</b><span>${n.net} testnet</span></span>
+      <span class="nr-r">${live ? `<span class="nr-a">${n.unit}${n.usdc ? " · USDC" : ""}</span>` : `<span class="nr-soon">Coming soon</span>`}${on ? `<i class="nr-on">${I.check}</i>` : ""}</span></button>`;
+  };
+  sheet(`<h3>Network</h3><p class="note">Each network has its own vault with the same rules. Test coins only.</p>
+    <div class="net-list">${row("sol")}<span class="label nl-h">Ethereum and its networks</span>${Object.keys(EVM_NETS).map(row).join("")}</div>`, () => true);
+  $("#sheet-form").querySelector('button[value="ok"]').hidden = true;
 }
 
 function shell(content, { nav = true } = {}) {
-  const w = S.wallet, pending = S.vault?.withdrawals?.length || 0, on = nav && w;
+  const w = S.wallet, pending = allWithdrawals(S.vault).length, on = nav && w;
   const items = (cls) => TABS.map(([k, label, icon]) => `<button class="${cls}" data-act="tab" data-t="${k}" aria-current="${S.tab === k ? "page" : "false"}">${icon}<span>${label}</span>${k === "vault" && pending ? `<i class="badge">${pending}</i>` : ""}</button>`).join("");
   return `<div class="shell${S.hide ? " private" : ""}">
     <header class="topbar">
@@ -538,7 +621,7 @@ function createView() {
   ];
   return `<section class="create">
     <div class="create-h"><h1>Create your vault</h1><p>One vault per wallet on ${C.name}. You can make it stricter any time; loosening it always waits.</p></div>
-    ${S.walletSol < C.lowBal * LAMPORTS ? `<div class="notice">Your wallet has ${sol(S.walletSol)} ${C.unit} on ${C.net}. Get free test ${C.unit} at <a href="${C.faucet}" target="_blank" rel="noopener">${C.faucetName}</a> for <b>${short(S.wallet)}</b>, then come back.</div>` : ""}
+    ${S.walletSol < C.lowBal * LAMPORTS ? `<div class="notice">Your wallet has ${sol(S.walletSol, A("native"))} ${C.unit} on ${C.net}. Get free test ${C.unit} at <a href="${C.faucet}" target="_blank" rel="noopener">${C.faucetName}</a> for <b>${short(S.wallet)}</b>, then come back.</div>` : ""}
     <div class="presets">${presets.map(([k, n, tag, pts, icon]) => `<button type="button" class="preset glass" data-act="pick" data-k="${k}" aria-pressed="${S.pick === k}"><span class="p-ico">${icon}</span><span class="p-tag">${tag}</span><b>${n}</b><ul>${pts.map((x) => `<li>${x}</li>`).join("")}</ul></button>`).join("")}</div>
     <div class="glass create-f">
       <label class="field">Guardian wallet address ${S.pick === "locked" ? "(required)" : "(optional)"}<input id="g-addr" placeholder="A friend's ${C.name} address" autocomplete="off" spellcheck="false"/></label>
@@ -568,68 +651,114 @@ function actionsRow() {
 // Engraved wave pattern for the vault case, drawn once: offset circles like a watch dial's guilloché.
 const GUILLOCHE = `<svg class="guilloche" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${Array.from({ length: 34 }, (_, i) => `<circle cx="${330 + Math.cos(i / 2.2) * 14}" cy="${40 + Math.sin(i / 2.2) * 14}" r="${18 + i * 9}"/>`).join("")}</svg>`;
 
-/** The vault as an object: an obsidian case with the protected balance and its state. */
-function caseCard(v, { link = true } = {}) {
-  const t = now(), locked = v.lockedUntil && t < v.lockedUntil;
-  const next = v.withdrawals.slice().sort((a, b) => a.readyAt - b.readyAt)[0];
+/** The vault as an object: an obsidian case with the protected balance and its state. With `total`, it shows
+ *  everything protected (every coin, in dollars when prices are in) and the soonest withdrawal of any coin. */
+function caseCard(v, { link = true, total = false } = {}) {
+  const t = now(), locked = v.lockedUntil && t < v.lockedUntil, a = A(v.asset || "native");
+  const queue = total ? allWithdrawals(S.vault) : v.withdrawals.map((w) => ({ ...w, asset: a.id }));
+  const next = queue.slice().sort((x, y) => x.readyAt - y.readyAt)[0];
   const opens = next ? Math.max(next.readyAt, locked ? v.lockedUntil : 0) : 0;
   const state = next
-    ? `<span class="cs-dot warn"></span><span><b>${sol(next.amount)} ${C.unit}</b> leaving${opens > t ? ` in <span class="count" data-ready="${opens}">${dur(opens - t)}</span>` : " · ready"}</span>`
+    ? `<span class="cs-dot warn"></span><span><b>${sol(next.amount, A(next.asset))} ${A(next.asset).unit}</b> leaving${opens > t ? ` in <span class="count" data-ready="${opens}">${dur(opens - t)}</span>` : " · ready"}</span>`
     : `<span class="cs-dot"></span><span>${locked ? "Locked until " + new Date(v.lockedUntil * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "Sealed · nothing waiting to leave"}</span>`;
+  let bal;
+  if (total) {
+    const p = protectedTotals(v);
+    bal = p.usd != null && p.stable ? `<div class="case-bal"><span class="num m">${money(p.usd)}</span></div><span class="case-usd m">${p.parts}</span>`
+      : `<div class="case-bal"><span class="num m">${sol(v.balance, A("native"))}</span><small>${C.unit}</small></div><span class="case-usd m">${p.stable ? p.parts : usd(v.balance, A("native")) ?? ""}</span>`;
+  } else bal = `<div class="case-bal"><span class="num m">${sol(v.balance, a)}</span><small>${a.unit}</small></div><span class="case-usd m">${a.stable ? "" : usd(v.balance, a) ?? ""}</span>`;
   return `<${link ? `button data-act="tab" data-t="vault"` : "div"} class="case${next ? " leaving" : ""}" data-tilt>
     ${GUILLOCHE}<i class="sheen"></i>
     <div class="case-top"><span class="case-mark">${logo}<b>ECRIN</b></span><span class="case-lvl">${levelName(v)} · ${delayWords(v.withdrawDelay)}</span></div>
-    <div class="case-mid"><span class="case-k">${I.shield}Protected</span><div class="case-bal"><span class="num m">${sol(v.balance)}</span><small>${C.unit}</small></div><span class="case-usd m">${usd(v.balance) ?? ""}</span></div>
-    <div class="case-foot">${state}<span class="case-id">${coin(S.net)}•••• ${String(v.owner).slice(-4)}</span></div>
+    <div class="case-mid"><span class="case-k">${I.shield}Protected</span>${bal}</div>
+    <div class="case-foot">${state}<span class="case-id">${total ? coin(S.net) : assetCoin(a.id)}•••• ${String(v.owner).slice(-4)}</span></div>
   </${link ? "button" : "div"}>`;
 }
 
+/** What the vault protects across its coins: dollars (when prices are in) and a short "1.2 SOL · 300 USDC" line. */
+function protectedTotals(v) {
+  const list = assets().map((a) => [a, a.id === "native" ? v.balance : v.tokens?.[a.id]?.balance || 0]);
+  const vals = list.map(([a, n]) => usdOf(n, a));
+  const stable = list.some(([a, n]) => a.stable && n > 0);
+  return { stable, usd: vals.some((x) => x == null) ? null : vals.reduce((x, y) => x + y, 0), parts: list.filter(([a, n]) => n > 0 || a.id === "native").map(([a, n]) => `${sol(n, a)} ${a.unit}`).join(" · ") };
+}
+
 function walletCard() {
-  const w = S.walletSol || 0;
+  const rows = assets().map((a) => [a, a.id === "native" ? S.walletSol || 0 : S.walletTok[a.id] || 0]);
+  const [na, nw] = rows[0];
   return `<div class="wcard">
     <div class="case-top"><span class="case-k">${I.wallet}Wallet</span><span class="case-lvl">Spendable · instant</span></div>
-    <div class="case-bal"><span class="num m">${sol(w)}</span><small>${C.unit}</small></div>
-    <span class="case-usd m">${usd(w) ?? ""}</span>
+    <div class="case-bal"><span class="num m">${sol(nw, na)}</span><small>${na.unit}</small></div>
+    <span class="case-usd m">${[usd(nw, na), ...rows.slice(1).map(([a, n]) => `${sol(n, a)} ${a.unit}`)].filter(Boolean).join(" · ")}</span>
   </div>`;
 }
 
+/** One row per coin: what's protected, what's in the wallet, and anything leaving. Tapping one opens it in the vault. */
+function assetsCard(v) {
+  if (assets().length < 2) return "";
+  return `<section class="glass assets"><div class="sec-h"><h2>Assets</h2><span class="muted">same rules for every coin</span></div>
+    ${assets().map((a) => {
+      const inV = a.id === "native" ? v.balance : v.tokens?.[a.id]?.balance || 0, inW = a.id === "native" ? S.walletSol || 0 : S.walletTok[a.id] || 0;
+      const leaving = allWithdrawals(v).filter((w) => w.asset === a.id).length, value = usd(inV + inW, a);
+      return `<button class="as-row" data-act="open-asset" data-a="${a.id}">${assetCoin(a.id)}<span class="as-t"><b>${a.unit}</b><span>${sol(inV, a)} protected · ${sol(inW, a)} in wallet</span></span>
+        <span class="as-r">${value ? `<b class="m">${value}</b>` : ""}${leaving ? `<span class="as-leave">${I.clock}${leaving} leaving</span>` : ""}</span>${I.arrow}</button>`;
+    }).join("")}</section>`;
+}
+
+/** SOL | USDC switch for the vault tab, with a dot on any coin that has something waiting to leave. */
+function assetSwitch(v) {
+  if (assets().length < 2) return "";
+  return `<div class="asw" role="group" aria-label="Coin">${assets().map((a) => {
+    const leaving = allWithdrawals(v).some((w) => w.asset === a.id);
+    return `<button type="button" data-act="asset" data-a="${a.id}" aria-pressed="${S.asset === a.id}">${assetCoin(a.id)}<span>${a.unit}</span>${leaving ? `<i class="asw-dot" title="Something is waiting to leave"></i>` : ""}</button>`;
+  }).join("")}</div>`;
+}
+
 function portfolioView(v) {
-  const vaultL = v.balance, walletL = S.walletSol || 0, total = vaultL + walletL;
-  const pct = total ? Math.round((vaultL / total) * 100) : 0, ch = S.price?.change;
-  const totalUsd = S.price ? (total / LAMPORTS) * S.price.usd : null;
+  const na = A("native"), list = assets();
+  const coinTotal = v.balance + (S.walletSol || 0);
+  const stableTotal = list.filter((a) => a.stable).reduce((sum, a) => sum + (v.tokens?.[a.id]?.balance || 0) + (S.walletTok[a.id] || 0), 0);
+  const stableUsd = stableTotal / USDC.base;
+  const protUsd = protectedTotals(v).usd;
+  const totalUsd = S.price ? (coinTotal / LAMPORTS) * S.price.usd + stableUsd : null;
+  const pct = totalUsd ? Math.round((protUsd / totalUsd) * 100) : coinTotal ? Math.round((v.balance / coinTotal) * 100) : 0, ch = S.price?.change;
   const recent = readLog().slice(0, 4);
   return `
     <section class="home-top">
       <div>
         <span class="label">Total balance</span>
-        <div class="big num m" data-count="${totalUsd ?? total / LAMPORTS}" data-fmt="${totalUsd != null ? "usd" : "coin"}">${totalUsd != null ? money(totalUsd) : sol(total)}</div>
-        <div class="sub">${ch != null ? `<span class="pill ${ch >= 0 ? "pos" : "neg"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}% today</span>` : ""}<span class="m">${sol(total)} ${C.unit}</span><span class="dotsep"></span><span><b class="acc">${pct}%</b> protected</span></div>
+        <div class="big num m" data-count="${totalUsd ?? coinTotal / LAMPORTS}" data-fmt="${totalUsd != null ? "usd" : "coin"}">${totalUsd != null ? money(totalUsd) : sol(coinTotal, na)}</div>
+        <div class="sub">${ch != null ? `<span class="pill ${ch >= 0 ? "pos" : "neg"}">${C.unit} ${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}% today</span>` : ""}<span class="m">${sol(coinTotal, na)} ${C.unit}${stableTotal ? ` · ${sol(stableTotal, USDC)} USDC` : ""}</span><span class="dotsep"></span><span><b class="acc">${pct}%</b> protected</span></div>
       </div>
       ${actionsRow()}
     </section>
     <div class="home-grid">
-      <div class="stack">${caseCard(v)}${walletCard()}</div>
-      ${chartHTML(total)}
+      <div class="stack">${caseCard(v, { total: true })}${walletCard()}</div>
+      ${chartHTML(coinTotal, stableUsd)}
     </div>
+    ${assetsCard(v)}
     <section class="glass">
       <div class="sec-h"><h2>Recent</h2>${recent.length ? `<button class="btn sm" data-act="tab" data-t="activity">See all</button>` : ""}</div>
       ${recent.length ? feedHTML(recent) : `<div class="empty">Nothing yet. Deposits, withdrawals and rule changes show up here.</div>`}
     </section>`;
 }
 
-function vaultView(v) {
-  const t = now(), locked = v.lockedUntil && t < v.lockedUntil, queued = v.balance - v.available;
+function vaultView(full) {
+  const v = assetView(full), a = A(), queued = v.balance - v.available;
   const changes = rowsChanges(v, false);
+  const elsewhere = allWithdrawals(full).filter((w) => w.asset !== a.id);
   return `
+    ${assetSwitch(full)}
+    ${elsewhere.length ? `<button class="notice warn-n" data-act="asset" data-a="${elsewhere[0].asset}">${I.clock}<span>${elsewhere.length === 1 ? `${sol(elsewhere[0].amount, A(elsewhere[0].asset))} ${A(elsewhere[0].asset).unit} is waiting to leave` : `${elsewhere.length} withdrawals in other coins are waiting to leave`}. <u>Show</u></span></button>` : ""}
     <section class="vault-top">
       ${caseCard(v, { link: false })}
       <div class="vault-side">
         ${actionsRow()}
         <div class="vs-facts">
-          <div><span class="label">Available</span><b class="num m">${sol(v.available)}</b><small>${C.unit}</small></div>
-          <div><span class="label">Leaving</span><b class="num m">${sol(queued)}</b><small>${C.unit}</small></div>
+          <div><span class="label">Available</span><b class="num m">${sol(v.available, a)}</b><small>${a.unit}</small></div>
+          <div><span class="label">Leaving</span><b class="num m">${sol(queued, a)}</b><small>${a.unit}</small></div>
         </div>
-        <div class="chips">${v.guardian ? `<span class="chip">${I.people}Guardian ${short(v.guardian)}</span>` : `<span class="chip">${I.people}No guardian</span>`}<a class="chip" href="${explorer("address", v.address.toBase58())}" target="_blank" rel="noopener">${I.ext}View on-chain</a></div>
+        <div class="chips">${v.guardian ? `<span class="chip">${I.people}Guardian ${short(v.guardian)}</span>` : `<span class="chip">${I.people}No guardian</span>`}<a class="chip" href="${explorer("address", (a.id === "native" ? v.address : full.tokens?.[a.id]?.holds || v.address).toBase58())}" target="_blank" rel="noopener">${I.ext}View on-chain</a></div>
       </div>
     </section>
     <div class="cols">
@@ -641,7 +770,7 @@ function vaultView(v) {
         ${policyCard(v)}
         ${alertsCard()}
         <section class="glass"><div class="sec-h"><h2>Trusted addresses</h2><button class="btn sm" data-act="trust">Add</button></div>
-          ${v.trusted.length ? `<div class="trusted">${v.trusted.map((k) => `<a class="addr" href="${explorer("address", k.toBase58())}" target="_blank" rel="noopener"><i class="live"></i>${short(k)}${I.ext}</a>`).join("")}</div>` : `<div class="empty">None yet. Money sent to a trusted address arrives instantly, so adding one takes time.</div>`}</section>
+          ${v.trusted.length ? `<div class="trusted">${v.trusted.map((k) => `<a class="addr" href="${explorer("address", k.toBase58())}" target="_blank" rel="noopener"><i class="live"></i>${short(k)}${I.ext}</a>`).join("")}</div>` : `<div class="empty">None yet. Money sent to a trusted address arrives instantly, so adding one takes time. Trusted addresses apply to every coin.</div>`}</section>
       </div>
     </div>`;
 }
@@ -654,8 +783,9 @@ const RULES = {
     value: (v) => delayWords(v.withdrawDelay), opts: () => [[HOUR, "1 hour"], [24 * HOUR, "24 hours"], [72 * HOUR, "72 hours"], [7 * DAY, "7 days"], [30 * DAY, "30 days"]], cur: (v) => v.withdrawDelay },
   rule: { kind: "SetRuleDelay", title: "Rule-change delay", help: "Loosening any rule, adding a trusted address or changing the guardian waits this long. Tightening is instant.", icon: "sliders",
     value: (v) => delayWords(v.ruleDelay), opts: () => [[3 * DAY, "3 days"], [7 * DAY, "7 days"], [14 * DAY, "14 days"], [30 * DAY, "30 days"]], cur: (v) => v.ruleDelay },
-  limit: { kind: "SetDailyLimit", title: "Daily limit", help: "The most that can leave in one day, sends to trusted addresses included.", icon: "up",
-    value: (v) => (v.dailyLimit ? `${sol(v.dailyLimit)} ${C.unit}` : "No limit"), opts: () => [[null, "No limit"], [0.1 * LAMPORTS, `0.1 ${C.unit}`], [1 * LAMPORTS, `1 ${C.unit}`], [5 * LAMPORTS, `5 ${C.unit}`], [25 * LAMPORTS, `25 ${C.unit}`]], cur: (v) => v.dailyLimit },
+  limit: { kind: "SetDailyLimit", title: "Daily limit", help: "The most that can leave in one day, sends to trusted addresses included. Each coin has its own.", icon: "up",
+    value: (v) => (v.dailyLimit ? `${sol(v.dailyLimit)} ${A().unit}` : "No limit"),
+    opts: () => [[null, "No limit"], ...(A().stable ? [50, 250, 1000, 5000] : [0.1, 1, 5, 25]).map((n) => [n * A().base, `${n.toLocaleString()} ${A().unit}`])], cur: (v) => v.dailyLimit },
   lock: { kind: "SetLockedUntil", title: "Time lock", help: "Nothing leaves before this date, except an emergency your guardian co-signs. Ending a lock early can't happen before it ends anyway.", icon: "lock",
     value: (v) => (v.lockedUntil && now() < v.lockedUntil ? `Until ${dateShort(v.lockedUntil)}` : "None"), opts: (v) => [...(v.lockedUntil && now() < v.lockedUntil ? [[null, "End the lock"]] : []), ["d30", "30 days"], ["d90", "90 days"], ["d180", "6 months"], ["d365", "1 year"]], cur: (v) => v.lockedUntil },
   guardian: { kind: "SetGuardian", title: "Guardian", help: "Someone you trust who can approve an emergency release or a new trusted address early. A guardian can never start a withdrawal or choose where money goes.", icon: "people",
@@ -667,10 +797,11 @@ function pendingFor(v, kind) { return v.changes.filter((c) => c.change.kind === 
 function policyCard(v) {
   const rows = Object.entries(RULES).map(([k, r]) => {
     const waiting = pendingFor(v, r.kind);
+    const name = k === "limit" && assets().length > 1 ? `${r.title} · ${A().unit}` : r.title;
     return `<div class="pol-row">
       <span class="pol-ico">${I[r.icon]}</span>
-      <div class="pol-txt"><span class="pol-name">${r.title}</span><span class="pol-help">${r.help.split(". ")[0].replace(/\.$/, "")}.</span>
-        ${waiting.map((c) => `<span class="pol-wait">${I.clock}${esc(changeWords(c.change))} · <span class="count" data-ready="${c.readyAt}">${dur(c.readyAt - now())}</span></span>`).join("")}</div>
+      <div class="pol-txt"><span class="pol-name">${name}</span><span class="pol-help">${r.help.split(". ")[0].replace(/\.$/, "")}.</span>
+        ${waiting.map((c) => `<span class="pol-wait">${I.clock}${esc(changeWords(c.change, c.asset))} · <span class="count" data-ready="${c.readyAt}">${dur(c.readyAt - now())}</span></span>`).join("")}</div>
       <div class="pol-val"><b class="num${k === "guardian" && v.guardian ? " addr-v" : ""}">${esc(r.value(v))}</b><button class="pol-btn" data-act="rule" data-k="${k}">Adjust</button></div>
     </div>`;
   }).join("");
@@ -679,7 +810,7 @@ function policyCard(v) {
 
 /** One rule's panel: options as cards, each saying whether it applies now or waits. */
 function openRule(key) {
-  const v = S.vault, r = RULES[key];
+  const v = assetView(S.vault), r = RULES[key];
   const lockValue = (raw) => (raw === null || raw === "null" ? null : String(raw).startsWith("d") ? now() + Number(String(raw).slice(1)) * DAY : Number(raw));
   const verdict = (value) => (isStricter(v, { kind: r.kind, value }) ? ["now", "Applies now"] : ["wait", `Waits ${delayWords(v.ruleDelay)}`]);
   let body;
@@ -695,7 +826,7 @@ function openRule(key) {
       return `<label class="opt${isCur ? " is-cur" : ""}"><input type="radio" name="v" value="${raw}" ${isCur ? "disabled" : ""}/><span class="o-l">${label}</span><span class="o-b ${cls}">${txt}</span></label>`;
     }).join("")}</div>`;
   }
-  sheet(`<div class="rule-h"><span class="pol-ico">${I[r.icon]}</span><div><h3>${r.title}</h3><span class="muted small">Now: <b>${esc(r.value(v))}</b></span></div></div><p class="note">${r.help}</p>${body}`, async (fd) => {
+  sheet(`<div class="rule-h"><span class="pol-ico">${I[r.icon]}</span><div><h3>${r.title}${key === "limit" && assets().length > 1 ? ` · ${A().unit}` : ""}</h3><span class="muted small">Now: <b>${esc(r.value(v))}</b></span></div></div><p class="note">${r.help}</p>${body}`, async (fd) => {
     let change;
     if (key === "guardian") {
       const g = String(fd.get("g") || "").trim();
@@ -708,7 +839,7 @@ function openRule(key) {
       const value = key === "lock" ? lockValue(raw) : raw === "null" ? null : Number(raw);
       change = { kind: r.kind, value };
     }
-    return send(`Changed a rule: ${changeWords(change)}`, () => C.x.ops.proposeChange(change));
+    return send(`Changed a rule: ${changeWords(change, v.asset)}`, () => assetOps().proposeChange(change));
   });
   const f = $("#sheet-form"), ok = f.querySelector('button[value="ok"]');
   const label = () => {
@@ -722,7 +853,7 @@ function openRule(key) {
 }
 
 function openRuleMenu() {
-  const v = S.vault;
+  const v = assetView(S.vault);
   sheet(`<h3>Adjust your protection</h3><p class="note">Pick a rule. Tightening applies at once; loosening waits ${delayWords(v.ruleDelay)}.</p>
     <div class="rule-menu">${Object.entries(RULES).map(([k, r]) => `<button type="button" class="rm-row" data-act="rule" data-k="${k}"><span class="pol-ico">${I[r.icon]}</span><span class="rm-t"><b>${r.title}</b><span>${esc(r.value(v))}</span></span>${I.arrow}</button>`).join("")}</div>`, () => true);
   $("#sheet-form").querySelector('button[value="ok"]').hidden = true;
@@ -823,41 +954,44 @@ function tickDial(el) {
 }
 
 function rowsWithdrawals(v, asGuardian) {
-  const t = now(), locked = v.lockedUntil && t < v.lockedUntil;
+  const t = now(), locked = v.lockedUntil && t < v.lockedUntil, a = A(v.asset || "native");
   return v.withdrawals.map((w) => {
     const left = w.readyAt - t, ready = left <= 0 && !locked, opens = Math.max(w.readyAt, locked ? v.lockedUntil : 0);
     const status = ready ? `<div class="clock-done">Ready. It only leaves if you press send.</div>` : dialHTML(opens, Math.max(v.withdrawDelay, opens - (w.readyAt - v.withdrawDelay)));
+    const ids = `data-id="${w.id}" data-asset="${a.id}"`;
     const guard = asGuardian
-      ? (S.wallet && v.guardian?.equals(S.wallet) ? `<div class="row-acts"><button class="btn sm good" data-act="release" data-id="${w.id}" data-dest="${w.dest.toBase58()}" ${S.busy ? "disabled" : ""}>Approve emergency release</button></div>` : "")
-      : `<button class="keep" data-act="cancel-w" data-id="${w.id}" data-amt="${w.amount}" ${S.busy ? "disabled" : ""}>${I.shield}<span>Cancel and keep ${sol(w.amount)} ${C.unit} safe</span></button>
-        <div class="keep-note">Free, instant, and nobody else is told.${ready ? ` <button class="link danger" data-act="run" data-id="${w.id}" data-dest="${w.dest.toBase58()}" ${S.busy ? "disabled" : ""}>Send it now</button>` : ""}</div>`;
+      ? (S.wallet && v.guardian?.equals(S.wallet) ? `<div class="row-acts"><button class="btn sm good" data-act="release" ${ids} data-dest="${w.dest.toBase58()}" ${S.busy ? "disabled" : ""}>Approve emergency release</button></div>` : "")
+      : `<button class="keep" data-act="cancel-w" ${ids} data-amt="${w.amount}" ${S.busy ? "disabled" : ""}>${I.shield}<span>Cancel and keep ${sol(w.amount, a)} ${a.unit} safe</span></button>
+        <div class="keep-note">Free, instant, and nobody else is told.${ready ? ` <button class="link danger" data-act="run" ${ids} data-dest="${w.dest.toBase58()}" ${S.busy ? "disabled" : ""}>Send it now</button>` : ""}</div>`;
     return `<div class="row wd${ready ? " is-ready" : ""}">
-      <div class="row-top"><b><span class="m">${sol(w.amount)}</span> ${C.unit} <span class="muted">leaving</span></b><span class="muted">to <a href="${explorer("address", w.dest.toBase58())}" target="_blank" rel="noopener">${short(w.dest)}</a></span></div>
+      <div class="row-top"><b><span class="m">${sol(w.amount, a)}</span> ${a.unit} <span class="muted">leaving</span></b><span class="muted">to <a href="${explorer("address", w.dest.toBase58())}" target="_blank" rel="noopener">${short(w.dest)}</a></span></div>
       ${status}
       <div class="muted small center">${ready ? "Unlocked" : "Unlocks"} ${when(opens)}${locked && left <= 0 ? " · held by your lock" : ""}</div>
       ${guard}</div>`;
-  }).join("") || `<div class="empty">Nothing waiting to leave. Every withdrawal shows up here with a countdown, and you can cancel it until it runs.</div>`;
+  }).join("") || `<div class="empty">Nothing ${a.id === "native" ? "" : a.unit + " "}waiting to leave. Every withdrawal shows up here with a countdown, and you can cancel it until it runs.</div>`;
 }
 
 function guardianView() {
   const v = S.watched, t = now();
   const g = v && S.wallet && v.guardian?.equals(S.wallet), locked = v && v.lockedUntil && t < v.lockedUntil;
-  const changes = v ? rowsChanges(v, true) : "";
+  const views = v ? assets().map((a) => assetView(v, a.id)) : [];
+  const changes = v ? rowsChanges(assetView(v, "native"), true) : "";
+  const waiting = views.map((x) => (x.withdrawals.length ? rowsWithdrawals(x, true) : "")).join("");
   return `<section class="glass"><div class="sec-h"><h2>Look up a vault you guard</h2></div>
       <div class="lookup"><input id="watch" class="input" placeholder="The vault owner's ${C.name} address" value="${esc(S.watchOwner)}" spellcheck="false" autocomplete="off"/><button class="btn primary" data-act="watch">Look up</button></div>
       <p class="hint">Guardians can approve an emergency release of a withdrawal the owner requested, or a trusted address the owner proposed. Nothing else.</p></section>
     ${!S.watchOwner ? "" : v === undefined ? `<section class="glass"><div class="spinner"></div></section>` : v === null ? `<section class="glass"><div class="empty">No Ecrin vault for that wallet on ${C.name}.</div></section>` : `
-      <section class="vhero glass"><div class="vh-shield">${I.people}</div><div class="vh-txt"><span class="label">Vault of ${short(v.owner)}</span><div class="big">${sol(v.balance)}</div><span class="unit">${C.unit}</span>
+      <section class="vhero glass"><div class="vh-shield">${I.people}</div><div class="vh-txt"><span class="label">Vault of ${short(v.owner)}</span><div class="big">${sol(v.balance, A("native"))}</div><span class="unit">${C.unit}${views.slice(1).map((x) => ` · ${sol(x.balance, A(x.asset))} ${A(x.asset).unit}`).join("")}</span>
         <div class="chips"><span class="chip">${I.clock}Withdrawals wait ${delayWords(v.withdrawDelay)}</span>${locked ? `<span class="chip">${I.lock}Locked</span>` : ""}<span class="chip">${g ? "You're the guardian" : "You're not this vault's guardian"}</span></div></div></section>
-      <section class="glass"><div class="sec-h"><h2>Waiting to leave</h2></div><div class="rows">${rowsWithdrawals(v, true)}</div></section>
+      <section class="glass"><div class="sec-h"><h2>Waiting to leave</h2></div><div class="rows">${waiting || `<div class="empty">Nothing waiting to leave.</div>`}</div></section>
       ${changes ? `<section class="glass"><div class="sec-h"><h2>Rule changes waiting</h2></div><div class="rows">${changes}</div></section>` : ""}`}`;
 }
 
-function changeWords({ kind, value }) {
+function changeWords({ kind, value }, aid = "native") {
   switch (kind) {
     case "SetWithdrawDelay": return `Withdrawals wait ${delayWords(value)}`;
     case "SetRuleDelay": return `Looser rules wait ${delayWords(value)}`;
-    case "SetDailyLimit": return value ? `Daily limit ${sol(value)} ${C.unit}` : "Remove the daily limit";
+    case "SetDailyLimit": return value ? `Daily limit ${sol(value, A(aid))} ${A(aid).unit}` : `Remove the ${A(aid).unit} daily limit`;
     case "SetLockedUntil": return value ? `Lock until ${new Date(value * 1000).toLocaleDateString()}` : "End the lock";
     case "SetGuardian": return value ? `Guardian ${short(value)}` : "Remove the guardian";
     case "AddTrusted": return `Trust ${short(value)}`;
@@ -871,10 +1005,11 @@ function rowsChanges(v, asGuardian) {
   return v.changes.map((c) => {
     const left = c.readyAt - t, pct = Math.min(100, Math.max(2, (1 - left / Math.max(1, v.ruleDelay)) * 100));
     const g = S.wallet && v.guardian?.equals(S.wallet);
+    const ids = `data-id="${c.id}" data-asset="${c.asset || "native"}"`;
     const acts = asGuardian
-      ? (g && c.change.kind === "AddTrusted" ? `<button class="btn sm good" data-act="approve" data-id="${c.id}" ${S.busy ? "disabled" : ""}>Approve now</button>` : `<span class="muted small">Guardians can't speed this up.</span>`)
-      : `<button class="btn sm" data-act="cancel-c" data-id="${c.id}" ${S.busy ? "disabled" : ""}>Cancel change</button>${left <= 0 ? `<button class="btn sm primary" data-act="apply" data-id="${c.id}" ${S.busy ? "disabled" : ""}>Apply</button>` : ""}`;
-    return `<div class="row"><div class="row-top"><b>${esc(changeWords(c.change))}</b><span class="count" data-ready="${c.readyAt}">${dur(left)}</span></div><div class="bar"><i style="width:${pct}%"></i></div><div class="row-acts">${acts}</div></div>`;
+      ? (g && c.change.kind === "AddTrusted" ? `<button class="btn sm good" data-act="approve" ${ids} ${S.busy ? "disabled" : ""}>Approve now</button>` : `<span class="muted small">Guardians can't speed this up.</span>`)
+      : `<button class="btn sm" data-act="cancel-c" ${ids} ${S.busy ? "disabled" : ""}>Cancel change</button>${left <= 0 ? `<button class="btn sm primary" data-act="apply" ${ids} ${S.busy ? "disabled" : ""}>Apply</button>` : ""}`;
+    return `<div class="row"><div class="row-top"><b>${esc(changeWords(c.change, c.asset))}</b><span class="count" data-ready="${c.readyAt}">${dur(left)}</span></div><div class="bar"><i style="width:${pct}%"></i></div><div class="row-acts">${acts}</div></div>`;
   }).join("");
 }
 
@@ -886,8 +1021,11 @@ function sheet(html, onSubmit) {
   f.onsubmit = async (e) => { if (e.submitter?.value !== "ok") return; e.preventDefault(); if ((await onSubmit(new FormData(f))) !== false) d.close(); };
   d.showModal(); f.querySelector("input,select")?.focus();
 }
-const lamportsOf = (fd) => Math.round(Number(fd.get("amount")) * LAMPORTS);
-const amount = (v = "0.1") => `<label class="field">Amount (${C.unit})<input name="amount" type="number" min="0.0001" step="0.0001" inputmode="decimal" required value="${v}"/></label>`;
+const lamportsOf = (fd) => Math.round(Number(fd.get("amount")) * A().base);
+const amount = (v = A().stable ? "10" : "0.1") => `<label class="field">Amount (${A().unit})<input name="amount" type="number" min="${A().stable ? "0.01" : "0.0001"}" step="${A().stable ? "0.01" : "0.0001"}" inputmode="decimal" required value="${v}"/></label>`;
+/** "Withdraw" with the coin's name when the vault holds more than one. */
+const titled = (verb) => (assets().length > 1 ? `${verb} ${A().unit}` : verb);
+const walletHas = () => (S.asset === "native" ? S.walletSol || 0 : S.walletTok[S.asset] || 0);
 const keyOf = (s) => (s ? C.x?.key(s) ?? null : null);
 
 const actions = {
@@ -915,7 +1053,10 @@ const actions = {
     render();
   },
   range: (el) => { S.range = el.dataset.d; render(); loadSeries(S.range); },
-  net: (el) => switchNet(el.dataset.n),
+  net: (el) => { $("#sheet").close(); switchNet(el.dataset.n); },
+  netmenu: () => netMenu(),
+  // Switching coin inside a deposit, withdraw or send sheet reopens it for the new coin.
+  asset: (el) => { S.asset = el.dataset.a; S.shown = null; render(); if ($("#sheet").open && S.sheetAct) { $("#sheet").close(); actions[S.sheetAct](); } },
   pick: (el) => { S.pick = el.dataset.k; render(); },
   create: async () => {
     const gRaw = $("#g-addr")?.value.trim(), guardian = gRaw ? keyOf(gRaw) : null;
@@ -932,15 +1073,16 @@ const actions = {
     }
     await send(`Created a ${S.pick} vault`, () => C.x.ops.create(preset));
   },
-  deposit: () => sheet(`<h3>Deposit</h3>${amount("1")}<p class="note">Wallet: ${sol(S.walletSol)} ${C.unit}. Deposits go straight in.</p>`, (fd) => send(`Deposited ${sol(lamportsOf(fd))} ${C.unit}`, () => C.x.ops.deposit(lamportsOf(fd)))),
-  withdraw: () => sheet(`<h3>Withdraw</h3>${amount()}<label class="field">To address<input name="dest" placeholder="Where it should go" required spellcheck="false" autocomplete="off" value="${S.wallet.toBase58()}"/></label><p class="note">This waits ${delayWords(S.vault.withdrawDelay)}${S.vault.lockedUntil && now() < S.vault.lockedUntil ? " and until the lock ends" : ""}. You can cancel any time.</p>`, async (fd) => {
+  deposit: () => sheet(`<h3>${titled("Deposit")}</h3>${assetSwitch(S.vault)}${amount(A().stable ? "100" : "1")}<p class="note">Wallet: ${sol(walletHas())} ${A().unit}. Deposits go straight in.${A().stable && isEvm() ? " Your wallet asks you to allow the amount first, then to deposit it." : ""}${A().stable && !walletHas() ? ` Get free test USDC at <a href="https://faucet.circle.com" target="_blank" rel="noopener">faucet.circle.com</a>.` : ""}</p>`, (fd) => send(`Deposited ${sol(lamportsOf(fd))} ${A().unit}`, () => assetOps().deposit(lamportsOf(fd)))),
+  withdraw: () => sheet(`<h3>${titled("Withdraw")}</h3>${assetSwitch(S.vault)}${amount()}<label class="field">To address<input name="dest" placeholder="Where it should go" required spellcheck="false" autocomplete="off" value="${S.wallet.toBase58()}"/></label><p class="note">Available: ${sol(assetView(S.vault).available)} ${A().unit}. This waits ${delayWords(S.vault.withdrawDelay)}${S.vault.lockedUntil && now() < S.vault.lockedUntil ? " and until the lock ends" : ""}. You can cancel any time.</p>`, async (fd) => {
     const dest = keyOf(fd.get("dest")); if (!dest) { toast("That address isn't valid", "err"); return false; }
-    return send(`Asked to withdraw ${sol(lamportsOf(fd))} ${C.unit}`, () => C.x.ops.requestWithdrawal(dest, lamportsOf(fd)));
+    return send(`Asked to withdraw ${sol(lamportsOf(fd))} ${A().unit}`, () => assetOps().requestWithdrawal(dest, lamportsOf(fd)));
   }),
   send: () => {
     if (!S.vault.trusted.length) return toast("Add a trusted address first", "err");
-    sheet(`<h3>Send to a trusted address</h3>${amount()}<label class="field">To<select name="dest">${S.vault.trusted.map((k) => `<option value="${k.toBase58()}">${short(k)}</option>`).join("")}</select></label><p class="note">Arrives instantly${S.vault.dailyLimit ? `, up to ${sol(S.vault.dailyLimit)} ${C.unit} a day` : ""}.</p>`,
-      (fd) => send(`Sent ${sol(lamportsOf(fd))} ${C.unit} to a trusted address`, () => C.x.ops.sendToTrusted(keyOf(fd.get("dest")), lamportsOf(fd))));
+    const lim = assetView(S.vault).dailyLimit;
+    sheet(`<h3>${titled("Send")} to a trusted address</h3>${assetSwitch(S.vault)}${amount()}<label class="field">To<select name="dest">${S.vault.trusted.map((k) => `<option value="${k.toBase58()}">${short(k)}</option>`).join("")}</select></label><p class="note">Arrives instantly${lim ? `, up to ${sol(lim)} ${A().unit} a day` : ""}.</p>`,
+      (fd) => send(`Sent ${sol(lamportsOf(fd))} ${A().unit} to a trusted address`, () => assetOps().sendToTrusted(keyOf(fd.get("dest")), lamportsOf(fd))));
   },
   trust: () => sheet(`<h3>Trust an address</h3><label class="field">Address<input name="addr" required placeholder="Your bank off-ramp, your rent…" spellcheck="false" autocomplete="off"/></label><p class="note">Money sent here will arrive instantly, so trusting it waits ${delayWords(S.vault.ruleDelay)}${S.vault.guardian ? ", unless your guardian approves it sooner" : ""}.</p>`, async (fd) => {
     const a = keyOf(fd.get("addr")); if (!a) { toast("That address isn't valid", "err"); return false; }
@@ -948,16 +1090,17 @@ const actions = {
   }),
   rules: () => openRuleMenu(),
   rule: (el) => { $("#sheet").close(); openRule(el.dataset.k); },
-  "cancel-w": (el) => send(`Cancelled. ${sol(Number(el.dataset.amt))} ${C.unit} stays in your vault. That's a win.`, () => C.x.ops.cancelWithdrawal(Number(el.dataset.id))),
-  run: (el) => send("Sent a withdrawal", () => C.x.ops.executeWithdrawal(S.wallet, Number(el.dataset.id), keyOf(el.dataset.dest))),
-  "cancel-c": (el) => send("Cancelled a rule change", () => C.x.ops.cancelChange(Number(el.dataset.id))),
-  apply: (el) => send("Applied a rule change", () => C.x.ops.applyChange(S.wallet, Number(el.dataset.id))),
+  "cancel-w": (el) => { const a = A(el.dataset.asset); return send(`Cancelled. ${sol(Number(el.dataset.amt), a)} ${a.unit} stays in your vault. That's a win.`, () => assetOps(a.id).cancelWithdrawal(Number(el.dataset.id))); },
+  run: (el) => send("Sent a withdrawal", () => assetOps(el.dataset.asset).executeWithdrawal(S.wallet, Number(el.dataset.id), keyOf(el.dataset.dest))),
+  "cancel-c": (el) => send("Cancelled a rule change", () => assetOps(el.dataset.asset).cancelChange(Number(el.dataset.id))),
+  apply: (el) => send("Applied a rule change", () => assetOps(el.dataset.asset).applyChange(S.wallet, Number(el.dataset.id))),
+  "open-asset": (el) => { S.asset = el.dataset.a; actions.tab({ dataset: { t: "vault" } }); },
   watch: async () => {
     const k = keyOf($("#watch")?.value); if (!k) return toast("That address isn't valid", "err");
     S.watchOwner = k.toBase58(); S.watched = undefined; render();
-    S.watched = await C.x.fetchVault(k).catch(() => null); render();
+    S.watched = await readVault(k).catch(() => null); render();
   },
-  release: (el) => send("Approved an emergency release", () => C.x.ops.guardianRelease(keyOf(S.watchOwner), Number(el.dataset.id), keyOf(el.dataset.dest))),
+  release: (el) => send("Approved an emergency release", () => assetOps(el.dataset.asset).guardianRelease(keyOf(S.watchOwner), Number(el.dataset.id), keyOf(el.dataset.dest))),
   approve: (el) => send("Approved a trusted address", () => C.x.ops.guardianApproveChange(keyOf(S.watchOwner), Number(el.dataset.id))),
 };
 
@@ -965,6 +1108,7 @@ document.addEventListener("click", (e) => {
   const el = e.target.closest("[data-act]");
   if (!el || el.disabled) return;
   if (S.readOnly && SIGNING.has(el.dataset.act)) { $("#sheet").close(); return signElsewhere(); }
+  if (el.dataset.act !== "asset") S.sheetAct = ["deposit", "withdraw", "send"].includes(el.dataset.act) ? el.dataset.act : null;
   actions[el.dataset.act]?.(el);
 });
 // Live countdowns between refreshes: the withdrawal clocks tick every second; when one hits zero, reload the vault.
@@ -985,7 +1129,7 @@ function reconnect() {
     if (!localStorage.getItem("ecrin-wallet-" + S.net) && !(S.net === "sol" && localStorage.getItem("ecrin-wallet"))) return;
     const p = providers()[0]?.[1];
     if (!p || !C.x) return;
-    if (S.net === "eth") p.request({ method: "eth_accounts" }).then((a) => { if (a?.length) connect(p); }).catch(() => {});
+    if (isEvm()) p.request({ method: "eth_accounts" }).then((a) => { if (a?.length) connect(p); }).catch(() => {});
     else p.connect?.({ onlyIfTrusted: true }).then((r) => { if (r?.publicKey || p.publicKey) connect(p); }).catch(() => {});
   } catch (_) {}
 }

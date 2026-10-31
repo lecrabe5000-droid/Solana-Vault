@@ -86,8 +86,8 @@ jobs:
         run: |
           set -euo pipefail
           cat > app/config.js <<JS
-          // Written by the deploy-devnet workflow after each deploy. programId null = not deployed yet.
-          export const CONFIG = { cluster: "devnet", rpc: "https://api.devnet.solana.com", programId: "$PROGRAM_ID" };
+          // Written by the deploy-devnet workflow after each deploy. programId null = not deployed yet; tokens = has token vaults.
+          export const CONFIG = { cluster: "devnet", rpc: "https://api.devnet.solana.com", programId: "$PROGRAM_ID", tokens: true };
           JS
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

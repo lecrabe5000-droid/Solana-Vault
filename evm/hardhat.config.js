@@ -28,6 +28,8 @@ module.exports = {
   etherscan: { apiKey: ETHERSCAN_API_KEY || "" },
   sourcify: { enabled: false },
   networks: {
+    // `npx hardhat node`: its default gas limit per transaction is above the node's own cap, so set one.
+    localhost: { url: "http://127.0.0.1:8545", gas: 10_000_000 },
     sepolia: { url: rpc("sepolia", "https://ethereum-sepolia-rpc.publicnode.com"), chainId: 11155111, accounts },
     baseSepolia: { url: rpc("baseSepolia", "https://sepolia.base.org"), chainId: 84532, accounts },
     arbitrumSepolia: { url: rpc("arbitrumSepolia", "https://sepolia-rollup.arbitrum.io/rpc"), chainId: 421614, accounts },

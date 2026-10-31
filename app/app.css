@@ -570,3 +570,51 @@ section.glass { border-radius: 20px; }
 .wc-btn { gap: 10px; }
 .hello .wc-btn { margin: 26px auto 0; min-width: 240px; }
 .hello .wc-btn + .wallets { margin-top: 10px; }
+
+/* ---------------------------------------------------------------- networks and coins */
+.coin.base { background: #2151f5; } .coin.arb { background: #1b2a41; } .coin.op { background: #e8343f; } .coin.pol { background: #7b3fe4; } .coin.usdc { background: #2775ca; }
+.coin svg path[fill="none"] { fill: none; }
+.coin:is(.base, .arb, .op, .pol, .usdc) svg path:not([fill="none"]) { fill: #fff; }
+.coin.base svg path { stroke: #2151f5; }
+
+.netbtn { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 10px 0 6px; border: 1px solid var(--line); border-radius: 12px; background: transparent; color: var(--ink); font-size: 13px; font-weight: 600; }
+.netbtn .coin { width: 24px; height: 24px; }
+.netbtn .chev { width: 16px; height: 16px; fill: none; stroke: var(--muted); stroke-width: 2; }
+.netbtn:hover { background: var(--sunken); }
+.net-list { display: grid; gap: 2px; margin-top: 6px; }
+.nl-h { margin: 14px 2px 4px; }
+.net-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 10px; border: 0; border-radius: 12px; background: none; color: var(--ink); text-align: left; }
+.net-row:hover:not(:disabled) { background: var(--sunken); }
+.net-row.on { background: var(--sunken); }
+.net-row:disabled { opacity: .55; cursor: default; }
+.net-row .coin { width: 34px; height: 34px; }
+.nr-t { display: grid; flex: 1; min-width: 0; }
+.nr-t b { font-size: 15px; } .nr-t span { color: var(--muted); font-size: 12.5px; }
+.nr-r { display: flex; align-items: center; gap: 8px; }
+.nr-a { color: var(--muted); font-size: 12.5px; font-weight: 500; }
+.nr-soon { padding: 3px 8px; border-radius: 99px; background: var(--sunken); color: var(--muted); font-size: 11.5px; font-weight: 600; }
+.nr-on svg { width: 18px; height: 18px; fill: none; stroke: var(--blue, #2f5bff); stroke-width: 2.4; }
+
+/* coin switch (vault tab and sheets) */
+.asw { display: inline-flex; gap: 4px; margin: 0 0 18px; padding: 4px; border: 1px solid var(--line); border-radius: 14px; }
+.sheet .asw { margin: 4px 0 14px; }
+.asw button { position: relative; display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px 0 6px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font-size: 14px; font-weight: 600; }
+.asw button[aria-pressed="true"] { background: var(--sunken); color: var(--ink); }
+.asw .coin { width: 24px; height: 24px; }
+.asw-dot { position: absolute; top: 5px; right: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--warn, #e2903f); box-shadow: 0 0 0 2px var(--surface); }
+.notice.warn-n { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; cursor: pointer; font: inherit; }
+.notice.warn-n svg { flex: none; width: 18px; height: 18px; fill: none; stroke: var(--warn, #e2903f); stroke-width: 2; }
+
+/* assets card on the portfolio */
+.assets .as-row { display: flex; align-items: center; gap: 14px; width: 100%; padding: 12px 2px; border: 0; border-top: 1px solid var(--line); background: none; color: var(--ink); text-align: left; }
+.assets .as-row:first-of-type { border-top: 0; }
+.as-row .coin { width: 36px; height: 36px; }
+.as-t { display: grid; flex: 1; min-width: 0; }
+.as-t b { font-size: 15px; } .as-t span { color: var(--muted); font-size: 13px; }
+.as-r { display: grid; justify-items: end; gap: 3px; }
+.as-r b { font-size: 15px; }
+.as-leave { display: inline-flex; align-items: center; gap: 4px; color: var(--warn, #e2903f); font-size: 12px; font-weight: 600; }
+.as-leave svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; }
+.as-row > svg { width: 16px; height: 16px; fill: none; stroke: var(--muted); stroke-width: 2; }
+@media (max-width: 720px) { .netbtn > span:not(.coin) { display: none; } .netbtn { padding: 0 6px; } .asw { display: flex; } .asw button { flex: 1; justify-content: center; } }
+.tb-right .netbtn { border-radius: 999px; }

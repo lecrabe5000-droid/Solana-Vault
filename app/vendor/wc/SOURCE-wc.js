@@ -4,7 +4,7 @@
 import { createAppKit } from "@reown/appkit";
 import { SolanaAdapter } from "@reown/appkit-adapter-solana";
 import { EthersAdapter } from "@reown/appkit-adapter-ethers";
-import { solanaDevnet, sepolia } from "@reown/appkit/networks";
+import { solanaDevnet, sepolia, baseSepolia, arbitrumSepolia, optimismSepolia, polygonAmoy } from "@reown/appkit/networks";
 
 let kit = null;
 
@@ -13,7 +13,7 @@ export function initWalletConnect({ projectId, theme = "light" }) {
   kit = createAppKit({
     projectId,
     adapters: [new SolanaAdapter(), new EthersAdapter()],
-    networks: [solanaDevnet, sepolia],
+    networks: [solanaDevnet, sepolia, baseSepolia, arbitrumSepolia, optimismSepolia, polygonAmoy],
     defaultNetwork: solanaDevnet,
     metadata: { name: "Ecrin", description: "Crypto that can't be taken in a hurry.", url: "https://ecrinprotocol.app", icons: ["https://ecrinprotocol.app/icon-192.png"] },
     themeMode: theme,
