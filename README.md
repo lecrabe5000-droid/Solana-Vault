@@ -63,35 +63,43 @@ anchor build && anchor deploy       # needs the Solana + Anchor toolchains, devn
 2. On GitHub: Settings → Secrets and variables → Actions → New repository secret:
    - `DEVNET_DEPLOYER_KEY`: the first account's private key
    - `DEVNET_PROGRAM_KEY`: the second account's private key
-3. Get about 4 devnet SOL for the first account at https://faucet.solana.com.
+3. Get about 6 devnet SOL for the first account (an upgrade briefly needs room for two copies of the program) at https://faucet.solana.com.
 4. Actions → **deploy-devnet** → Run workflow. It builds, deploys (or upgrades), checks the program from the browser client, and commits its address to `app/config.js`, so the site switches to it.
 
 Never reuse these accounts for real money. Never put a mainnet key in GitHub.
 
-## Ethereum (Sepolia)
+## Ethereum and its networks
 
-`evm/contracts/EcrinVault.sol` is the same vault for Ethereum: one contract, one vault per owner, ETH only, the same rules and limits. `evm/test/` mirrors the Solana rule tests and also runs the browser client (`app/evm.js`) against the contract.
+`evm/contracts/EcrinVault.sol` is the same vault for Ethereum-style networks: one contract per network, one vault per owner, the same rules and limits. It holds the network's coin and ERC-20 tokens (USDC): each token has its own balance, daily limit and queue, and shares the vault's delays, lock, guardian and trusted addresses. `evm/test/` mirrors the Solana rule tests, covers tokens (including ones that return nothing, like USDT, and ones that take a fee), and runs the browser client (`app/evm.js`) against the contract.
 
 ```sh
 cd evm && npm ci && npx hardhat test
 ```
 
+Networks (`app/config-evm.js`, with Circle's testnet USDC on each): Ethereum Sepolia, Base Sepolia, Arbitrum Sepolia, Optimism Sepolia, Polygon Amoy.
+
 To deploy:
 
-1. In MetaMask, make a **new** account for testnets only. Turn on Settings → Advanced → Show test networks, pick Sepolia.
-2. Get Sepolia ETH for it (0.05 is plenty) at https://cloud.google.com/application/web3/faucet/ethereum/sepolia.
-3. Export its private key (account menu → Account details → Show private key) and add it as the repository secret `SEPOLIA_DEPLOYER_KEY`. Optional: `SEPOLIA_RPC_URL`.
-4. Actions → **deploy-sepolia** → Run workflow. It tests, deploys, and commits the address to `app/config-evm.js`; the app's Ethereum tab switches to it.
+1. In MetaMask, make a **new** account for testnets only. Turn on Settings → Advanced → Show test networks.
+2. Get a little test coin for it on each network you want (the deploy log names the faucet if it runs short).
+3. Export its private key and add it as the repository secret `EVM_DEPLOYER_KEY` (`SEPOLIA_DEPLOYER_KEY` also works). Optional: `ETHERSCAN_API_KEY` to publish the source, `RPC_<NETWORK>` to use another RPC.
+4. Actions → **deploy-evm** → Run workflow, pick a network or `all`. It tests, checks the USDC address, deploys, and records each contract in `app/deployments-evm.js`; the app's network picker switches to it.
+
+## Tokens on Solana
+
+Each owner can open a token vault per mint next to their vault (`open_token_vault`): a PDA that owns the coins' token account and keeps that token's balance, daily limit and queue, while the delays, lock, guardian and trusted addresses come from the vault. The app offers Circle's devnet USDC (`app/config-tokens.js`) once `app/config.js` says `tokens: true`, which the deploy-devnet workflow writes.
+
+USDC can be frozen by its issuer (Circle). Ecrin protects it from anyone holding your key, not from the issuer.
 
 ## Status
 
-Early prototype. SOL only. **Not audited: do not put real funds in it.** Mainnet only after an independent security audit, with deposit caps at first and the upgrade authority removed afterwards.
+Early prototype. SOL, ETH, POL and USDC on test networks. **Not audited: do not put real funds in it.** Mainnet only after an independent security audit, with deposit caps at first and the upgrade authority removed afterwards.
 
 ## Roadmap
 
 1. Devnet program + integration tests (`anchor test`)
 2. Web app: connect wallet, pick a preset, deposit, countdown with cancel, guardian invite
-3. USDC and other SPL tokens
+3. USDC on Solana and on Ethereum-style networks (done on testnets)
 4. Test with 10 to 20 people in recovery and their families
 5. Audit, then mainnet with caps
 
