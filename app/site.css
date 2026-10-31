@@ -55,6 +55,8 @@ h3 { font-weight: 700; letter-spacing: -.01em; }
 .btn.glass { border-color: rgba(255, 255, 255, .22); background: rgba(255, 255, 255, .08); color: #f1f0ea; backdrop-filter: blur(8px); }
 .btn.glass:hover { border-color: rgba(255, 255, 255, .5); }
 .btn.lg { height: 52px; padding: 0 24px; font-size: 15.5px; }
+.lang { display: inline-grid; place-items: center; height: 40px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: 999px; color: var(--ink); font-size: 13px; font-weight: 700; text-decoration: none; }
+.lang:hover { border-color: var(--ink); }
 .theme { display: inline-grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--line-2); border-radius: 999px; background: transparent; color: var(--ink); cursor: pointer; }
 .theme svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .theme .i-sun, [data-theme="dark"] .theme .i-moon { display: none; }
@@ -414,7 +416,7 @@ td:first-child { color: var(--ink); font-weight: 600; width: 44%; }
 .menu-btn, .mmenu, .mcta { display: none; }
 @media (max-width: 1060px) { .nav-pill { display: none; } .nav-in { grid-template-columns: 1fr auto; } }
 @media (max-width: 960px) {
-  .nav-cta .theme { display: none; }
+  .nav-cta .theme, .nav-cta .lang { display: none; }
   .menu-btn { position: relative; display: inline-grid; place-content: center; gap: 5px; width: 42px; height: 42px; border: 1px solid var(--line-2); border-radius: 999px; background: color-mix(in srgb, var(--panel) 80%, transparent); backdrop-filter: blur(10px); cursor: pointer; }
   .menu-btn i { display: block; width: 16px; height: 1.6px; border-radius: 2px; background: var(--ink); transition: transform .25s; }
   .menu-open .menu-btn i:first-child { transform: translateY(3.3px) rotate(45deg); }

@@ -69,17 +69,21 @@
   const play = document.querySelector("[data-play]");
   if (play) {
     const $p = (k) => play.querySelector(`[data-pl-${k}]`);
+    const fr = root.lang === "fr";
+    const T = fr
+      ? { asked: "Quelqu'un vient de demander un retrait", done: "Annulé · gratuit et instantané", kept: (a) => `En sécurité. Les ${a.amt} ${a.unit} ne sont jamais sortis.`, count: (n) => `${n} attaque${n > 1 ? "s" : ""} bloquée${n > 1 ? "s" : ""}` }
+      : { asked: "Someone just asked to withdraw", done: "Cancelled · free and instant", kept: (a) => `Kept safe. ${a.amt} ${a.unit} never left.`, count: (n) => `${n} attack${n === 1 ? "" : "s"} stopped` };
     const attacks = [
-      { amt: "24.00", unit: "SOL", to: "9cRt…X2pa", why: "a drainer you signed by mistake" },
-      { amt: "1,500.00", unit: "USDC", to: "0x7a3…e91F", why: "a fake support page" },
-      { amt: "3.20", unit: "ETH", to: "0xd04…1c2B", why: "someone with your seed phrase" },
-      { amt: "0.80", unit: "SOL", to: "CaSn…oN1t", why: "you, at 3 a.m., to a casino" },
+      { amt: fr ? "24,00" : "24.00", unit: "SOL", to: "9cRt…X2pa", why: fr ? "un drainer signé par erreur" : "a drainer you signed by mistake" },
+      { amt: fr ? "1 500,00" : "1,500.00", unit: "USDC", to: "0x7a3…e91F", why: fr ? "une fausse page de soutien" : "a fake support page" },
+      { amt: fr ? "3,20" : "3.20", unit: "ETH", to: "0xd04…1c2B", why: fr ? "quelqu'un qui a votre phrase secrète" : "someone with your seed phrase" },
+      { amt: fr ? "0,80" : "0.80", unit: "SOL", to: "CaSn…oN1t", why: fr ? "vous, à 3 h du matin, vers un casino" : "you, at 3 a.m., to a casino" },
     ];
     let k = 0, left = 72 * 3600 - 12, stopped = 0, busy = false;
     const show = () => {
       const a = attacks[k % attacks.length];
       $p("amt").textContent = a.amt; $p("unit").textContent = a.unit; $p("to").textContent = a.to; $p("why").textContent = a.why;
-      $p("title").textContent = "Someone just asked to withdraw";
+      $p("title").textContent = T.asked;
       play.classList.remove("safe"); play.querySelector(".pl-attack").hidden = false; play.querySelector(".pl-safe").hidden = true;
       left = 72 * 3600 - 12 - Math.floor(Math.random() * 600); busy = false;
     };
@@ -88,9 +92,9 @@
       if (busy) return; busy = true;
       const a = attacks[k % attacks.length];
       stopped++; navigator.vibrate?.([14, 40, 22]);
-      $p("count").textContent = `${stopped} attack${stopped === 1 ? "" : "s"} stopped`;
-      $p("safe").textContent = `Kept safe. ${a.amt} ${a.unit} never left.`;
-      $p("title").textContent = "Cancelled · free and instant";
+      $p("count").textContent = T.count(stopped);
+      $p("safe").textContent = T.kept(a);
+      $p("title").textContent = T.done;
       play.classList.add("safe"); play.querySelector(".pl-attack").hidden = true; play.querySelector(".pl-safe").hidden = false;
       k++; setTimeout(show, 2600);
     });
