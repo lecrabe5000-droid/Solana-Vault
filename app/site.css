@@ -523,18 +523,24 @@ h3 { font-weight: 700; letter-spacing: -.01em; }
 .device[data-state="0"] .st0, .device[data-state="1"] .st1, .device[data-state="2"] .st2, .device[data-state="3"] .st3 { transition: opacity .3s ease .12s, transform .3s ease .12s; }
 @media (max-width: 960px) { .step { opacity: 1; } .step:not(.on) .t-time { color: var(--muted); } }
 
-/* story on phones: the pinned vault sits on a solid band with a soft fade below it, so the step text
-   slides cleanly under it instead of peeking out around its edges; each step reads right under the card */
+/* story on phones: no pinned vault (it can't fit beside the text). Each step carries its own copy of the vault
+   in that step's state, as a vertical timeline: card, time, heading, text. Nothing moves under anything. */
+.step-device { display: none; }
 @media (max-width: 960px) {
-  .story-pin { top: 64px; padding: 10px 0 0; }
-  .story-pin::before { content: ""; position: absolute; z-index: -1; top: -74px; left: -24px; right: -24px; bottom: -48px; background: linear-gradient(to bottom, var(--bg) calc(100% - 48px), color-mix(in srgb, var(--bg) 0%, transparent)); pointer-events: none; }
-  .device { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08); }
-  .device[data-state="1"] { box-shadow: inset 0 0 0 1px rgba(255, 181, 71, .45); }
-  .device[data-state="3"] { box-shadow: inset 0 0 0 1px rgba(125, 151, 255, .5); }
-  .dv-dots { display: none; }
-  .step, .step:first-child, .step:last-child { min-height: 0; justify-content: flex-start; padding: 44px 0 30vh; }
-  .step:last-child { padding-bottom: 12vh; }
-  .step:not(.on) { opacity: .35; }
-  .step { transition: opacity .35s ease; }
+  .story-pin { display: none; }
+  .story-steps { position: relative; gap: 0; }
+  .step, .step:first-child, .step:last-child { min-height: 0; justify-content: flex-start; padding: 0 0 44px 22px; opacity: 1; position: relative; }
+  .step:last-child { padding-bottom: 0; }
+  /* the timeline: a hairline down the left, a dot at each step */
+  .step::before { content: ""; position: absolute; left: 4px; top: 6px; bottom: -6px; width: 1px; background: var(--line-2); }
+  .step:last-child::before { bottom: auto; height: 12px; }
+  .step::after { content: ""; position: absolute; left: 0; top: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--bg); box-shadow: inset 0 0 0 2px var(--blue); }
+  .step[data-step="1"]::after { box-shadow: inset 0 0 0 2px #e2903f; }
+  .step-device { display: block; position: relative; top: 0; margin: 0 0 18px; padding: 18px; border-radius: 20px; }
+  .step-device .dv-dots { display: none; }
+  .step-device[data-state="1"] { box-shadow: inset 0 0 0 1px rgba(255, 181, 71, .45), 0 30px 60px -40px rgba(226, 140, 40, .5); }
+  .step-device[data-state="3"] { box-shadow: inset 0 0 0 1px rgba(125, 151, 255, .5), 0 30px 60px -40px rgba(80, 110, 255, .55); }
+  .step .t-time { color: var(--blue); }
+  .step:not(.on) .t-time { color: var(--blue); }
+  .step h3 { margin-top: 6px; }
 }
-@media (max-width: 960px) and (max-height: 700px) { .dv-clock { padding: 8px 6px 6px; } .dv-clock b { font-size: 24px; } .dv-keep { height: 42px; } }

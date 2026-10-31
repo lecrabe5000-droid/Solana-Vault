@@ -52,30 +52,37 @@
     draw(); setInterval(() => { left = left > 1 ? left - 1 : total - 12; draw(); }, 1000);
   }
 
-  // Story clock: ticks only while the "queued" step is showing.
+  // On phones each step shows its own copy of the vault, frozen in that step's state (CSS shows them only there).
   const device = document.querySelector(".device");
+  if (device) document.querySelectorAll(".step").forEach((st) => {
+    const c = device.cloneNode(true);
+    c.classList.add("step-device"); c.dataset.state = st.dataset.step; c.setAttribute("aria-hidden", "true");
+    st.prepend(c);
+  });
+
+  // Story clock: ticks while the "queued" vault is showing (the pinned one on that step, or the phone copy).
   let storyLeft = 72 * 3600 - 12;
   setInterval(() => {
-    if (!device || device.dataset.state !== "1") return;
+    const live = [...document.querySelectorAll('.device[data-state="1"]')];
+    if (!live.length) return;
     storyLeft--;
-    device.querySelector('[data-sc="h"]').textContent = p(Math.floor(storyLeft / 3600));
-    device.querySelector('[data-sc="m"]').textContent = p(Math.floor((storyLeft % 3600) / 60));
-    device.querySelector('[data-sc="s"]').textContent = p(storyLeft % 60);
+    for (const d of live) {
+      d.querySelector('[data-sc="h"]').textContent = p(Math.floor(storyLeft / 3600));
+      d.querySelector('[data-sc="m"]').textContent = p(Math.floor((storyLeft % 3600) / 60));
+      d.querySelector('[data-sc="s"]').textContent = p(storyLeft % 60);
+    }
   }, 1000);
 
-  // Story steps drive the pinned device. The active step is the last one whose top has passed a line on
-  // screen (on phones, part way down the space left under the pinned vault). Read from the scroll position on every
-  // frame, so it stays right on iPhone Safari while its toolbar grows and shrinks.
+  // Story steps drive the pinned device (desktop). The active step is the last one whose top has passed the
+  // middle of the screen, read from the scroll position on every frame.
   const steps = [...document.querySelectorAll(".step")];
   if (steps.length && device) {
     let active = -1, queued = false;
     const pick = () => {
       queued = false;
-      const pin = innerWidth <= 960 && document.querySelector(".story-pin");
-      const below = pin ? pin.getBoundingClientRect().bottom : 0;
-      const line = pin ? below + (innerHeight - below) * 0.35 : innerHeight * 0.55;
+      const line = innerHeight * 0.55;
       let i = 0;
-      steps.forEach((s, k) => { if ((pin ? s.querySelector("h3") : s).getBoundingClientRect().top < line) i = k; });
+      steps.forEach((s, k) => { if (s.getBoundingClientRect().top < line) i = k; });
       if (i === active) return;
       active = i;
       steps.forEach((s, k) => s.classList.toggle("on", k === i));
