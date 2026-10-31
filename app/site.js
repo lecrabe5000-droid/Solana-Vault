@@ -64,16 +64,18 @@
   }, 1000);
 
   // Story steps drive the pinned device. The active step is the last one whose top has passed a line on
-  // screen (lower on phones, where the pinned vault covers the top). Read from the scroll position on every
+  // screen (on phones, part way down the space left under the pinned vault). Read from the scroll position on every
   // frame, so it stays right on iPhone Safari while its toolbar grows and shrinks.
   const steps = [...document.querySelectorAll(".step")];
   if (steps.length && device) {
     let active = -1, queued = false;
     const pick = () => {
       queued = false;
-      const line = innerHeight * (innerWidth <= 960 ? 0.78 : 0.55);
+      const pin = innerWidth <= 960 && document.querySelector(".story-pin");
+      const below = pin ? pin.getBoundingClientRect().bottom : 0;
+      const line = pin ? below + (innerHeight - below) * 0.35 : innerHeight * 0.55;
       let i = 0;
-      steps.forEach((s, k) => { if (s.getBoundingClientRect().top < line) i = k; });
+      steps.forEach((s, k) => { if ((pin ? s.querySelector("h3") : s).getBoundingClientRect().top < line) i = k; });
       if (i === active) return;
       active = i;
       steps.forEach((s, k) => s.classList.toggle("on", k === i));
