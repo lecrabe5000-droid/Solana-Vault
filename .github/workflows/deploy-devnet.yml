@@ -69,6 +69,15 @@ jobs:
           have=$(solana balance | awk '{print $1}')
           echo "program $size bytes; deploy needs about $need SOL (plus fees); deployer $DEPLOYER has $have SOL"
           python3 -c "import sys; sys.exit(0 if float('$have') >= float('$need') + 0.1 else 1)" || { echo "::error::Not enough devnet SOL. Get some at https://faucet.solana.com for $DEPLOYER and run again."; exit 1; }
+      - name: Make room if the new build is bigger than the deployed one
+        run: |
+          set -euo pipefail
+          if solana program show "$PROGRAM_ID" >/dev/null 2>&1; then
+            have=$(solana program show "$PROGRAM_ID" | awk '/Data Length/ {print $3}')
+            need=$(stat -c%s target/deploy/cooldown_vault.so)
+            echo "deployed program has room for $have bytes; new build is $need bytes"
+            if [ "$need" -gt "$have" ]; then solana program extend "$PROGRAM_ID" $((need - have + 4096)); fi
+          fi
       - name: Deploy (first time) or upgrade
         run: solana program deploy target/deploy/cooldown_vault.so --program-id target/deploy/cooldown_vault-keypair.json --max-sign-attempts 60 --with-compute-unit-price 10000
       - name: Check it from the browser client
