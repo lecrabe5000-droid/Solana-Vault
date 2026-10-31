@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import * as web3 from "@solana/web3.js";
+import { createMint, getOrCreateAssociatedTokenAccount, mintTo } from "@solana/spl-token";
 import { createClient, explainError } from "../app/chain.js";
 
 const DAY = 86400, HOUR = 3600, SOL = web3.LAMPORTS_PER_SOL;
@@ -15,7 +16,7 @@ let passed = 0, failed = 0;
 const test = async (name, fn) => { try { await fn(); passed++; console.log("  ✔", name); } catch (e) { failed++; console.log("  ✘", name, "\n   ", e.message); } };
 const eq = (a, b, what = "") => { if (a !== b) throw new Error(`${what} expected ${b}, got ${a}`); };
 const send = async (signer, ...ixs) => {
-  const tx = new web3.Transaction().add(...(await Promise.all(ixs)));
+  const tx = new web3.Transaction().add(...(await Promise.all(ixs.flat())).flat());
   return web3.sendAndConfirmTransaction(connection, tx, [signer], { commitment: "confirmed" });
 };
 const fails = async (p, code) => {
@@ -121,6 +122,62 @@ await test("a Locked vault with a date reads back", async () => {
   await send(lockedOwner, client.build.initialize(lockedOwner.publicKey, { kind: "locked", until, guardian: guardian.publicKey }));
   const v = await client.fetchVault(lockedOwner.publicKey);
   eq(v.lockedUntil, until, "lockedUntil");
+});
+
+// ---------------------------------------------------------------- tokens (a test USDC)
+const USD = 1_000_000;
+const mint = await createMint(connection, owner, owner.publicKey, null, 6);
+await mintTo(connection, owner, mint, (await getOrCreateAssociatedTokenAccount(connection, owner, mint, owner.publicKey)).address, owner, 300 * USD);
+const usdc = client.token(mint);
+
+await test("token: nothing before it is opened; the wallet balance reads", async () => {
+  eq(await usdc.fetch(owner.publicKey), null);
+  eq(await usdc.walletBalance(owner.publicKey), 300 * USD, "wallet");
+});
+
+await test("token: opens and deposits in one transaction", async () => {
+  await send(owner, usdc.build.open(owner.publicKey), usdc.build.deposit(owner.publicKey, 120 * USD));
+  const t = await usdc.fetch(owner.publicKey);
+  eq(t.balance, 120 * USD, "balance"); eq(t.available, 120 * USD, "available"); eq(t.dailyLimit, null, "limit");
+  eq(t.mint.toBase58(), mint.toBase58(), "mint");
+});
+
+let tid;
+await test("token: queues a withdrawal and refuses to run it early", async () => {
+  await send(owner, usdc.build.requestWithdrawal(owner.publicKey, casino, 20 * USD));
+  const t = await usdc.fetch(owner.publicKey); tid = t.withdrawals[0].id;
+  eq(t.withdrawals.length, 1); eq(t.available, 100 * USD, "available");
+  await fails(send(stranger, usdc.build.executeWithdrawal(stranger.publicKey, owner.publicKey, tid, casino)), "TooEarly");
+});
+
+await test("token: the guardian releases it into an account created on the way", async () => {
+  await send(guardian, usdc.build.guardianRelease(guardian.publicKey, owner.publicKey, tid, casino));
+  eq(await usdc.walletBalance(casino), 20 * USD, "casino got it");
+  eq((await usdc.fetch(owner.publicKey)).balance, 100 * USD, "balance");
+});
+
+await test("token: sends instantly to the vault's trusted bank", async () => {
+  await send(owner, usdc.build.sendToTrusted(owner.publicKey, bank, 5 * USD));
+  eq(await usdc.walletBalance(bank), 5 * USD, "bank");
+});
+
+await test("token: lowering the limit applies, raising waits and cancels", async () => {
+  await send(owner, usdc.build.proposeLimit(owner.publicKey, 50 * USD));
+  eq((await usdc.fetch(owner.publicKey)).dailyLimit, 50 * USD, "limit");
+  await send(owner, usdc.build.proposeLimit(owner.publicKey, null));
+  const t = await usdc.fetch(owner.publicKey);
+  eq(t.changes.length, 1); eq(t.changes[0].change.kind, "SetDailyLimit"); eq(t.changes[0].change.value, null);
+  await fails(send(stranger, usdc.build.applyChange(stranger.publicKey, owner.publicKey, t.changes[0].id)), "TooEarly");
+  await send(owner, usdc.build.cancelChange(owner.publicKey, t.changes[0].id));
+  eq((await usdc.fetch(owner.publicKey)).changes.length, 0);
+});
+
+await test("token: the owner cancels a request and the coins stay", async () => {
+  await send(owner, usdc.build.requestWithdrawal(owner.publicKey, casino, 1 * USD));
+  const id = (await usdc.fetch(owner.publicKey)).withdrawals[0].id;
+  await send(owner, usdc.build.cancelWithdrawal(owner.publicKey, id));
+  const t = await usdc.fetch(owner.publicKey);
+  eq(t.withdrawals.length, 0); eq(t.balance, 95 * USD);
 });
 
 console.log(`\n${passed} passing, ${failed} failing`);

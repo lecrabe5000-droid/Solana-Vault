@@ -69,3 +69,56 @@ describe("app/evm.js client", () => {
     catch (e) { expect(mod.explainEvmError(e).code).to.equal("VaultExists"); }
   });
 });
+
+describe("app/evm.js token client", () => {
+  let mod, owner, guardian, bank, client, gclient, usdc, tok, gtok;
+  const USD = 1_000_000;
+  before(async () => {
+    mod = await import(pathToFileURL(path.join(__dirname, "..", "..", "app", "evm.js")).href);
+    [owner, guardian, bank] = await ethers.getSigners();
+    const vaultAddr = await (await (await ethers.getContractFactory("EcrinVault")).deploy()).getAddress();
+    usdc = await (await ethers.getContractFactory("TestToken")).deploy("USDC", 0);
+    await usdc.mint(owner.address, 500 * USD);
+    const EVM = { chainId: 31337, address: vaultAddr };
+    client = mod.createEvmClient({ ethers, EVM, readProvider: ethers.provider, getSigner: async () => owner });
+    gclient = mod.createEvmClient({ ethers, EVM, readProvider: ethers.provider, getSigner: async () => guardian });
+    tok = client.token(usdc.target); gtok = gclient.token(usdc.target);
+  });
+
+  it("approves and deposits, then reads the same shape as the Solana token client", async () => {
+    expect(await tok.fetch(owner.address)).to.equal(null);
+    await client.ops.create({ kind: "strong", guardian: client.key(guardian.address) });
+    await tok.ops.deposit(200 * USD);
+    const t = await tok.fetch(owner.address);
+    expect(t.balance).to.equal(200 * USD);
+    expect(t.available).to.equal(200 * USD);
+    expect(t.dailyLimit).to.equal(null);
+    expect(await tok.walletBalance(owner.address)).to.equal(300 * USD);
+  });
+
+  it("queues, releases through the guardian, and cancels", async () => {
+    await tok.ops.requestWithdrawal(client.key(bank.address), 50 * USD);
+    let t = await tok.fetch(owner.address);
+    expect(t.withdrawals).to.have.length(1);
+    await gtok.ops.guardianRelease(owner.address, t.withdrawals[0].id);
+    expect(await tok.walletBalance(bank.address)).to.equal(50 * USD);
+    await tok.ops.requestWithdrawal(client.key(bank.address), 1 * USD);
+    t = await tok.fetch(owner.address);
+    await tok.ops.cancelWithdrawal(t.withdrawals[0].id);
+    t = await tok.fetch(owner.address);
+    expect(t.withdrawals).to.have.length(0);
+    expect(t.balance).to.equal(150 * USD);
+  });
+
+  it("limits: lowering applies, raising waits", async () => {
+    await tok.ops.proposeLimit(10 * USD);
+    expect((await tok.fetch(owner.address)).dailyLimit).to.equal(10 * USD);
+    await tok.ops.proposeLimit(null);
+    const t = await tok.fetch(owner.address);
+    expect(t.changes).to.have.length(1);
+    expect(t.changes[0].change).to.deep.equal({ kind: "SetDailyLimit", value: null });
+    await time.increaseTo(t.changes[0].readyAt);
+    await tok.ops.applyChange(owner.address, t.changes[0].id);
+    expect((await tok.fetch(owner.address)).dailyLimit).to.equal(null);
+  });
+});

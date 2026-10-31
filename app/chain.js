@@ -146,5 +146,59 @@ export function createClient({ web3, connection, programId }) {
     return (await connection.getBlockTime(slot)) ?? Math.floor(Date.now() / 1000);
   }
 
-  return { programId: PROGRAM, vaultAddress, build, fetchVault, chainTime };
+  // ---------------------------------------------------------------- tokens (USDC and other classic SPL tokens)
+
+  const TOKEN = new web3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+  const ATA = new web3.PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+  const ata = (who, mint) => web3.PublicKey.findProgramAddressSync([who.toBytes(), TOKEN.toBytes(), mint.toBytes()], ATA)[0];
+  /** Creates `who`'s token account for `mint` if it doesn't exist yet (payer pays the rent); does nothing otherwise. */
+  const createAta = (payer, who, mint) => new web3.TransactionInstruction({
+    programId: ATA, data: Uint8Array.of(1),
+    keys: [meta(payer, true, true), meta(ata(who, mint), false, true), meta(who, false, false), meta(mint, false, false), meta(web3.SystemProgram.programId, false, false), meta(TOKEN, false, false)],
+  });
+
+  /** One token's side of the vault. Amounts are the token's base units (1e6 per USDC). */
+  function token(mintAddr) {
+    const mint = new web3.PublicKey(mintAddr);
+    const tvault = (o) => web3.PublicKey.findProgramAddressSync([enc.encode("tvault"), o.toBytes(), mint.toBytes()], PROGRAM)[0];
+    const holds = (o) => ata(tvault(o), mint);
+    const ownerOnly = (o) => [meta(o, true, false), meta(vaultAddress(o), false, true), meta(tvault(o), false, true), meta(holds(o), false, false)];
+    const payout = (caller, o, dest) => [meta(caller, true, false), meta(vaultAddress(o), false, false), meta(tvault(o), false, true), meta(mint, false, false), meta(holds(o), false, true), meta(dest, false, false), meta(ata(dest, mint), false, true), meta(TOKEN, false, false)];
+    const amountOf = async (k) => { const r = await connection.getTokenAccountBalance(k, "confirmed").catch(() => null); return r ? Number(r.value.amount) : 0; };
+
+    const build = {
+      open: (o) => ix("open_token_vault", new Uint8Array(0), [meta(o, true, true), meta(vaultAddress(o), false, false), meta(mint, false, false), meta(tvault(o), false, true), meta(holds(o), false, true), meta(TOKEN, false, false), meta(ATA, false, false), meta(web3.SystemProgram.programId, false, false)]),
+      deposit: (o, amount) => ix("deposit_token", new W().u64(amount).out(), [meta(o, true, false), meta(tvault(o), false, false), meta(mint, false, false), meta(ata(o, mint), false, true), meta(holds(o), false, true), meta(TOKEN, false, false)]),
+      // Payouts land in the destination's token account; these create it first when it doesn't exist.
+      sendToTrusted: (o, dest, amount) => [createAta(o, dest, mint), ix("send_token_to_trusted", new W().u64(amount).out(), [meta(o, true, false), meta(vaultAddress(o), false, false), meta(tvault(o), false, true), meta(mint, false, false), meta(holds(o), false, true), meta(dest, false, false), meta(ata(dest, mint), false, true), meta(TOKEN, false, false)])],
+      requestWithdrawal: (o, dest, amount) => ix("request_token_withdrawal", new W().key(dest).u64(amount).out(), ownerOnly(o)),
+      cancelWithdrawal: (o, id) => ix("cancel_token_withdrawal", new W().u32(id).out(), ownerOnly(o)),
+      executeWithdrawal: (caller, o, id, dest) => [createAta(caller, dest, mint), ix("execute_token_withdrawal", new W().u32(id).out(), payout(caller, o, dest))],
+      guardianRelease: (guardian, o, id, dest) => [createAta(guardian, dest, mint), ix("guardian_release_token", new W().u32(id).out(), payout(guardian, o, dest))],
+      proposeLimit: (o, limit) => { const w = new W(); w.opt(limit, (x) => w.u64(x)); return ix("propose_token_limit", w.out(), ownerOnly(o)); },
+      cancelChange: (o, id) => ix("cancel_token_change", new W().u32(id).out(), ownerOnly(o)),
+      applyChange: (caller, o, id) => ix("apply_token_change", new W().u32(id).out(), [meta(caller, true, false), meta(vaultAddress(o), false, false), meta(tvault(o), false, true)]),
+    };
+
+    /** The token vault, or null before it is opened. `balance` is what its token account holds. */
+    async function fetch(o) {
+      const address = tvault(o);
+      const info = await connection.getAccountInfo(address, "confirmed");
+      if (!info) return null;
+      if (!info.owner.equals(PROGRAM)) throw new Error("That account isn't an Ecrin token vault");
+      const data = Uint8Array.from(info.data), want = await disc("account:TokenVaultAccount");
+      if (!want.every((b, i) => data[i] === b)) throw new Error("That account isn't an Ecrin token vault");
+      const r = new R(data.subarray(8), web3);
+      const t = { address, holds: holds(o), owner: r.key(), mint: r.key(), bump: r.u8(), dailyLimit: r.opt(() => r.u64()), spentDay: r.i64(), spentToday: r.u64() };
+      t.withdrawals = r.vec(() => ({ id: r.u32(), amount: r.u64(), dest: r.key(), readyAt: r.i64() }));
+      t.changes = r.vec(() => ({ id: r.u32(), change: readChange(r), readyAt: r.i64() }));
+      t.balance = await amountOf(t.holds);
+      t.available = Math.max(0, t.balance - t.withdrawals.reduce((s, w) => s + w.amount, 0));
+      return t;
+    }
+
+    return { mint, address: tvault, holds, build, fetch, walletBalance: (o) => amountOf(ata(o, mint)) };
+  }
+
+  return { programId: PROGRAM, vaultAddress, build, fetchVault, chainTime, token, ata };
 }
