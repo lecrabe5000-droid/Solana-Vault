@@ -1,0 +1,41 @@
+name: verify-evm
+
+# Run by hand: Actions → verify-evm → Run workflow, then pick the network.
+# Checks the deployed bytecode matches this build, then publishes the source on the network's explorer so anyone,
+# wallet scanners included, can read exactly what it does. Needs the ETHERSCAN_API_KEY secret.
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: Network
+        type: choice
+        default: sepolia
+        options: [sepolia, baseSepolia, arbitrumSepolia, optimismSepolia, polygonAmoy]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: evm
+    env:
+      ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+      SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: evm/package-lock.json
+      - run: npm ci
+      - name: Compare the deployed bytecode with this build
+        run: npx hardhat compile --force && npx hardhat run scripts/compare.js --network ${{ inputs.network }}
+      - name: Verify
+        run: |
+          if [ -z "$ETHERSCAN_API_KEY" ]; then echo "::error::Add the ETHERSCAN_API_KEY secret first."; exit 1; fi
+          ADDR=$(node -e 'const t=require("fs").readFileSync("../app/deployments-evm.js","utf8");console.log(JSON.parse(t.slice(t.indexOf("{"),t.lastIndexOf("}")+1))[process.argv[1]]?.address||"")' "${{ inputs.network }}")
+          if [ -z "$ADDR" ]; then echo "::error::No contract on ${{ inputs.network }} in app/deployments-evm.js. Deploy first."; exit 1; fi
+          npx hardhat verify --network ${{ inputs.network }} "$ADDR" 2>&1 | tee /tmp/verify.log
+          grep -Eiq "successfully verified|already verified" /tmp/verify.log
+          echo "### Source published for \`$ADDR\` on ${{ inputs.network }}" >> "$GITHUB_STEP_SUMMARY"

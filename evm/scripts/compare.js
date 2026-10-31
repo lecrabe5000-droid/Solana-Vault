@@ -1,13 +1,14 @@
-// Compares the bytecode deployed at the address in app/config-evm.js with a fresh local build.
-const { ethers, artifacts } = require("hardhat");
+// Compares the bytecode deployed on this network (app/deployments-evm.js) with a fresh local build.
+const { ethers, artifacts, network } = require("hardhat");
 const fs = require("fs"), path = require("path");
 
 // Solidity appends CBOR metadata; its length is in the last 2 bytes.
 const split = (hex) => { const h = hex.replace(/^0x/, "").toLowerCase(); const n = parseInt(h.slice(-4), 16) * 2 + 4; return [h.slice(0, -n), h.slice(-n)]; };
 
 async function main() {
-  const cfg = fs.readFileSync(path.join(__dirname, "..", "..", "app", "config-evm.js"), "utf8");
-  const addr = cfg.match(/0x[0-9a-fA-F]{40}/)[0];
+  const text = fs.readFileSync(path.join(__dirname, "..", "..", "app", "deployments-evm.js"), "utf8");
+  const addr = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1))[network.name]?.address;
+  if (!addr) throw new Error(`No deployment on ${network.name} in app/deployments-evm.js`);
   const onchain = await ethers.provider.getCode(addr);
   const local = (await artifacts.readArtifact("EcrinVault")).deployedBytecode;
   const [oc, om] = split(onchain), [lc, lm] = split(local);
