@@ -1,5 +1,5 @@
-// Landing page motion: entrance, reveal on scroll, progress bar, hero tilt and parallax,
-// card spotlight, and the pinned scroll story. Everything is decorative and respects reduced motion.
+// Landing page: theme switch, phone menu, card rails, the page tone that follows the scroll, the scroll story,
+// reveal on scroll and the progress bar. Everything is decorative and respects reduced motion.
 (() => {
   const root = document.documentElement;
   const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -10,7 +10,7 @@
   document.querySelectorAll("[data-theme-toggle]").forEach((b) => b.addEventListener("click", () => {
     const t = root.dataset.theme === "dark" ? "light" : "dark";
     root.dataset.theme = t;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "dark" ? "#0c0d0f" : "#f6f6f3");
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "dark" ? "#0c0d0f" : "#f3f2ee");
     try { localStorage.setItem("ecrin-theme", t); } catch (_) {}
   }));
 
@@ -36,6 +36,33 @@
     if (story) new IntersectionObserver(([e]) => { inStory = e.isIntersecting; show(); }, { rootMargin: "-10% 0px -10% 0px" }).observe(story);
     new IntersectionObserver(([e]) => { pastHero = !e.isIntersecting && e.boundingClientRect.top < 0; show(); }).observe(heroEnd);
     if (finalCta) new IntersectionObserver(([e]) => { atEnd = e.isIntersecting; show(); }).observe(finalCta);
+  }
+
+
+  // Card rails: arrows scroll one card at a time and grey out at either end.
+  document.querySelectorAll("[data-rail]").forEach((rail) => {
+    const track = rail.querySelector(".rail-track"), prev = rail.querySelector("[data-rail-prev]"), next = rail.querySelector("[data-rail-next]");
+    if (!track) return;
+    const step = () => (track.firstElementChild?.getBoundingClientRect().width || 320) + 14;
+    const sync = () => { if (prev) prev.disabled = track.scrollLeft < 4; if (next) next.disabled = track.scrollLeft + track.clientWidth > track.scrollWidth - 4; };
+    prev?.addEventListener("click", () => track.scrollBy({ left: -step(), behavior: "smooth" }));
+    next?.addEventListener("click", () => track.scrollBy({ left: step(), behavior: "smooth" }));
+    track.addEventListener("scroll", sync, { passive: true }); addEventListener("resize", sync); sync();
+  });
+
+  // The page changes tone with the section in the middle of the screen: base, night (security), accent (the end).
+  const toned = [...document.querySelectorAll("[data-tone]")];
+  if (toned.length) {
+    let tq = false;
+    const tone = () => {
+      tq = false;
+      const mid = innerHeight * 0.5;
+      const hit = toned.find((el) => { const r = el.getBoundingClientRect(); return r.top <= mid && r.bottom > mid; });
+      const t = hit?.dataset.tone || (scrollY + innerHeight >= root.scrollHeight - 4 ? "accent" : "base");
+      if (document.body.dataset.tone !== t) document.body.dataset.tone = t;
+    };
+    addEventListener("scroll", () => { if (!tq) { tq = true; requestAnimationFrame(tone); } }, { passive: true });
+    tone();
   }
 
   // The engraved pattern on every case, and the hero dial's ticks.
@@ -99,9 +126,9 @@
   if (calm) return;
 
   // Reveal on scroll, staggered within each group.
-  const groups = [".sec-head", ".threat", ".path", ".steps li", ".feat", ".tier", ".table-card", ".status-row", ".stage", ".who article", ".help", ".faq details", ".cta-s .wrap > *"];
+  const groups = [".big-head > *", ".sec-head", ".rail-track > *", ".steps li", ".net", ".assets-mock", ".tier", ".table-card", ".faq details"];
   const els = [];
-  const phone = matchMedia("(max-width: 560px)").matches, carousel = ".threats, .paths, .feats, .tiers, .road, .who";
+  const phone = matchMedia("(max-width: 560px)").matches, carousel = ".rail-track";
   groups.forEach((sel) => document.querySelectorAll(sel).forEach((el) => {
     if (phone && el.parentElement.matches(carousel)) return;
     const sibs = [...el.parentElement.children].filter((c) => c.matches(sel));
@@ -127,22 +154,4 @@
   };
   addEventListener("scroll", onScroll, { passive: true }); onScroll();
 
-  // Hero card tilts toward the pointer (desktop pointers only).
-  const mock = document.querySelector(".hero-visual .case"), heroS = document.querySelector(".hero-s");
-  if (mock && heroS && matchMedia("(pointer: fine)").matches) {
-    heroS.addEventListener("pointermove", (e) => {
-      const r = heroS.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - 0.5, yy = (e.clientY - r.top) / r.height - 0.5;
-      mock.style.setProperty("--ry", (x * 10).toFixed(2) + "deg"); mock.style.setProperty("--rx", (-yy * 8).toFixed(2) + "deg");
-      mock.style.setProperty("--mx", ((x + 0.5) * 100).toFixed(1) + "%"); mock.style.setProperty("--my", ((yy + 0.5) * 100).toFixed(1) + "%");
-    });
-    heroS.addEventListener("pointerleave", () => { mock.style.setProperty("--ry", "0deg"); mock.style.setProperty("--rx", "0deg"); });
-  }
-
-  // Soft spotlight that follows the pointer on cards.
-  document.addEventListener("pointermove", (e) => {
-    const c = e.target.closest?.(".threat, .feat, .path, .tier, .stage");
-    if (!c) return;
-    const r = c.getBoundingClientRect();
-    c.style.setProperty("--mx", e.clientX - r.left + "px"); c.style.setProperty("--my", e.clientY - r.top + "px");
-  }, { passive: true });
 })();
