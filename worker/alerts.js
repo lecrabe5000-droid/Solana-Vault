@@ -1,8 +1,18 @@
 // Alert logic with no I/O: decode vault state, turn changes into events, and words for each event.
-// Solana: we read each watched vault account and diff it against the last snapshot.
-// Ethereum: we read the EcrinVault contract's event logs (every event carries the owner as topic 1).
+// Solana: we read each watched vault account (and its USDC token vault) and diff it against the last snapshot.
+// Ethereum-style networks: we read the EcrinVault contract's event logs (every event carries the owner as topic 1;
+// token events carry the token as topic 2). Events about a token carry `asset: { unit, decimals }`.
 
-const LAMPORTS = 1_000_000_000n, WEI = 1_000_000_000_000_000_000n;
+/** The networks alerts know, with their coin. */
+export const NETS = {
+  sol: { name: "Solana devnet", unit: "SOL", decimals: 9 },
+  eth: { name: "Ethereum Sepolia", unit: "ETH", decimals: 18 },
+  base: { name: "Base Sepolia", unit: "ETH", decimals: 18 },
+  arb: { name: "Arbitrum Sepolia", unit: "ETH", decimals: 18 },
+  op: { name: "Optimism Sepolia", unit: "ETH", decimals: 18 },
+  pol: { name: "Polygon Amoy", unit: "POL", decimals: 18 },
+};
+export const USDC = { unit: "USDC", decimals: 6 };
 const KINDS = ["SetWithdrawDelay", "SetRuleDelay", "SetDailyLimit", "SetLockedUntil", "SetGuardian", "AddTrusted", "RemoveTrusted"];
 
 // ------------------------------------------------------------------ small helpers
@@ -16,12 +26,56 @@ export function base58(bytes) {
   for (const b of bytes) { if (b !== 0) break; out = "1" + out; }
   return out;
 }
+export function unbase58(s) {
+  let n = 0n;
+  for (const c of s) { const i = B58.indexOf(c); if (i < 0) throw new Error("bad base58"); n = n * 58n + BigInt(i); }
+  const out = [];
+  while (n > 0n) { out.unshift(Number(n % 256n)); n /= 256n; }
+  for (const c of s) { if (c !== "1") break; out.unshift(0); }
+  return Uint8Array.from(out);
+}
+
+// ed25519: is this 32-byte string a point on the curve? (A program address must not be.)
+const P = 2n ** 255n - 19n, D = (-121665n * inv(121666n)) % P + P;
+function pow(b, e) { let r = 1n; b %= P; while (e > 0n) { if (e & 1n) r = (r * b) % P; b = (b * b) % P; e >>= 1n; } return r; }
+function inv(x) { return pow(((x % P) + P) % P, P - 2n); }
+export function onCurve(bytes) {
+  let y = 0n;
+  for (let i = 31; i >= 0; i--) y = (y << 8n) | BigInt(i === 31 ? bytes[i] & 0x7f : bytes[i]);
+  if (y >= P) return false;
+  const y2 = (y * y) % P, u = (y2 - 1n + P) % P, v = (D % P * y2 + 1n) % P;
+  const x = (u * pow(v, 3n) % P) * pow(u * pow(v, 7n) % P, (P - 5n) / 8n) % P; // candidate square root of u/v (RFC 8032)
+  const vx2 = (v * x % P) * x % P;
+  return vx2 === u || vx2 === (P - u) % P;
+}
+
+/** Solana's findProgramAddress: the first bump from 255 down whose hash is off the curve. Returns base58. */
+export async function findPda(seeds, programId) {
+  const prog = unbase58(programId), tail = new TextEncoder().encode("ProgramDerivedAddress");
+  for (let bump = 255; bump >= 0; bump--) {
+    const parts = [...seeds, Uint8Array.of(bump), prog, tail], buf = new Uint8Array(parts.reduce((s, p) => s + p.length, 0));
+    let i = 0; for (const p of parts) { buf.set(p, i); i += p.length; }
+    const h = new Uint8Array(await crypto.subtle.digest("SHA-256", buf));
+    if (!onCurve(h)) return base58(h);
+  }
+  throw new Error("no program address");
+}
+const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", ATA_PROGRAM = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
+/** The owner's token vault for a mint, and the token account that holds its coins. */
+export async function tokenVaultAddresses(owner, mint, programId) {
+  const vault = await findPda([new TextEncoder().encode("tvault"), unbase58(owner), unbase58(mint)], programId);
+  const holds = await findPda([unbase58(vault), unbase58(TOKEN_PROGRAM), unbase58(mint)], ATA_PROGRAM);
+  return { vault, holds };
+}
+/** The amount in an SPL token account (u64 at byte 64). */
+export const tokenAmount = (data) => new DataView(data.buffer, data.byteOffset, data.byteLength).getBigUint64(64, true).toString();
+
 export const b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 export const short = (a) => { const s = String(a); return s.length > 12 ? s.slice(0, 4) + "…" + s.slice(-4) : s; };
 
-/** Formats base units (lamports or wei) as a coin amount with up to 4 decimals. */
+/** Formats base units (lamports, wei, USDC's 1e-6) as a coin amount with up to 4 decimals. */
 export function coin(units, decimals) {
-  const one = decimals === 9 ? LAMPORTS : WEI, v = BigInt(units);
+  const one = 10n ** BigInt(decimals), v = BigInt(units);
   const whole = v / one, frac = ((v % one) * 10000n) / one;
   return frac ? `${whole}.${String(frac).padStart(4, "0").replace(/0+$/, "")}` : String(whole);
 }
@@ -55,6 +109,23 @@ export function decodeSolVault(data) {
   });
   return JSON.parse(JSON.stringify(v, (_, x) => (typeof x === "bigint" ? x.toString() : x)));
 }
+
+/** Decodes a TokenVaultAccount into the same shape as a vault snapshot, with the balance its token account holds.
+ *  Fields a token vault doesn't have are fixed, so diffSol only reports this token's money and limit. */
+export function decodeSolTokenVault(data, balance) {
+  const r = new R(data.subarray(8));
+  const t = { owner: r.key(), mint: r.key(), bump: r.u8(), dailyLimit: r.opt(() => r.u64()), spentDay: r.i64(), spentToday: r.u64() };
+  t.withdrawals = r.vec(() => ({ id: r.u32(), amount: r.u64(), dest: r.key(), readyAt: r.i64() }));
+  t.changes = r.vec(() => {
+    const id = r.u32(), tag = r.u8(), kind = KINDS[tag];
+    const value = tag <= 1 ? r.i64() : tag === 2 ? r.opt(() => r.u64()) : tag === 3 ? r.opt(() => r.i64()) : tag === 4 ? r.opt(() => r.key()) : r.key();
+    return { id, kind, value, readyAt: r.i64() };
+  });
+  const v = { owner: t.owner, mint: t.mint, balance: String(balance), withdrawDelay: "0", ruleDelay: "0", dailyLimit: t.dailyLimit, lockedUntil: null, guardian: null, trusted: [], withdrawals: t.withdrawals, changes: t.changes };
+  return JSON.parse(JSON.stringify(v, (_, x) => (typeof x === "bigint" ? x.toString() : x)));
+}
+/** An empty token vault, to diff against when one appears (so its first deposit is reported). */
+export const emptyTokenSnap = { balance: "0", withdrawDelay: "0", ruleDelay: "0", dailyLimit: null, lockedUntil: null, guardian: null, trusted: [], withdrawals: [], changes: [] };
 
 /** Compares two snapshots of one Solana vault and returns what happened, oldest first. */
 export function diffSol(prev, next) {
@@ -99,14 +170,22 @@ export const TOPICS = {
   "0x105e142ef20dc04ad8b73f1411f429aa7a948f6faedd138e78e8863b6d1efddd": "ChangeQueued",
   "0xa70cddd5e3d28d553f381a431e09db6e9b729e5b7920200ad5c7adacfbd81c3b": "ChangeApplied",
   "0xa8a15db10499efdfa37b2acfc2998e2fb9153427bfa22be6cee5a91afbf96209": "ChangeCancelled",
+  "0xf1444b5cad7ce70cb018d1b8edc8618fe303f3c7f034d8d572a6e27facbf2bef": "TokenDeposited",
+  "0xa4162acb2096ecf8e81304c656b4ff4eb143f95264f26ac3dad5a3b96bb68b53": "TokenSent",
+  "0xdc93c532eacec4adb5024b65d8925519c461cfd05c189538676190c639dbb715": "TokenWithdrawalQueued",
+  "0x90be254c081e9ef277f26fddb373a7861a21a21f4d2f7daa3efe223c2f55a6cb": "TokenWithdrawalCancelled",
+  "0xceba88dfc113f090934b416532834c2e4f3ed8c5c316f0ba087ce4e952d0ba0f": "TokenLimitQueued",
+  "0x07016a3b6ceb9ef4ff5cfccd13b4a259ff7e9d0cb395ede6a02642b77eae7542": "TokenLimitApplied",
+  "0xe4d5f57d239eb4a4e157c64ac061be2686a10d372221d242e7bfd982ed2781bb": "TokenLimitCancelled",
 };
 export const ownerTopic = (addr) => "0x" + addr.toLowerCase().replace(/^0x/, "").padStart(64, "0");
 const word = (data, i) => data.slice(2 + i * 64, 2 + (i + 1) * 64);
 const uint = (data, i) => BigInt("0x" + word(data, i)).toString();
 const addr = (hex64) => "0x" + hex64.slice(24);
 
-/** Turns one EcrinVault log into { owner, event } (event in the same shape as diffSol's), or null. */
-export function decodeEvmLog(log) {
+/** Turns one EcrinVault log into { owner, event } (event in the same shape as diffSol's), or null.
+ *  `usdc` is this network's USDC address: token events for it say USDC; any other token is named by its address. */
+export function decodeEvmLog(log, usdc = null) {
   const name = TOPICS[log.topics?.[0]?.toLowerCase()];
   if (!name) return null;
   const owner = addr(log.topics[1].slice(2)), d = log.data;
@@ -127,6 +206,20 @@ export function decodeEvmLog(log) {
     case "ChangeApplied": event = { type: "changed", ...kindVal(0, 1, 2) }; break;
     case "ChangeCancelled": event = { type: "changeCancelled", id: Number(uint(d, 0)) }; break;
   }
+  if (name.startsWith("Token")) {
+    const token = addr(log.topics[2].slice(2)), asset = usdc && token.toLowerCase() === usdc.toLowerCase() ? USDC : { unit: `tokens (${short(token)})`, decimals: 18 };
+    const limit = (i) => (uint(d, i) === "0" ? null : uint(d, i));
+    switch (name) {
+      case "TokenDeposited": event = { type: "deposit", amount: uint(d, 0) }; break;
+      case "TokenSent": event = { type: "sentAny", amount: uint(d, 0), dest: addr(log.topics[3].slice(2)) }; break;
+      case "TokenWithdrawalQueued": event = { type: "requested", id: Number(uint(d, 0)), dest: addr(word(d, 1)), amount: uint(d, 2), readyAt: uint(d, 3) }; break;
+      case "TokenWithdrawalCancelled": event = { type: "cancelled", id: Number(uint(d, 0)) }; break;
+      case "TokenLimitQueued": event = { type: "changeQueued", id: Number(uint(d, 0)), kind: "SetDailyLimit", value: limit(1), readyAt: uint(d, 2) }; break;
+      case "TokenLimitApplied": event = { type: "changed", kind: "SetDailyLimit", value: limit(0) }; break;
+      case "TokenLimitCancelled": event = { type: "changeCancelled", id: Number(uint(d, 0)) }; break;
+    }
+    event.asset = asset;
+  }
   return { owner, event, block: parseInt(log.blockNumber, 16), tx: log.transactionHash };
 }
 
@@ -136,7 +229,7 @@ function changeWords(kind, value, fmt) {
   switch (kind) {
     case "SetWithdrawDelay": return `Withdrawals wait ${words(value)}`;
     case "SetRuleDelay": return `Looser rules wait ${words(value)}`;
-    case "SetDailyLimit": return value ? `Daily limit ${fmt(value)}` : "No daily limit";
+    case "SetDailyLimit": return value ? `Daily limit ${fmt(value)}` : `No daily limit${fmt.unit ? ` on ${fmt.unit}` : ""}`;
     case "SetLockedUntil": return value ? `Locked until ${when(value)}` : "Lock ended";
     case "SetGuardian": return value ? `Guardian set to ${short(value)}` : "Guardian removed";
     case "AddTrusted": return `Trusted address added: ${short(value)}`;
@@ -150,8 +243,9 @@ function changeWords(kind, value, fmt) {
  * address, a number or a fixed phrase, so there is nothing to escape beyond what esc() covers.
  */
 export function message(event, { net, owner, now = Math.floor(Date.now() / 1000) }) {
-  const sol = net === "sol", unit = sol ? "SOL" : "ETH", fmt = (u) => `${coin(u, sol ? 9 : 18)} ${unit}`;
-  const head = `<b>Ecrin · ${sol ? "Solana devnet" : "Ethereum Sepolia"}</b> · vault <code>${esc(short(owner))}</code>\n\n`;
+  const n = NETS[net] || NETS.eth, a = event.asset || n, fmt = (u) => `${coin(u, a.decimals)} ${a.unit}`;
+  if (event.asset) fmt.unit = a.unit;
+  const head = `<b>Ecrin · ${n.name}</b> · vault <code>${esc(short(owner))}</code>\n\n`;
   const e = event;
   switch (e.type) {
     case "requested": return { urgent: true, text: head + `⏳ <b>Withdrawal requested</b>\n${e.amount ? fmt(e.amount) : "Funds"} to <code>${esc(short(e.dest))}</code>\nIt can leave ${inTime(e.readyAt, now)} (${when(e.readyAt)}).\n\n<b>Not you?</b> Open Ecrin and cancel it. Cancelling is free and instant.` };

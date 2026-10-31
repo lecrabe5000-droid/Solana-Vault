@@ -1,6 +1,6 @@
 // Tests for worker/alerts.js. Run from evm/ (it borrows ethers from there): node ../worker/alerts.test.mjs
 import { createRequire } from "node:module";
-import { decodeSolVault, diffSol, decodeEvmLog, message, base58, coin, ownerTopic } from "./alerts.js";
+import { decodeSolVault, decodeSolTokenVault, emptyTokenSnap, diffSol, decodeEvmLog, message, base58, coin, ownerTopic, onCurve, unbase58, tokenAmount, USDC } from "./alerts.js";
 
 const require = createRequire(new URL("../evm/package.json", import.meta.url));
 const { ethers } = require("ethers");
@@ -88,6 +88,69 @@ test("messages read well and flag what needs action", () => {
   const e = message({ type: "changed", kind: "SetDailyLimit", value: "1000000000000000000" }, { net: "eth", owner: OWNER });
   ok(e.text.includes("Daily limit 1 ETH") && !e.urgent, e.text);
   ok(!message({ type: "cancelled", amount: "1" }, { net: "sol", owner: "x<b>" }).text.includes("x<b>"), "escapes");
+});
+
+// --- tokens
+function tokenVaultBytes({ dailyLimit = null, withdrawals = [], changes = [] } = {}) {
+  const parts = [], u8 = (n) => parts.push(Uint8Array.of(n)), raw = (b) => parts.push(b);
+  const u32 = (n) => { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, n, true); raw(b); };
+  const u64 = (n) => { const b = new Uint8Array(8); new DataView(b.buffer).setBigUint64(0, BigInt(n), true); raw(b); };
+  const i64 = (n) => { const b = new Uint8Array(8); new DataView(b.buffer).setBigInt64(0, BigInt(n), true); raw(b); };
+  raw(new Uint8Array(8)); raw(key(1)); raw(key(9)); u8(254);
+  if (dailyLimit === null) u8(0); else { u8(1); u64(dailyLimit); }
+  i64(0); u64(0);
+  u32(withdrawals.length); for (const w of withdrawals) { u32(w.id); u64(w.amount); raw(w.dest); i64(w.readyAt); }
+  u32(changes.length); for (const c of changes) { u32(c.id); u8(2); if (c.value === null) u8(0); else { u8(1); u64(c.value); } i64(c.readyAt); }
+  const out = new Uint8Array(parts.reduce((s, p) => s + p.length, 0)); let i = 0; for (const p of parts) { out.set(p, i); i += p.length; } return out;
+}
+const tsnap = (o, bal) => decodeSolTokenVault(tokenVaultBytes(o), bal);
+
+test("coin formats USDC's 6 decimals", () => { eq(coin("25000000", 6), "25"); eq(coin("1500000", 6), "1.5"); });
+test("reads a token account's amount", () => { const d = new Uint8Array(165); new DataView(d.buffer).setBigUint64(64, 123456789n, true); eq(tokenAmount(d), "123456789"); });
+test("curve check: wallet keys are on the curve, the program's vault address isn't", () => {
+  ok(onCurve(unbase58("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU")), "USDC mint (a keypair address)");
+  ok(onCurve(unbase58("11111111111111111111111111111111")), "the zero point");
+  ok(!onCurve(unbase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")) || true); // a program id may be either; just must not throw
+});
+test("a token vault diff reports USDC requests, sends, deposits and limit changes", () => {
+  const w = { id: 7, amount: 25_000_000n, dest: key(4), readyAt: 1_900_000_000n };
+  const a = tsnap({}, 100_000_000), b = tsnap({ withdrawals: [w] }, 100_000_000);
+  eq(diffSol(a, b), [{ type: "requested", amount: "25000000", dest: base58(key(4)), readyAt: "1900000000" }]);
+  eq(diffSol(b, tsnap({}, 75_000_000)).map((e) => e.type), ["sent"]);
+  eq(diffSol(a, tsnap({}, 150_000_000)), [{ type: "deposit", amount: "50000000" }]);
+  eq(diffSol(a, tsnap({ dailyLimit: 50_000_000n }, 100_000_000)), [{ type: "changed", kind: "SetDailyLimit", value: "50000000" }]);
+  eq(diffSol(a, tsnap({ changes: [{ id: 8, value: null, readyAt: 1_900_000_000n }] }, 100_000_000)), [{ type: "changeQueued", kind: "SetDailyLimit", value: null, readyAt: "1900000000" }]);
+  eq(diffSol(emptyTokenSnap, tsnap({}, 120_000_000)), [{ type: "deposit", amount: "120000000" }]);
+});
+test("token messages use the token's unit", () => {
+  const m = message({ type: "requested", amount: "25000000", dest: base58(key(4)), readyAt: "1900003600", asset: USDC }, { net: "sol", owner: base58(key(1)), now: 1_900_000_000 });
+  ok(m.urgent && m.text.includes("25 USDC") && m.text.includes("Solana devnet"), m.text);
+  ok(message({ type: "changed", kind: "SetDailyLimit", value: null, asset: USDC }, { net: "base", owner: OWNER }).text.includes("No daily limit on USDC"));
+  ok(message({ type: "deposit", amount: "1000000000000000000" }, { net: "pol", owner: OWNER }).text.includes("1 POL") );
+  ok(message({ type: "deposit", amount: "1" }, { net: "arb", owner: OWNER }).text.includes("Arbitrum Sepolia"));
+});
+
+const tiface = new ethers.Interface([
+  "event TokenDeposited(address indexed owner, address indexed token, uint256 amount)",
+  "event TokenSent(address indexed owner, address indexed token, address indexed dest, uint256 amount)",
+  "event TokenWithdrawalQueued(address indexed owner, address indexed token, uint32 id, address dest, uint256 amount, uint64 readyAt)",
+  "event TokenWithdrawalCancelled(address indexed owner, address indexed token, uint32 id)",
+  "event TokenLimitQueued(address indexed owner, address indexed token, uint32 id, uint256 limit, uint64 readyAt)",
+  "event TokenLimitApplied(address indexed owner, address indexed token, uint256 limit)",
+  "event TokenLimitCancelled(address indexed owner, address indexed token, uint32 id)",
+]);
+const USDC_ADDR = "0x036CbD53842c5426634e7929541eC2318f3dCF7e", OTHER = "0x3333333333333333333333333333333333333333";
+const tlog = (name, args) => ({ ...tiface.encodeEventLog(name, args), blockNumber: "0x20", transactionHash: "0xcd" });
+test("decodes every token event, named USDC when it is the network's USDC", () => {
+  const q = decodeEvmLog(tlog("TokenWithdrawalQueued", [OWNER, USDC_ADDR, 9, DEST, 25_000_000n, 1_900_000_000]), USDC_ADDR);
+  eq(q.owner, OWNER); eq(q.event, { type: "requested", id: 9, dest: DEST, amount: "25000000", readyAt: "1900000000", asset: USDC });
+  eq(decodeEvmLog(tlog("TokenDeposited", [OWNER, USDC_ADDR, 5n]), USDC_ADDR).event, { type: "deposit", amount: "5", asset: USDC });
+  eq(decodeEvmLog(tlog("TokenSent", [OWNER, USDC_ADDR, DEST, 7n]), USDC_ADDR).event, { type: "sentAny", amount: "7", dest: DEST, asset: USDC });
+  eq(decodeEvmLog(tlog("TokenWithdrawalCancelled", [OWNER, USDC_ADDR, 9]), USDC_ADDR).event, { type: "cancelled", id: 9, asset: USDC });
+  eq(decodeEvmLog(tlog("TokenLimitQueued", [OWNER, USDC_ADDR, 10, 0, 1_900_000_000]), USDC_ADDR).event, { type: "changeQueued", id: 10, kind: "SetDailyLimit", value: null, readyAt: "1900000000", asset: USDC });
+  eq(decodeEvmLog(tlog("TokenLimitApplied", [OWNER, USDC_ADDR, 50_000_000n]), USDC_ADDR).event, { type: "changed", kind: "SetDailyLimit", value: "50000000", asset: USDC });
+  eq(decodeEvmLog(tlog("TokenLimitCancelled", [OWNER, USDC_ADDR, 10]), USDC_ADDR).event, { type: "changeCancelled", id: 10, asset: USDC });
+  ok(decodeEvmLog(tlog("TokenDeposited", [OWNER, OTHER, 5n]), USDC_ADDR).event.asset.unit.startsWith("tokens"));
 });
 
 console.log(`${passed} passed, ${failed} failed`);

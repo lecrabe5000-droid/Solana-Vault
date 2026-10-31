@@ -3,11 +3,13 @@
 // ALERTS_FROM or alerts@ecrinprotocol.app). Each channel switches on when its secret is set.
 import { DurableObject } from "cloudflare:workers";
 import { CONFIG } from "../app/config.js";
-import { EVM } from "../app/config-evm.js";
-import { b64, decodeSolVault, diffSol, decodeEvmLog, message, ownerTopic, short, esc } from "./alerts.js";
+import { EVM_NETS } from "../app/config-evm.js";
+import { SOL_USDC } from "../app/config-tokens.js";
+import { b64, decodeSolVault, decodeSolTokenVault, emptyTokenSnap, tokenVaultAddresses, tokenAmount, diffSol, decodeEvmLog, message, ownerTopic, short, esc, NETS, USDC } from "./alerts.js";
 
 const SITE = "https://ecrinprotocol.app";
-const NET_NAME = { sol: "Solana devnet", eth: "Ethereum Sepolia" };
+const NET_NAME = Object.fromEntries(Object.entries(NETS).map(([k, n]) => [k, n.name]));
+const isEvm = (net) => net !== "sol";
 const SOL_ADDR = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/, ETH_ADDR = /^0x[0-9a-fA-F]{40}$/, EMAIL = /^[^\s@<>"']{1,64}@[^\s@<>"']{1,190}\.[a-z]{2,24}$/i;
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 const token = (n = 24) => [...crypto.getRandomValues(new Uint8Array(n))].map((b) => "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]).join("");
@@ -133,7 +135,7 @@ export class AlertHub extends DurableObject {
     this.sql.exec("DELETE FROM pending WHERE created < ?", now - 3600_000);
     if (this.sql.exec("SELECT COUNT(*) AS n FROM pending").one().n > 5000) return json({ error: "Too many requests right now. Try again in a minute." }, 429);
     const code = token(12);
-    this.sql.exec("INSERT INTO pending (code, net, owner, vault, created) VALUES (?, ?, ?, ?, ?)", code, net, net === "eth" ? owner.toLowerCase() : owner, vault || "", now);
+    this.sql.exec("INSERT INTO pending (code, net, owner, vault, created) VALUES (?, ?, ?, ?, ?)", code, net, isEvm(net) ? owner.toLowerCase() : owner, vault || "", now);
     let bot = this.get("bot");
     if (!bot) { const me = await this.tg("getMe", {}); bot = me.result?.username; if (!bot) return json({ error: "The Telegram bot isn't reachable." }, 503); this.set("bot", bot); }
     await this.ensureWebhook();
@@ -151,7 +153,7 @@ export class AlertHub extends DurableObject {
     if (bad) return json({ error: bad }, 400);
     email = String(email || "").trim().toLowerCase();
     if (!EMAIL.test(email)) return json({ error: "That email address doesn't look right." }, 400);
-    owner = net === "eth" ? owner.toLowerCase() : owner;
+    owner = isEvm(net) ? owner.toLowerCase() : owner;
     const row = this.sql.exec("SELECT confirmed, created FROM emails WHERE email = ? AND net = ? AND owner = ?", email, net, owner).toArray()[0];
     if (row?.confirmed) return json({ ok: true, already: true });
     if (row && Date.now() - row.created < 120_000) return json({ ok: true, sent: true });
@@ -216,7 +218,13 @@ export class AlertHub extends DurableObject {
     await this.ensureWebhook();
     const now = Math.floor(Date.now() / 1000);
     await this.tickSol(now).catch((e) => console.error("sol", e));
-    await this.tickEth(now).catch((e) => console.error("eth", e));
+    for (const net of Object.keys(EVM_NETS)) await this.tickEvm(net, now).catch((e) => console.error(net, e));
+  }
+
+  /** Solana vaults someone watches, with their owners. */
+  watchedSol() {
+    const rows = [...this.sql.exec("SELECT owner, vault FROM subs WHERE net = 'sol'").toArray(), ...this.sql.exec("SELECT owner, vault FROM emails WHERE net = 'sol' AND confirmed = 1").toArray()];
+    return [...new Map(rows.map((r) => [r.vault, r.owner])).entries()].map(([vault, owner]) => ({ vault, owner }));
   }
 
   /** Vaults (Solana) or owners (Ethereum) someone watches on any channel. */
@@ -227,57 +235,79 @@ export class AlertHub extends DurableObject {
     ].map((r) => r.v))];
   }
 
+  /** Reads each watched vault, and its USDC token vault and token account, and reports what changed since last time. */
   async tickSol(now) {
-    const vaults = this.watched("sol", "vault");
-    if (!vaults.length || !CONFIG.programId) return;
-    const disc = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("account:VaultAccount"))).slice(0, 8);
-    for (let i = 0; i < vaults.length; i += 100) {
-      const batch = vaults.slice(i, i + 100);
-      const res = await rpc(CONFIG.rpc, "getMultipleAccounts", [batch, { encoding: "base64", commitment: "confirmed" }]);
+    const watched = this.watchedSol();
+    if (!watched.length || !CONFIG.programId) return;
+    const mint = CONFIG.tokens ? SOL_USDC[CONFIG.cluster] : null;
+    const disc = async (name) => new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("account:" + name))).slice(0, 8);
+    const dv = await disc("VaultAccount"), dt = await disc("TokenVaultAccount");
+    const is = (acc, d) => { if (!acc || acc.owner !== CONFIG.programId) return null; const data = b64(acc.data[0]); return d.every((b, k) => data[k] === b) ? data : null; };
+    const per = mint ? 3 : 1;
+    for (let i = 0; i < watched.length; i += Math.floor(99 / per)) {
+      const batch = watched.slice(i, i + Math.floor(99 / per));
+      const keys = [];
+      for (const w of batch) {
+        keys.push(w.vault);
+        if (mint) { const t = (w.t ||= await tokenVaultAddresses(w.owner, mint, CONFIG.programId).catch(() => null)); keys.push(t?.vault || w.vault, t?.holds || w.vault); }
+      }
+      const res = await rpc(CONFIG.rpc, "getMultipleAccounts", [keys, { encoding: "base64", commitment: "confirmed" }]);
       for (let j = 0; j < batch.length; j++) {
-        const acc = res.value[j], vault = batch[j];
-        let next = null;
-        if (acc && acc.owner === CONFIG.programId) {
-          const data = b64(acc.data[0]);
-          if (disc.every((b, k) => data[k] === b)) next = decodeSolVault(data);
+        const w = batch[j], base = j * per;
+        const data = is(res.value[base], dv);
+        await this.solDiff(w.vault, w.vault, data ? decodeSolVault(data) : null, now, null);
+        if (mint && w.t) {
+          const td = is(res.value[base + 1], dt), holds = res.value[base + 2];
+          const next = td ? decodeSolTokenVault(td, holds ? tokenAmount(b64(holds.data[0])) : 0) : null;
+          await this.solDiff("usdc:" + w.vault, w.vault, next, now, USDC, w.owner);
         }
-        const row = this.sql.exec("SELECT data FROM snaps WHERE net = 'sol' AND k = ?", vault).toArray()[0];
-        if (row) {
-          const prev = JSON.parse(row.data);
-          for (const ev of diffSol(prev, next)) {
-            const m = message(ev, { net: "sol", owner: next?.owner || prev?.owner || vault, now });
-            if (m) await this.notify("sol", { col: "vault", val: vault }, m.text);
-          }
-        }
-        this.sql.exec("INSERT OR REPLACE INTO snaps (net, k, data) VALUES ('sol', ?, ?)", vault, JSON.stringify(next));
       }
     }
   }
 
-  async tickEth(now) {
-    if (!EVM.address) return;
-    const head = parseInt(await rpc(EVM.rpc, "eth_blockNumber", []), 16) - 2; // a couple of confirmations
-    const cursor = Number(this.get("eth_cursor") || 0);
-    if (!cursor) { this.set("eth_cursor", head); return; }
-    const owners = this.watched("eth", "owner");
+  /** Compares one snapshot with the last one stored under `key` and alerts everyone watching `vault`. */
+  async solDiff(key, vault, next, now, asset, owner) {
+    const row = this.sql.exec("SELECT data FROM snaps WHERE net = 'sol' AND k = ?", key).toArray()[0];
+    if (row) {
+      let prev = JSON.parse(row.data);
+      // A token vault that just appeared: diff against an empty one, so its first deposit is reported.
+      if (asset && !prev && next) prev = emptyTokenSnap;
+      for (const ev of diffSol(prev, next)) {
+        if (asset) ev.asset = asset;
+        const m = message(ev, { net: "sol", owner: next?.owner || prev?.owner || owner || vault, now });
+        if (m) await this.notify("sol", { col: "vault", val: vault }, m.text);
+      }
+    }
+    this.sql.exec("INSERT OR REPLACE INTO snaps (net, k, data) VALUES ('sol', ?, ?)", key, JSON.stringify(next));
+  }
+
+  /** Reads new contract events on one Ethereum-style network for the owners someone watches. */
+  async tickEvm(net, now) {
+    const E = EVM_NETS[net];
+    if (!E?.address) return;
+    const head = parseInt(await rpc(E.rpc, "eth_blockNumber", []), 16) - 2; // a couple of confirmations
+    const ck = net === "eth" ? "eth_cursor" : `cursor_${net}`;
+    const cursor = Number(this.get(ck) || 0);
+    if (!cursor) { this.set(ck, head); return; }
+    const owners = this.watched(net, "owner");
     const from = cursor + 1, to = Math.min(head, from + 1999);
     if (from > to) return;
     if (owners.length) {
-      const logs = await rpc(EVM.rpc, "eth_getLogs", [{ address: EVM.address, fromBlock: "0x" + from.toString(16), toBlock: "0x" + to.toString(16), topics: [null, owners.map(ownerTopic)] }]);
+      const logs = await rpc(E.rpc, "eth_getLogs", [{ address: E.address, fromBlock: "0x" + from.toString(16), toBlock: "0x" + to.toString(16), topics: [null, owners.map(ownerTopic)] }]);
       for (const log of logs) {
-        const d = decodeEvmLog(log);
+        const d = decodeEvmLog(log, E.usdc);
         if (!d) continue;
         const key = `wd:${d.owner}:${d.event.id}`;
-        // Remember queued amounts so a cancel can say how much stayed.
-        if (d.event.type === "requested") this.sql.exec("INSERT OR REPLACE INTO snaps (net, k, data) VALUES ('eth', ?, ?)", key, JSON.stringify(d.event));
+        // Remember queued amounts so a cancel can say how much stayed (ids are unique across coins).
+        if (d.event.type === "requested") this.sql.exec("INSERT OR REPLACE INTO snaps (net, k, data) VALUES (?, ?, ?)", net, key, JSON.stringify(d.event));
         if (d.event.type === "cancelled") {
-          const q = this.sql.exec("SELECT data FROM snaps WHERE net = 'eth' AND k = ?", key).toArray()[0];
-          if (q) { Object.assign(d.event, { amount: JSON.parse(q.data).amount }); this.sql.exec("DELETE FROM snaps WHERE net = 'eth' AND k = ?", key); }
+          const q = this.sql.exec("SELECT data FROM snaps WHERE net = ? AND k = ?", net, key).toArray()[0];
+          if (q) { Object.assign(d.event, { amount: JSON.parse(q.data).amount }); this.sql.exec("DELETE FROM snaps WHERE net = ? AND k = ?", net, key); }
         }
-        const m = message(d.event, { net: "eth", owner: d.owner, now });
-        if (m) await this.notify("eth", { col: "owner", val: d.owner }, m.text);
+        const m = message(d.event, { net, owner: d.owner, now });
+        if (m) await this.notify(net, { col: "owner", val: d.owner }, m.text);
       }
     }
-    this.set("eth_cursor", to);
+    this.set(ck, to);
   }
 }
