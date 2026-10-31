@@ -8,7 +8,10 @@ pragma solidity 0.8.24;
 /// - Any other withdrawal waits for the owner's delay, and the owner can cancel it until it runs.
 /// - Making the rules stricter applies at once. Loosening them, and any guardian change, waits for the rule delay.
 /// - A guardian can never move funds on their own. They can only approve something the owner asked for.
-/// One contract holds one vault per owner address. It never holds anything but the owners' ETH.
+/// One contract holds one vault per owner address: their ETH, and any ERC-20 token (USDC) they put in.
+/// Each token keeps its own balance, daily limit and queue; the delays, the lock, the guardian and the trusted
+/// addresses are the vault's, so one set of rules covers every coin.
+/// Tokens that change balances on their own (rebasing) are not supported; the app only offers stablecoins.
 contract EcrinVault {
     uint64 public constant HOUR = 3600;
     uint64 public constant DAY = 86400;
@@ -41,7 +44,18 @@ contract EcrinVault {
         PendingChange[] changes;
     }
 
+    /// One token inside a vault. `changes` only ever holds daily-limit changes for this token.
+    struct TokenVault {
+        uint256 balance;
+        uint256 dailyLimit; // 0 = no limit, in the token's own units
+        uint64 spentDay;
+        uint256 spentToday;
+        Withdrawal[] withdrawals;
+        PendingChange[] changes;
+    }
+
     mapping(address => Vault) private vaults;
+    mapping(address => mapping(address => TokenVault)) private tokenVaults; // owner => token => state
     bool private entered;
 
     error NotOwner();
@@ -69,6 +83,13 @@ contract EcrinVault {
     event ChangeQueued(address indexed owner, uint32 id, Kind kind, uint256 value, address addr, uint64 readyAt);
     event ChangeApplied(address indexed owner, Kind kind, uint256 value, address addr);
     event ChangeCancelled(address indexed owner, uint32 id);
+    event TokenDeposited(address indexed owner, address indexed token, uint256 amount);
+    event TokenSent(address indexed owner, address indexed token, address indexed dest, uint256 amount);
+    event TokenWithdrawalQueued(address indexed owner, address indexed token, uint32 id, address dest, uint256 amount, uint64 readyAt);
+    event TokenWithdrawalCancelled(address indexed owner, address indexed token, uint32 id);
+    event TokenLimitQueued(address indexed owner, address indexed token, uint32 id, uint256 limit, uint64 readyAt);
+    event TokenLimitApplied(address indexed owner, address indexed token, uint256 limit);
+    event TokenLimitCancelled(address indexed owner, address indexed token, uint32 id);
 
     modifier nonReentrant() {
         if (entered) revert Reentered();
@@ -137,7 +158,7 @@ contract EcrinVault {
     /// The owner can cancel any queued withdrawal at any time. The funds simply stay.
     function cancelWithdrawal(uint32 id) external {
         Vault storage v = _vault(msg.sender);
-        _removeWithdrawal(v, _findWithdrawal(v, id));
+        _removeW(v.withdrawals, _findW(v.withdrawals, id));
         emit WithdrawalCancelled(msg.sender, id);
     }
 
@@ -159,7 +180,7 @@ contract EcrinVault {
 
     function cancelChange(uint32 id) external {
         Vault storage v = _vault(msg.sender);
-        _removeChange(v, _findChange(v, id));
+        _removeC(v.changes, _findC(v.changes, id));
         emit ChangeCancelled(msg.sender, id);
     }
 
@@ -169,23 +190,23 @@ contract EcrinVault {
     /// destination the owner chose, so the caller gains nothing.
     function executeWithdrawal(address owner, uint32 id) external nonReentrant {
         Vault storage v = _vault(owner);
-        uint256 i = _findWithdrawal(v, id);
+        uint256 i = _findW(v.withdrawals, id);
         Withdrawal memory w = v.withdrawals[i];
         if (block.timestamp < w.readyAt) revert TooEarly();
         // A lock added after the request still holds it back.
         if (_isLocked(v)) revert Locked();
         _spend(v, w.amount);
-        _removeWithdrawal(v, i);
+        _removeW(v.withdrawals, i);
         _pay(owner, w.dest, w.amount);
     }
 
     /// Applies a queued change once its time has come. Anyone may call it.
     function applyChange(address owner, uint32 id) external {
         Vault storage v = _vault(owner);
-        uint256 i = _findChange(v, id);
+        uint256 i = _findC(v.changes, id);
         PendingChange memory c = v.changes[i];
         if (block.timestamp < c.readyAt) revert TooEarly();
-        _removeChange(v, i);
+        _removeC(v.changes, i);
         _apply(v, owner, c.change);
     }
 
@@ -196,10 +217,10 @@ contract EcrinVault {
     function guardianRelease(address owner, uint32 id) external nonReentrant {
         Vault storage v = _vault(owner);
         _guardianOnly(v);
-        uint256 i = _findWithdrawal(v, id);
+        uint256 i = _findW(v.withdrawals, id);
         Withdrawal memory w = v.withdrawals[i];
         _spend(v, w.amount);
-        _removeWithdrawal(v, i);
+        _removeW(v.withdrawals, i);
         _pay(owner, w.dest, w.amount);
     }
 
@@ -207,11 +228,133 @@ contract EcrinVault {
     function guardianApproveChange(address owner, uint32 id) external {
         Vault storage v = _vault(owner);
         _guardianOnly(v);
-        uint256 i = _findChange(v, id);
+        uint256 i = _findC(v.changes, id);
         PendingChange memory c = v.changes[i];
         if (c.change.kind != Kind.AddTrusted) revert TooEarly();
-        _removeChange(v, i);
+        _removeC(v.changes, i);
         _apply(v, owner, c.change);
+    }
+
+    // ------------------------------------------------------------------ tokens (USDC and other ERC-20s)
+
+    /// Moves tokens from the owner into their vault. The caller approves this contract first. Only what
+    /// actually arrived is counted, so a token that takes a fee on transfer can't inflate the balance.
+    function depositToken(address token, uint256 amount) external nonReentrant {
+        _vault(msg.sender);
+        if (amount == 0) revert ZeroAmount();
+        if (token.code.length == 0) revert InvalidValue();
+        uint256 before = _held(token);
+        _call(token, abi.encodeWithSelector(0x23b872dd, msg.sender, address(this), amount)); // transferFrom
+        uint256 got = _held(token) - before;
+        if (got == 0) revert ZeroAmount();
+        tokenVaults[msg.sender][token].balance += got;
+        emit TokenDeposited(msg.sender, token, got);
+    }
+
+    function sendTokenToTrusted(address token, address dest, uint256 amount) external nonReentrant {
+        Vault storage v = _vault(msg.sender);
+        TokenVault storage t = tokenVaults[msg.sender][token];
+        if (amount == 0) revert ZeroAmount();
+        if (!_isTrusted(v, dest)) revert NotTrusted();
+        if (_isLocked(v)) revert Locked();
+        if (amount > availableToken(msg.sender, token)) revert InsufficientFunds();
+        _spendToken(t, amount);
+        _payToken(msg.sender, token, dest, amount);
+    }
+
+    function requestTokenWithdrawal(address token, address dest, uint256 amount) external returns (uint32 id) {
+        Vault storage v = _vault(msg.sender);
+        TokenVault storage t = tokenVaults[msg.sender][token];
+        if (amount == 0) revert ZeroAmount();
+        if (dest == address(0)) revert InvalidValue();
+        if (amount > availableToken(msg.sender, token)) revert InsufficientFunds();
+        if (t.withdrawals.length >= MAX_PENDING_WITHDRAWALS) revert TooManyPending();
+        uint64 readyAt = _max(uint64(block.timestamp) + v.withdrawDelay, v.lockedUntil);
+        id = _nextId(v);
+        t.withdrawals.push(Withdrawal(id, amount, dest, readyAt));
+        emit TokenWithdrawalQueued(msg.sender, token, id, dest, amount, readyAt);
+    }
+
+    function cancelTokenWithdrawal(address token, uint32 id) external {
+        _vault(msg.sender);
+        Withdrawal[] storage q = tokenVaults[msg.sender][token].withdrawals;
+        _removeW(q, _findW(q, id));
+        emit TokenWithdrawalCancelled(msg.sender, token, id);
+    }
+
+    /// Anyone may run a due token withdrawal; the coins go to the destination the owner chose.
+    function executeTokenWithdrawal(address owner, address token, uint32 id) external nonReentrant {
+        Vault storage v = _vault(owner);
+        TokenVault storage t = tokenVaults[owner][token];
+        uint256 i = _findW(t.withdrawals, id);
+        Withdrawal memory w = t.withdrawals[i];
+        if (block.timestamp < w.readyAt) revert TooEarly();
+        if (_isLocked(v)) revert Locked();
+        _spendToken(t, w.amount);
+        _removeW(t.withdrawals, i);
+        _payToken(owner, token, w.dest, w.amount);
+    }
+
+    /// The vault's guardian releases a token withdrawal the owner already requested, delay and lock included.
+    function guardianReleaseToken(address owner, address token, uint32 id) external nonReentrant {
+        Vault storage v = _vault(owner);
+        _guardianOnly(v);
+        TokenVault storage t = tokenVaults[owner][token];
+        uint256 i = _findW(t.withdrawals, id);
+        Withdrawal memory w = t.withdrawals[i];
+        _spendToken(t, w.amount);
+        _removeW(t.withdrawals, i);
+        _payToken(owner, token, w.dest, w.amount);
+    }
+
+    /// Sets a token's daily limit (0 = none). Lowering it applies at once; raising or removing it waits for
+    /// the rule delay (and never before the lock ends).
+    function proposeTokenLimit(address token, uint256 limit) external returns (uint32 id) {
+        Vault storage v = _vault(msg.sender);
+        TokenVault storage t = tokenVaults[msg.sender][token];
+        if (_limitStricter(t.dailyLimit, limit)) {
+            t.dailyLimit = limit;
+            emit TokenLimitApplied(msg.sender, token, limit);
+            return 0;
+        }
+        if (t.changes.length >= MAX_PENDING_CHANGES) revert TooManyPending();
+        uint64 readyAt = _max(uint64(block.timestamp) + v.ruleDelay, v.lockedUntil);
+        id = _nextId(v);
+        t.changes.push(PendingChange(id, Change(Kind.SetDailyLimit, limit, token), readyAt));
+        emit TokenLimitQueued(msg.sender, token, id, limit, readyAt);
+    }
+
+    function cancelTokenChange(address token, uint32 id) external {
+        _vault(msg.sender);
+        PendingChange[] storage q = tokenVaults[msg.sender][token].changes;
+        _removeC(q, _findC(q, id));
+        emit TokenLimitCancelled(msg.sender, token, id);
+    }
+
+    function applyTokenChange(address owner, address token, uint32 id) external {
+        _vault(owner);
+        TokenVault storage t = tokenVaults[owner][token];
+        uint256 i = _findC(t.changes, id);
+        PendingChange memory c = t.changes[i];
+        if (block.timestamp < c.readyAt) revert TooEarly();
+        _removeC(t.changes, i);
+        t.dailyLimit = c.change.value;
+        emit TokenLimitApplied(owner, token, c.change.value);
+    }
+
+    function getTokenVault(address owner, address token) external view returns (
+        uint256 balance, uint256 dailyLimit, uint64 spentDay, uint256 spentToday,
+        Withdrawal[] memory withdrawals, PendingChange[] memory changes
+    ) {
+        TokenVault storage t = tokenVaults[owner][token];
+        return (t.balance, t.dailyLimit, t.spentDay, t.spentToday, t.withdrawals, t.changes);
+    }
+
+    function availableToken(address owner, address token) public view returns (uint256) {
+        TokenVault storage t = tokenVaults[owner][token];
+        uint256 queued;
+        for (uint256 i; i < t.withdrawals.length; i++) queued += t.withdrawals[i].amount;
+        return t.balance > queued ? t.balance - queued : 0;
     }
 
     // ------------------------------------------------------------------ views
@@ -243,10 +386,7 @@ contract EcrinVault {
         Vault storage v = vaults[owner];
         if (c.kind == Kind.SetWithdrawDelay) return c.value >= v.withdrawDelay;
         if (c.kind == Kind.SetRuleDelay) return c.value >= v.ruleDelay;
-        if (c.kind == Kind.SetDailyLimit) {
-            if (c.value == 0) return v.dailyLimit == 0;
-            return v.dailyLimit == 0 || c.value <= v.dailyLimit;
-        }
+        if (c.kind == Kind.SetDailyLimit) return _limitStricter(v.dailyLimit, c.value);
         if (c.kind == Kind.SetLockedUntil) {
             if (c.value == 0) return v.lockedUntil == 0;
             return v.lockedUntil == 0 || c.value >= v.lockedUntil;
@@ -334,25 +474,57 @@ contract EcrinVault {
         emit ChangeApplied(owner, c.kind, c.value, c.addr);
     }
 
-    function _findWithdrawal(Vault storage v, uint32 id) private view returns (uint256) {
-        for (uint256 i; i < v.withdrawals.length; i++) if (v.withdrawals[i].id == id) return i;
+    /// A new daily limit (0 = none) is stricter when it adds a limit or lowers it.
+    function _limitStricter(uint256 old, uint256 next) private pure returns (bool) {
+        if (next == 0) return old == 0;
+        return old == 0 || next <= old;
+    }
+
+    function _spendToken(TokenVault storage t, uint256 amount) private {
+        uint64 day = uint64(block.timestamp / DAY);
+        uint256 after_ = (day == t.spentDay ? t.spentToday : 0) + amount;
+        if (t.dailyLimit != 0 && after_ > t.dailyLimit) revert DailyLimit();
+        if (amount > t.balance) revert InsufficientFunds();
+        t.balance -= amount;
+        t.spentDay = day;
+        t.spentToday = after_;
+    }
+
+    function _payToken(address owner, address token, address dest, uint256 amount) private {
+        emit TokenSent(owner, token, dest, amount);
+        _call(token, abi.encodeWithSelector(0xa9059cbb, dest, amount)); // transfer
+    }
+
+    /// Calls a token and accepts both standard tokens (return true) and ones that return nothing (USDT).
+    function _call(address token, bytes memory data) private {
+        (bool ok, bytes memory ret) = token.call(data);
+        if (!ok || (ret.length != 0 && !abi.decode(ret, (bool)))) revert TransferFailed();
+    }
+
+    function _held(address token) private view returns (uint256) {
+        (bool ok, bytes memory ret) = token.staticcall(abi.encodeWithSelector(0x70a08231, address(this))); // balanceOf
+        if (!ok || ret.length < 32) revert InvalidValue();
+        return abi.decode(ret, (uint256));
+    }
+
+    function _findW(Withdrawal[] storage q, uint32 id) private view returns (uint256) {
+        for (uint256 i; i < q.length; i++) if (q[i].id == id) return i;
         revert NotFound();
     }
 
-    function _findChange(Vault storage v, uint32 id) private view returns (uint256) {
-        for (uint256 i; i < v.changes.length; i++) if (v.changes[i].id == id) return i;
+    function _findC(PendingChange[] storage q, uint32 id) private view returns (uint256) {
+        for (uint256 i; i < q.length; i++) if (q[i].id == id) return i;
         revert NotFound();
     }
 
-    // Shift left to keep the queue in request order (at most 4 items).
-    function _removeWithdrawal(Vault storage v, uint256 i) private {
-        for (; i + 1 < v.withdrawals.length; i++) v.withdrawals[i] = v.withdrawals[i + 1];
-        v.withdrawals.pop();
+    function _removeW(Withdrawal[] storage q, uint256 i) private {
+        for (; i + 1 < q.length; i++) q[i] = q[i + 1];
+        q.pop();
     }
 
-    function _removeChange(Vault storage v, uint256 i) private {
-        for (; i + 1 < v.changes.length; i++) v.changes[i] = v.changes[i + 1];
-        v.changes.pop();
+    function _removeC(PendingChange[] storage q, uint256 i) private {
+        for (; i + 1 < q.length; i++) q[i] = q[i + 1];
+        q.pop();
     }
 
     function _max(uint64 a, uint64 b) private pure returns (uint64) { return a > b ? a : b; }
