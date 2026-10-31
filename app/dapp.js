@@ -38,6 +38,11 @@ let savedTab = "portfolio";
 try { const t = new URLSearchParams(location.search).get("tab"); if (["portfolio", "vault", "activity", "guardian"].includes(t)) savedTab = t; } catch (_) {}
 const S = { asset: "native", tok: {}, walletTok: {}, hide: savedHide, net: savedNet, tab: savedTab, range: "7", shown: null, chart: null, price: null, tokens: [], wallet: null, provider: null, walletSol: null, vault: undefined, view: "owner", watchOwner: "", watched: undefined, busy: false, clockOffset: 0, err: null, pick: "strong" };
 const now = () => Math.floor(Date.now() / 1000) + S.clockOffset;
+// A link from an alert: ?act=cancel-w|cancel-c&id=7&asset=native|usdc opens that item, ready to cancel.
+try {
+  const q = new URLSearchParams(location.search), act = q.get("act"), id = Number(q.get("id"));
+  if ((act === "cancel-w" || act === "cancel-c") && Number.isInteger(id) && id > 0) S.goto = { act, id, asset: q.get("asset") === "usdc" ? "usdc" : "native", owner: q.get("owner") || "" };
+} catch (_) {}
 
 let toastTimer;
 function toast(text, kind = "") { const t = $("#toast"); t.innerHTML = text; t.className = "toast " + kind; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), 5000); }
@@ -302,6 +307,28 @@ async function refresh() {
     if (S.tab === "guardian" && S.watchOwner) S.watched = await readVault(C.x.key(S.watchOwner)).catch(() => null);
   } catch (e) { S.err = `Couldn't reach ${C.name} ${C.net}. Retrying…`; console.warn(e); }
   render();
+  if (S.goto && S.vault !== undefined) openGoto();
+}
+
+/** Takes the person from an alert to the withdrawal or rule change it was about, and asks to cancel it. */
+function openGoto() {
+  const g = S.goto; S.goto = null;
+  try { history.replaceState(null, "", location.pathname + "?net=" + S.net + "&tab=vault"); } catch (_) {}
+  // Ids count per vault, so the link only applies to the vault it was about.
+  if (g.owner && S.wallet && S.wallet.toBase58().toLowerCase() !== g.owner.toLowerCase()) return toast(`That alert is about vault ${esc(short(g.owner))}. Connect that wallet to cancel it.`, "err");
+  if (!S.vault) return toast("This wallet has no vault on " + C.name + ". Connect the wallet that owns it.", "err");
+  if (g.asset !== "native" && !assets().some((a) => a.id === g.asset)) return;
+  S.asset = g.asset; S.tab = "vault"; render();
+  const v = assetView(S.vault), a = A();
+  const item = g.act === "cancel-w" ? v.withdrawals.find((w) => w.id === g.id) : v.changes.find((c) => c.id === g.id);
+  if (!item) return toast(g.act === "cancel-w" ? "That withdrawal isn't waiting anymore: it was already cancelled or sent." : "That rule change isn't waiting anymore.", "err");
+  const btn = document.querySelector(`[data-act="${g.act}"][data-id="${g.id}"]`);
+  const row = btn?.closest(".row");
+  if (row) { row.scrollIntoView({ behavior: "smooth", block: "center" }); row.classList.add("flash"); setTimeout(() => row.classList.remove("flash"), 4000); }
+  const what = g.act === "cancel-w" ? `<b>${sol(item.amount, a)} ${a.unit}</b> to <code>${esc(short(item.dest))}</code>` : `<b>${esc(changeWords(item.change, item.asset))}</b>`;
+  sheet(`<div class="rule-h"><span class="pol-ico">${I.shield}</span><div><h3>Cancel this ${g.act === "cancel-w" ? "withdrawal" : "rule change"}?</h3><span class="muted small">From your alert</span></div></div>
+    <p class="note">${what}. ${g.act === "cancel-w" ? "Cancelling is free and instant, and the money stays in your vault." : "Cancelling is free and instant; your rules stay as they are."}</p>`, () => { btn?.click(); return true; });
+  $("#sheet-form").querySelector('button[value="ok"]').textContent = g.act === "cancel-w" ? "Cancel and keep it safe" : "Cancel the change";
 }
 
 // ------------------------------------------------------------------ WalletConnect

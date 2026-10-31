@@ -1,6 +1,6 @@
 // Tests for worker/alerts.js. Run from evm/ (it borrows ethers from there): node ../worker/alerts.test.mjs
 import { createRequire } from "node:module";
-import { decodeSolVault, decodeSolTokenVault, emptyTokenSnap, diffSol, decodeEvmLog, message, base58, coin, ownerTopic, onCurve, unbase58, tokenAmount, USDC } from "./alerts.js";
+import { alertLink, decodeSolVault, decodeSolTokenVault, emptyTokenSnap, diffSol, decodeEvmLog, message, base58, coin, ownerTopic, onCurve, unbase58, tokenAmount, USDC } from "./alerts.js";
 
 const require = createRequire(new URL("../evm/package.json", import.meta.url));
 const { ethers } = require("ethers");
@@ -38,7 +38,7 @@ test("decodes a Solana vault", () => {
 
 test("a new withdrawal request is reported with its time", () => {
   const a = snap({ balance: 5_000_000_000n }), b = snap({ balance: 5_000_000_000n, withdrawals: [{ id: 1, amount: 500_000_000n, dest: key(4), readyAt: 1_900_000_000n }] });
-  eq(diffSol(a, b), [{ type: "requested", amount: "500000000", dest: base58(key(4)), readyAt: "1900000000" }]);
+  eq(diffSol(a, b), [{ type: "requested", id: 1, amount: "500000000", dest: base58(key(4)), readyAt: "1900000000" }]);
 });
 
 test("a withdrawal that disappears with the balance is sent; without it, cancelled", () => {
@@ -53,7 +53,7 @@ test("deposits, trusted sends and rule changes", () => {
   eq(diffSol(a, snap({ balance: 3_000_000_000n })), [{ type: "deposit", amount: "2000000000" }]);
   eq(diffSol(a, snap({ balance: 600_000_000n })), [{ type: "sentTrusted", amount: "400000000" }]);
   eq(diffSol(a, snap({ balance: 1_000_000_000n, withdrawDelay: 259200n })), [{ type: "changed", kind: "SetWithdrawDelay", value: "259200" }]);
-  eq(diffSol(a, snap({ balance: 1_000_000_000n, changes: [{ id: 2, tag: 5, value: key(7), readyAt: 1_900_000_000n }] })), [{ type: "changeQueued", kind: "AddTrusted", value: base58(key(7)), readyAt: "1900000000" }]);
+  eq(diffSol(a, snap({ balance: 1_000_000_000n, changes: [{ id: 2, tag: 5, value: key(7), readyAt: 1_900_000_000n }] })), [{ type: "changeQueued", id: 2, kind: "AddTrusted", value: base58(key(7)), readyAt: "1900000000" }]);
   eq(diffSol(snap({ changes: [{ id: 2, tag: 5, value: key(7), readyAt: 1n }] }), snap({ trusted: [key(7)] })), [{ type: "changed", kind: "AddTrusted", value: base58(key(7)) }]);
   eq(diffSol(snap({ changes: [{ id: 2, tag: 5, value: key(7), readyAt: 1n }] }), snap({})), [{ type: "changeCancelled", kind: "AddTrusted", value: base58(key(7)) }]);
 });
@@ -115,11 +115,11 @@ test("curve check: wallet keys are on the curve, the program's vault address isn
 test("a token vault diff reports USDC requests, sends, deposits and limit changes", () => {
   const w = { id: 7, amount: 25_000_000n, dest: key(4), readyAt: 1_900_000_000n };
   const a = tsnap({}, 100_000_000), b = tsnap({ withdrawals: [w] }, 100_000_000);
-  eq(diffSol(a, b), [{ type: "requested", amount: "25000000", dest: base58(key(4)), readyAt: "1900000000" }]);
+  eq(diffSol(a, b), [{ type: "requested", id: 7, amount: "25000000", dest: base58(key(4)), readyAt: "1900000000" }]);
   eq(diffSol(b, tsnap({}, 75_000_000)).map((e) => e.type), ["sent"]);
   eq(diffSol(a, tsnap({}, 150_000_000)), [{ type: "deposit", amount: "50000000" }]);
   eq(diffSol(a, tsnap({ dailyLimit: 50_000_000n }, 100_000_000)), [{ type: "changed", kind: "SetDailyLimit", value: "50000000" }]);
-  eq(diffSol(a, tsnap({ changes: [{ id: 8, value: null, readyAt: 1_900_000_000n }] }, 100_000_000)), [{ type: "changeQueued", kind: "SetDailyLimit", value: null, readyAt: "1900000000" }]);
+  eq(diffSol(a, tsnap({ changes: [{ id: 8, value: null, readyAt: 1_900_000_000n }] }, 100_000_000)), [{ type: "changeQueued", id: 8, kind: "SetDailyLimit", value: null, readyAt: "1900000000" }]);
   eq(diffSol(emptyTokenSnap, tsnap({}, 120_000_000)), [{ type: "deposit", amount: "120000000" }]);
 });
 test("token messages use the token's unit", () => {
@@ -153,5 +153,13 @@ test("decodes every token event, named USDC when it is the network's USDC", () =
   ok(decodeEvmLog(tlog("TokenDeposited", [OWNER, OTHER, 5n]), USDC_ADDR).event.asset.unit.startsWith("tokens"));
 });
 
+test("alert buttons go straight to the item to cancel", () => {
+  eq(alertLink({ type: "requested", id: 7 }, "sol").url, "https://ecrinprotocol.app/app?net=sol&tab=vault&act=cancel-w&id=7&asset=native");
+  eq(alertLink({ type: "requested", id: 9, asset: USDC }, "base").url, "https://ecrinprotocol.app/app?net=base&tab=vault&act=cancel-w&id=9&asset=usdc");
+  eq(alertLink({ type: "changeQueued", id: 3 }, "eth").label, "Cancel it");
+  ok(alertLink({ type: "requested", id: 1 }, "eth", undefined, OWNER).url.endsWith("&owner=" + OWNER));
+  eq(alertLink({ type: "deposit", amount: "1" }, "sol"), { label: "Open Ecrin", url: "https://ecrinprotocol.app/app?net=sol&tab=vault" });
+  eq(alertLink({ type: "requested", id: 4, asset: { unit: "tokens (0x33…3333)", decimals: 18 } }, "eth").label, "Open Ecrin");
+});
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

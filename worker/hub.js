@@ -5,7 +5,7 @@ import { DurableObject } from "cloudflare:workers";
 import { CONFIG } from "../app/config.js";
 import { EVM_NETS } from "../app/config-evm.js";
 import { SOL_USDC } from "../app/config-tokens.js";
-import { b64, decodeSolVault, decodeSolTokenVault, emptyTokenSnap, tokenVaultAddresses, tokenAmount, diffSol, decodeEvmLog, message, ownerTopic, short, esc, NETS, USDC } from "./alerts.js";
+import { alertLink, b64, decodeSolVault, decodeSolTokenVault, emptyTokenSnap, tokenVaultAddresses, tokenAmount, diffSol, decodeEvmLog, message, ownerTopic, short, esc, NETS, USDC } from "./alerts.js";
 
 const SITE = "https://ecrinprotocol.app";
 const NET_NAME = Object.fromEntries(Object.entries(NETS).map(([k, n]) => [k, n.name]));
@@ -77,9 +77,9 @@ export class AlertHub extends DurableObject {
     const r = await fetch(`https://api.telegram.org/bot${this.env.TELEGRAM_BOT_TOKEN}/${method}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     return r.json().catch(() => ({ ok: false }));
   }
-  async say(chat, text, net) {
+  async say(chat, text, net, link) {
     const body = { chat_id: chat, text, parse_mode: "HTML", link_preview_options: { is_disabled: true } };
-    if (net) body.reply_markup = { inline_keyboard: [[{ text: "Open Ecrin", url: `${SITE}/app?net=${net}&tab=vault` }]] };
+    if (net) { const l = link || { label: "Open Ecrin", url: `${SITE}/app?net=${net}&tab=vault` }; body.reply_markup = { inline_keyboard: [[{ text: l.label, url: l.url }]] }; }
     const r = await this.tg("sendMessage", body);
     // The person blocked the bot or deleted the chat: stop sending there.
     if (!r.ok && r.error_code === 403) this.sql.exec("DELETE FROM subs WHERE chat = ?", String(chat));
@@ -96,15 +96,16 @@ export class AlertHub extends DurableObject {
     if (!r.ok) console.error("resend", r.status, await r.text().catch(() => ""));
     return r.ok;
   }
-  async emailAlert(row, text, net) {
+  async emailAlert(row, text, net, link) {
     const { subject, html } = emailFrom(text), unsub = `${SITE}/api/alerts/unsub?t=${row.token}`;
-    return this.mail(row.email, subject, emailPage({ body: html, button: ["Open Ecrin", `${SITE}/app?net=${net}&tab=vault`], unsub }), unsub);
+    const l = link || { label: "Open Ecrin", url: `${SITE}/app?net=${net}&tab=vault` };
+    return this.mail(row.email, subject, emailPage({ body: html, button: [l.label, l.url], unsub }), unsub);
   }
 
-  /** Sends one alert to every Telegram chat and confirmed email watching this vault. */
-  async notify(net, match, text) {
-    if (this.env.TELEGRAM_BOT_TOKEN) for (const s of this.sql.exec(`SELECT chat FROM subs WHERE net = ? AND ${match.col} = ?`, net, match.val).toArray()) await this.say(s.chat, text, net);
-    if (this.env.RESEND_API_KEY) for (const e of this.sql.exec(`SELECT email, token FROM emails WHERE confirmed = 1 AND net = ? AND ${match.col} = ?`, net, match.val).toArray()) await this.emailAlert(e, text, net);
+  /** Sends one alert to every Telegram chat and confirmed email watching this vault. `link` is its button. */
+  async notify(net, match, text, link) {
+    if (this.env.TELEGRAM_BOT_TOKEN) for (const s of this.sql.exec(`SELECT chat FROM subs WHERE net = ? AND ${match.col} = ?`, net, match.val).toArray()) await this.say(s.chat, text, net, link);
+    if (this.env.RESEND_API_KEY) for (const e of this.sql.exec(`SELECT email, token FROM emails WHERE confirmed = 1 AND net = ? AND ${match.col} = ?`, net, match.val).toArray()) await this.emailAlert(e, text, net, link);
   }
 
   async fetch(request) {
@@ -275,7 +276,7 @@ export class AlertHub extends DurableObject {
       for (const ev of diffSol(prev, next)) {
         if (asset) ev.asset = asset;
         const m = message(ev, { net: "sol", owner: next?.owner || prev?.owner || owner || vault, now });
-        if (m) await this.notify("sol", { col: "vault", val: vault }, m.text);
+        if (m) await this.notify("sol", { col: "vault", val: vault }, m.text, alertLink(ev, "sol", SITE, next?.owner || prev?.owner || owner));
       }
     }
     this.sql.exec("INSERT OR REPLACE INTO snaps (net, k, data) VALUES ('sol', ?, ?)", key, JSON.stringify(next));
@@ -305,7 +306,7 @@ export class AlertHub extends DurableObject {
           if (q) { Object.assign(d.event, { amount: JSON.parse(q.data).amount }); this.sql.exec("DELETE FROM snaps WHERE net = ? AND k = ?", net, key); }
         }
         const m = message(d.event, { net, owner: d.owner, now });
-        if (m) await this.notify(net, { col: "owner", val: d.owner }, m.text);
+        if (m) await this.notify(net, { col: "owner", val: d.owner }, m.text, alertLink(d.event, net, SITE, d.owner));
       }
     }
     this.set(ck, to);

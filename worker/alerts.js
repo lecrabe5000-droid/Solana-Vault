@@ -140,12 +140,12 @@ export function diffSol(prev, next) {
     if (dropped >= BigInt(w.amount)) { explained += BigInt(w.amount); ev.push({ type: "sent", amount: w.amount, dest: w.dest }); }
     else ev.push({ type: "cancelled", amount: w.amount, dest: w.dest });
   }
-  for (const [id, w] of nw) if (!pw.has(id)) ev.push({ type: "requested", amount: w.amount, dest: w.dest, readyAt: w.readyAt });
+  for (const [id, w] of nw) if (!pw.has(id)) ev.push({ type: "requested", id, amount: w.amount, dest: w.dest, readyAt: w.readyAt });
   const delta = BigInt(next.balance) - BigInt(prev.balance) + explained;
   if (delta > 0n) ev.push({ type: "deposit", amount: String(delta) });
   else if (delta < 0n) ev.push({ type: "sentTrusted", amount: String(-delta) });
   const pc = new Set(prev.changes.map((c) => c.id));
-  for (const c of next.changes) if (!pc.has(c.id)) ev.push({ type: "changeQueued", kind: c.kind, value: c.value, readyAt: c.readyAt });
+  for (const c of next.changes) if (!pc.has(c.id)) ev.push({ type: "changeQueued", id: c.id, kind: c.kind, value: c.value, readyAt: c.readyAt });
   const field = (kind, a, b) => { if (JSON.stringify(a) !== JSON.stringify(b)) ev.push({ type: "changed", kind, value: b }); };
   field("SetWithdrawDelay", prev.withdrawDelay, next.withdrawDelay);
   field("SetRuleDelay", prev.ruleDelay, next.ruleDelay);
@@ -242,19 +242,28 @@ function changeWords(kind, value, fmt) {
  * The Telegram message for one event: { text, urgent }. HTML parse mode; every value we insert is an
  * address, a number or a fixed phrase, so there is nothing to escape beyond what esc() covers.
  */
+/** Where an alert's button should take the person: straight to the item to cancel when there is one. */
+export function alertLink(event, net, site = "https://ecrinprotocol.app", owner = "") {
+  const base = `${site}/app?net=${net}&tab=vault`, who = owner ? `&owner=${encodeURIComponent(owner)}` : "", asset = event.asset ? (event.asset.unit === "USDC" ? "usdc" : null) : "native";
+  if (event.id == null || !asset) return { label: "Open Ecrin", url: base };
+  if (event.type === "requested") return { label: "Cancel it", url: `${base}&act=cancel-w&id=${event.id}&asset=${asset}${who}` };
+  if (event.type === "changeQueued") return { label: "Cancel it", url: `${base}&act=cancel-c&id=${event.id}&asset=${asset}${who}` };
+  return { label: "Open Ecrin", url: base };
+}
+
 export function message(event, { net, owner, now = Math.floor(Date.now() / 1000) }) {
   const n = NETS[net] || NETS.eth, a = event.asset || n, fmt = (u) => `${coin(u, a.decimals)} ${a.unit}`;
   if (event.asset) fmt.unit = a.unit;
   const head = `<b>Ecrin · ${n.name}</b> · vault <code>${esc(short(owner))}</code>\n\n`;
   const e = event;
   switch (e.type) {
-    case "requested": return { urgent: true, text: head + `⏳ <b>Withdrawal requested</b>\n${e.amount ? fmt(e.amount) : "Funds"} to <code>${esc(short(e.dest))}</code>\nIt can leave ${inTime(e.readyAt, now)} (${when(e.readyAt)}).\n\n<b>Not you?</b> Open Ecrin and cancel it. Cancelling is free and instant.` };
+    case "requested": return { urgent: true, text: head + `⏳ <b>Withdrawal requested</b>\n${e.amount ? fmt(e.amount) : "Funds"} to <code>${esc(short(e.dest))}</code>\nIt can leave ${inTime(e.readyAt, now)} (${when(e.readyAt)}).\n\n<b>Not you?</b> Tap Cancel it below. Cancelling is free and instant.` };
     case "cancelled": return { text: head + `🛡 <b>Withdrawal cancelled</b>${e.amount ? `\n${fmt(e.amount)} stays in your vault.` : "\nThe funds stay in your vault."}` };
     case "sent": return { text: head + `↗ <b>Withdrawal sent</b>\n${fmt(e.amount)} left the vault to <code>${esc(short(e.dest))}</code>.` };
     case "sentAny": return { text: head + `↗ <b>Funds left the vault</b>\n${fmt(e.amount)} to <code>${esc(short(e.dest))}</code>.` };
     case "sentTrusted": return { text: head + `↗ <b>Sent to a trusted address</b>\n${fmt(e.amount)} left the vault.` };
     case "deposit": return { text: head + `↘ <b>Deposit</b>\n${fmt(e.amount)} added to your vault.` };
-    case "changeQueued": return { urgent: true, text: head + `⚙ <b>Rule change requested</b>\n${esc(changeWords(e.kind, e.value, fmt))}\nIt applies ${inTime(e.readyAt, now)} (${when(e.readyAt)}).\n\n<b>Not you?</b> Open Ecrin and cancel it.` };
+    case "changeQueued": return { urgent: true, text: head + `⚙ <b>Rule change requested</b>\n${esc(changeWords(e.kind, e.value, fmt))}\nIt applies ${inTime(e.readyAt, now)} (${when(e.readyAt)}).\n\n<b>Not you?</b> Tap Cancel it below.` };
     case "changed": return { text: head + `⚙ <b>Rule changed</b>\n${esc(changeWords(e.kind, e.value, fmt))}` };
     case "changeCancelled": return { text: head + `⚙ <b>Rule change cancelled</b>${e.kind ? `\n${esc(changeWords(e.kind, e.value, fmt))} won't happen.` : ""}` };
     case "created": return { text: head + `✦ <b>Vault created</b>\nEcrin is watching it from now on.` };

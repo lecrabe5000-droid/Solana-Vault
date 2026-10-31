@@ -618,3 +618,7 @@ section.glass { border-radius: 20px; }
 .as-row > svg { width: 16px; height: 16px; fill: none; stroke: var(--muted); stroke-width: 2; }
 @media (max-width: 720px) { .netbtn > span:not(.coin) { display: none; } .netbtn { padding: 0 6px; } .asw { display: flex; } .asw button { flex: 1; justify-content: center; } }
 .tb-right .netbtn { border-radius: 999px; }
+
+/* the row an alert link points to */
+.row.flash { animation: flash 1.4s ease 2; }
+@keyframes flash { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 40% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--blue) 45%, transparent); } }
