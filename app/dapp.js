@@ -471,6 +471,7 @@ const I = {
   moon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>`,
   snow: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5v19M3.8 7.2l16.4 9.6M3.8 16.8l16.4-9.6"/><path d="M9.5 4l2.5 2 2.5-2M9.5 20l2.5-2 2.5 2M3.2 10.6l3.1-.6-.9-3M20.8 13.4l-3.1.6.9 3M3.2 13.4l3.1.6-.9 3M20.8 10.6l-3.1-.6.9-3"/></svg>`,
   mail: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="M4 7l8 6 8-6"/></svg>`,
+  brush: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4.5l5 5L11 18l-5-5z"/><path d="M6 13c-2 0-3 1.5-3 3.5 0 1.2-.5 2.2-1 3 2.8.4 6.5-.4 7-3.5"/></svg>`,
   check: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`,
   ext: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/></svg>`,
 };
@@ -572,6 +573,12 @@ function themeBtn() {
   return `<button class="theme" data-act="theme" aria-label="Switch to ${dark ? "light" : "dark"} mode" title="Switch to ${dark ? "light" : "dark"} mode">${dark ? I.sun : I.moon}</button>`;
 }
 
+/** Light | dark in one tap: a small switch with the sun and the moon, the knob slides to the one in use. */
+function themeSwitch() {
+  const dark = document.documentElement.dataset.theme === "dark";
+  return `<button class="tsw" data-act="theme" role="switch" aria-checked="${dark}" aria-label="Dark mode" title="Switch to ${dark ? "light" : "dark"} mode"><i class="tsw-k"></i><span class="tsw-s">${I.sun}</span><span class="tsw-m">${I.moon}</span></button>`;
+}
+
 function netSwitch() {
   return `<button class="netbtn" data-act="netmenu" aria-label="Network: ${C.name} ${C.net}. Change network" aria-haspopup="dialog">${coin(S.net)}<span>${C.name}</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button>`;
 }
@@ -579,12 +586,14 @@ function netSwitch() {
 /** Account menu: the address, and the settings that used to crowd the top bar. */
 function accountMenu() {
   const w = S.wallet.toBase58(), dark = document.documentElement.dataset.theme === "dark";
+  const seg = (act, icon, title, opts, cur) => `<div class="am-row am-seg"><span class="am-ico">${icon}</span><span class="am-t">${title}</span><span class="seg" role="radiogroup" aria-label="${title}">${opts.map(([v, n]) => `<button type="button" role="radio" aria-checked="${v === cur}" data-act="${act}" data-v="${v}" lang="${act === "set-lang" ? v : ""}">${n}</button>`).join("")}</span></div>`;
   const row = (act, icon, title, value = "", cls = "") => `<button type="button" class="am-row${cls}" data-act="${act}"><span class="am-ico">${icon}</span><span class="am-t">${title}</span><span class="am-v">${value}</span></button>`;
   sheet(`<div class="am-head">${avatar(w)}<div><b>${short(w)}</b><span>${C.name} ${C.net}${S.readOnly ? " · view mode" : ""}</span></div><button type="button" class="btn sm" data-act="copy" data-v="${esc(w)}">Copy</button></div>
     <div class="am-list">
       ${row("privacy", S.hide ? I.eyeOff : I.eye, "Hide balances", S.hide ? "On" : "Off")}
-      ${row("lang", `<b class="am-lang">${LANG === "fr" ? "FR" : "EN"}</b>`, "Language", LANG === "fr" ? "Français" : "English")}
-      ${row("theme", dark ? I.moon : I.sun, "Appearance", dark ? "Dark" : "Light")}
+      ${seg("set-lang", `<b class="am-lang">${LANG === "fr" ? "FR" : "EN"}</b>`, "Language", [["en", "English"], ["fr", "Français"]], LANG === "fr" ? "fr" : "en")}
+      ${seg("set-theme", dark ? I.moon : I.sun, "Appearance", [["light", "Light"], ["dark", "Dark"]], dark ? "dark" : "light")}
+      ${S.vault ? row("card", I.brush, "Customize your card") : ""}
       <a class="am-row" href="${explorer("address", w)}" target="_blank" rel="noopener"><span class="am-ico">${I.ext}</span><span class="am-t">View wallet on the explorer</span><span class="am-v"></span></a>
       ${isPhone() && !standalone() ? row("install", logo, "Add to home screen") : ""}
       ${row("disconnect", I.power, S.readOnly ? "Exit view mode" : "Disconnect", "", " danger")}
@@ -613,8 +622,8 @@ function shell(content, { nav = true } = {}) {
       ${on ? `<nav class="pillnav" aria-label="Sections"><i class="pill-ind" aria-hidden="true"></i>${items("pill-i")}</nav>` : ""}
       <div class="tb-right">
         ${netSwitch()}
-        ${w ? `<span class="tb-desk">${privacyBtn()}</span><button class="acct-chip" data-act="account" aria-haspopup="dialog" title="${esc(w.toBase58())}">${avatar(w.toBase58())}<span>${short(w)}</span></button>`
-          : `<button class="theme lang-btn" data-act="lang" aria-label="${LANG === "fr" ? "Read in English" : "Lire en français"}" lang="${LANG === "fr" ? "en" : "fr"}">${LANG === "fr" ? "EN" : "FR"}</button>${themeBtn()}`}
+        ${w ? `${themeSwitch()}<span class="tb-desk">${privacyBtn()}</span><button class="acct-chip" data-act="account" aria-haspopup="dialog" title="${esc(w.toBase58())}">${avatar(w.toBase58())}<span>${short(w)}</span></button>`
+          : `<button class="theme lang-btn" data-act="lang" aria-label="${LANG === "fr" ? "Read in English" : "Lire en français"}" lang="${LANG === "fr" ? "en" : "fr"}">${LANG === "fr" ? "EN" : "FR"}</button>${themeSwitch()}`}
       </div>
     </header>
     <main class="main">
@@ -707,12 +716,48 @@ function actionsRow() {
   </div>`;
 }
 
-// Engraved wave pattern for the vault case, drawn once: offset circles like a watch dial's guilloché.
-const GUILLOCHE = `<svg class="guilloche" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${Array.from({ length: 34 }, (_, i) => `<circle cx="${330 + Math.cos(i / 2.2) * 14}" cy="${40 + Math.sin(i / 2.2) * 14}" r="${18 + i * 9}"/>`).join("")}</svg>`;
 
-/** The vault as an object: an obsidian case with the protected balance and its state. With `total`, it shows
- *  everything protected (every coin, in dollars when prices are in) and the soonest withdrawal of any coin. */
-function caseCard(v, { link = true, total = false } = {}) {
+// ------------------------------------------------------------------ the vault card and its looks
+
+/** How the owner dressed their card. Kept on this device, per wallet; nothing about it goes on-chain. */
+const CARD_DEF = { mat: "obsidian", pat: "guilloche", acc: "#7d97ff", name: "", font: "display", corner: "soft", emblem: "ecrin", patOp: 60, shine: true, light: true, tilt: true, foil: false, grain: false, mask: false, edge: false };
+const CARD_MATS = [["obsidian", "Obsidian"], ["midnight", "Midnight"], ["carbon", "Carbon"], ["titanium", "Titanium"], ["gold", "Champagne"], ["rose", "Rose gold"], ["ceramic", "Ceramic"], ["paper", "Paper"], ["emerald", "Emerald"], ["bordeaux", "Bordeaux"], ["ocean", "Deep sea"], ["lava", "Lava"], ["sunset", "Sunset"], ["glass", "Glass"], ["aurora", "Aurora"], ["holo", "Holographic"]];
+const CARD_PATS = [["guilloche", "Guilloché"], ["waves", "Waves"], ["topo", "Contours"], ["rays", "Sunburst"], ["grid", "Grid"], ["monogram", "Monogram"], ["dots", "Dots"], ["none", "Plain"]];
+const CARD_ACCS = ["#7d97ff", "#4fd1a5", "#ffb547", "#ff6b8b", "#c084fc", "#38bdf8", "#facc15", "#f5f5f0", "#111216"];
+const CARD_FONTS = [["display", "Display"], ["sans", "Sans"], ["serif", "Serif"], ["mono", "Mono"]];
+const CARD_CORNERS = [["sharp", "Sharp"], ["soft", "Soft"], ["round", "Round"]];
+const CARD_EMBLEMS = [["ecrin", "Ecrin"], ["coin", "Network"], ["initial", "Monogram"], ["none", "None"]];
+const cardKey = () => `ecrin-card-${S.wallet ? S.wallet.toBase58() : ""}`;
+function cardStyle() { try { return { ...CARD_DEF, ...JSON.parse(localStorage.getItem(cardKey()) || "{}") }; } catch (_) { return { ...CARD_DEF }; } }
+const hexOk = (c) => (/^#[0-9a-f]{6}$/i.test(c) ? c : CARD_DEF.acc);
+
+/** The engraved background, one per pattern, drawn in the card's line colour. */
+const PATTERNS = (() => {
+  const r = (n, f) => Array.from({ length: n }, (_, i) => f(i)).join("");
+  const svg = (inner, cls = "") => `<svg class="guilloche${cls}" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${inner}</svg>`;
+  return {
+    guilloche: svg(r(34, (i) => `<circle cx="${330 + Math.cos(i / 2.2) * 14}" cy="${40 + Math.sin(i / 2.2) * 14}" r="${18 + i * 9}"/>`)),
+    waves: svg(r(22, (i) => { const y = i * 12 - 6, a = 7 + (i % 3) * 2; return `<path d="M-20 ${y} Q 30 ${y - a} 80 ${y} T 180 ${y} T 280 ${y} T 380 ${y} T 480 ${y}"/>`; })),
+    topo: svg(r(16, (i) => `<ellipse cx="${300 - i * 3}" cy="${170 + i * 1.5}" rx="${16 + i * 15}" ry="${10 + i * 10}" transform="rotate(${-18 + i * 2.2} 300 170)"/>`) + r(8, (i) => `<ellipse cx="70" cy="40" rx="${10 + i * 12}" ry="${7 + i * 8}" transform="rotate(${25 - i * 3} 70 40)"/>`)),
+    rays: svg(r(60, (i) => { const t = (i / 60) * Math.PI * 2; return `<line x1="330" y1="40" x2="${330 + Math.cos(t) * 520}" y2="${40 + Math.sin(t) * 520}"/>`; })),
+    grid: svg(r(21, (i) => `<line x1="${i * 20}" y1="0" x2="${i * 20}" y2="250"/>`) + r(13, (i) => `<line x1="0" y1="${i * 20}" x2="400" y2="${i * 20}"/>`)),
+    monogram: svg(r(9, (y) => r(15, (x) => { const cx = x * 28 + (y % 2) * 14, cy = y * 28 + 6; return `<path d="M${cx} ${cy - 5}l5 5-5 5-5-5z"/>`; })), " fill"),
+    dots: svg(r(13, (y) => r(21, (x) => `<circle cx="${x * 20 + (y % 2) * 10}" cy="${y * 20}" r="1.4"/>`)), " fill"),
+    none: "",
+  };
+})();
+
+function cardEmblem(st) {
+  if (st.emblem === "none") return "";
+  if (st.emblem === "coin") return coin(S.net);
+  if (st.emblem === "initial") return `<i class="cz-ini">${esc((st.name || "E").trim().charAt(0).toUpperCase() || "E")}</i>`;
+  return `<svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="currentColor"/></svg>`;
+}
+
+/** The vault as an object: a card with the protected balance and its state, dressed the owner's way. With `total`,
+ *  it shows everything protected (every coin, in dollars when prices are in) and the soonest withdrawal of any coin. */
+function caseCard(v, { link = true, total = false, style = null } = {}) {
+  const st = style || cardStyle();
   const t = now(), locked = v.lockedUntil && t < v.lockedUntil, a = A(v.asset || "native");
   const queue = total ? allWithdrawals(S.vault) : v.withdrawals.map((w) => ({ ...w, asset: a.id }));
   const next = queue.slice().sort((x, y) => x.readyAt - y.readyAt)[0];
@@ -720,18 +765,87 @@ function caseCard(v, { link = true, total = false } = {}) {
   const state = next
     ? `<span class="cs-dot warn"></span><span><b>${sol(next.amount, A(next.asset))} ${A(next.asset).unit}</b> leaving${opens > t ? ` in <span class="count" data-ready="${opens}">${dur(opens - t)}</span>` : " · ready"}</span>`
     : `<span class="cs-dot"></span><span>${locked ? "Locked until " + new Date(v.lockedUntil * 1000).toLocaleDateString(LOCALE, { day: "numeric", month: "short" }) : "Sealed · nothing waiting to leave"}</span>`;
+  const hid = st.mask ? "•••••" : null;
   let bal;
   if (total) {
     const p = protectedTotals(v);
-    bal = p.usd != null && p.stable ? `<div class="case-bal"><span class="num m">${money(p.usd)}</span></div><span class="case-usd m">${p.parts}</span>`
-      : `<div class="case-bal"><span class="num m">${sol(v.balance, A("native"))}</span><small>${C.unit}</small></div><span class="case-usd m">${p.stable ? p.parts : usd(v.balance, A("native")) ?? ""}</span>`;
-  } else bal = `<div class="case-bal"><span class="num m">${sol(v.balance, a)}</span><small>${a.unit}</small></div><span class="case-usd m">${a.stable ? "" : usd(v.balance, a) ?? ""}</span>`;
-  return `<${link ? `button data-act="tab" data-t="vault"` : "div"} class="case${next ? " leaving" : ""}" data-tilt>
-    ${GUILLOCHE}<i class="sheen"></i>
-    <div class="case-top"><span class="case-mark">${logo}<b>ECRIN</b></span><span class="case-lvl">${levelName(v)} · ${delayWords(v.withdrawDelay)}</span></div>
+    bal = p.usd != null && p.stable ? `<div class="case-bal"><span class="num m">${hid ?? money(p.usd)}</span></div><span class="case-usd m">${hid ? "" : p.parts}</span>`
+      : `<div class="case-bal"><span class="num m">${hid ?? sol(v.balance, A("native"))}</span><small>${C.unit}</small></div><span class="case-usd m">${hid ? "" : p.stable ? p.parts : usd(v.balance, A("native")) ?? ""}</span>`;
+  } else bal = `<div class="case-bal"><span class="num m">${hid ?? sol(v.balance, a)}</span><small>${a.unit}</small></div><span class="case-usd m">${hid || a.stable ? "" : usd(v.balance, a) ?? ""}</span>`;
+  const cls = [`case`, `m-${st.mat}`, `f-${st.font}`, `k-${st.corner}`, next ? "leaving" : "", st.shine ? "" : "no-shine", st.light ? "" : "no-light", st.foil || st.mat === "holo" ? "foil" : "", st.grain ? "grain" : "", st.edge ? "edge" : ""].filter(Boolean).join(" ");
+  const vars = `--c-acc:${hexOk(st.acc)};--c-pat:${Math.max(0, Math.min(100, Number(st.patOp) || 0)) / 100}`;
+  return `<${link ? `button data-act="tab" data-t="vault"` : "div"} class="${cls}" style="${vars}"${st.tilt ? " data-tilt" : ""}>
+    ${PATTERNS[st.pat] ?? PATTERNS.guilloche}<i class="sheen"></i><i class="foil-l"></i><i class="grain-l"></i>
+    <div class="case-top"><span class="case-mark">${cardEmblem(st)}<b>${st.name ? esc(st.name.toUpperCase()) : "ECRIN"}</b></span><span class="case-lvl">${levelName(v)} · ${delayWords(v.withdrawDelay)}</span></div>
     <div class="case-mid"><span class="case-k">${I.shield}Protected</span>${bal}</div>
     <div class="case-foot">${state}<span class="case-id">${total ? coin(S.net) : assetCoin(a.id)}•••• ${String(v.owner).slice(-4)}</span></div>
   </${link ? "button" : "div"}>`;
+}
+
+/** The studio: a live preview on top, every option below, saved on this device. */
+function cardStudio() {
+  const v = S.vault; if (!v) return;
+  let d = cardStyle(), tab = "look";
+  const chips = (key, list) => `<div class="cz-chips">${list.map(([k, n]) => `<button type="button" class="cz-chip" data-cz="${key}" data-v="${k}" aria-pressed="${d[key] === k}">${n}</button>`).join("")}</div>`;
+  const tog = (key, title, sub) => `<label class="cz-tog"><span><b>${title}</b><small>${sub}</small></span><input type="checkbox" data-cz-b="${key}" ${d[key] ? "checked" : ""}/><i></i></label>`;
+  const panes = () => ({
+    look: `<span class="label">Material</span><div class="cz-mats">${CARD_MATS.map(([k, n]) => `<button type="button" class="cz-mat m-${k}" data-cz="mat" data-v="${k}" aria-pressed="${d.mat === k}" title="${n}"><i></i><span>${n}</span></button>`).join("")}</div>
+      <span class="label">Accent</span><div class="cz-accs">${CARD_ACCS.map((c) => `<button type="button" class="cz-acc" data-cz="acc" data-v="${c}" style="--sw:${c}" aria-pressed="${d.acc.toLowerCase() === c}" aria-label="${c}"></button>`).join("")}<label class="cz-acc cz-pick" style="--sw:${hexOk(d.acc)}" title="Any colour"><input type="color" data-cz-c="acc" value="${hexOk(d.acc)}"/>+</label></div>`,
+    pattern: `<span class="label">Engraving</span><div class="cz-pats">${CARD_PATS.map(([k, n]) => `<button type="button" class="cz-pat" data-cz="pat" data-v="${k}" aria-pressed="${d.pat === k}"><span class="cz-pv">${PATTERNS[k]}</span><span>${n}</span></button>`).join("")}</div>
+      <label class="field">Depth<input type="range" min="0" max="100" step="1" data-cz-n="patOp" value="${d.patOp}"/></label>`,
+    words: `<label class="field">Name on the card<input class="input" data-cz-t="name" maxlength="18" placeholder="ECRIN" value="${esc(d.name)}" autocomplete="off"/></label>
+      <span class="label">Emblem</span>${chips("emblem", CARD_EMBLEMS)}
+      <span class="label">Numbers</span>${chips("font", CARD_FONTS)}
+      <span class="label">Corners</span>${chips("corner", CARD_CORNERS)}`,
+    fx: `<div class="cz-togs">${tog("foil", "Holographic foil", "a rainbow sheen that moves")}${tog("shine", "Shine sweep", "a slow glint across the card")}${tog("light", "Pointer light", "the card catches your cursor")}${tog("tilt", "3D tilt", "leans toward the pointer")}${tog("grain", "Grain", "a fine, printed texture")}${tog("edge", "Accent edge", "a thin line in your accent")}${tog("mask", "Hide the balance", "on the card only")}</div>`,
+  });
+  sheet(`<div class="cz"><div class="cz-head"><h3>Your card</h3><div class="cz-quick"><button type="button" class="btn sm" data-cz-x="random">Surprise me</button><button type="button" class="btn sm" data-cz-x="reset">Reset</button></div></div>
+    <div class="cz-prev"></div>
+    <div class="cz-tabs" role="tablist">${[["look", "Look"], ["pattern", "Pattern"], ["words", "Details"], ["fx", "Effects"]].map(([k, n]) => `<button type="button" role="tab" data-cz-tab="${k}" aria-selected="${k === tab}">${n}</button>`).join("")}</div>
+    <div class="cz-pane"></div><p class="note">Saved on this device, for this wallet. Only you see it.</p></div>`, () => { try { localStorage.setItem(cardKey(), JSON.stringify(d)); } catch (_) {} render(); toast("Card saved"); });
+  const f = $("#sheet-form"); f.querySelector('button[value="ok"]').textContent = "Save card";
+  const prev = f.querySelector(".cz-prev"), pane = f.querySelector(".cz-pane");
+  const paint = (all) => {
+    prev.innerHTML = caseCard(v, { link: false, total: true, style: d });
+    if (all) { pane.innerHTML = panes()[tab]; f.querySelectorAll("[data-cz-tab]").forEach((b) => b.setAttribute("aria-selected", b.dataset.czTab === tab)); }
+    else f.querySelectorAll("[data-cz]").forEach((b) => b.setAttribute("aria-pressed", String(d[b.dataset.cz]).toLowerCase() === b.dataset.v.toLowerCase()));
+  };
+  f.onclick = (e) => {
+    const b = e.target.closest("[data-cz], [data-cz-tab], [data-cz-x]"); if (!b) return;
+    if (b.dataset.czTab) { tab = b.dataset.czTab; return paint(true); }
+    if (b.dataset.czX === "reset") { d = { ...CARD_DEF }; return paint(true); }
+    if (b.dataset.czX === "random") {
+      const pick = (l) => l[Math.floor(Math.random() * l.length)];
+      d = { ...d, mat: pick(CARD_MATS)[0], pat: pick(CARD_PATS.slice(0, -1))[0], acc: pick(CARD_ACCS), font: pick(CARD_FONTS)[0], corner: pick(CARD_CORNERS)[0], patOp: 30 + Math.floor(Math.random() * 70), foil: Math.random() < 0.3, grain: Math.random() < 0.4, edge: Math.random() < 0.4 };
+      return paint(true);
+    }
+    d[b.dataset.cz] = b.dataset.v; paint(b.dataset.cz === "acc");
+  };
+  f.oninput = (e) => {
+    const el = e.target;
+    if (el.dataset.czB) d[el.dataset.czB] = el.checked;
+    else if (el.dataset.czN) d[el.dataset.czN] = Number(el.value);
+    else if (el.dataset.czT) d[el.dataset.czT] = el.value.slice(0, 18);
+    else if (el.dataset.czC) { d.acc = el.value; el.parentElement.style.setProperty("--sw", el.value); }
+    else return;
+    paint(false);
+  };
+  paint(true);
+}
+
+/** The wallet, drawn like the vault case but open: what can move right now, with one signature. */
+function walletCase(v) {
+  const list = assets().map((a) => [a, a.id === "native" ? S.walletSol || 0 : S.walletTok[a.id] || 0]);
+  const vals = list.map(([a, n]) => usdOf(n, a)), total = vals.some((x) => x == null) ? null : vals.reduce((x, y) => x + y, 0);
+  const parts = list.filter(([a, n]) => n > 0 || a.id === "native").map(([a, n]) => `${sol(n, a)} ${a.unit}`).join(" · ");
+  const w = S.wallet.toBase58();
+  return `<div class="wcase">
+    <div class="case-top"><span class="wc-mark">${I.wallet}<b>Wallet</b></span><span class="wc-tag">Instant</span></div>
+    <div class="case-mid"><span class="case-k">${I.send}Spendable now</span>
+      ${total != null && list.some(([a, n]) => a.stable && n > 0) ? `<div class="case-bal"><span class="num m">${money(total)}</span></div><span class="case-usd m">${parts}</span>`
+        : `<div class="case-bal"><span class="num m">${sol(S.walletSol || 0, A("native"))}</span><small>${C.unit}</small></div><span class="case-usd m">${list.length > 1 ? parts.split(" · ").slice(1).join(" · ") : usd(S.walletSol || 0, A("native")) ?? ""}</span>`}</div>
+    <div class="case-foot"><span class="wc-dot"></span><span>One signature moves it</span><span class="case-id">${avatar(w)}${short(w)}</span></div>
+  </div>`;
 }
 
 /** What the vault protects across its coins: dollars (when prices are in) and a short "1.2 SOL · 300 USDC" line. */
@@ -759,15 +873,14 @@ function protectionCard(v) {
   const pushed = (() => { try { return Object.keys(localStorage).some((k) => (k.startsWith("ecrin-alerts-") || k.startsWith("ecrin-push-")) && k.endsWith(S.wallet.toBase58()) && localStorage.getItem(k) === "1") || !!localStorage.getItem(alertsKey() + "-mail"); } catch (_) { return false; } })();
   const checks = [
     [v.withdrawDelay >= 72 * HOUR, "Withdrawals wait at least 3 days", "Make withdrawals wait longer", `data-act="rule" data-k="withdraw"`],
-    [!!v.guardian, "A guardian for emergencies", "Add a guardian", `data-act="rule" data-k="guardian"`],
     [pushed || alertsOn(), "Alerts are on", "Turn on alerts", `data-act="goto-alerts"`],
     [v.trusted.length > 0, "A trusted address for instant payments", "Add a trusted address", `data-act="trust"`],
     [!!v.dailyLimit, "A daily limit", "Set a daily limit", `data-act="rule" data-k="limit"`],
   ];
-  const n = checks.filter(([ok]) => ok).length, r = 34, c = 2 * Math.PI * r;
+  const n = checks.filter(([ok]) => ok).length, of = checks.length, r = 34, c = 2 * Math.PI * r;
   return `<section class="glass prot">
-    <div class="prot-h"><div class="prot-ring"><svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="${r}" class="track"/><circle cx="40" cy="40" r="${r}" class="arc" stroke-dasharray="${(n / 5) * c} ${c}" transform="rotate(-90 40 40)"/></svg><b class="num">${n}<small>/5</small></b></div>
-      <div><h2>Your protection</h2><span class="muted">${n === 5 ? "Fully set up. Nicely done." : n >= 3 ? "Good. A few taps make it stronger." : "Just getting started."}</span></div></div>
+    <div class="prot-h"><div class="prot-ring"><svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="${r}" class="track"/><circle cx="40" cy="40" r="${r}" class="arc" stroke-dasharray="${(n / of) * c} ${c}" transform="rotate(-90 40 40)"/></svg><b class="num">${n}<small>/${of}</small></b></div>
+      <div><h2>Your protection</h2><span class="muted">${n === of ? "Fully set up. Nicely done." : n >= 2 ? "Good. A few taps make it stronger." : "Just getting started."}</span></div></div>
     <ul class="prot-list">${checks.map(([ok, done, todo, act]) => ok
       ? `<li class="ok"><i>${I.check}</i><span>${done}</span></li>`
       : `<li><button class="prot-do" ${act}><i></i><span>${todo}</span>${I.arrow}</button></li>`).join("")}</ul>
@@ -794,17 +907,27 @@ function portfolioView(v) {
   return `
     ${frozenBanner(v)}
     <section class="pf-hero">
-      <div class="pf-total">
-        <span class="label">Total balance</span>
-        <div class="pf-big num m" data-count="${totalUsd ?? coinTotal / LAMPORTS}" data-fmt="${totalUsd != null ? "usd" : "coin"}">${fig(totalUsd != null ? money(totalUsd) : sol(coinTotal, na))}</div>
-        <div class="pf-sub">${ch != null ? `<span class="chg ${ch >= 0 ? "pos" : "neg"}">${ch >= 0 ? "▲" : "▼"} ${Math.abs(ch).toFixed(2)}%</span>` : ""}<span class="m">${sol(coinTotal, na)} ${C.unit}${stableTotal ? ` · ${sol(stableTotal, USDC)} USDC` : ""}</span></div>
-        <div class="pf-split" title="${pct}% protected">
-          <div class="pf-bar"><i style="width:${pct}%"></i></div>
-          <div class="pf-legend"><span><i class="lg v"></i><b>${pct}%</b> in your vault</span><span><i class="lg w"></i>${100 - pct}% in your wallet</span></div>
+      <div class="pf-head">
+        <div class="pf-total">
+          <span class="label">Total balance</span>
+          <div class="pf-big num m" data-count="${totalUsd ?? coinTotal / LAMPORTS}" data-fmt="${totalUsd != null ? "usd" : "coin"}">${fig(totalUsd != null ? money(totalUsd) : sol(coinTotal, na))}</div>
+          <div class="pf-sub">${ch != null ? `<span class="chg ${ch >= 0 ? "pos" : "neg"}">${ch >= 0 ? "▲" : "▼"} ${Math.abs(ch).toFixed(2)}%</span>` : ""}<span class="m">${sol(coinTotal, na)} ${C.unit}${stableTotal ? ` · ${sol(stableTotal, USDC)} USDC` : ""}</span></div>
         </div>
         ${actionsRow()}
       </div>
-      <div class="pf-case">${caseCard(v, { total: true })}</div>
+      <div class="duo">
+        ${walletCase(v)}
+        <div class="duo-flow" aria-hidden="false">
+          <button class="flow-b in" data-act="deposit"><span>Protect</span>${I.send}</button>
+          <div class="flow-line" aria-hidden="true"><i></i><i></i><i></i></div>
+          <button class="flow-b out" data-act="withdraw">${I.send}<span>Withdraw<small>waits ${delayWords(v.withdrawDelay)}</small></span></button>
+        </div>
+        <div class="pf-case">${caseCard(v, { total: true })}<button class="cz-open" data-act="card">${I.brush}Customize card</button></div>
+      </div>
+      <div class="pf-split" title="${pct}% protected">
+        <div class="pf-bar"><i style="width:${pct}%"></i></div>
+        <div class="pf-legend"><span><i class="pf-dot v"></i><b>${pct}%</b> protected in your vault</span><span><i class="pf-dot w"></i>${100 - pct}% in your wallet${pct < 50 && coinTotal ? ` · <button class="link" data-act="deposit">protect more</button>` : ""}</span></div>
+      </div>
     </section>
     <div class="pf-grid">
       ${chartHTML(coinTotal, stableUsd)}
@@ -832,7 +955,7 @@ function vaultView(full) {
     <div class="v-top">${assetSwitch(full)}</div>
     ${elsewhere.length ? `<button class="notice warn-n" data-act="asset" data-a="${elsewhere[0].asset}">${I.clock}<span>${elsewhere.length === 1 ? `${sol(elsewhere[0].amount, A(elsewhere[0].asset))} ${A(elsewhere[0].asset).unit} is waiting to leave` : `${elsewhere.length} withdrawals in other coins are waiting to leave`}. <u>Show</u></span></button>` : ""}
     <section class="v-hero">
-      ${caseCard(v, { link: false })}
+      <div class="v-case">${caseCard(v, { link: false })}<button class="cz-open" data-act="card">${I.brush}Customize card</button></div>
       <div class="v-side">
         ${actionsRow()}
         <div class="v-stats">
@@ -1156,6 +1279,7 @@ function rowsChanges(v, asGuardian) {
 
 function sheet(html, onSubmit) {
   const d = $("#sheet"), f = $("#sheet-form");
+  f.onclick = f.oninput = null;
   f.innerHTML = html + `<div class="acts"><button class="btn" value="cancel" formnovalidate>Close</button><button class="btn primary" value="ok">Confirm</button></div>`;
   f.onsubmit = async (e) => { if (e.submitter?.value !== "ok") return; e.preventDefault(); if ((await onSubmit(new FormData(f))) !== false) d.close(); };
   d.showModal(); f.querySelector("input,select")?.focus();
@@ -1216,17 +1340,27 @@ const actions = {
   "view-start": () => startView($("#view-addr")?.value),
   copy: async (el) => { try { await navigator.clipboard.writeText(el.dataset.v); toast("Link copied"); } catch (_) { toast("Copy failed: press and hold the link", "err"); } },
   privacy: () => { S.hide = !S.hide; try { localStorage.setItem("ecrin-hide", S.hide ? "1" : "0"); } catch (_) {} render(); if ($("#sheet").open) { $("#sheet").close(); accountMenu(); } },
-  theme: () => {
+  theme: (el) => {
     const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-    document.documentElement.dataset.theme = t;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "dark" ? "#0c0d0f" : "#f6f6f3");
-    try { localStorage.setItem("ecrin-theme", t); } catch (_) {}
-    render();
+    const apply = () => {
+      document.documentElement.dataset.theme = t;
+      document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "dark" ? "#0c0d0f" : "#f6f6f3");
+      try { localStorage.setItem("ecrin-theme", t); } catch (_) {}
+      render();
+      if ($("#sheet").open) { $("#sheet").close(); accountMenu(); }
+    };
+    const r = el?.getBoundingClientRect?.();
+    if (!document.startViewTransition || !r || matchMedia("(prefers-reduced-motion: reduce)").matches) return apply();
+    const x = r.left + r.width / 2, y = r.top + r.height / 2, R = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    document.startViewTransition(apply).ready.then(() => document.documentElement.animate({ clipPath: [`circle(0 at ${x}px ${y}px)`, `circle(${R}px at ${x}px ${y}px)`] }, { duration: 650, easing: "cubic-bezier(.3, .8, .2, 1)", pseudoElement: "::view-transition-new(root)" })).catch(() => {});
   },
   range: (el) => { S.range = el.dataset.d; render(); loadSeries(S.range); },
   net: (el) => { $("#sheet").close(); switchNet(el.dataset.n); },
   netmenu: () => netMenu(),
+  card: () => { if ($("#sheet").open) $("#sheet").close(); cardStudio(); },
   lang: () => setLang(LANG === "fr" ? "en" : "fr"),
+  "set-lang": (el) => { if (el.dataset.v !== (LANG === "fr" ? "fr" : "en")) setLang(el.dataset.v); },
+  "set-theme": (el) => { if (el.dataset.v !== (document.documentElement.dataset.theme === "dark" ? "dark" : "light")) actions.theme(el); },
   // Switching coin inside a deposit, withdraw or send sheet reopens it for the new coin.
   asset: (el) => { S.asset = el.dataset.a; S.shown = null; render(); if ($("#sheet").open && S.sheetAct) { $("#sheet").close(); actions[S.sheetAct](); } },
   pick: (el) => { S.pick = el.dataset.k; render(); },

@@ -2,11 +2,11 @@
 // attributes are swapped for their French version, either word for word (EXACT) or by pattern (RULES, for text
 // with numbers, coins, dates and durations). Anything not listed stays in English, so a missing line is never
 // an empty one. The language is the FR / EN choice (localStorage "ecrin-lang", shared with the landing page),
-// else the device's language.
+// else English.
 
 export const LANG = (() => {
   try { const s = localStorage.getItem("ecrin-lang"); if (s === "fr" || s === "en") return s; } catch (_) {}
-  return /^fr\b/i.test(navigator.language || "") ? "fr" : "en";
+  return "en"; // English unless you picked French (FR button, the French landing page, or the account menu)
 })();
 /** Locale for numbers and dates (undefined = the device's own, as before). */
 export const LOCALE = LANG === "fr" ? "fr-CA" : undefined;
@@ -151,6 +151,19 @@ const EXACT = {
   "You cancelled it in your wallet.": "Vous l'avez annulé dans votre portefeuille.", "Your wallet doesn't have enough SOL for this (and the fee).": "Votre portefeuille n'a pas assez de SOL pour ça (et les frais).",
   "Your wallet doesn't have enough test coins for this (and the gas).": "Votre portefeuille n'a pas assez de jetons de test pour ça (et les frais).", "This wallet already has a vault.": "Ce portefeuille a déjà un coffre.",
   "The destination refused the transfer.": "La destination a refusé le transfert.", "That call was refused.": "Cet appel a été refusé.",
+  // wallet ⇄ vault hero, card studio
+  "Spendable now": "Disponible maintenant", "Instant": "Instantané", "One signature moves it": "Une signature suffit à le déplacer", "Protect": "Protéger",
+  "protected in your vault": "protégé dans votre coffre", "protect more": "en protéger davantage", "Customize card": "Personnaliser la carte", "Customize your card": "Personnaliser votre carte",
+  "Your card": "Votre carte", "Surprise me": "Surprenez-moi", "Reset": "Réinitialiser", "Look": "Allure", "Pattern": "Motif", "Details": "Détails", "Effects": "Effets", "Save card": "Enregistrer la carte", "Card saved": "Carte enregistrée",
+  "Material": "Matière", "Accent": "Accent", "Engraving": "Gravure", "Depth": "Profondeur", "Name on the card": "Nom sur la carte", "Emblem": "Emblème", "Numbers": "Chiffres", "Corners": "Coins",
+  "Obsidian": "Obsidienne", "Midnight": "Minuit", "Carbon": "Carbone", "Titanium": "Titane", "Champagne": "Champagne", "Rose gold": "Or rose", "Ceramic": "Céramique", "Paper": "Papier", "Emerald": "Émeraude", "Bordeaux": "Bordeaux", "Deep sea": "Grands fonds", "Lava": "Lave", "Sunset": "Coucher de soleil", "Glass": "Verre", "Aurora": "Aurore", "Holographic": "Holographique",
+  "Guilloché": "Guilloché", "Waves": "Vagues", "Contours": "Courbes", "Sunburst": "Soleil", "Grid": "Grille", "Monogram": "Monogramme", "Dots": "Points", "Plain": "Uni", "Network": "Réseau", "None": "Aucun",
+  "Display": "Affiche", "Sans": "Sans", "Serif": "Serif", "Mono": "Mono", "Sharp": "Vifs", "Soft": "Doux", "Round": "Ronds",
+  "Holographic foil": "Feuille holographique", "a rainbow sheen that moves": "un reflet arc-en-ciel qui bouge", "Shine sweep": "Éclat", "a slow glint across the card": "un reflet lent qui traverse la carte",
+  "Pointer light": "Lumière du pointeur", "the card catches your cursor": "la carte capte votre curseur", "3D tilt": "Inclinaison 3D", "leans toward the pointer": "penche vers le pointeur",
+  "Grain": "Grain", "a fine, printed texture": "une fine texture imprimée", "Accent edge": "Bordure d'accent", "a thin line in your accent": "un mince trait de votre couleur",
+  "Hide the balance": "Masquer le solde", "on the card only": "sur la carte seulement", "Saved on this device, for this wallet. Only you see it.": "Enregistré sur cet appareil, pour ce portefeuille. Vous seul le voyez.",
+  "English": "English", "Français": "Français",
 };
 
 const RULES = [
@@ -175,7 +188,7 @@ const RULES = [
   [/^Guardian (\S+…\S+)$/, "Gardien $1"], [/^Trust (.+…\S+)$/, "Faire confiance à $1"], [/^Stop trusting (.+…\S+)$/, "Ne plus faire confiance à $1"],
   [/^Vault of (.+)$/, "Coffre de $1"],
   [/^(.+) is waiting to leave\.$/, "$1 attend de sortir."], [/^(\d+) withdrawals in other coins are waiting to leave\.$/, "$1 retraits dans d'autres jetons attendent de sortir."],
-  [/^(.+) protected · (.+) in wallet$/, "$1 protégé · $2 dans le portefeuille"], [/^Sent to (.+)$/, "Envoyé à $1"], [/^(\d+)% in your wallet$/, "$1 % dans votre portefeuille"],
+  [/^(.+) protected · (.+) in wallet$/, "$1 protégé · $2 dans le portefeuille"], [/^Sent to (.+)$/, "Envoyé à $1"], [/^(\d+)% in your wallet$/, "$1 % dans votre portefeuille"], [/^(\d+)% in your wallet ·$/, "$1 % dans votre portefeuille ·"], [/^waits (.+)$/, (m) => `attend ${dur(m[1])}`],
   [/^Nothing (\w+ )?is waiting to leave\. Every withdrawal shows up here with a countdown, and you can cancel it until it runs\.$/, "Rien n'attend de sortir. Chaque retrait apparaît ici avec un compte à rebours, et vous pouvez l'annuler jusqu'à son exécution."],
   [/^, including the (\d+) withdrawals? already waiting, and sends to trusted addresses stop too\.$/, (m) => `, y compris ${m[1] === "1" ? "le retrait déjà en attente" : `les ${m[1]} retraits déjà en attente`}, et les envois aux adresses de confiance s'arrêtent aussi.`],
   [/^Your wallet has (.+) on (\w+)\. Get free test (\w+) at$/, "Votre portefeuille a $1 sur $2. Obtenez des $3 de test gratuits sur"],
