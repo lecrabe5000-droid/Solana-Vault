@@ -470,6 +470,7 @@ const I = {
   sun: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>`,
   moon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>`,
   snow: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5v19M3.8 7.2l16.4 9.6M3.8 16.8l16.4-9.6"/><path d="M9.5 4l2.5 2 2.5-2M9.5 20l2.5-2 2.5 2M3.2 10.6l3.1-.6-.9-3M20.8 13.4l-3.1.6.9 3M3.2 13.4l3.1.6-.9 3M20.8 10.6l-3.1-.6.9-3"/></svg>`,
+  mail: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="M4 7l8 6 8-6"/></svg>`,
   check: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`,
   ext: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/></svg>`,
 };
@@ -537,6 +538,9 @@ function ring(pct) {
 }
 
 // Animates the big balance from the last shown value to the new one.
+/** A big figure with its cents dimmed: "$4,366" bright, ".73" quiet (works for "4 366,73 $" too). */
+const fig = (str) => esc(str).replace(/([.,]\d+)(\D*)$/, '<span class="dec">$1</span>$2');
+
 function countUp() {
   const el = document.querySelector("[data-count]");
   if (!el) return;
@@ -544,8 +548,15 @@ function countUp() {
   S.shown = to;
   if (from === to || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const t0 = performance.now(), fmt = el.dataset.fmt === "usd" ? money : (n) => sol(n * LAMPORTS, A("native"));
-  const step = (t) => { const k = Math.min(1, (t - t0) / 900), e = 1 - Math.pow(1 - k, 3); el.textContent = fmt(from + (to - from) * e); if (k < 1) requestAnimationFrame(step); };
+  const step = (t) => { const k = Math.min(1, (t - t0) / 900), e = 1 - Math.pow(1 - k, 3); el.innerHTML = fig(fmt(from + (to - from) * e)); if (k < 1) requestAnimationFrame(step); };
   requestAnimationFrame(step);
+}
+
+/** A round mark made from the address, so each wallet is recognisable at a glance. */
+function avatar(addr) {
+  let h = 0; for (const c of String(addr)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const a = h % 360, b = (a + 70 + (h >> 9) % 80) % 360;
+  return `<span class="ava" style="background:conic-gradient(from ${h % 360}deg, hsl(${a} 80% 60%), hsl(${b} 85% 55%), hsl(${a} 80% 60%))" aria-hidden="true"></span>`;
 }
 
 // ------------------------------------------------------------------ shell
@@ -563,6 +574,22 @@ function themeBtn() {
 
 function netSwitch() {
   return `<button class="netbtn" data-act="netmenu" aria-label="Network: ${C.name} ${C.net}. Change network" aria-haspopup="dialog">${coin(S.net)}<span>${C.name}</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button>`;
+}
+
+/** Account menu: the address, and the settings that used to crowd the top bar. */
+function accountMenu() {
+  const w = S.wallet.toBase58(), dark = document.documentElement.dataset.theme === "dark";
+  const row = (act, icon, title, value = "", cls = "") => `<button type="button" class="am-row${cls}" data-act="${act}"><span class="am-ico">${icon}</span><span class="am-t">${title}</span><span class="am-v">${value}</span></button>`;
+  sheet(`<div class="am-head">${avatar(w)}<div><b>${short(w)}</b><span>${C.name} ${C.net}${S.readOnly ? " · view mode" : ""}</span></div><button type="button" class="btn sm" data-act="copy" data-v="${esc(w)}">Copy</button></div>
+    <div class="am-list">
+      ${row("privacy", S.hide ? I.eyeOff : I.eye, "Hide balances", S.hide ? "On" : "Off")}
+      ${row("lang", `<b class="am-lang">${LANG === "fr" ? "FR" : "EN"}</b>`, "Language", LANG === "fr" ? "Français" : "English")}
+      ${row("theme", dark ? I.moon : I.sun, "Appearance", dark ? "Dark" : "Light")}
+      <a class="am-row" href="${explorer("address", w)}" target="_blank" rel="noopener"><span class="am-ico">${I.ext}</span><span class="am-t">View wallet on the explorer</span><span class="am-v"></span></a>
+      ${isPhone() && !standalone() ? row("install", logo, "Add to home screen") : ""}
+      ${row("disconnect", I.power, S.readOnly ? "Exit view mode" : "Disconnect", "", " danger")}
+    </div>`, () => true);
+  $("#sheet-form").querySelector('button[value="ok"]').hidden = true;
 }
 
 /** Network picker: Solana, then the Ethereum-style networks, each saying what it holds or that it's coming. */
@@ -586,8 +613,8 @@ function shell(content, { nav = true } = {}) {
       ${on ? `<nav class="pillnav" aria-label="Sections"><i class="pill-ind" aria-hidden="true"></i>${items("pill-i")}</nav>` : ""}
       <div class="tb-right">
         ${netSwitch()}
-        ${w ? `<button class="acct-chip" data-act="disconnect" title="${esc(w.toBase58())} · click to disconnect"><i class="live"></i><span>${short(w)}</span></button>` : ""}
-        ${privacyBtn()}<button class="theme lang-btn" data-act="lang" aria-label="${LANG === "fr" ? "Read in English" : "Lire en français"}" lang="${LANG === "fr" ? "en" : "fr"}">${LANG === "fr" ? "EN" : "FR"}</button>${themeBtn()}
+        ${w ? `<span class="tb-desk">${privacyBtn()}</span><button class="acct-chip" data-act="account" aria-haspopup="dialog" title="${esc(w.toBase58())}">${avatar(w.toBase58())}<span>${short(w)}</span></button>`
+          : `<button class="theme lang-btn" data-act="lang" aria-label="${LANG === "fr" ? "Read in English" : "Lire en français"}" lang="${LANG === "fr" ? "en" : "fr"}">${LANG === "fr" ? "EN" : "FR"}</button>${themeBtn()}`}
       </div>
     </header>
     <main class="main">
@@ -637,7 +664,7 @@ function renderView() {
     return;
   }
   if (S.tab === "guardian") { app.innerHTML = shell(guardianView()); return; }
-  if (S.vault === undefined) { app.innerHTML = shell(`<section class="glass hello"><div class="spinner"></div><p>Reading your vault from ${C.name} ${C.net}…</p></section>`); return; }
+  if (S.vault === undefined) { app.innerHTML = shell(`<div class="skel" aria-label="Reading your vault from ${C.name} ${C.net}…"><i class="sk sk-l"></i><i class="sk sk-xl"></i><i class="sk sk-m"></i><div class="sk-row"><i class="sk sk-case"></i><i class="sk sk-card"></i></div></div>`); return; }
   if (S.vault === null) { app.innerHTML = shell(createView(), { nav: false }); return; }
   const v = S.vault;
   app.innerHTML = shell((S.tab === "portfolio" ? installCard() : "") + (S.readOnly ? `<div class="viewbar">${I.eye}<span><b>View mode</b> · signing opens your wallet app</span><button class="link" data-act="disconnect">Exit</button></div>` : "") + (S.tab === "vault" ? vaultView(v) : S.tab === "activity" ? activityView() : portfolioView(v)));
@@ -715,26 +742,36 @@ function protectedTotals(v) {
   return { stable, usd: vals.some((x) => x == null) ? null : vals.reduce((x, y) => x + y, 0), parts: list.filter(([a, n]) => n > 0 || a.id === "native").map(([a, n]) => `${sol(n, a)} ${a.unit}`).join(" · ") };
 }
 
-function walletCard() {
-  const rows = assets().map((a) => [a, a.id === "native" ? S.walletSol || 0 : S.walletTok[a.id] || 0]);
-  const [na, nw] = rows[0];
-  return `<div class="wcard">
-    <div class="case-top"><span class="case-k">${I.wallet}Wallet</span><span class="case-lvl">Spendable · instant</span></div>
-    <div class="case-bal"><span class="num m">${sol(nw, na)}</span><small>${na.unit}</small></div>
-    <span class="case-usd m">${[usd(nw, na), ...rows.slice(1).map(([a, n]) => `${sol(n, a)} ${a.unit}`)].filter(Boolean).join(" · ")}</span>
-  </div>`;
-}
-
-/** One row per coin: what's protected, what's in the wallet, and anything leaving. Tapping one opens it in the vault. */
+/** Every coin: what's protected, what's in the wallet (as a split bar), its value, and anything leaving. */
 function assetsCard(v) {
-  if (assets().length < 2) return "";
   return `<section class="glass assets"><div class="sec-h"><h2>Assets</h2><span class="muted">same rules for every coin</span></div>
     ${assets().map((a) => {
       const inV = a.id === "native" ? v.balance : v.tokens?.[a.id]?.balance || 0, inW = a.id === "native" ? S.walletSol || 0 : S.walletTok[a.id] || 0;
-      const leaving = allWithdrawals(v).filter((w) => w.asset === a.id).length, value = usd(inV + inW, a);
-      return `<button class="as-row" data-act="open-asset" data-a="${a.id}">${assetCoin(a.id)}<span class="as-t"><b>${a.unit}</b><span>${sol(inV, a)} protected · ${sol(inW, a)} in wallet</span></span>
-        <span class="as-r">${value ? `<b class="m">${value}</b>` : ""}${leaving ? `<span class="as-leave">${I.clock}${leaving} leaving</span>` : ""}</span>${I.arrow}</button>`;
+      const leaving = allWithdrawals(v).filter((w) => w.asset === a.id).length, value = usd(inV + inW, a), pct = inV + inW ? Math.round((inV / (inV + inW)) * 100) : 0;
+      return `<button class="as-row" data-act="open-asset" data-a="${a.id}">${assetCoin(a.id)}
+        <span class="as-t"><b>${a.unit}</b><span class="as-split"><i class="as-bar"><i style="width:${pct}%"></i></i><span><span class="m">${sol(inV, a)}</span> protected · <span class="m">${sol(inW, a)}</span> in wallet</span></span></span>
+        <span class="as-r">${value ? `<b class="m">${value}</b>` : `<b class="m">${sol(inV + inW, a)}</b>`}${leaving ? `<span class="as-leave">${I.clock}${leaving} leaving</span>` : `<span class="as-amt m">${sol(inV + inW, a)} ${a.unit}</span>`}</span>${I.arrow}</button>`;
     }).join("")}</section>`;
+}
+
+/** How well this vault is set up: five checks, each with the one tap that fixes it. */
+function protectionCard(v) {
+  const pushed = (() => { try { return Object.keys(localStorage).some((k) => (k.startsWith("ecrin-alerts-") || k.startsWith("ecrin-push-")) && k.endsWith(S.wallet.toBase58()) && localStorage.getItem(k) === "1") || !!localStorage.getItem(alertsKey() + "-mail"); } catch (_) { return false; } })();
+  const checks = [
+    [v.withdrawDelay >= 72 * HOUR, "Withdrawals wait at least 3 days", "Make withdrawals wait longer", `data-act="rule" data-k="withdraw"`],
+    [!!v.guardian, "A guardian for emergencies", "Add a guardian", `data-act="rule" data-k="guardian"`],
+    [pushed || alertsOn(), "Alerts are on", "Turn on alerts", `data-act="goto-alerts"`],
+    [v.trusted.length > 0, "A trusted address for instant payments", "Add a trusted address", `data-act="trust"`],
+    [!!v.dailyLimit, "A daily limit", "Set a daily limit", `data-act="rule" data-k="limit"`],
+  ];
+  const n = checks.filter(([ok]) => ok).length, r = 34, c = 2 * Math.PI * r;
+  return `<section class="glass prot">
+    <div class="prot-h"><div class="prot-ring"><svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="${r}" class="track"/><circle cx="40" cy="40" r="${r}" class="arc" stroke-dasharray="${(n / 5) * c} ${c}" transform="rotate(-90 40 40)"/></svg><b class="num">${n}<small>/5</small></b></div>
+      <div><h2>Your protection</h2><span class="muted">${n === 5 ? "Fully set up. Nicely done." : n >= 3 ? "Good. A few taps make it stronger." : "Just getting started."}</span></div></div>
+    <ul class="prot-list">${checks.map(([ok, done, todo, act]) => ok
+      ? `<li class="ok"><i>${I.check}</i><span>${done}</span></li>`
+      : `<li><button class="prot-do" ${act}><i></i><span>${todo}</span>${I.arrow}</button></li>`).join("")}</ul>
+  </section>`;
 }
 
 /** SOL | USDC switch for the vault tab, with a dot on any coin that has something waiting to leave. */
@@ -750,24 +787,28 @@ function portfolioView(v) {
   const na = A("native"), list = assets();
   const coinTotal = v.balance + (S.walletSol || 0);
   const stableTotal = list.filter((a) => a.stable).reduce((sum, a) => sum + (v.tokens?.[a.id]?.balance || 0) + (S.walletTok[a.id] || 0), 0);
-  const stableUsd = stableTotal / USDC.base;
-  const protUsd = protectedTotals(v).usd;
+  const stableUsd = stableTotal / USDC.base, protUsd = protectedTotals(v).usd;
   const totalUsd = S.price ? (coinTotal / LAMPORTS) * S.price.usd + stableUsd : null;
   const pct = totalUsd ? Math.round((protUsd / totalUsd) * 100) : coinTotal ? Math.round((v.balance / coinTotal) * 100) : 0, ch = S.price?.change;
   const recent = readLog().slice(0, 4);
   return `
     ${frozenBanner(v)}
-    <section class="home-top">
-      <div>
+    <section class="pf-hero">
+      <div class="pf-total">
         <span class="label">Total balance</span>
-        <div class="big num m" data-count="${totalUsd ?? coinTotal / LAMPORTS}" data-fmt="${totalUsd != null ? "usd" : "coin"}">${totalUsd != null ? money(totalUsd) : sol(coinTotal, na)}</div>
-        <div class="sub">${ch != null ? `<span class="pill ${ch >= 0 ? "pos" : "neg"}">${C.unit} ${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}% today</span>` : ""}<span class="m">${sol(coinTotal, na)} ${C.unit}${stableTotal ? ` · ${sol(stableTotal, USDC)} USDC` : ""}</span><span class="dotsep"></span><span><b class="acc">${pct}%</b> protected</span></div>
+        <div class="pf-big num m" data-count="${totalUsd ?? coinTotal / LAMPORTS}" data-fmt="${totalUsd != null ? "usd" : "coin"}">${fig(totalUsd != null ? money(totalUsd) : sol(coinTotal, na))}</div>
+        <div class="pf-sub">${ch != null ? `<span class="chg ${ch >= 0 ? "pos" : "neg"}">${ch >= 0 ? "▲" : "▼"} ${Math.abs(ch).toFixed(2)}%</span>` : ""}<span class="m">${sol(coinTotal, na)} ${C.unit}${stableTotal ? ` · ${sol(stableTotal, USDC)} USDC` : ""}</span></div>
+        <div class="pf-split" title="${pct}% protected">
+          <div class="pf-bar"><i style="width:${pct}%"></i></div>
+          <div class="pf-legend"><span><i class="lg v"></i><b>${pct}%</b> in your vault</span><span><i class="lg w"></i>${100 - pct}% in your wallet</span></div>
+        </div>
+        ${actionsRow()}
       </div>
-      ${actionsRow()}
+      <div class="pf-case">${caseCard(v, { total: true })}</div>
     </section>
-    <div class="home-grid">
-      <div class="stack">${caseCard(v, { total: true })}${walletCard()}</div>
+    <div class="pf-grid">
       ${chartHTML(coinTotal, stableUsd)}
+      ${protectionCard(v)}
     </div>
     ${assetsCard(v)}
     <section class="glass">
@@ -788,31 +829,37 @@ function vaultView(full) {
   const elsewhere = allWithdrawals(full).filter((w) => w.asset !== a.id);
   return `
     ${frozenBanner(full)}
-    ${assetSwitch(full)}
+    <div class="v-top">${assetSwitch(full)}</div>
     ${elsewhere.length ? `<button class="notice warn-n" data-act="asset" data-a="${elsewhere[0].asset}">${I.clock}<span>${elsewhere.length === 1 ? `${sol(elsewhere[0].amount, A(elsewhere[0].asset))} ${A(elsewhere[0].asset).unit} is waiting to leave` : `${elsewhere.length} withdrawals in other coins are waiting to leave`}. <u>Show</u></span></button>` : ""}
-    <section class="vault-top">
+    <section class="v-hero">
       ${caseCard(v, { link: false })}
-      <div class="vault-side">
+      <div class="v-side">
         ${actionsRow()}
-        <div class="vs-facts">
-          <div><span class="label">Available</span><b class="num m">${sol(v.available, a)}</b><small>${a.unit}</small></div>
-          <div><span class="label">Leaving</span><b class="num m">${sol(queued, a)}</b><small>${a.unit}</small></div>
+        <div class="v-stats">
+          <div><span class="label">Available</span><b class="num m">${fig(sol(v.available, a))}</b><small>${a.unit}</small></div>
+          <div><span class="label">Leaving</span><b class="num m">${fig(sol(queued, a))}</b><small>${a.unit}</small></div>
+          <div><span class="label">Daily limit</span><b class="num">${v.dailyLimit ? fig(sol(v.dailyLimit, a)) : "None"}</b><small>${v.dailyLimit ? a.unit : ""}</small></div>
         </div>
-        <div class="chips">${v.guardian ? `<span class="chip">${I.people}Guardian ${short(v.guardian)}</span>` : `<span class="chip">${I.people}No guardian</span>`}<a class="chip" href="${explorer("address", (a.id === "native" ? v.address : full.tokens?.[a.id]?.holds || v.address).toBase58())}" target="_blank" rel="noopener">${I.ext}View on-chain</a></div>
+        <div class="chips">${v.guardian ? `<span class="chip">${I.people}Guardian ${label(v.guardian)}</span>` : `<button class="chip" data-act="rule" data-k="guardian">${I.people}No guardian · add one</button>`}<a class="chip" href="${explorer("address", (a.id === "native" ? v.address : full.tokens?.[a.id]?.holds || v.address).toBase58())}" target="_blank" rel="noopener">${I.ext}View on-chain</a></div>
       </div>
     </section>
     <div class="cols">
       <div class="col">
         <section class="glass"><div class="sec-h"><h2>Waiting to leave</h2><span class="muted">cancel any time</span></div><div class="rows">${rowsWithdrawals(v, false)}</div></section>
         ${changes ? `<section class="glass"><div class="sec-h"><h2>Rule changes waiting</h2><span class="muted">looser rules wait ${delayWords(v.ruleDelay)}</span></div><div class="rows">${changes}</div></section>` : ""}
+        ${trustedCard(v)}
       </div>
       <div class="col">
         ${policyCard(v)}
         ${alertsCard()}
-        <section class="glass"><div class="sec-h"><h2>Trusted addresses</h2><button class="btn sm" data-act="trust">Add</button></div>
-          ${v.trusted.length ? `<div class="trusted">${v.trusted.map((k) => `<span class="addr-row"><a class="addr" href="${explorer("address", k.toBase58())}" target="_blank" rel="noopener"><i class="live"></i>${label(k)}${I.ext}</a><button class="link" data-act="name" data-a="${k.toBase58()}">${nameOf(k) ? "Rename" : "Name it"}</button></span>`).join("")}</div>` : `<div class="empty">None yet. Money sent to a trusted address arrives instantly, so adding one takes time. Trusted addresses apply to every coin.</div>`}</section>
       </div>
     </div>`;
+}
+
+function trustedCard(v) {
+  return `<section class="glass"><div class="sec-h"><h2>Trusted addresses</h2><button class="btn sm" data-act="trust">Add</button></div>
+    ${v.trusted.length ? `<div class="tr-list">${v.trusted.map((k) => `<div class="tr-row">${avatar(k.toBase58())}<span class="tr-t"><b>${esc(nameOf(k) || "Unnamed")}</b><span class="m">${short(k)}</span></span><button class="link" data-act="name" data-a="${k.toBase58()}">${nameOf(k) ? "Rename" : "Name it"}</button><a class="tr-ext" href="${explorer("address", k.toBase58())}" target="_blank" rel="noopener" aria-label="View on the explorer">${I.ext}</a></div>`).join("")}</div>`
+      : `<div class="empty">None yet. Money sent to a trusted address arrives instantly, so adding one takes time. Trusted addresses apply to every coin.</div>`}</section>`;
 }
 
 // ------------------------------------------------------------------ protection policy
@@ -838,12 +885,11 @@ function policyCard(v) {
   const rows = Object.entries(RULES).map(([k, r]) => {
     const waiting = pendingFor(v, r.kind);
     const name = k === "limit" && assets().length > 1 ? `${r.title} · ${A().unit}` : r.title;
-    return `<div class="pol-row">
+    return `<button class="pol-row" data-act="rule" data-k="${k}">
       <span class="pol-ico">${I[r.icon]}</span>
-      <div class="pol-txt"><span class="pol-name">${name}</span><span class="pol-help">${r.help.split(". ")[0].replace(/\.$/, "")}.</span>
-        ${waiting.map((c) => `<span class="pol-wait">${I.clock}${esc(changeWords(c.change, c.asset))} · <span class="count" data-ready="${c.readyAt}">${dur(c.readyAt - now())}</span></span>`).join("")}</div>
-      <div class="pol-val"><b class="num${k === "guardian" && v.guardian ? " addr-v" : ""}">${esc(r.value(v))}</b><button class="pol-btn" data-act="rule" data-k="${k}">Adjust</button></div>
-    </div>`;
+      <span class="pol-txt"><span class="pol-name">${name}</span>${waiting.map((c) => `<span class="pol-wait">${I.clock}${esc(changeWords(c.change, c.asset))} · <span class="count" data-ready="${c.readyAt}">${dur(c.readyAt - now())}</span></span>`).join("")}</span>
+      <span class="pol-val${k === "guardian" && v.guardian ? " addr-v" : ""}">${esc(r.value(v))}</span>${I.arrow}
+    </button>`;
   }).join("");
   return `<section class="glass policy"><div class="sec-h"><div><h2>Protection policy</h2><span class="pol-sub">${levelName(v)} · tightening is instant, loosening waits ${delayWords(v.ruleDelay)}</span></div></div>${rows}</section>`;
 }
@@ -929,23 +975,21 @@ const alertsKey = () => `ecrin-alerts-${S.net}-${S.wallet ? S.wallet.toBase58() 
 const alertsOn = () => { try { return localStorage.getItem(alertsKey()) === "1"; } catch (_) { return false; } };
 
 function alertsCard() {
-  const on = alertsOn(), waiting = S.alertCode;
+  const tg = alertsOn(), waiting = S.alertCode;
   let mailed = null; try { mailed = localStorage.getItem(alertsKey() + "-mail"); } catch (_) {}
-  return `<section class="glass alerts${on ? " on" : ""}">
-    <div class="sec-h"><h2>Alerts</h2>${on ? `<span class="pill-on"><i class="live"></i>On</span>` : ""}</div>
-    <div class="al-row"><span class="al-ico">${I.bell}</span><p>${on
-      ? "Telegram messages you within a minute of any withdrawal, deposit or rule change on this vault. Send <b>/stop</b> to the bot to turn them off."
-      : "A delay only protects you if you notice. Get a Telegram message or an email within a minute of anything happening to this vault."}</p></div>
-    ${on ? `<button class="btn sm" data-act="alerts">Add another chat</button>`
-      : `<button class="btn primary wide" data-act="alerts" ${waiting ? "disabled" : ""}>${waiting ? "Waiting for Telegram… press Start there" : "Get alerts on Telegram"}</button>`}
-    ${pushCard()}
-    <div class="al-mail">
-      <span class="label">Or by email</span>
-      ${mailed ? `<p class="al-sent">${I.bell}<span>We sent a confirmation link to <b>${esc(mailed)}</b>. Alerts start once you click it.</span></p>` : ""}
-      <form class="lookup" data-mailform><input name="email" type="email" class="input" placeholder="you@example.com" autocomplete="email" required/><button class="btn" ${S.mailBusy ? "disabled" : ""}>${S.mailBusy ? "Sending…" : "Email me"}</button></form>
+  const canPush = pushPossible() && !(S.readOnly && !standalone()), pushed = pushOn();
+  const tile = (icon, name, state, on, btn) => `<div class="al-tile${on ? " on" : ""}"><span class="al-ti">${icon}</span><span class="al-tt"><b>${name}</b><span>${state}</span></span>${btn}</div>`;
+  return `<section class="glass alerts" id="alerts">
+    <div class="sec-h"><div><h2>Alerts</h2><span class="pol-sub">A delay only protects you if you notice.</span></div>${tg || mailed || pushed ? `<span class="pill-on"><i class="live"></i>On</span>` : ""}</div>
+    <div class="al-tiles">
+      ${tile(TG_ICON, "Telegram", tg ? "Messages within a minute" : waiting ? "Press Start in Telegram…" : "Off", tg, `<button class="btn sm${tg ? "" : " primary"}" data-act="alerts" ${waiting ? "disabled" : ""}>${tg ? "Add chat" : waiting ? "Waiting…" : "Turn on"}</button>`)}
+      ${tile(I.mail, "Email", mailed ? `Sent to ${esc(mailed)}` : "Off", !!mailed, `<button class="btn sm" data-act="mail">${mailed ? "Change" : "Turn on"}</button>`)}
+      ${canPush ? tile(I.bell, "This device", pushed ? "Notifications on" : "Off", pushed, pushed ? `<button class="btn sm" data-act="push-off">Turn off</button>` : `<button class="btn sm" data-act="push" ${S.pushBusy ? "disabled" : ""}>${S.pushBusy ? "…" : "Turn on"}</button>`)
+        : isIOS() && !standalone() ? tile(I.bell, "This device", "Add Ecrin to your home screen first", false, `<button class="btn sm" data-act="install">How</button>`) : ""}
     </div>
   </section>`;
 }
+const TG_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 4.5L3 11.4l5.6 2 2.1 6.6 3.2-3.9 5 3.6z"/><path d="M8.6 13.4l9.6-6.6-7.5 8.3"/></svg>`;
 
 async function startAlerts() {
   const body = { net: S.net, owner: S.wallet.toBase58(), vault: S.net === "sol" ? S.vault.address.toBase58() : undefined, lang: LANG };
@@ -970,12 +1014,6 @@ async function startAlerts() {
 const pushKey = () => `ecrin-push-${S.net}-${S.wallet ? S.wallet.toBase58() : ""}`;
 const pushOn = () => { try { return localStorage.getItem(pushKey()) === "1"; } catch (_) { return false; } };
 const pushPossible = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
-function pushCard() {
-  if (S.readOnly && !standalone()) return "";
-  if (!pushPossible()) return isIOS() && !standalone() ? `<div class="al-push"><span class="label">On this phone</span><p class="hint">To get notifications on iPhone, add Ecrin to your home screen first, then open it from there.</p></div>` : "";
-  if (pushOn()) return `<div class="al-push"><span class="label">On this device</span><p class="al-sent">${I.bell}<span>Notifications are on for this device.</span> <button class="link" data-act="push-off">Turn off</button></p></div>`;
-  return `<div class="al-push"><span class="label">On this device</span><button class="btn wide" data-act="push" ${S.pushBusy ? "disabled" : ""}>${I.bell}<span>${S.pushBusy ? "Turning on…" : "Notify this device"}</span></button></div>`;
-}
 const b64uToBytes = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), (c) => c.charCodeAt(0));
 async function startPush() {
   S.pushBusy = true; render();
@@ -1069,7 +1107,7 @@ function rowsWithdrawals(v, asGuardian) {
       ${status}
       <div class="muted small center">${ready ? "Unlocked" : "Unlocks"} ${when(opens)}${locked && left <= 0 ? " · held by your lock" : ""}</div>
       ${guard}</div>`;
-  }).join("") || `<div class="empty">Nothing ${a.id === "native" ? "" : a.unit + " "}waiting to leave. Every withdrawal shows up here with a countdown, and you can cancel it until it runs.</div>`;
+  }).join("") || (asGuardian ? `<div class="empty">Nothing ${a.id === "native" ? "" : a.unit + " "}waiting to leave.</div>` : `<div class="sealed"><span class="sealed-ico">${I.shield}</span><b>Sealed</b><span>Nothing ${a.id === "native" ? "" : a.unit + " "}is waiting to leave. Every withdrawal shows up here with a countdown, and you can cancel it until it runs.</span></div>`);
 }
 
 function guardianView() {
@@ -1158,7 +1196,8 @@ function watchLookalike(input) {
 
 const actions = {
   connect: (el) => connect(providers()[Number(el.dataset.i)][1]),
-  disconnect: () => { if (confirm(tr("Disconnect your wallet?"))) disconnect(); },
+  disconnect: () => { $("#sheet").open && $("#sheet").close(); if (confirm(tr("Disconnect your wallet?"))) disconnect(); },
+  account: () => accountMenu(),
   tab: (el) => {
     if (S.tab === el.dataset.t) return;
     S.tab = el.dataset.t; S.shown = null;
@@ -1167,6 +1206,8 @@ const actions = {
     if (S.tab === "guardian" && S.watchOwner) refresh();
   },
   alerts: () => startAlerts(),
+  mail: () => { sheet(`<div class="rule-h"><span class="pol-ico">${I.mail}</span><div><h3>Email alerts</h3><span class="muted small">Double opt-in: we send a link first</span></div></div><label class="field">Email<input name="email" type="email" required placeholder="you@example.com" autocomplete="email"/></label><p class="note">Every alert email has an unsubscribe link. Nothing else is ever sent.</p>`, (fd) => { startEmail(String(fd.get("email") || "").trim()); return true; }); },
+  "goto-alerts": () => { S.tab = "vault"; render(); setTimeout(() => document.getElementById("alerts")?.scrollIntoView({ behavior: "smooth", block: "center" }), 50); },
   push: () => startPush(),
   "push-off": () => stopPush(),
   wc: () => { $("#sheet").close(); connectWC(); },
@@ -1174,7 +1215,7 @@ const actions = {
   "install-off": () => { try { localStorage.setItem("ecrin-install-off", "1"); } catch (_) {} render(); },
   "view-start": () => startView($("#view-addr")?.value),
   copy: async (el) => { try { await navigator.clipboard.writeText(el.dataset.v); toast("Link copied"); } catch (_) { toast("Copy failed: press and hold the link", "err"); } },
-  privacy: () => { S.hide = !S.hide; try { localStorage.setItem("ecrin-hide", S.hide ? "1" : "0"); } catch (_) {} render(); },
+  privacy: () => { S.hide = !S.hide; try { localStorage.setItem("ecrin-hide", S.hide ? "1" : "0"); } catch (_) {} render(); if ($("#sheet").open) { $("#sheet").close(); accountMenu(); } },
   theme: () => {
     const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
     document.documentElement.dataset.theme = t;
