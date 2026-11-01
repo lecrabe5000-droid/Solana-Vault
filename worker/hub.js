@@ -143,7 +143,7 @@ export class AlertHub extends DurableObject {
       if (url.pathname === "/telegram" && request.method === "POST") return tg ? await this.telegram(request) : json({ ok: false }, 503);
       if (url.pathname === "/email" && request.method === "POST") return mail ? await this.subscribeEmail(await request.json()) : json({ error: "Email alerts aren't switched on yet." }, 503);
       if (url.pathname === "/confirm") return this.confirmEmail(url.searchParams.get("t") || "");
-      if (url.pathname === "/unsub") return this.unsubscribe(url.searchParams.get("t") || "", request.method);
+      if (url.pathname === "/unsub") return await this.unsubscribe(url.searchParams.get("t") || "", request);
       if (url.pathname === "/tick") { await this.tick(); return json({ ok: true }); }
       if (url.pathname === "/waitlist" && request.method === "POST") return mail ? await this.joinWaitlist(await request.json()) : json({ error: "The waitlist isn't open yet." }, 503);
       if (url.pathname === "/wconfirm") return this.confirmWaitlist(url.searchParams.get("t") || "");
@@ -229,12 +229,21 @@ export class AlertHub extends DurableObject {
     return page("Email alerts are on", `We'll email <b>${esc(row.email)}</b> within a minute of any withdrawal, deposit or rule change on vault <b>${esc(short(row.owner))}</b>. Every email has an unsubscribe link.`);
   }
 
-  unsubscribe(t, method) {
+  /** Opening the link only asks; nothing stops until the person presses the button (a POST). Mail scanners open
+   *  every link in a message, and alerts that stop on their own would defeat the point of Ecrin.
+   *  Mail apps' one-click unsubscribe (List-Unsubscribe-Post) is a POST too, and works directly. */
+  async unsubscribe(t, request) {
+    const who = this.sql.exec("SELECT email, lang FROM emails WHERE token = ?", t).toArray()[0];
+    const fr = who?.lang === "fr";
+    if (request.method !== "POST") {
+      if (!who) return page(fr ? "Déjà désabonné" : "Already unsubscribed", "Ecrin doesn't email this address anymore.");
+      return page(fr ? "Arrêter les alertes?" : "Stop email alerts?", `${fr ? `Ecrin n'écrira plus à <b>${esc(who.email)}</b>. Les retraits qui se préparent dans votre coffre ne vous seront plus signalés par courriel.` : `Ecrin will stop emailing <b>${esc(who.email)}</b>. Withdrawals getting ready in your vault won't reach you by email anymore.`}
+        <form method="post" style="margin-top:20px"><button style="height:44px;padding:0 22px;border:0;border-radius:999px;background:#101114;color:#fff;font:600 15px inherit;cursor:pointer">${fr ? "Me désabonner" : "Unsubscribe"}</button></form>`);
+    }
     // One link stops every alert to that address: emails cover a wallet on all its networks, so stop them all.
-    const who = this.sql.exec("SELECT email FROM emails WHERE token = ?", t).toArray()[0]?.email;
-    const gone = who ? this.sql.exec("DELETE FROM emails WHERE email = ? RETURNING email", who).toArray().length : 0;
-    if (method === "POST") return json({ ok: true });
-    return page(gone ? "You're unsubscribed" : "Already unsubscribed", "Ecrin won't email you anymore. You can turn alerts back on from your vault any time.");
+    const gone = who ? this.sql.exec("DELETE FROM emails WHERE email = ? RETURNING email", who.email).toArray().length : 0;
+    if (!(request.headers.get("content-type") || "").includes("form") || (await request.clone().text()).includes("List-Unsubscribe")) return json({ ok: true });
+    return page(gone ? (fr ? "Vous êtes désabonné" : "You're unsubscribed") : fr ? "Déjà désabonné" : "Already unsubscribed", fr ? "Ecrin ne vous écrira plus. Vous pouvez réactiver les alertes depuis votre coffre en tout temps." : "Ecrin won't email you anymore. You can turn alerts back on from your vault any time.");
   }
 
   // --- phone and browser notifications (Web Push). The signing keys are made here on first use and never leave.

@@ -200,4 +200,28 @@ describe("EcrinVault", () => {
     await expect(r.sendToSelf(eth(0.5))).to.be.revertedWithCustomError(vault, "TransferFailed");
     expect((await vault.getVault(await r.getAddress())).balance).to.equal(eth(1));
   });
+
+  describe("audit 1", () => {
+    it("a lock reaches ten years at most, at creation and as a change", async () => {
+      const { vault, guardian } = await loadFixture(deploy);
+      const now = BigInt(await time.latest()), TEN = 10n * 365n * BigInt(DAY);
+      await expect(vault.createVault(Locked, guardian.address, now + TEN + 100n)).to.be.revertedWithCustomError(vault, "InvalidValue");
+      await vault.createVault(Strong, guardian.address, 0, { value: eth(1) });
+      await expect(vault.proposeChange(ch(K.SetLockedUntil, (1n << 64n) - 1n))).to.be.revertedWithCustomError(vault, "InvalidValue");
+      await expect(vault.proposeChange(ch(K.SetLockedUntil, now + TEN))).to.emit(vault, "ChangeApplied");
+    });
+
+    it("a withdrawal over the daily limit is refused up front, so it can't sit there forever", async () => {
+      const { vault, casino } = await loadFixture(deploy);
+      await vault.createVault(Strong, ZERO, 0, { value: eth(10) });
+      await vault.proposeChange(ch(K.SetDailyLimit, eth(3)));
+      await expect(vault.requestWithdrawal(casino.address, eth(3) + 1n)).to.be.revertedWithCustomError(vault, "DailyLimit");
+      await expect(vault.requestWithdrawal(casino.address, eth(3))).to.emit(vault, "WithdrawalQueued");
+    });
+
+    it("you can't be your own guardian", async () => {
+      const { vault, owner } = await loadFixture(deploy);
+      await expect(vault.createVault(Strong, owner.address, 0)).to.be.revertedWithCustomError(vault, "InvalidValue");
+    });
+  });
 });

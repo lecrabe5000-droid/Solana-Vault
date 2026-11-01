@@ -18,6 +18,8 @@ contract EcrinVault {
     uint256 public constant MAX_TRUSTED = 8;
     uint256 public constant MAX_PENDING_WITHDRAWALS = 4;
     uint256 public constant MAX_PENDING_CHANGES = 4;
+    /// Furthest a lock can reach: ten years. Past that it is a typo, or a key thief trying to freeze the money for good.
+    uint64 public constant MAX_LOCK = 10 * 365 * DAY;
 
     enum Kind { SetWithdrawDelay, SetRuleDelay, SetDailyLimit, SetLockedUntil, SetGuardian, AddTrusted, RemoveTrusted }
     enum Preset { Gentle, Strong, Locked }
@@ -116,7 +118,7 @@ contract EcrinVault {
             (v.withdrawDelay, v.ruleDelay) = (72 * HOUR, 7 * DAY);
             v.guardian = guardian;
             if (preset == Preset.Locked) {
-                if (guardian == address(0) || lockUntil <= block.timestamp) revert InvalidValue();
+                if (guardian == address(0) || lockUntil <= block.timestamp || lockUntil > block.timestamp + MAX_LOCK) revert InvalidValue();
                 v.lockedUntil = lockUntil;
             } else if (lockUntil != 0) revert InvalidValue();
         }
@@ -148,6 +150,8 @@ contract EcrinVault {
         if (amount == 0) revert ZeroAmount();
         if (dest == address(0)) revert InvalidValue();
         if (amount > available(msg.sender)) revert InsufficientFunds();
+        // More than a day's limit could never run (each run counts against the day), so it would sit there forever.
+        if (v.dailyLimit != 0 && amount > v.dailyLimit) revert DailyLimit();
         if (v.withdrawals.length >= MAX_PENDING_WITHDRAWALS) revert TooManyPending();
         uint64 readyAt = _max(uint64(block.timestamp) + v.withdrawDelay, v.lockedUntil);
         id = _nextId(v);
@@ -268,6 +272,7 @@ contract EcrinVault {
         if (amount == 0) revert ZeroAmount();
         if (dest == address(0)) revert InvalidValue();
         if (amount > availableToken(msg.sender, token)) revert InsufficientFunds();
+        if (t.dailyLimit != 0 && amount > t.dailyLimit) revert DailyLimit();
         if (t.withdrawals.length >= MAX_PENDING_WITHDRAWALS) revert TooManyPending();
         uint64 readyAt = _max(uint64(block.timestamp) + v.withdrawDelay, v.lockedUntil);
         id = _nextId(v);
@@ -441,7 +446,7 @@ contract EcrinVault {
 
     function _checkChange(Vault storage v, address owner, Change calldata c) private view {
         if (c.kind == Kind.SetWithdrawDelay || c.kind == Kind.SetRuleDelay) _delay(c.value);
-        else if (c.kind == Kind.SetLockedUntil) { if (c.value > type(uint64).max) revert InvalidValue(); }
+        else if (c.kind == Kind.SetLockedUntil) { if (c.value > block.timestamp + MAX_LOCK) revert InvalidValue(); }
         else if (c.kind == Kind.SetGuardian) { if (c.addr == owner) revert InvalidValue(); }
         else if (c.kind == Kind.AddTrusted) {
             if (c.addr == address(0) || _isTrusted(v, c.addr)) revert InvalidValue();

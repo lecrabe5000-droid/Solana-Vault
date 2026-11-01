@@ -152,3 +152,28 @@ fn a_stolen_key_cannot_name_its_own_guardian_and_rush_a_withdrawal() {
     assert_eq!(v.guardian_release(&thief, id, T0), Err(VaultError::NoGuardian));
     assert_eq!(v.balance, 1_000);
 }
+
+#[test]
+fn audit_you_cannot_be_your_own_guardian() {
+    assert_eq!(Vault::new(OWNER, Policy::strong(Some(OWNER))), Err(VaultError::InvalidValue));
+    assert_eq!(Vault::new(OWNER, Policy::locked(T0 + DAY, OWNER)), Err(VaultError::InvalidValue));
+    let mut v = vault(Policy::strong(None));
+    assert_eq!(v.propose_change(&OWNER, Change::SetGuardian(Some(OWNER)), T0), Err(VaultError::InvalidValue));
+}
+
+#[test]
+fn audit_a_lock_reaches_ten_years_at_most() {
+    let mut v = vault(Policy::strong(Some(GUARDIAN)));
+    assert_eq!(v.propose_change(&OWNER, Change::SetLockedUntil(Some(T0 + MAX_LOCK + 1)), T0), Err(VaultError::InvalidValue));
+    assert_eq!(v.propose_change(&OWNER, Change::SetLockedUntil(Some(i64::MAX)), T0), Err(VaultError::InvalidValue));
+    assert_eq!(v.propose_change(&OWNER, Change::SetLockedUntil(Some(T0 + MAX_LOCK)), T0), Ok(Outcome::ChangeApplied));
+}
+
+#[test]
+fn audit_a_withdrawal_over_the_daily_limit_is_refused_up_front() {
+    let mut v = vault(Policy::strong(None));
+    v.propose_change(&OWNER, Change::SetDailyLimit(Some(300)), T0).unwrap();
+    assert_eq!(v.request_withdrawal(&OWNER, CASINO, 301, T0), Err(VaultError::DailyLimit));
+    let Outcome::WithdrawalQueued { id, ready_at } = v.request_withdrawal(&OWNER, CASINO, 300, T0).unwrap() else { panic!() };
+    assert_eq!(v.execute_withdrawal(id, ready_at), Ok(Outcome::Send { amount: 300, dest: CASINO }));
+}

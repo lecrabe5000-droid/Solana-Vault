@@ -1438,6 +1438,12 @@ const actions = {
   deposit: () => sheet(`<h3>${titled("Deposit")}</h3>${assetSwitch(S.vault, "wallet")}${amount(A().stable ? "100" : "1")}<p class="note">Wallet: ${sol(walletHas())} ${A().unit}. Deposits go straight in.${A().stable && isEvm() ? " Your wallet asks you to allow the amount first, then to deposit it." : ""}${A().stable && !walletHas() ? ` Get free test USDC at <a href="https://faucet.circle.com" target="_blank" rel="noopener">faucet.circle.com</a>.` : ""}</p>`, (fd) => send(`Deposited ${sol(lamportsOf(fd))} ${A().unit}`, () => assetOps().deposit(lamportsOf(fd)))),
   withdraw: () => sheet(`<h3>${titled("Withdraw")}</h3>${assetSwitch(S.vault)}${amount()}<label class="field">To address<input name="dest" placeholder="Where it should go" required spellcheck="false" autocomplete="off" value="${S.wallet.toBase58()}"/></label><p class="note">Available: ${sol(assetView(S.vault).available)} ${A().unit}. This waits ${delayWords(S.vault.withdrawDelay)}${S.vault.lockedUntil && now() < S.vault.lockedUntil ? " and until the lock ends" : ""}. You can cancel any time.</p>`, async (fd) => {
     const dest = keyOf(fd.get("dest")); if (!dest) { toast("That address isn't valid", "err"); return false; }
+    // The vault itself (or the contract) can't be a destination: the money would be stuck with no owner.
+    const own = [S.vault.address, S.vault.tokens?.[S.asset]?.holds, C.contract].filter(Boolean).map(String);
+    if (own.some((a) => a.toLowerCase() === dest.toBase58().toLowerCase())) { toast("That's your vault's own address. Pick the wallet the money should go to.", "err"); return false; }
+    // More than the daily limit could never run, since each run counts against one day.
+    const lim = assetView(S.vault).dailyLimit;
+    if (lim && lamportsOf(fd) > lim) { toast(`That's over your daily limit of ${sol(lim)} ${A().unit}. Split it into withdrawals of ${sol(lim)} or less.`, "err"); return false; }
     return send(`Asked to withdraw ${sol(lamportsOf(fd))} ${A().unit}`, () => assetOps().requestWithdrawal(dest, lamportsOf(fd)));
   }) || watchLookalike($('#sheet-form input[name="dest"]')),
   send: () => {

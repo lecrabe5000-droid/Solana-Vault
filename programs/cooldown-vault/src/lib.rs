@@ -26,6 +26,9 @@ pub mod cooldown_vault {
             Preset::Strong { guardian } => rules::Policy::strong(guardian.map(|g| g.to_bytes())),
             Preset::Locked { until, guardian } => rules::Policy::locked(until, guardian.to_bytes()),
         };
+        if let Some(until) = policy.locked_until {
+            require!(until <= Clock::get()?.unix_timestamp.saturating_add(rules::MAX_LOCK), VaultErr::InvalidValue);
+        }
         let v = rules::Vault::new(ctx.accounts.owner.key().to_bytes(), policy).map_err(err)?;
         ctx.accounts.vault.store(&v, ctx.bumps.vault);
         Ok(())
@@ -57,6 +60,8 @@ pub mod cooldown_vault {
     }
 
     pub fn request_withdrawal(ctx: Context<OwnerOnly>, dest: Pubkey, amount: u64) -> Result<()> {
+        // Paying the vault itself would take the amount off its books while the lamports stay: lost for good.
+        require_keys_neq!(dest, ctx.accounts.vault.key(), VaultErr::WrongDestination);
         let now = Clock::get()?.unix_timestamp;
         let mut v = ctx.accounts.vault.load();
         let out = v.request_withdrawal(&ctx.accounts.owner.key().to_bytes(), dest.to_bytes(), amount, now).map_err(err)?;
@@ -173,6 +178,7 @@ pub mod cooldown_vault {
     }
 
     pub fn request_token_withdrawal(ctx: Context<TokenOwnerOnly>, dest: Pubkey, amount: u64) -> Result<()> {
+        require_keys_neq!(dest, ctx.accounts.token_vault.key(), VaultErr::WrongDestination);
         let now = Clock::get()?.unix_timestamp;
         let a = &ctx.accounts;
         let mut v = a.token_vault.load(&a.vault, a.vault_tokens.amount);

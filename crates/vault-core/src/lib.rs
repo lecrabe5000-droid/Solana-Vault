@@ -18,6 +18,8 @@ pub const DAY: i64 = 86_400;
 pub const MAX_TRUSTED: usize = 8;
 pub const MAX_PENDING_WITHDRAWALS: usize = 4;
 pub const MAX_PENDING_CHANGES: usize = 4;
+/// Furthest a lock can reach: ten years. Past that it is a typo, or a key thief trying to freeze the money for good.
+pub const MAX_LOCK: i64 = 10 * 365 * DAY;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Policy {
@@ -122,6 +124,8 @@ pub struct Vault {
 impl Vault {
     pub fn new(owner: Address, policy: Policy) -> Result<Self, VaultError> {
         validate(&policy)?;
+        // Being your own guardian would let one key release any withdrawal at once, so every delay would be void.
+        if policy.guardian == Some(owner) { return Err(VaultError::InvalidValue); }
         Ok(Vault { owner, balance: 0, policy, trusted: Vec::new(), withdrawals: Vec::new(), changes: Vec::new(), next_id: 1, spent_day: 0, spent_today: 0 })
     }
 
@@ -190,6 +194,8 @@ impl Vault {
         self.owner_only(signer)?;
         if amount == 0 { return Err(VaultError::ZeroAmount); }
         if amount > self.available() { return Err(VaultError::InsufficientFunds); }
+        // More than a day's limit could never run (each run counts against the day), so it would sit there forever.
+        if self.policy.daily_limit.is_some_and(|l| amount > l) { return Err(VaultError::DailyLimit); }
         if self.withdrawals.len() >= MAX_PENDING_WITHDRAWALS { return Err(VaultError::TooManyPending); }
         let after_delay = now.checked_add(self.policy.withdraw_delay).ok_or(VaultError::Overflow)?;
         let ready_at = after_delay.max(self.policy.locked_until.unwrap_or(i64::MIN));
@@ -234,7 +240,7 @@ impl Vault {
     /// (and never before the lock ends).
     pub fn propose_change(&mut self, signer: &Address, change: Change, now: i64) -> Result<Outcome, VaultError> {
         self.owner_only(signer)?;
-        self.check_change(&change)?;
+        self.check_change(&change, now)?;
         if is_stricter(&self.policy, &change) {
             self.apply(change)?;
             return Ok(Outcome::ChangeApplied);
@@ -276,13 +282,16 @@ impl Vault {
         Ok(Outcome::ChangeApplied)
     }
 
-    fn check_change(&self, change: &Change) -> Result<(), VaultError> {
+    fn check_change(&self, change: &Change, now: i64) -> Result<(), VaultError> {
         let mut p = self.policy;
         match *change {
             Change::SetWithdrawDelay(s) => p.withdraw_delay = s,
             Change::SetRuleDelay(s) => p.rule_delay = s,
             Change::SetDailyLimit(l) => p.daily_limit = l,
-            Change::SetLockedUntil(t) => p.locked_until = t,
+            Change::SetLockedUntil(t) => {
+                if t.is_some_and(|t| t > now.saturating_add(MAX_LOCK)) { return Err(VaultError::InvalidValue); }
+                p.locked_until = t
+            }
             Change::SetGuardian(g) => { if g == Some(self.owner) { return Err(VaultError::InvalidValue); } p.guardian = g }
             Change::AddTrusted(a) => {
                 if self.trusted.contains(&a) { return Err(VaultError::InvalidValue); }

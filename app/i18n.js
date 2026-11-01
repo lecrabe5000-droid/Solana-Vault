@@ -164,6 +164,7 @@ const EXACT = {
   "Grain": "Grain", "a fine, printed texture": "une fine texture imprimée", "Accent edge": "Bordure d'accent", "a thin line in your accent": "un mince trait de votre couleur",
   "Hide the balance": "Masquer le solde", "on the card only": "sur la carte seulement", "Saved on this device, for this wallet. Only you see it.": "Enregistré sur cet appareil, pour ce portefeuille. Vous seul le voyez.",
   "English": "English", "Français": "Français",
+  "That's your vault's own address. Pick the wallet the money should go to.": "C'est l'adresse de votre propre coffre. Choisissez le portefeuille où l'argent doit aller.",
   "Covers this address on every network.": "Couvre cette adresse sur tous les réseaux.", "Covers this wallet.": "Couvre ce portefeuille.",
   "Covers this address on every network and your other wallet on this device.": "Couvre cette adresse sur tous les réseaux et votre autre portefeuille sur cet appareil.",
   "Covers this wallet and your other wallet on this device.": "Couvre ce portefeuille et votre autre portefeuille sur cet appareil.",
@@ -221,6 +222,7 @@ const RULES = [
   [/^(.+) · click to disconnect$/, "$1 · cliquer pour déconnecter"], [/^View on the explorer$/, "Voir dans l'explorateur"], [/^Where it should go$/, "Où ça doit aller"],
   [/^Your bank off-ramp, your rent…$/, "Votre sortie vers la banque, votre loyer…"], [/^Something is waiting to leave$/, "Quelque chose attend de sortir"],
   [/^([\d\s.,]+) in wallet$/, "$1 dans le portefeuille"], [/^([\d\s.,]+) in vault$/, "$1 dans le coffre"],
+  [/^That's over your daily limit of (.+?) (\w+)\. Split it into withdrawals of (.+?) or less\.$/, "C'est plus que votre limite quotidienne de $1 $2. Divisez-le en retraits de $3 ou moins."],
 ];
 
 /** Translates one string (trimmed); returns it unchanged when there is no French for it. */
