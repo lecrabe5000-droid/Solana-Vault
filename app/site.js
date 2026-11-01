@@ -192,33 +192,119 @@
 
   if (calm) return;
 
-  // Reveal on scroll, staggered within each group.
-  const groups = [".big-head > *", ".sec-head", ".rail-track > *", ".steps li", ".net", ".assets-mock", ".tier", ".table-card", ".faq details"];
+  const fine = matchMedia("(pointer: fine)").matches;
+  const phone = matchMedia("(max-width: 560px)").matches;
+
+  // Headlines arrive word by word. Words keep their nowrap groups and the inline mark counts as a word.
+  function splitWords(el) {
+    let i = 0;
+    const walk = (node) => {
+      [...node.childNodes].forEach((n) => {
+        if (n.nodeType === 3) {
+          const parts = n.nodeValue.split(/(\s+)/);
+          const frag = document.createDocumentFragment();
+          parts.forEach((p) => {
+            if (!p) return;
+            if (/^\s+$/.test(p)) { frag.appendChild(document.createTextNode(p)); return; }
+            const w = document.createElement("span"); w.className = "w"; w.style.setProperty("--i", i++);
+            const inner = document.createElement("span"); inner.textContent = p; w.appendChild(inner); frag.appendChild(w);
+          });
+          n.replaceWith(frag);
+        } else if (n.nodeType === 1 && n.classList.contains("mk")) { n.classList.add("w-mk"); n.style.setProperty("--i", i++); }
+        else if (n.nodeType === 1) walk(n);
+      });
+    };
+    walk(el); el.classList.add("words");
+  }
+  document.querySelectorAll(".hero-copy h1, .big-head h2").forEach(splitWords);
+
+  // Reveal on scroll, staggered within each group (headlines reveal by word, rails fan in).
+  const groups = [".hero-copy h1", ".big-head h2", ".big-head > :not(h2)", ".sec-head", ".steps li", ".net", ".assets-mock", ".tier", ".table-card", ".faq details", ".shortcuts h3", ".live", ".foot-card", ".compare tbody tr", ".cta-s .hero-cta"];
   const els = [];
-  const phone = matchMedia("(max-width: 560px)").matches, carousel = ".rail-track";
   groups.forEach((sel) => document.querySelectorAll(sel).forEach((el) => {
-    if (phone && el.parentElement.matches(carousel)) return;
+    if (el.closest(".hero-copy") && !el.matches("h1")) return;
     const sibs = [...el.parentElement.children].filter((c) => c.matches(sel));
-    el.style.setProperty("--d", Math.min(sibs.indexOf(el), 6) * 0.07 + "s");
-    el.classList.add("rv"); els.push(el);
+    el.style.setProperty("--d", Math.min(sibs.indexOf(el), 8) * 0.07 + "s");
+    el.classList.add(el.matches("h1, h2") ? "rv-w" : "rv"); els.push(el);
   }));
+  document.querySelectorAll(".rail").forEach((r) => { r.classList.add("rv-rail"); els.push(r); [...r.querySelectorAll(".rail-track > *")].forEach((c, k) => c.style.setProperty("--k", Math.min(k, 6))); });
   if ("IntersectionObserver" in window) {
-    const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { rootMargin: "0px 0px 8% 0px" });
+    const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { rootMargin: "0px 0px -6% 0px" });
     els.forEach((el) => io.observe(el));
   } else els.forEach((el) => el.classList.add("in"));
 
-  // Scroll progress and hero parallax.
-  const bar = document.querySelector(".progress i");
+  // Scroll: progress bar, and the hero card settling back (a slight zoom out) as you leave it.
+  const bar = document.querySelector(".progress i"), heroCard = document.querySelector(".hero-card");
   let ticking = false;
   const onScroll = () => {
     if (ticking) return; ticking = true;
     requestAnimationFrame(() => {
       const y = scrollY, max = root.scrollHeight - innerHeight;
       if (bar) bar.style.setProperty("--p", max > 0 ? (y / max).toFixed(4) : 0);
-      if (y < innerHeight * 1.2) root.style.setProperty("--sy", y.toFixed(0));
+      if (heroCard && y < innerHeight * 1.4) {
+        const k = Math.min(1, y / (innerHeight * 0.9));
+        heroCard.style.setProperty("--hz", (1 - k * 0.06).toFixed(4));
+        heroCard.style.setProperty("--hy", (k * 40).toFixed(1) + "px");
+        heroCard.style.setProperty("--ho", (1 - k * 0.55).toFixed(3));
+      }
       ticking = false;
     });
   };
   addEventListener("scroll", onScroll, { passive: true }); onScroll();
+
+  // The hero follows the pointer: the ribbons drift against it, the card leans a little.
+  if (heroCard && fine) {
+    let raf = 0, tx = 0, ty = 0, cx = 0, cy = 0;
+    const loop = () => {
+      cx += (tx - cx) * 0.08; cy += (ty - cy) * 0.08;
+      heroCard.style.setProperty("--px", cx.toFixed(4)); heroCard.style.setProperty("--py", cy.toFixed(4));
+      raf = Math.abs(tx - cx) + Math.abs(ty - cy) > 0.001 ? requestAnimationFrame(loop) : 0;
+    };
+    heroCard.addEventListener("pointermove", (e) => {
+      const r = heroCard.getBoundingClientRect(); tx = (e.clientX - r.left) / r.width - 0.5; ty = (e.clientY - r.top) / r.height - 0.5;
+      heroCard.style.setProperty("--gx", ((e.clientX - r.left) / r.width * 100).toFixed(1) + "%"); heroCard.style.setProperty("--gy", ((e.clientY - r.top) / r.height * 100).toFixed(1) + "%");
+      if (!raf) raf = requestAnimationFrame(loop);
+    });
+    heroCard.addEventListener("pointerleave", () => { tx = 0; ty = 0; if (!raf) raf = requestAnimationFrame(loop); });
+  }
+
+  // Magnetic buttons: the main calls to action lean toward the pointer.
+  if (fine) document.querySelectorAll(".hero-cta .btn, .nav-cta .btn.blue, .cta-s .btn, .wl-form .btn, .pl-btn").forEach((b) => {
+    b.classList.add("mag");
+    b.addEventListener("pointermove", (e) => { const r = b.getBoundingClientRect(); b.style.setProperty("--mx", ((e.clientX - r.left - r.width / 2) * 0.22).toFixed(1) + "px"); b.style.setProperty("--my", ((e.clientY - r.top - r.height / 2) * 0.3).toFixed(1) + "px"); });
+    b.addEventListener("pointerleave", () => { b.style.setProperty("--mx", "0px"); b.style.setProperty("--my", "0px"); });
+  });
+
+  // A soft light follows the pointer across the cards.
+  if (fine) document.addEventListener("pointermove", (e) => {
+    const c = e.target.closest?.(".tcard, .hcard, .scard, .tier, .stage, .assets-mock, .play");
+    if (!c) return;
+    const r = c.getBoundingClientRect();
+    c.style.setProperty("--lx", e.clientX - r.left + "px"); c.style.setProperty("--ly", e.clientY - r.top + "px");
+  }, { passive: true });
+
+  // Rails can be dragged with the mouse, with a little momentum.
+  if (fine) document.querySelectorAll(".rail-track").forEach((t) => {
+    let down = false, sx = 0, sl = 0, v = 0, last = 0, moved = false;
+    t.addEventListener("pointerdown", (e) => { if (e.pointerType !== "mouse" || e.target.closest("a, button")) return; down = true; moved = false; sx = e.clientX; sl = t.scrollLeft; last = e.clientX; v = 0; t.classList.add("dragging"); });
+    addEventListener("pointermove", (e) => { if (!down) return; const dx = e.clientX - sx; if (Math.abs(dx) > 4) moved = true; t.scrollLeft = sl - dx; v = e.clientX - last; last = e.clientX; });
+    addEventListener("pointerup", () => {
+      if (!down) return; down = false; t.classList.remove("dragging");
+      let vel = -v * 1.6; const glide = () => { if (Math.abs(vel) < 0.5) return; t.scrollLeft += vel; vel *= 0.92; requestAnimationFrame(glide); }; glide();
+    });
+    t.addEventListener("click", (e) => { if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; } }, true);
+  });
+
+  // Numbers count up when they come into view.
+  const countUp = (el) => {
+    const raw = el.textContent.trim(), fr = root.lang === "fr";
+    const num = Number(raw.replace(/[^\d.,]/g, "").replace(fr ? /\s|\./g : /,/g, "").replace(",", "."));
+    if (!Number.isFinite(num) || num === 0) return;
+    const dec = (raw.split(fr ? "," : ".")[1] || "").replace(/\D/g, "").length, loc = fr ? "fr-CA" : "en-US", t0 = performance.now();
+    const step = (t) => { const k = Math.min(1, (t - t0) / 1400), e = 1 - Math.pow(1 - k, 4); el.textContent = (num * e).toLocaleString(loc, { minimumFractionDigits: dec, maximumFractionDigits: dec }); if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  };
+  const liveBox = document.querySelector("[data-stats]");
+  if (liveBox && "MutationObserver" in window) new MutationObserver(() => { if (!liveBox.hidden && !liveBox.dataset.counted) { liveBox.dataset.counted = "1"; liveBox.querySelectorAll("b").forEach(countUp); } }).observe(liveBox, { attributes: true });
 
 })();
