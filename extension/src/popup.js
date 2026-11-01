@@ -15,7 +15,12 @@ const session = { get: (k) => chrome.storage.session.get(k), set: (o) => chrome.
 const short = (a) => (a ? `${String(a).slice(0, 4)}…${String(a).slice(-4)}` : "");
 const now = () => Math.floor(Date.now() / 1000);
 
-const S = { screen: "loading", net: "sol", theme: "dark", autolock: 15, panel: null, prices: {}, bal: null, vault: undefined, busy: false, hide: false };
+const S = { screen: "loading", net: "sol", theme: "dark", autolock: 15, panel: null, prices: {}, bal: null, vault: undefined, busy: false, hide: false, range: "7", series: {}, nums: { face: "display", weight: "500", cents: "dim" } };
+const NUM_FACES = [["display", "Display"], ["sans", "Sans"], ["serif", "Serif"], ["mono", "Mono"]];
+const NUM_WEIGHTS = [["400", "Light"], ["500", "Regular"], ["600", "Bold"]];
+const NUM_CENTS = [["dim", "Dimmed"], ["full", "Full"], ["hide", "Hidden"]];
+/** The numbers' look, applied to the whole wallet through attributes on <html>. */
+function applyNums() { const r = document.documentElement; r.dataset.numFace = S.nums.face; r.dataset.numWeight = S.nums.weight; r.dataset.cents = S.nums.cents; }
 
 // ------------------------------------------------------------------ icons and coins
 
@@ -67,7 +72,8 @@ const A = (a) => (a === "usdc" ? { id: "usdc", unit: "USDC", base: USDC_BASE, de
 const amt = (units, a) => { const x = A(a), v = units / x.base; return v.toLocaleString("en-US", { minimumFractionDigits: x.dec === 2 ? 2 : 0, maximumFractionDigits: x.dec }); };
 const usdOf = (units, a) => (a === "usdc" ? units / USDC_BASE : S.prices[NETS[S.net].cg]?.usd != null ? (units / BASE) * S.prices[NETS[S.net].cg].usd : null);
 const money = (n) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
-const fig = (str) => esc(str).replace(/([.,]\d+)(\D*)$/, '<span class="dec">$1</span>$2');
+// Decimals dimmed; dollar cents also carry "cents" so the Numbers setting can hide them without touching coin amounts.
+const fig = (str) => { const usd = String(str).trim().startsWith("$"); return esc(str).replace(/([.,]\d+)(\D*)$/, `<span class="dec${usd ? " cents" : ""}">$1</span>$2`); };
 const parseAmt = (s, a) => { const v = Number(String(s).replace(/,/g, "")); return Number.isFinite(v) && v > 0 ? Math.round(v * A(a).base) : 0; };
 const mask = (s) => (S.hide ? "••••" : s);
 
@@ -87,7 +93,11 @@ async function eng() {
 }
 
 async function boot() {
-  const st = await local.get(["box", "net", "theme", "autolock", "hide"]);
+  const st = await local.get(["box", "net", "theme", "autolock", "hide", "nums", "range", "dev"]);
+  if (st.nums) S.nums = { ...S.nums, ...st.nums };
+  if (["1", "7", "30", "365"].includes(st.range)) S.range = st.range;
+  S.mock = !!st.dev?.mockPrices;
+  applyNums();
   S.net = NETS[st.net] ? st.net : "sol";
   S.theme = st.theme === "light" ? "light" : "dark";
   S.autolock = st.autolock || 15;
@@ -124,10 +134,31 @@ async function refresh() {
 }
 
 async function loadPrices() {
+  if (S.mock) { S.prices = { solana: { usd: 172.4, usd_24h_change: 2.31 }, ethereum: { usd: 3410, usd_24h_change: -0.84 }, "polygon-ecosystem-token": { usd: 0.42, usd_24h_change: 1.2 } }; if (S.screen === "home") render(); return loadSeries(); }
   try {
     const r = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=solana,ethereum,polygon-ecosystem-token&vs_currencies=usd&include_24hr_change=true");
     if (r.ok) { S.prices = await r.json(); if (S.screen === "home") render(); }
   } catch (_) {}
+  loadSeries();
+}
+
+/** Price history for the chart, one fetch per coin and range, kept for five minutes. */
+async function loadSeries() {
+  const cg = NETS[S.net].cg, k = `${cg}:${S.range}`, hit = S.series[k];
+  if (hit && Date.now() - hit.at < 300_000) return;
+  let pts = null;
+  if (S.mock) {
+    const n = 80, now = Date.now(), span = Number(S.range) * 86400_000; let v = 160, seed = Number(S.range) * 7 + cg.length;
+    const rnd = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+    pts = Array.from({ length: n }, (_, i) => { v *= 1 + (rnd() - 0.47) * 0.035; return [now - span + (span * i) / (n - 1), v]; });
+    pts[n - 1][1] = S.prices[cg]?.usd || v;
+  } else {
+    try {
+      const r = await fetch(`https://api.coingecko.com/api/v3/coins/${cg}/market_chart?vs_currency=usd&days=${S.range}`);
+      if (r.ok) pts = (await r.json()).prices;
+    } catch (_) {}
+  }
+  if (pts?.length > 2) { S.series[k] = { at: Date.now(), pts }; S.drawChart = true; if (S.screen === "home" && !S.scrubbing) render(); }
 }
 
 // ------------------------------------------------------------------ screens
@@ -141,17 +172,47 @@ function render() {
   const f = root.querySelector("[autofocus]"); if (f) f.focus();
   bindHolds(root);
   depth(root);
+  bindChart(root);
+  // The home arrives in a cascade once per unlock.
+  if (S.screen === "home" && !S.entered && S.bal) { S.entered = true; root.querySelector(".home")?.classList.add("enter"); }
   // The total counts up the first time it shows, so the balance arrives rather than appears.
-  const big = root.querySelector(".big:not(.sk)");
-  if (big && !S.counted && !S.hide) { S.counted = true; countUp(big); }
+  const big = root.querySelector(".home .big:not(.sk)");
+  if (big && !S.hide) {
+    const val = Number(big.textContent.replace(/[^\d.]/g, ""));
+    if (!S.counted) { S.counted = true; countUp(big, 0); }
+    else if (S.prevTotal != null && val !== S.prevTotal && !S.scrubbing) countUp(big, S.prevTotal);
+    S.prevTotal = val;
+  }
 }
 
 /** Number roll-up: from 0 to the shown dollar total in 0.9 s, easing out. */
-function countUp(el) {
-  const to = Number(el.textContent.replace(/[^\d.]/g, "")); if (!to) return;
+function countUp(el, from = 0) {
+  const to = Number(el.textContent.replace(/[^\d.]/g, "")); if (!to && !from) return;
   const t0 = performance.now();
-  const step = (t) => { const k = Math.min(1, (t - t0) / 900), e = 1 - Math.pow(1 - k, 4); el.innerHTML = fig(money(to * e)); if (k < 1) requestAnimationFrame(step); };
+  const step = (t) => { const k = Math.min(1, (t - t0) / 900), e = 1 - Math.pow(1 - k, 4); el.innerHTML = fig(money(from + (to - from) * e)); if (k < 1) requestAnimationFrame(step); };
   requestAnimationFrame(step);
+}
+
+/** Moving along the chart shows the value at that moment in the big total, like a trading app. */
+function bindChart(root) {
+  const el = root.querySelector("[data-chart]"); if (!el || !S.chart) return;
+  const svg = el.querySelector("svg"), big = root.querySelector(".big"), chg = root.querySelector("[data-chg]");
+  const pin = el.querySelector(".ch-pin"), tip = el.querySelector(".ch-tip"), x = el.querySelector(".ch-x");
+  const keep = { big: big?.innerHTML, chg: chg?.outerHTML };
+  const fmtT = (ms) => new Date(ms).toLocaleString("en-US", S.range === "1" ? { hour: "numeric", minute: "2-digit" } : { month: "short", day: "numeric", ...(S.range === "365" ? { year: "numeric" } : {}) });
+  const move = (e) => {
+    const r = svg.getBoundingClientRect(), k = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    const { c, xy, W } = S.chart, i = Math.round(k * (c.vals.length - 1)), p = xy[i];
+    S.scrubbing = true; el.classList.add("scrub");
+    x.setAttribute("x1", p[0]); x.setAttribute("x2", p[0]);
+    pin.style.left = `${(p[0] / W) * 100}%`; pin.style.top = `${p[1]}px`;
+    tip.textContent = fmtT(c.times[i]); tip.style.left = `${Math.max(14, Math.min(86, (p[0] / W) * 100))}%`;
+    if (big && !S.hide) big.innerHTML = fig(money(c.vals[i]));
+    const ch = ((c.vals[i] - c.vals[0]) / (c.vals[0] || 1)) * 100;
+    const cur = root.querySelector("[data-chg]"); if (cur) { cur.className = `chg ${ch >= 0 ? "up" : "dn"}`; cur.innerHTML = `${ch >= 0 ? "▲" : "▼"} ${Math.abs(ch).toFixed(2)}%<small>${fmtT(c.times[i])}</small>`; }
+  };
+  const leave = () => { S.scrubbing = false; el.classList.remove("scrub"); if (big && keep.big != null) big.innerHTML = keep.big; const cur = root.querySelector("[data-chg]"); if (cur && keep.chg) cur.outerHTML = keep.chg; };
+  svg.addEventListener("pointermove", move); svg.addEventListener("pointerdown", move); svg.addEventListener("pointerleave", leave);
 }
 
 /** Cards that catch the light: they lean toward the pointer and a sheen follows it. */
@@ -283,7 +344,8 @@ function homeView() {
       <div class="hero-l"><span class="lbl">Total balance</span>
         <button class="eye" data-act="hide" aria-label="${S.hide ? "Show" : "Hide"} balances">${S.hide ? I.eyeOff : I.eye}</button></div>
       <div class="big ${loading ? "sk" : ""}">${loading ? "&nbsp;" : mask(fig(money(all)))}</div>
-      <div class="hero-sub">${ch != null ? `<span class="chg ${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "▲" : "▼"} ${Math.abs(ch).toFixed(2)}%</span>` : ""}<span class="split"><i style="--p:${pct}%"></i></span><span class="pct">${pct}% protected</span></div>
+      <div class="hero-sub">${chip(t, ch)}<span class="split"><i style="--p:${pct}%"></i></span><span class="pct">${pct}% protected</span></div>
+      ${chartView(t)}
     </section>
     <section class="accts">
       <button class="acard chq" data-act="panel" data-p="assets" data-tilt><i class="sheen"></i>
@@ -309,6 +371,52 @@ function homeView() {
   </div>`;
 }
 
+/** The change chip: over the chart's range when there is a chart, else the last 24 hours. */
+function chip(t, ch24) {
+  const c = chartData(t), ch = c ? ((c.vals[c.vals.length - 1] - c.vals[0]) / (c.vals[0] || 1)) * 100 : ch24;
+  if (ch == null || !Number.isFinite(ch)) return "";
+  const lbl = { 1: "24h", 7: "7d", 30: "30d", 365: "1y" }[S.range];
+  return `<span class="chg ${ch >= 0 ? "up" : "dn"}" data-chg>${ch >= 0 ? "▲" : "▼"} ${Math.abs(ch).toFixed(2)}%<small>${c ? lbl : "24h"}</small></span>`;
+}
+
+/** Portfolio value over the range: today's holdings priced along the coin's history (USDC counted at $1).
+ *  With no coin held, it's the coin's own price. */
+function chartData(t) {
+  const N = NETS[S.net], hit = S.series[`${N.cg}:${S.range}`];
+  if (!hit) return null;
+  const coins = (t.b.native + t.vn) / BASE, usd = (t.b.usdc + t.vu) / USDC_BASE;
+  const vals = hit.pts.map(([, p]) => (coins ? coins * p + usd : p));
+  return { times: hit.pts.map(([x]) => x), vals, coinOnly: !coins };
+}
+
+function chartView(t) {
+  const c = chartData(t), W = 328, H = 78;
+  const ranges = `<div class="ranges">${[["1", "1D"], ["7", "1W"], ["30", "1M"], ["365", "1Y"]].map(([d, l]) => `<button data-act="range" data-d="${d}" aria-pressed="${S.range === d}">${l}</button>`).join("")}</div>`;
+  if (!c) return `<div class="chart empty-c"><div class="ch-sk"></div>${ranges}</div>`;
+  const lo = Math.min(...c.vals), hi = Math.max(...c.vals), span = hi - lo || 1;
+  const xy = c.vals.map((v, i) => [(i / (c.vals.length - 1)) * W, 6 + (1 - (v - lo) / span) * (H - 14)]);
+  // A smooth line through the points (Catmull-Rom as cubic Béziers).
+  let d = `M${xy[0][0].toFixed(1)},${xy[0][1].toFixed(1)}`;
+  for (let i = 0; i < xy.length - 1; i++) {
+    const p0 = xy[i - 1] || xy[i], p1 = xy[i], p2 = xy[i + 1], p3 = xy[i + 2] || p2;
+    d += `C${(p1[0] + (p2[0] - p0[0]) / 6).toFixed(1)},${(p1[1] + (p2[1] - p0[1]) / 6).toFixed(1)} ${(p2[0] - (p3[0] - p1[0]) / 6).toFixed(1)},${(p2[1] - (p3[1] - p1[1]) / 6).toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  const up = c.vals[c.vals.length - 1] >= c.vals[0], last = xy[xy.length - 1], draw = S.drawChart ? " draw" : "";
+  S.drawChart = false;
+  S.chart = { c, xy, W };
+  return `<div class="chart ${up ? "up" : "dn"}${draw}" data-chart>
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="${c.coinOnly ? NETS[S.net].unit + " price" : "Portfolio value"}">
+      <defs><linearGradient id="cf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="cf0"/><stop offset="1" class="cf1"/></linearGradient></defs>
+      <path class="ch-area" d="${d}L${W},${H}L0,${H}Z" fill="url(#cf)"/>
+      <path class="ch-line" d="${d}" pathLength="1"/>
+      <line class="ch-x" x1="0" x2="0" y1="0" y2="${H}"/>
+    </svg>
+    <i class="ch-dot" style="left:${((last[0] / W) * 100).toFixed(2)}%;top:${last[1].toFixed(1)}px"></i>
+    <i class="ch-pin"></i><span class="ch-tip"></span>
+    ${ranges}
+  </div>`;
+}
+
 function assetRow(a, chq, sav) {
   const x = A(a), u = usdOf(chq + sav, a);
   return `<button class="arow" data-act="panel" data-p="send" data-a="${a}">${assetCoin(a)}
@@ -327,8 +435,9 @@ function closePanel() { const el = $("#panel"); el.classList.remove("in"); docum
 function renderPanel(enter = false) {
   const el = $("#panel"), P = S.panel;
   if (!P) return;
-  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, nets: netsView, reveal: revealView })[P.p]();
-  el.innerHTML = `<div class="pane">${body}</div>`;
+  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, nets: netsView, reveal: revealView, numbers: numbersView })[P.p]();
+  el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}">${body}</div>`;
+  P.fresh = false;
   if (enter) requestAnimationFrame(() => { el.classList.add("in"); document.body.classList.add("stacked"); });
   bindHolds(el); depth(el);
   const f = el.querySelector("[autofocus]"); if (f && enter) setTimeout(() => f.focus(), 200);
@@ -482,6 +591,7 @@ function settingsView() {
     <div class="sets">
       <div class="srow"><span>${I.clock}Auto-lock</span><span class="seg">${[1, 5, 15, 60].map((m) => `<button data-act="autolock" data-v="${m}" aria-pressed="${S.autolock === m}">${m < 60 ? m + "m" : "1h"}</button>`).join("")}</span></div>
       <div class="srow"><span>${S.theme === "dark" ? I.moon : I.sun}Appearance</span><span class="seg">${["light", "dark"].map((t) => `<button data-act="theme" data-v="${t}" aria-pressed="${S.theme === t}">${t === "light" ? "Light" : "Dark"}</button>`).join("")}</span></div>
+      <button class="srow" data-act="panel" data-p="numbers"><span><b class="nf-ico">1.2</b>Numbers</span><span class="sv">${NUM_FACES.find(([k]) => k === S.nums.face)[1]} ${I.arrow}</span></button>
       <button class="srow" data-act="panel" data-p="nets"><span>${netCoin()}Network</span><span class="sv">${NETS[S.net].name} ${I.arrow}</span></button>
       <button class="srow" data-act="panel" data-p="reveal"><span>${I.eye}Show recovery phrase</span><span class="sv">${I.arrow}</span></button>
       <a class="srow" href="https://ecrinprotocol.app/app" target="_blank"><span>${I.shield}Vault rules and alerts</span><span class="sv">${I.ext}</span></a>
@@ -489,6 +599,15 @@ function settingsView() {
       <button class="srow danger" data-act="forget"><span>Remove wallet from this browser</span><span></span></button>
     </div>
     <p class="fine pad">Ecrin Wallet ${VERSION} · testnet beta · not audited</p>`;
+}
+
+function numbersView() {
+  const t = S.bal ? totals() : null, sample = t ? t.chq + t.sav : 12480.5;
+  const row = (k, title, list) => `<div class="nrow-h">${title}</div><div class="nopts">${list.map(([v, n]) => `<button data-act="num" data-k="${k}" data-v="${v}" aria-pressed="${S.nums[k] === v}"${k === "face" ? ` data-face="${v}"` : ""}>${k === "face" ? `<b>$1,248</b>` : ""}<span>${n}</span></button>`).join("")}</div>`;
+  return `${phead("Numbers")}
+    <div class="nprev"><span class="lbl">Preview</span><div class="big">${fig(money(sample))}</div><div class="nprev-s"><b class="ac-v">${fig("7.4953")}</b><small>SOL</small></div></div>
+    ${row("face", "Typeface", NUM_FACES)}${row("weight", "Weight", NUM_WEIGHTS)}${row("cents", "Cents", NUM_CENTS)}
+    <p class="fine pad">Applies to every number in the wallet.</p>`;
 }
 
 function revealView() {
@@ -553,17 +672,19 @@ const actions = {
     renderPanel();
   },
   paste: async () => { try { S.panel.to = (await navigator.clipboard.readText()).trim(); renderPanel(); } catch (_) { toast("Couldn't read the clipboard", "err"); } },
-  review: async () => { S.panel.fresh = !(await knownDest(S.panel.to.trim())); S.panel.step = "review"; renderPanel(); },
+  review: async () => { S.panel.fresh = !(await knownDest(S.panel.to.trim())); S.panel.step = "review"; S.panel.anim = true; renderPanel(); },
   kind: (el) => { S.panel.kind = el.dataset.k; renderPanel(); },
   "create-vault": () => txRun(async () => (await eng()).createVault(S.panel.kind || "strong")),
   "do-protect": () => { const P = S.panel, units = parseAmt(P.amount, P.asset); P.sent = units; txRun(async () => (await eng()).protect(P.asset, units)); },
   "do-withdraw": () => { const P = S.panel, units = parseAmt(P.amount, P.asset); P.sent = units; txRun(async () => (await eng()).request(P.asset, ENG.address, units)); },
   "cancel-w": async (el) => { try { el.disabled = true; await (await eng()).cancel(el.dataset.a, Number(el.dataset.id)); toast("Cancelled. It stays in savings.", "win"); await refresh(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
   execute: async (el) => { try { el.disabled = true; await (await eng()).execute(el.dataset.a, Number(el.dataset.id), el.dataset.d); toast("Released to chequing", "win"); await refresh(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
-  net: async (el) => { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; closePanel(); await eng(); refresh(); },
+  net: async (el) => { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; S.drawChart = true; closePanel(); await eng(); refresh(); loadSeries(); },
+  range: async (el) => { S.range = el.dataset.d; await local.set({ range: S.range }); S.drawChart = true; render(); loadSeries(); },
+  num: async (el) => { S.nums[el.dataset.k] = el.dataset.v; applyNums(); await local.set({ nums: S.nums }); renderPanel(); render(); },
   autolock: async (el) => { S.autolock = Number(el.dataset.v); await local.set({ autolock: S.autolock }); await touch(); renderPanel(); },
   theme: async (el) => { S.theme = el.dataset.v; document.documentElement.dataset.theme = S.theme; await local.set({ theme: S.theme }); render(); renderPanel(); },
-  lock: async () => { await session.clear(); chrome.runtime.sendMessage({ type: "lock" }).catch(() => {}); ACCT = ENG = null; S.panel = null; S.counted = false; $("#panel").innerHTML = ""; $("#panel").classList.remove("in"); document.body.classList.remove("stacked"); go("unlock"); },
+  lock: async () => { await session.clear(); chrome.runtime.sendMessage({ type: "lock" }).catch(() => {}); ACCT = ENG = null; S.panel = null; S.counted = false; S.entered = false; $("#panel").innerHTML = ""; $("#panel").classList.remove("in"); document.body.classList.remove("stacked"); go("unlock"); },
   forget: () => { if (confirm("Remove this wallet from the browser? You'll need your recovery phrase to use it again. Money stays on the blockchain.")) forget(); },
 };
 

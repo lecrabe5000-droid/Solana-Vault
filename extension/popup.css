@@ -451,3 +451,85 @@ body.stacked #root { transform: scale(.93) translateY(10px); filter: brightness(
 :root[data-theme="light"] .big .dec, :root[data-theme="light"] .rev-amt b .dec { background-image: linear-gradient(180deg, rgba(13, 14, 18, .4), rgba(74, 80, 112, .3)); }
 :root[data-theme] .preset.on { box-shadow: inset 0 0 0 1.5px var(--blue), 0 0 0 4px var(--glow), 0 18px 34px -22px rgba(0, 0, 0, .9); }
 :root[data-theme] .nrow.on { box-shadow: inset 0 0 0 1.5px var(--blue), 0 18px 34px -22px rgba(0, 0, 0, .9); }
+
+/* ===================================================================== chart */
+.chart { position: relative; margin: 14px -2px 0; }
+.chart svg { display: block; width: 100%; height: 78px; overflow: visible; touch-action: none; cursor: crosshair; }
+.ch-line { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.chart.up .ch-line { stroke: var(--pos); filter: drop-shadow(0 4px 10px rgba(39, 194, 138, .45)); }
+.chart.dn .ch-line { stroke: var(--neg); filter: drop-shadow(0 4px 10px rgba(255, 95, 122, .45)); }
+.chart.up .cf0 { stop-color: var(--pos); stop-opacity: .28; } .chart.dn .cf0 { stop-color: var(--neg); stop-opacity: .26; }
+.cf1 { stop-color: var(--bg); stop-opacity: 0; }
+.chart.draw .ch-line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: line 1.1s var(--ease) forwards; }
+.chart.draw .ch-area { opacity: 0; animation: fadein .8s .45s var(--ease) forwards; }
+.chart.draw .ch-dot { opacity: 0; animation: fadein .3s 1s forwards; }
+@keyframes line { to { stroke-dashoffset: 0; } }
+@keyframes fadein { to { opacity: 1; } }
+.ch-dot, .ch-pin { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; pointer-events: none; }
+.up .ch-dot, .up .ch-pin { background: var(--pos); } .dn .ch-dot, .dn .ch-pin { background: var(--neg); }
+.ch-dot::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; background: inherit; opacity: .35; animation: ping 2s var(--ease) infinite; }
+@keyframes ping { 0% { transform: scale(.4); opacity: .5; } 100% { transform: scale(1.6); opacity: 0; } }
+.ch-pin, .ch-tip, .ch-x { opacity: 0; transition: opacity .15s; }
+.ch-pin { box-shadow: 0 0 0 4px var(--bg); }
+.ch-x { stroke: var(--line-2); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.scrub .ch-pin, .scrub .ch-tip, .scrub .ch-x { opacity: 1; } .scrub .ch-dot { opacity: 0; }
+.ch-tip { position: absolute; top: -18px; transform: translateX(-50%); padding: 2px 8px; border-radius: 99px; background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line-2); color: var(--muted); font-size: 10.5px; font-weight: 700; white-space: nowrap; pointer-events: none; }
+.ch-sk { height: 78px; border-radius: 14px; background: linear-gradient(90deg, transparent, var(--line), transparent); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; opacity: .6; }
+.ranges { display: flex; justify-content: center; gap: 4px; margin-top: 8px; }
+.ranges button { height: 26px; padding: 0 12px; border-radius: 99px; color: var(--muted); font-size: 11.5px; font-weight: 700; transition: background .2s, color .2s; }
+.ranges button:hover { color: var(--ink); }
+.ranges button[aria-pressed="true"] { background: var(--panel-2); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-2), inset 0 1px 0 rgba(255, 255, 255, .06); }
+.chg small { margin-left: 5px; opacity: .7; font-weight: 600; }
+.hero { padding-bottom: 12px; }
+
+/* ===================================================================== numbers, your way */
+:root { --num-w: 500; }
+:root[data-num-face="sans"] { --num: "Manrope", system-ui, sans-serif; }
+:root[data-num-face="serif"] { --num: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; }
+:root[data-num-face="mono"] { --num: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; }
+:root[data-num-weight="400"] { --num-w: 400; } :root[data-num-weight="600"] { --num-w: 600; }
+:root[data-num-face="sans"][data-num-weight="600"] { --num-w: 800; } :root[data-num-face="sans"] { --num-w-fix: 1; }
+.big, .ac-v, .amt-in input, .rev-amt b, .vl b, .ar-r b, .mv-bal b, .preset .pd, .cd, .done h2 { font-family: var(--num); font-weight: var(--num-w); }
+:root[data-num-face="serif"] :is(.big, .ac-v, .amt-in input, .rev-amt b, .vl b, .mv-bal b) { letter-spacing: -.02em; }
+:root[data-num-face="mono"] :is(.big, .ac-v, .amt-in input, .rev-amt b, .vl b, .mv-bal b) { letter-spacing: -.06em; }
+:root[data-num-face="sans"] :is(.big, .ac-v, .amt-in input, .rev-amt b, .vl b, .mv-bal b) { letter-spacing: -.035em; }
+:root[data-cents="full"] .dec { opacity: 1; }
+:root[data-cents="full"] .big .dec, :root[data-cents="full"] .rev-amt b .dec { background: inherit; -webkit-background-clip: text; background-clip: text; }
+:root[data-cents="hide"] .dec.cents { display: none; }
+.nf-ico { display: inline-grid; place-items: center; width: 18px; font: 600 10px var(--num); letter-spacing: -.04em; }
+.nprev { display: grid; justify-items: center; gap: 6px; padding: 18px 0 16px; margin-bottom: 8px; border-radius: 22px; background: var(--panel); background-image: linear-gradient(180deg, rgba(255, 255, 255, .045), transparent 60%); box-shadow: inset 0 0 0 1px var(--line); }
+.nprev .big { margin: 0; }
+.nprev-s { display: flex; align-items: baseline; gap: 6px; } .nprev-s small { color: var(--muted); font-weight: 700; font-size: 12px; }
+.nrow-h { margin: 14px 4px 8px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.nopts { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 6px; }
+.nopts button { display: grid; justify-items: center; gap: 4px; padding: 10px 6px; border-radius: 14px; background: var(--panel); box-shadow: inset 0 0 0 1px var(--line); color: var(--muted); font-size: 12px; font-weight: 700; transition: box-shadow .2s, color .2s, transform .2s var(--spring); }
+.nopts button:active { transform: scale(.95); }
+.nopts button b { color: var(--ink); font-size: 17px; letter-spacing: -.03em; }
+.nopts button[data-face="display"] b { font: 500 16px "Unbounded", sans-serif; letter-spacing: -.05em; }
+.nopts button[data-face="sans"] b { font: 700 17px "Manrope", sans-serif; }
+.nopts button[data-face="serif"] b { font: 500 18px "Iowan Old Style", Palatino, Georgia, serif; }
+.nopts button[data-face="mono"] b { font: 600 15px ui-monospace, Menlo, monospace; letter-spacing: -.05em; }
+.nopts button[aria-pressed="true"] { color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--blue), 0 0 0 3px var(--glow); }
+
+/* ===================================================================== motion */
+/* the home arrives in a cascade */
+.home.enter > * { animation: rise .6s var(--ease) both; }
+.home.enter > :nth-child(2) { animation-delay: .04s; } .home.enter > :nth-child(3) { animation-delay: .1s; } .home.enter > :nth-child(4) { animation-delay: .16s; }
+.home.enter > :nth-child(5) { animation-delay: .22s; } .home.enter > :nth-child(6) { animation-delay: .28s; } .home.enter > :nth-child(7) { animation-delay: .34s; }
+.home.enter .acts button { animation: pop .5s var(--spring) both; }
+.home.enter .acts button:nth-child(1) { animation-delay: .2s; } .home.enter .acts button:nth-child(2) { animation-delay: .25s; } .home.enter .acts button:nth-child(3) { animation-delay: .3s; } .home.enter .acts button:nth-child(4) { animation-delay: .35s; }
+.home.enter .arow { animation: rise .5s var(--ease) both; animation-delay: .4s; } .home.enter .arow + .arow { animation-delay: .46s; }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+@keyframes pop { from { opacity: 0; transform: scale(.6); } }
+.home.enter .split i { animation: grow 1s .3s var(--ease) both; }
+@keyframes grow { from { width: 0; } }
+/* screens that slide in bring their content in a beat behind */
+#panel.in .pane.fresh > * { animation: rise .45s var(--ease) both; }
+#panel.in .pane.fresh > :nth-child(2) { animation-delay: .05s; } #panel.in .pane.fresh > :nth-child(3) { animation-delay: .09s; } #panel.in .pane.fresh > :nth-child(4) { animation-delay: .13s; } #panel.in .pane.fresh > :nth-child(5) { animation-delay: .17s; } #panel.in .pane.fresh > :nth-child(n+6) { animation-delay: .21s; }
+.pcts button.on { animation: pop .35s var(--spring); }
+.seg2 button[aria-pressed="true"] .coin { animation: pop .4s var(--spring); }
+.amt-usd { transition: opacity .2s; }
+.done-mark { animation: pop .6s var(--spring) both; }
+.done h2, .done p, .done .link { animation: rise .5s .25s var(--ease) both; }
+.acard.sav .dot.warn, .ac-s .dot.live { animation-duration: 2.4s; }
+.fresh .wrow { animation: rise .4s var(--ease) both; }
