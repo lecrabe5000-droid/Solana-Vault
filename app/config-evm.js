@@ -20,7 +20,7 @@ const NETWORKS = {
     hardhat: "arbitrumSepolia", name: "Arbitrum", net: "Sepolia", chainId: 421614, unit: "ETH", cg: "ethereum",
     rpc: "https://arbitrum-sepolia-rpc.publicnode.com", explorer: "https://sepolia.arbiscan.io",
     usdc: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
-    faucet: "https://www.alchemy.com/faucets/arbitrum-sepolia", faucetName: "the Arbitrum Sepolia faucet",
+    faucet: "https://bridge.arbitrum.io/?destinationChain=arbitrum-sepolia&sourceChain=sepolia", faucetName: "the Arbitrum bridge (move Sepolia ETH over)",
   },
   op: {
     hardhat: "optimismSepolia", name: "Optimism", net: "Sepolia", chainId: 11155420, unit: "ETH", cg: "ethereum",

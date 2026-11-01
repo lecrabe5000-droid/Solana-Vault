@@ -34,6 +34,6 @@ module.exports = {
     baseSepolia: { url: rpc("baseSepolia", "https://sepolia.base.org"), chainId: 84532, accounts },
     arbitrumSepolia: { url: rpc("arbitrumSepolia", "https://sepolia-rollup.arbitrum.io/rpc"), chainId: 421614, accounts },
     optimismSepolia: { url: rpc("optimismSepolia", "https://sepolia.optimism.io"), chainId: 11155420, accounts },
-    polygonAmoy: { url: rpc("polygonAmoy", "https://rpc-amoy.polygon.technology"), chainId: 80002, accounts },
+    polygonAmoy: { url: rpc("polygonAmoy", "https://polygon-amoy-bor-rpc.publicnode.com"), chainId: 80002, accounts },
   },
 };
