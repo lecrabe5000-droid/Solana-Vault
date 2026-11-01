@@ -25,7 +25,13 @@ module.exports = {
   solidity: { version: "0.8.24", settings: { optimizer: { enabled: true, runs: 200 }, evmVersion: "cancun" } },
   // Publishes the source on Etherscan (and its sister explorers, one Etherscan key covers them all) so anyone,
   // wallet scanners included, can read the contract. Sourcify is off: this plugin version still calls its removed v1 API.
-  etherscan: { apiKey: ETHERSCAN_API_KEY || "" },
+  etherscan: {
+    apiKey: ETHERSCAN_API_KEY || "",
+    // Networks this plugin version doesn't list yet; Etherscan's v2 API covers them with the same key.
+    customChains: [
+      { network: "optimismSepolia", chainId: 11155420, urls: { apiURL: "https://api.etherscan.io/v2/api", browserURL: "https://sepolia-optimism.etherscan.io" } },
+    ],
+  },
   sourcify: { enabled: false },
   networks: {
     // `npx hardhat node`: its default gas limit per transaction is above the node's own cap, so set one.

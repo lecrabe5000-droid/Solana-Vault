@@ -10,6 +10,10 @@ async function main() {
   const { EVM_NETS } = await import(path.join(__dirname, "..", "..", "app", "config-evm.js"));
   const cfg = Object.values(EVM_NETS).find((n) => n.hardhat === network.name);
   if (!cfg) throw new Error(`${network.name} isn't one of the networks in app/config-evm.js`);
+  // "all" leaves networks that already have a current contract alone, so vaults people made there keep working.
+  // Picking one network by name redeploys it on purpose (REDEPLOY=1).
+  const text0 = fs.readFileSync(OUT, "utf8"), have = JSON.parse(text0.slice(text0.indexOf("{"), text0.lastIndexOf("}") + 1))[network.name];
+  if (have?.v === 2 && process.env.REDEPLOY !== "1") { console.log(`Already live on ${network.name} at ${have.address}; skipping. Pick ${network.name} by itself to replace it.`); return; }
   const [deployer] = await ethers.getSigners();
   if (!deployer) throw new Error("No deployer key. Set the EVM_DEPLOYER_KEY (or SEPOLIA_DEPLOYER_KEY) secret.");
 

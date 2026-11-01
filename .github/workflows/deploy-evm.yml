@@ -46,7 +46,7 @@ jobs:
           failed=""
           for n in $nets; do
             echo "::group::$n"
-            if npx hardhat run scripts/deploy.js --network "$n"; then
+            if REDEPLOY=$([ "${{ inputs.network }}" = all ] && echo 0 || echo 1) npx hardhat run scripts/deploy.js --network "$n"; then
               echo "$n" >> /tmp/deployed
             else
               echo "::warning::$n was not deployed (see the log above)"; failed="$failed $n"
@@ -70,7 +70,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/deployments-evm.js
-          git diff --cached --quiet || { git commit -m "EVM contracts: $(cat /tmp/deployed 2>/dev/null | tr '\n' ' ')"; git push; }
+          git diff --cached --quiet || { git commit -m "EVM contracts: $(cat /tmp/deployed 2>/dev/null | tr '\n' ' ')"; git pull --rebase origin main && git push; }
       - name: Report networks that failed
         run: |
           if [ -n "$FAILED" ]; then echo "::error::Not deployed:$FAILED. Usually the deployer needs test coins there; the log says which address to fund."; exit 1; fi
