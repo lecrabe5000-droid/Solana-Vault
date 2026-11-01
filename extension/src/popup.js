@@ -234,6 +234,7 @@ function welcome() {
     <div class="onb-acts">
       <button class="btn primary xl" data-act="start-create">Create a new wallet</button>
       <button class="btn ghost xl" data-act="start-import">I have a recovery phrase</button>
+      ${globalThis.ECRIN_DEMO ? `<button class="link center" data-act="demo-quick">Skip setup: open a demo wallet ${I.arrow}</button>` : ""}
     </div>
     <p class="fine">Testnet beta · not audited · test coins only</p>
   </div>`;
@@ -634,6 +635,8 @@ async function rememberDest(to) { const { sent = {} } = await local.get("sent");
 const actions = {
   "start-create": () => go("createPw", { phrase: newPhrase(), revealed: false, wrote: false }),
   "start-import": () => go("importPhrase"),
+  // Web demo only: a ready wallet with pretend money, no setup.
+  "demo-quick": async () => { if (!globalThis.ECRIN_DEMO) return; S.busy = true; render(); await saveWallet(newPhrase(), "demo-wallet-1"); S.busy = false; home(); },
   "to-welcome": () => go("welcome"),
   "to-pw": () => go("createPw"),
   "to-phrase": () => go("createPhrase"),

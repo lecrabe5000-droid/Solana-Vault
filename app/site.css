@@ -600,3 +600,7 @@ td:first-child { color: var(--ink); font-weight: 600; width: 44%; }
 .lede { text-shadow: 0 1px 14px rgba(11, 11, 14, .7); }
 /* the playable card stays solid: the ribbons never show through it */
 .play { background: rgba(14, 15, 20, .94); }
+
+.wl-try { margin-top: 14px; text-align: center; }
+.wl-try .btn { gap: 8px; }
+.wl-try svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
