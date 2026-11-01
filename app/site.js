@@ -14,6 +14,10 @@
     try { localStorage.setItem("ecrin-theme", t); } catch (_) {}
   }));
 
+  // The language you read the site in is the app's language too (i18n.js reads "ecrin-lang").
+  try { if (root.lang === "fr" && !localStorage.getItem("ecrin-lang")) localStorage.setItem("ecrin-lang", "fr"); } catch (_) {}
+  document.querySelectorAll("a[hreflang]").forEach((a) => a.addEventListener("click", () => { try { localStorage.setItem("ecrin-lang", a.hreflang); } catch (_) {} }));
+
   // Phone menu: a full-screen sheet; any link inside closes it.
   const menuBtn = document.querySelector("[data-menu]"), menu = document.querySelector("[data-mmenu]");
   const setMenu = (open) => { menu.hidden = !open; menuBtn.setAttribute("aria-expanded", open); root.classList.toggle("menu-open", open); };

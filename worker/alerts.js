@@ -79,9 +79,13 @@ export function coin(units, decimals) {
   const whole = v / one, frac = ((v % one) * 10000n) / one;
   return frac ? `${whole}.${String(frac).padStart(4, "0").replace(/0+$/, "")}` : String(whole);
 }
-const words = (s) => { s = Number(s); return s % 86400 === 0 ? `${s / 86400} day${s === 86400 ? "" : "s"}` : `${Math.round(s / 3600)} h`; };
-export const when = (t) => new Date(Number(t) * 1000).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC" }) + " UTC";
-const inTime = (t, now) => { const s = Number(t) - now; if (s <= 0) return "now"; const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.ceil((s % 3600) / 60); return d ? `in ${d}d ${h}h` : h ? `in ${h}h ${m}m` : `in ${m} min`; };
+const words = (s, fr) => { s = Number(s); if (s % 86400 === 0) { const d = s / 86400; return fr ? `${d} jour${d === 1 ? "" : "s"}` : `${d} day${d === 1 ? "" : "s"}`; } return `${Math.round(s / 3600)} h`; };
+export const when = (t, fr) => new Date(Number(t) * 1000).toLocaleString(fr ? "fr-CA" : "en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC" }) + " UTC";
+const inTime = (t, now, fr) => {
+  const s = Number(t) - now; if (s <= 0) return fr ? "maintenant" : "now";
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.ceil((s % 3600) / 60);
+  return fr ? (d ? `dans ${d} j ${h} h` : h ? `dans ${h} h ${m} min` : `dans ${m} min`) : (d ? `in ${d}d ${h}h` : h ? `in ${h}h ${m}m` : `in ${m} min`);
+};
 
 // ------------------------------------------------------------------ Solana: decode and diff
 
@@ -225,15 +229,16 @@ export function decodeEvmLog(log, usdc = null) {
 
 // ------------------------------------------------------------------ words
 
-function changeWords(kind, value, fmt) {
+function changeWords(kind, value, fmt, fr) {
+  const w = (v) => words(v, fr);
   switch (kind) {
-    case "SetWithdrawDelay": return `Withdrawals wait ${words(value)}`;
-    case "SetRuleDelay": return `Looser rules wait ${words(value)}`;
-    case "SetDailyLimit": return value ? `Daily limit ${fmt(value)}` : `No daily limit${fmt.unit ? ` on ${fmt.unit}` : ""}`;
-    case "SetLockedUntil": return value ? `Locked until ${when(value)}: nothing can leave before then` : "Lock ended";
-    case "SetGuardian": return value ? `Guardian set to ${short(value)}` : "Guardian removed";
-    case "AddTrusted": return `Trusted address added: ${short(value)}`;
-    case "RemoveTrusted": return `Trusted address removed: ${short(value)}`;
+    case "SetWithdrawDelay": return fr ? `Les retraits attendent ${w(value)}` : `Withdrawals wait ${w(value)}`;
+    case "SetRuleDelay": return fr ? `Les assouplissements attendent ${w(value)}` : `Looser rules wait ${w(value)}`;
+    case "SetDailyLimit": return value ? (fr ? `Limite quotidienne de ${fmt(value)}` : `Daily limit ${fmt(value)}`) : fr ? `Aucune limite quotidienne${fmt.unit ? ` en ${fmt.unit}` : ""}` : `No daily limit${fmt.unit ? ` on ${fmt.unit}` : ""}`;
+    case "SetLockedUntil": return value ? (fr ? `Verrouillé jusqu'au ${when(value, fr)} : rien ne peut sortir d'ici là` : `Locked until ${when(value)}: nothing can leave before then`) : fr ? "Verrou terminé" : "Lock ended";
+    case "SetGuardian": return value ? (fr ? `Gardien changé pour ${short(value)}` : `Guardian set to ${short(value)}`) : fr ? "Gardien retiré" : "Guardian removed";
+    case "AddTrusted": return fr ? `Adresse de confiance ajoutée : ${short(value)}` : `Trusted address added: ${short(value)}`;
+    case "RemoveTrusted": return fr ? `Adresse de confiance retirée : ${short(value)}` : `Trusted address removed: ${short(value)}`;
   }
   return kind;
 }
@@ -243,27 +248,41 @@ function changeWords(kind, value, fmt) {
  * address, a number or a fixed phrase, so there is nothing to escape beyond what esc() covers.
  */
 /** Where an alert's button should take the person: straight to the item to cancel when there is one. */
-export function alertLink(event, net, site = "https://ecrinprotocol.app", owner = "") {
+export function alertLink(event, net, site = "https://ecrinprotocol.app", owner = "", lang = "en") {
+  const fr = lang === "fr", open = fr ? "Ouvrir Ecrin" : "Open Ecrin", cancel = fr ? "Annuler" : "Cancel it";
   const base = `${site}/app?net=${net}&tab=vault`, who = owner ? `&owner=${encodeURIComponent(owner)}` : "", asset = event.asset ? (event.asset.unit === "USDC" ? "usdc" : null) : "native";
-  if (event.id == null || !asset) return { label: "Open Ecrin", url: base };
-  if (event.type === "requested") return { label: "Cancel it", url: `${base}&act=cancel-w&id=${event.id}&asset=${asset}${who}` };
-  if (event.type === "changeQueued") return { label: "Cancel it", url: `${base}&act=cancel-c&id=${event.id}&asset=${asset}${who}` };
-  return { label: "Open Ecrin", url: base };
+  if (event.id == null || !asset) return { label: open, url: base };
+  if (event.type === "requested") return { label: cancel, url: `${base}&act=cancel-w&id=${event.id}&asset=${asset}${who}` };
+  if (event.type === "changeQueued") return { label: cancel, url: `${base}&act=cancel-c&id=${event.id}&asset=${asset}${who}` };
+  return { label: open, url: base };
 }
 
 /** The buttons under an alert: the item itself, and for anything that could be an attack, a freeze. */
-export function alertLinks(event, net, site = "https://ecrinprotocol.app", owner = "") {
-  const first = alertLink(event, net, site, owner);
+export function alertLinks(event, net, site = "https://ecrinprotocol.app", owner = "", lang = "en") {
+  const first = alertLink(event, net, site, owner, lang);
   if (event.type !== "requested" && event.type !== "changeQueued") return [first];
   const who = owner ? `&owner=${encodeURIComponent(owner)}` : "";
-  return [first, { label: "Freeze vault", url: `${site}/app?net=${net}&tab=vault&act=freeze${who}` }];
+  return [first, { label: lang === "fr" ? "Geler le coffre" : "Freeze vault", url: `${site}/app?net=${net}&tab=vault&act=freeze${who}` }];
 }
 
-export function message(event, { net, owner, now = Math.floor(Date.now() / 1000) }) {
-  const n = NETS[net] || NETS.eth, a = event.asset || n, fmt = (u) => `${coin(u, a.decimals)} ${a.unit}`;
+export function message(event, { net, owner, now = Math.floor(Date.now() / 1000), lang = "en" }) {
+  const fr = lang === "fr", n = NETS[net] || NETS.eth, a = event.asset || n;
+  const fmt = (u) => `${fr ? coin(u, a.decimals).replace(".", ",") : coin(u, a.decimals)} ${a.unit}`;
   if (event.asset) fmt.unit = a.unit;
-  const head = `<b>Ecrin · ${n.name}</b> · vault <code>${esc(short(owner))}</code>\n\n`;
-  const e = event;
+  const head = `<b>Ecrin · ${n.name}</b> · ${fr ? "coffre" : "vault"} <code>${esc(short(owner))}</code>\n\n`;
+  const e = event, cw = () => esc(changeWords(e.kind, e.value, fmt, fr));
+  if (fr) switch (e.type) {
+    case "requested": return { urgent: true, text: head + `⏳ <b>Retrait demandé</b>\n${e.amount ? fmt(e.amount) : "Des fonds"} vers <code>${esc(short(e.dest))}</code>\nIl peut sortir ${inTime(e.readyAt, now, fr)} (${when(e.readyAt, fr)}).\n\n<b>Pas vous?</b> Touchez Annuler ci-dessous (gratuit et instantané), ou Geler le coffre pour tout arrêter le temps de vérifier.` };
+    case "cancelled": return { text: head + `🛡 <b>Retrait annulé</b>${e.amount ? `\n${fmt(e.amount)} reste dans votre coffre.` : "\nLes fonds restent dans votre coffre."}` };
+    case "sent": return { text: head + `↗ <b>Retrait envoyé</b>\n${fmt(e.amount)} est sorti du coffre vers <code>${esc(short(e.dest))}</code>.` };
+    case "sentAny": return { text: head + `↗ <b>Des fonds sont sortis du coffre</b>\n${fmt(e.amount)} vers <code>${esc(short(e.dest))}</code>.` };
+    case "sentTrusted": return { text: head + `↗ <b>Envoyé à une adresse de confiance</b>\n${fmt(e.amount)} est sorti du coffre.` };
+    case "deposit": return { text: head + `↘ <b>Dépôt</b>\n${fmt(e.amount)} ajouté à votre coffre.` };
+    case "changeQueued": return { urgent: true, text: head + `⚙ <b>Changement de règle demandé</b>\n${cw()}\nIl s'applique ${inTime(e.readyAt, now, fr)} (${when(e.readyAt, fr)}).\n\n<b>Pas vous?</b> Touchez Annuler ci-dessous.` };
+    case "changed": return { text: head + `⚙ <b>Règle modifiée</b>\n${cw()}` };
+    case "changeCancelled": return { text: head + `⚙ <b>Changement de règle annulé</b>${e.kind ? `\n${cw()} : ça n'aura pas lieu.` : ""}` };
+    case "created": return { text: head + `✦ <b>Coffre créé</b>\nEcrin le surveille à partir de maintenant.` };
+  }
   switch (e.type) {
     case "requested": return { urgent: true, text: head + `⏳ <b>Withdrawal requested</b>\n${e.amount ? fmt(e.amount) : "Funds"} to <code>${esc(short(e.dest))}</code>\nIt can leave ${inTime(e.readyAt, now)} (${when(e.readyAt)}).\n\n<b>Not you?</b> Tap Cancel it below (free and instant), or Freeze vault to stop everything while you look into it.` };
     case "cancelled": return { text: head + `🛡 <b>Withdrawal cancelled</b>${e.amount ? `\n${fmt(e.amount)} stays in your vault.` : "\nThe funds stay in your vault."}` };
@@ -271,9 +290,9 @@ export function message(event, { net, owner, now = Math.floor(Date.now() / 1000)
     case "sentAny": return { text: head + `↗ <b>Funds left the vault</b>\n${fmt(e.amount)} to <code>${esc(short(e.dest))}</code>.` };
     case "sentTrusted": return { text: head + `↗ <b>Sent to a trusted address</b>\n${fmt(e.amount)} left the vault.` };
     case "deposit": return { text: head + `↘ <b>Deposit</b>\n${fmt(e.amount)} added to your vault.` };
-    case "changeQueued": return { urgent: true, text: head + `⚙ <b>Rule change requested</b>\n${esc(changeWords(e.kind, e.value, fmt))}\nIt applies ${inTime(e.readyAt, now)} (${when(e.readyAt)}).\n\n<b>Not you?</b> Tap Cancel it below.` };
-    case "changed": return { text: head + `⚙ <b>Rule changed</b>\n${esc(changeWords(e.kind, e.value, fmt))}` };
-    case "changeCancelled": return { text: head + `⚙ <b>Rule change cancelled</b>${e.kind ? `\n${esc(changeWords(e.kind, e.value, fmt))} won't happen.` : ""}` };
+    case "changeQueued": return { urgent: true, text: head + `⚙ <b>Rule change requested</b>\n${cw()}\nIt applies ${inTime(e.readyAt, now)} (${when(e.readyAt)}).\n\n<b>Not you?</b> Tap Cancel it below.` };
+    case "changed": return { text: head + `⚙ <b>Rule changed</b>\n${cw()}` };
+    case "changeCancelled": return { text: head + `⚙ <b>Rule change cancelled</b>${e.kind ? `\n${cw()} won't happen.` : ""}` };
     case "created": return { text: head + `✦ <b>Vault created</b>\nEcrin is watching it from now on.` };
   }
   return null;

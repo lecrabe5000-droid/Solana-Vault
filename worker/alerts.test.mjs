@@ -164,5 +164,11 @@ test("alert buttons go straight to the item to cancel", () => {
   eq(alertLink({ type: "deposit", amount: "1" }, "sol"), { label: "Open Ecrin", url: "https://ecrinprotocol.app/app?net=sol&tab=vault" });
   eq(alertLink({ type: "requested", id: 4, asset: { unit: "tokens (0x33…3333)", decimals: 18 } }, "eth").label, "Open Ecrin");
 });
+test("alerts speak French to French subscribers", () => {
+  const m = message({ type: "requested", id: 3, amount: "25500000", dest: base58(key(4)), readyAt: "1900003600", asset: USDC }, { net: "sol", owner: base58(key(1)), now: 1_900_000_000, lang: "fr" });
+  ok(m.text.includes("Retrait demandé") && m.text.includes("25,5 USDC") && m.text.includes("dans 1 h") && m.text.includes("Pas vous?"), m.text);
+  eq(alertLinks({ type: "requested", id: 3 }, "sol", undefined, "o", "fr").map((l) => l.label), ["Annuler", "Geler le coffre"]);
+  ok(message({ type: "changed", kind: "SetWithdrawDelay", value: "259200" }, { net: "eth", owner: OWNER, lang: "fr" }).text.includes("Les retraits attendent 3 jours"));
+});
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

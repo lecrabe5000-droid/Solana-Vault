@@ -11,6 +11,7 @@ import { createEvmClient, explainEvmError } from "./evm.js";
 import { EVM_NETS } from "./config-evm.js";
 import { SOL_USDC } from "./config-tokens.js";
 import { WC } from "./config-wc.js";
+import { LANG, LOCALE, tr, setLang, startTranslating } from "./i18n.js";
 
 const web3 = window.solanaWeb3;
 const $ = (s) => document.querySelector(s);
@@ -19,9 +20,9 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 const LAMPORTS = 1e9, HOUR = 3600, DAY = 86400;
 // Amounts are in the coin's base units: 1e9 for the network's own coin (lamports, gwei), 1e6 for USDC.
 // `sol` formats for the asset being looked at unless told which.
-const sol = (l, a = A()) => (l / a.base).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: a.stable ? 2 : 4 });
+const sol = (l, a = A()) => (l / a.base).toLocaleString(LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: a.stable ? 2 : 4 });
 const short = (k) => { const s = String(k); return s.slice(0, 4) + "…" + s.slice(-4); };
-const when = (t) => new Date(t * 1000).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const when = (t) => new Date(t * 1000).toLocaleString(LOCALE, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const dur = (s) => { if (s <= 0) return "ready"; const d = Math.floor(s / DAY), h = Math.floor((s % DAY) / HOUR), m = Math.floor((s % HOUR) / 60); return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${Math.max(1, m)}m`; };
 const delayWords = (s) => (s % DAY === 0 ? `${s / DAY} day${s === DAY ? "" : "s"}` : `${Math.round(s / HOUR)} h`);
 const explorer = (kind, id) => C.explorer(kind, id);
@@ -442,7 +443,7 @@ async function loadSeries(days) {
   } catch (e) { console.warn("chart", e); }
 }
 
-const money = (n) => n.toLocaleString(undefined, { style: "currency", currency: "USD" });
+const money = (n) => n.toLocaleString(LOCALE, { style: "currency", currency: "USD" });
 /** What an amount is worth: USDC at $1, the network's coin at the mainnet price (null while it loads). */
 const usdOf = (amount, a = A()) => (a.stable ? amount / a.base : S.price ? (amount / a.base) * S.price.usd : null);
 const usd = (amount, a = A()) => { const v = usdOf(amount, a); return v == null ? null : money(v); };
@@ -523,7 +524,7 @@ document.addEventListener("pointermove", (e) => {
   const tip = cross.querySelector(".tip");
   tip.style.left = Math.min(r.width - 120, Math.max(0, px - 60)) + "px";
   tip.querySelector("b").textContent = money(S.chart.vals[i]);
-  tip.querySelector("span").textContent = new Date(S.chart.pts[i][0]).toLocaleString(undefined, S.range === "1" ? { hour: "2-digit", minute: "2-digit" } : { day: "numeric", month: "short", year: S.range === "365" ? "numeric" : undefined });
+  tip.querySelector("span").textContent = new Date(S.chart.pts[i][0]).toLocaleString(LOCALE, S.range === "1" ? { hour: "2-digit", minute: "2-digit" } : { day: "numeric", month: "short", year: S.range === "365" ? "numeric" : undefined });
 }, { passive: true });
 document.addEventListener("pointerout", (e) => { const el = e.target.closest?.("[data-chart]"); if (el && !el.contains(e.relatedTarget)) el.querySelector(".cross").hidden = true; });
 
@@ -586,7 +587,7 @@ function shell(content, { nav = true } = {}) {
       <div class="tb-right">
         ${netSwitch()}
         ${w ? `<button class="acct-chip" data-act="disconnect" title="${esc(w.toBase58())} · click to disconnect"><i class="live"></i><span>${short(w)}</span></button>` : ""}
-        ${privacyBtn()}${themeBtn()}
+        ${privacyBtn()}<button class="theme lang-btn" data-act="lang" aria-label="${LANG === "fr" ? "Read in English" : "Lire en français"}" lang="${LANG === "fr" ? "en" : "fr"}">${LANG === "fr" ? "EN" : "FR"}</button>${themeBtn()}
       </div>
     </header>
     <main class="main">
@@ -691,7 +692,7 @@ function caseCard(v, { link = true, total = false } = {}) {
   const opens = next ? Math.max(next.readyAt, locked ? v.lockedUntil : 0) : 0;
   const state = next
     ? `<span class="cs-dot warn"></span><span><b>${sol(next.amount, A(next.asset))} ${A(next.asset).unit}</b> leaving${opens > t ? ` in <span class="count" data-ready="${opens}">${dur(opens - t)}</span>` : " · ready"}</span>`
-    : `<span class="cs-dot"></span><span>${locked ? "Locked until " + new Date(v.lockedUntil * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "Sealed · nothing waiting to leave"}</span>`;
+    : `<span class="cs-dot"></span><span>${locked ? "Locked until " + new Date(v.lockedUntil * 1000).toLocaleDateString(LOCALE, { day: "numeric", month: "short" }) : "Sealed · nothing waiting to leave"}</span>`;
   let bal;
   if (total) {
     const p = protectedTotals(v);
@@ -816,7 +817,7 @@ function vaultView(full) {
 
 // ------------------------------------------------------------------ protection policy
 
-const dateShort = (t) => new Date(t * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+const dateShort = (t) => new Date(t * 1000).toLocaleDateString(LOCALE, { day: "numeric", month: "short", year: "numeric" });
 const RULES = {
   withdraw: { kind: "SetWithdrawDelay", title: "Withdrawal delay", help: "Every withdrawal to an address that isn't trusted waits this long. You can cancel it at any moment.", icon: "clock",
     value: (v) => delayWords(v.withdrawDelay), opts: () => [[HOUR, "1 hour"], [24 * HOUR, "24 hours"], [72 * HOUR, "72 hours"], [7 * DAY, "7 days"], [30 * DAY, "30 days"]], cur: (v) => v.withdrawDelay },
@@ -824,7 +825,7 @@ const RULES = {
     value: (v) => delayWords(v.ruleDelay), opts: () => [[3 * DAY, "3 days"], [7 * DAY, "7 days"], [14 * DAY, "14 days"], [30 * DAY, "30 days"]], cur: (v) => v.ruleDelay },
   limit: { kind: "SetDailyLimit", title: "Daily limit", help: "The most that can leave in one day, sends to trusted addresses included. Each coin has its own.", icon: "up",
     value: (v) => (v.dailyLimit ? `${sol(v.dailyLimit)} ${A().unit}` : "No limit"),
-    opts: () => [[null, "No limit"], ...(A().stable ? [50, 250, 1000, 5000] : [0.1, 1, 5, 25]).map((n) => [n * A().base, `${n.toLocaleString()} ${A().unit}`])], cur: (v) => v.dailyLimit },
+    opts: () => [[null, "No limit"], ...(A().stable ? [50, 250, 1000, 5000] : [0.1, 1, 5, 25]).map((n) => [n * A().base, `${n.toLocaleString(LOCALE)} ${A().unit}`])], cur: (v) => v.dailyLimit },
   lock: { kind: "SetLockedUntil", title: "Time lock", help: "Nothing leaves before this date, except an emergency your guardian co-signs. Ending a lock early can't happen before it ends anyway.", icon: "lock",
     value: (v) => (v.lockedUntil && now() < v.lockedUntil ? `Until ${dateShort(v.lockedUntil)}` : "None"), opts: (v) => [...(v.lockedUntil && now() < v.lockedUntil ? [[null, "End the lock"]] : []), ["d30", "30 days"], ["d90", "90 days"], ["d180", "6 months"], ["d365", "1 year"]], cur: (v) => v.lockedUntil },
   guardian: { kind: "SetGuardian", title: "Guardian", help: "Someone you trust who can approve an emergency release or a new trusted address early. A guardian can never start a withdrawal or choose where money goes.", icon: "people",
@@ -946,7 +947,7 @@ function alertsCard() {
 }
 
 async function startAlerts() {
-  const body = { net: S.net, owner: S.wallet.toBase58(), vault: S.net === "sol" ? S.vault.address.toBase58() : undefined };
+  const body = { net: S.net, owner: S.wallet.toBase58(), vault: S.net === "sol" ? S.vault.address.toBase58() : undefined, lang: LANG };
   // Open the tab first so phone browsers don't block it as a pop-up.
   const tab = window.open("", "_blank");
   try {
@@ -967,7 +968,7 @@ async function startAlerts() {
 async function startEmail(email) {
   S.mailBusy = true; render();
   try {
-    const body = { net: S.net, owner: S.wallet.toBase58(), vault: S.net === "sol" ? S.vault.address.toBase58() : undefined, email };
+    const body = { net: S.net, owner: S.wallet.toBase58(), vault: S.net === "sol" ? S.vault.address.toBase58() : undefined, lang: LANG, email };
     const r = await fetch("/api/alerts/email", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || "Email alerts aren't available right now.");
@@ -984,7 +985,7 @@ document.addEventListener("submit", (e) => {
 
 function feedHTML(log) {
   const kind = (t) => /^Cancelled/.test(t) ? ["win", I.shield] : /^Deposited/.test(t) ? ["in", I.down] : /withdraw|Sent/i.test(t) ? ["out", I.up] : /rule|trust/i.test(t) ? ["rule", I.sliders] : ["other", I.clock];
-  return `<ul class="feed">${log.map((l) => { const [k, ic] = kind(l.text); return `<li class="${k}"><span class="f-ico">${ic}</span><span class="f-txt"><b>${esc(l.text)}</b><time>${new Date(l.at * 1000).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</time></span><a href="${explorer("tx", l.sig)}" target="_blank" rel="noopener" aria-label="View on the explorer">${I.ext}</a></li>`; }).join("")}</ul>`;
+  return `<ul class="feed">${log.map((l) => { const [k, ic] = kind(l.text); return `<li class="${k}"><span class="f-ico">${ic}</span><span class="f-txt"><b>${esc(l.text)}</b><time>${new Date(l.at * 1000).toLocaleString(LOCALE, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</time></span><a href="${explorer("tx", l.sig)}" target="_blank" rel="noopener" aria-label="View on the explorer">${I.ext}</a></li>`; }).join("")}</ul>`;
 }
 
 function activityView() {
@@ -1055,7 +1056,7 @@ function changeWords({ kind, value }, aid = "native") {
     case "SetWithdrawDelay": return `Withdrawals wait ${delayWords(value)}`;
     case "SetRuleDelay": return `Looser rules wait ${delayWords(value)}`;
     case "SetDailyLimit": return value ? `Daily limit ${sol(value, A(aid))} ${A(aid).unit}` : `Remove the ${A(aid).unit} daily limit`;
-    case "SetLockedUntil": return value ? `Lock until ${new Date(value * 1000).toLocaleDateString()}` : "End the lock";
+    case "SetLockedUntil": return value ? `Lock until ${new Date(value * 1000).toLocaleDateString(LOCALE)}` : "End the lock";
     case "SetGuardian": return value ? `Guardian ${short(value)}` : "Remove the guardian";
     case "AddTrusted": return `Trust ${short(value)}`;
     case "RemoveTrusted": return `Stop trusting ${short(value)}`;
@@ -1093,7 +1094,7 @@ const keyOf = (s) => (s ? C.x?.key(s) ?? null : null);
 
 const actions = {
   connect: (el) => connect(providers()[Number(el.dataset.i)][1]),
-  disconnect: () => { if (confirm("Disconnect your wallet?")) disconnect(); },
+  disconnect: () => { if (confirm(tr("Disconnect your wallet?"))) disconnect(); },
   tab: (el) => {
     if (S.tab === el.dataset.t) return;
     S.tab = el.dataset.t; S.shown = null;
@@ -1118,6 +1119,7 @@ const actions = {
   range: (el) => { S.range = el.dataset.d; render(); loadSeries(S.range); },
   net: (el) => { $("#sheet").close(); switchNet(el.dataset.n); },
   netmenu: () => netMenu(),
+  lang: () => setLang(LANG === "fr" ? "en" : "fr"),
   // Switching coin inside a deposit, withdraw or send sheet reopens it for the new coin.
   asset: (el) => { S.asset = el.dataset.a; S.shown = null; render(); if ($("#sheet").open && S.sheetAct) { $("#sheet").close(); actions[S.sheetAct](); } },
   pick: (el) => { S.pick = el.dataset.k; render(); },
@@ -1184,6 +1186,7 @@ setInterval(() => {
 }, 1000);
 setInterval(() => { if (S.wallet && !S.busy && document.visibilityState === "visible") refresh(); }, 30000);
 
+startTranslating();
 render();
 loadPrice();
 setInterval(() => { if (document.visibilityState === "visible") loadPrice(); }, 120000);

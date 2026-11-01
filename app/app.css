@@ -631,3 +631,4 @@ section.glass { border-radius: 20px; }
 .keep-note .link { color: var(--blue); }
 .frozen { display: flex; align-items: center; gap: 12px; margin: 0 0 18px; padding: 14px 16px; border-radius: 14px; background: color-mix(in srgb, #4aa3ff 14%, var(--surface, var(--bg))); border: 1px solid color-mix(in srgb, #4aa3ff 40%, transparent); color: var(--ink); font-size: 14px; }
 .frozen svg { flex: none; width: 22px; height: 22px; fill: none; stroke: #2b8be6; stroke-width: 1.7; stroke-linecap: round; }
+.lang-btn { font: 700 12px var(--font, inherit); }
