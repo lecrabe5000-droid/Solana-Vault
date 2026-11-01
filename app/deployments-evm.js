@@ -14,5 +14,10 @@ export const DEPLOYED = {
     "address": "0x069dE522A8F2cB91677A3f74632b9c75D852844C",
     "fromBlock": 50851512,
     "v": 2
+  },
+  "arbitrumSepolia": {
+    "address": "0x069dE522A8F2cB91677A3f74632b9c75D852844C",
+    "fromBlock": 324873462,
+    "v": 2
   }
 };
