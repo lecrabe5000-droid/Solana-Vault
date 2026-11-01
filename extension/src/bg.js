@@ -14,3 +14,9 @@ chrome.alarms.onAlarm.addListener(async (a) => {
 // Only the wallet's own pages may read the unlocked phrase, never a web page or content script.
 chrome.storage.session.setAccessLevel?.({ accessLevel: "TRUSTED_CONTEXTS" });
 chrome.runtime.onStartup.addListener(lock);
+
+// "Always" auto-lock: the popup keeps a connection open; when it closes, lock at once.
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== "popup") return;
+  port.onDisconnect.addListener(async () => { const { autolock } = await chrome.storage.local.get("autolock"); if (autolock === 0) { chrome.alarms.clear("lock"); lock(); } });
+});

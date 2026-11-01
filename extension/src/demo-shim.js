@@ -11,6 +11,6 @@ globalThis.chrome = {
     local: { get: async (k) => pick(read(), k), set: async (o) => write({ ...read(), ...o }), remove: async (k) => { const o = read(); [].concat(k).forEach((x) => delete o[x]); write(o); }, clear: async () => write({}) },
     session: { get: async (k) => pick(mem, k), set: async (o) => { mem = { ...mem, ...o }; }, clear: async () => { mem = {}; }, setAccessLevel: () => {} },
   },
-  runtime: { getManifest: () => ({ version: "0.1.0 · demo" }), sendMessage: () => Promise.resolve() },
+  runtime: { getManifest: () => ({ version: "0.1.0 · demo" }), sendMessage: () => Promise.resolve(), connect: () => ({ onDisconnect: { addListener() {} } }) },
 };
 export {};

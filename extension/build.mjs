@@ -35,7 +35,7 @@ if (!process.argv.includes("--watch")) {
   await build({ ...opts, entryPoints: { demo: "src/popup.js" }, outdir: D, inject: ["src/demo-shim.js", "src/shims.js"], plugins: [demoChains] });
   // The popup's stylesheet, scoped to a 360 × 600 device on the page, fonts from the site.
   let css = fs.readFileSync("popup.css", "utf8").replace(/url\("fonts\//g, 'url("/fonts/');
-  css = css.replace("html, body { width: 360px; height: 600px; overflow: hidden; }", ".device { position: relative; width: 360px; height: 600px; overflow: hidden; transform: translateZ(0); border-radius: 30px; }");
+  css = css.replace("html, body { width: 360px; height: 600px; overflow: hidden; }", ".device { position: relative; width: 360px; height: 600px; overflow: hidden; transform: translateZ(0); border-radius: 30px; background: var(--bg); color: var(--ink); font: 500 14px/1.45 var(--font); }");
   fs.writeFileSync(`${D}/wallet.css`, css);
   console.log("demo → app/wallet-demo/");
 }
