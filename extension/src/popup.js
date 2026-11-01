@@ -343,7 +343,7 @@ function homeView() {
       </div>
     </header>
     ${S.err ? `<div class="banner">${esc(S.err)}</div>` : ""}
-    <section class="hero">
+    <section class="hero"><svg class="hero-g" viewBox="0 0 360 230" preserveAspectRatio="xMidYMin slice" aria-hidden="true">${Array.from({ length: 30 }, (_, i) => `<ellipse cx="${180 + Math.sin(i / 2.6) * 6}" cy="${-10 + Math.cos(i / 2.6) * 4}" rx="${40 + i * 9}" ry="${22 + i * 6.2}"/>`).join("")}</svg>
       <div class="hero-l"><span class="lbl">${N.name} balance</span>
         <button class="eye" data-act="hide" aria-label="${S.hide ? "Show" : "Hide"} balances">${S.hide ? I.eyeOff : I.eye}</button>
         <button class="allnets" data-act="panel" data-p="all">All networks ${I.arrow}</button></div>
@@ -408,7 +408,7 @@ function chartView(t) {
   S.chart = { c, xy, W };
   return `<div class="chart ${up ? "up" : "dn"}${draw}" data-chart>
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="${c.coinOnly ? NETS[S.net].unit + " price" : "Portfolio value"}">
-      <defs><linearGradient id="cf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="cf0"/><stop offset="1" class="cf1"/></linearGradient></defs>
+      <defs><linearGradient id="cf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="cf0"/><stop offset="1" class="cf1"/></linearGradient><linearGradient id="cl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9b7bff"/><stop offset=".55" stop-color="#6d8bff"/><stop offset="1" stop-color="#4fc3ff"/></linearGradient></defs>
       <path class="ch-area" d="${d}L${W},${H}L0,${H}Z" fill="url(#cf)"/>
       <path class="ch-line" d="${d}" pathLength="1"/>
       <line class="ch-x" x1="0" x2="0" y1="0" y2="${H}"/>
@@ -425,7 +425,17 @@ function assetRow(a, chq, sav) {
   const ch = p?.usd_24h_change;
   return `<button class="arow" data-act="panel" data-p="send" data-a="${a}">${assetCoin(a)}
     <span class="ar-t"><b>${COIN_NAME[x.unit] || x.unit}</b><small>${p?.usd != null ? money(p.usd) : x.unit}${ch != null && a !== "usdc" ? ` <span class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</span>` : ""}</small></span>
-    <span class="ar-r"><b>${S.bal ? (u != null ? mask(money(u)) : mask(amt(chq + sav, a))) : "—"}</b><small>${mask(amt(chq + sav, a))} ${x.unit}${sav ? ` <span class="sv">${I.lock}${mask(amt(sav, a))}</span>` : ""}</small></span></button>`;
+    ${spark(a)}<span class="ar-r"><b>${S.bal ? (u != null ? mask(money(u)) : mask(amt(chq + sav, a))) : "—"}</b><small>${mask(amt(chq + sav, a))} ${x.unit}${sav ? ` <span class="sv">${I.lock}${mask(amt(sav, a))}</span>` : ""}</small></span></button>`;
+}
+
+/** A small price line for a token row: the coin over the chart's range; USDC stays flat at $1. */
+function spark(a) {
+  const hit = S.series[`${NETS[S.net].cg}:${S.range}`], W = 54, H = 22;
+  const vals = a === "usdc" ? [1, 1] : hit ? hit.pts.filter((_, i, l) => i % Math.max(1, Math.floor(l.length / 28)) === 0 || i === l.length - 1).map(([, v]) => v) : null;
+  if (!vals) return `<span class="spark"></span>`;
+  const lo = Math.min(...vals), hi = Math.max(...vals), sp = hi - lo || 1, up = vals[vals.length - 1] >= vals[0];
+  const d = vals.map((v, i) => `${i ? "L" : "M"}${((i / (vals.length - 1)) * W).toFixed(1)},${(a === "usdc" ? H / 2 : 2 + (1 - (v - lo) / sp) * (H - 4)).toFixed(1)}`).join("");
+  return `<svg class="spark ${a === "usdc" ? "flat" : up ? "up" : "dn"}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="${d}"/></svg>`;
 }
 
 const ACT = { send: ["Sent", I.send], protect: ["Moved to savings", I.protect], withdraw: ["Withdrawal started", I.clock], release: ["Released to chequing", I.recv], cancel: ["Withdrawal cancelled", I.shield], vault: ["Savings vault opened", I.lock] };
