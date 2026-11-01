@@ -304,6 +304,7 @@ async function refresh() {
   try {
     const [bal, vault, t, wtok] = await Promise.all([C.x.balance(S.wallet), readVault(S.wallet), C.x.chainTime().catch(() => null), C.usdc ? tc().walletBalance(S.wallet).catch(() => 0) : 0]);
     S.walletSol = bal; S.vault = vault; S.walletTok = { usdc: wtok }; S.err = null;
+    if (vault && !S.readOnly) rememberWallet();
     if (!assets().some((a) => a.id === S.asset)) S.asset = "native";
     if (t) S.clockOffset = t - Math.floor(Date.now() / 1000);
     if (S.tab === "guardian" && S.watchOwner) S.watched = await readVault(C.x.key(S.watchOwner)).catch(() => null);
@@ -477,7 +478,7 @@ const I = {
 };
 // Simple marks for each network and for USDC, drawn here (no third-party logos).
 const COINS = {
-  sol: `<svg viewBox="0 0 32 32"><path d="M10 10.5h13.5l-2.5 2.6H7.5zM10 15.2h13.5L21 17.8H7.5zM10 20h13.5L21 22.6H7.5z" fill="#fff"/></svg>`,
+  sol: "", // drawn by solLogo(): the real three bars with Solana's gradient
   eth: `<svg viewBox="0 0 32 32"><path d="M16 4l7 11.6-7 4.2-7-4.2z" fill="#fff" opacity=".95"/><path d="M16 21.2l7-4.2-7 10-7-10z" fill="#fff" opacity=".7"/></svg>`,
   base: `<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="8.5" fill="#fff"/><path d="M7.6 15h12" stroke="#1d4ed8" stroke-width="2.6"/></svg>`,
   arb: `<svg viewBox="0 0 32 32"><path d="M16 6.5l8.2 4.75v9.5L16 25.5l-8.2-4.75v-9.5z" fill="none" stroke="#fff" stroke-width="2"/><path d="M13.2 20.5l4.2-9.5 4 9.5" fill="none" stroke="#fff" stroke-width="2"/></svg>`,
@@ -485,7 +486,10 @@ const COINS = {
   pol: `<svg viewBox="0 0 32 32"><path d="M10 12.5l4-2.3 4 2.3v4.6l-4 2.3-4-2.3zM14 17.1v4.6l4 2.3 4-2.3v-4.6l-4-2.3" fill="none" stroke="#fff" stroke-width="1.9" stroke-linejoin="round"/></svg>`,
   usdc: `<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="9.5" fill="none" stroke="#fff" stroke-width="1.8"/><text x="16" y="20.3" text-anchor="middle" font-family="Arial,sans-serif" font-weight="800" font-size="12" fill="#fff">$</text></svg>`,
 };
-const coin = (k) => `<span class="coin ${k}" aria-hidden="true">${COINS[k] || COINS.eth}</span>`;
+// Solana's mark: three bars, top and bottom leaning one way and the middle the other, green to purple.
+let solN = 0;
+const solLogo = () => { const id = "solg" + ++solN; return `<svg viewBox="0 0 398 312" class="sol-mark"><defs><linearGradient id="${id}" x1="360.9" y1="-37.5" x2="141.2" y2="383.3" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#00FFA3"/><stop offset="1" stop-color="#DC1FFF"/></linearGradient></defs><path d="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1zM64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1zM333.1 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H6.5c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1z" style="fill:url(#${id})"/></svg>`; };
+const coin = (k) => `<span class="coin ${k}" aria-hidden="true">${k === "sol" ? solLogo() : COINS[k] || COINS.eth}</span>`;
 /** The mark for an asset on the current network. */
 const assetCoin = (id = S.asset) => coin(id === "native" ? S.net : id);
 
@@ -870,7 +874,7 @@ function assetsCard(v) {
 
 /** How well this vault is set up: five checks, each with the one tap that fixes it. */
 function protectionCard(v) {
-  const pushed = (() => { try { return Object.keys(localStorage).some((k) => (k.startsWith("ecrin-alerts-") || k.startsWith("ecrin-push-")) && k.endsWith(S.wallet.toBase58()) && localStorage.getItem(k) === "1") || !!localStorage.getItem(alertsKey() + "-mail"); } catch (_) { return false; } })();
+  const pushed = (() => { try { return alertsOn() || pushOn() || !!(localStorage.getItem(alertsKey() + "-mail") || localStorage.getItem(legacyKey("alerts") + "-mail")); } catch (_) { return false; } })();
   const checks = [
     [v.withdrawDelay >= 72 * HOUR, "Withdrawals wait at least 3 days", "Make withdrawals wait longer", `data-act="rule" data-k="withdraw"`],
     [pushed || alertsOn(), "Alerts are on", "Turn on alerts", `data-act="goto-alerts"`],
@@ -887,13 +891,25 @@ function protectionCard(v) {
   </section>`;
 }
 
-/** SOL | USDC switch for the vault tab, with a dot on any coin that has something waiting to leave. */
-function assetSwitch(v) {
-  if (assets().length < 2) return "";
-  return `<div class="asw" role="group" aria-label="Coin">${assets().map((a) => {
+/** SOL | USDC switch: a segmented control whose highlight slides to the coin in use, each side showing what it
+ *  holds (in the wallet for a deposit, in the vault otherwise), with a dot on a coin that has something leaving. */
+function assetSwitch(v, where = "vault") {
+  const list = assets();
+  if (list.length < 2) return "";
+  const i = Math.max(0, list.findIndex((a) => a.id === S.asset));
+  const held = (a) => where === "wallet" ? (a.id === "native" ? S.walletSol || 0 : S.walletTok[a.id] || 0) : a.id === "native" ? v?.balance || 0 : v?.tokens?.[a.id]?.balance || 0;
+  return `<div class="asw" role="group" aria-label="Coin" style="--n:${list.length};--i:${i}"><i class="asw-thumb" aria-hidden="true"></i>${list.map((a) => {
     const leaving = allWithdrawals(v).some((w) => w.asset === a.id);
-    return `<button type="button" data-act="asset" data-a="${a.id}" aria-pressed="${S.asset === a.id}">${assetCoin(a.id)}<span>${a.unit}</span>${leaving ? `<i class="asw-dot" title="Something is waiting to leave"></i>` : ""}</button>`;
+    return `<button type="button" data-act="asset" data-a="${a.id}" aria-pressed="${S.asset === a.id}">${assetCoin(a.id)}<span class="asw-t"><b>${a.unit}</b><small class="m">${sol(held(a), a)} ${where === "wallet" ? "in wallet" : "in vault"}</small></span>${leaving ? `<i class="asw-dot" title="Something is waiting to leave"></i>` : ""}</button>`;
   }).join("")}</div>`;
+}
+
+/** Slides a freshly drawn switch's highlight from the coin it was on to the new one. */
+function slideSwitch(sw, from) {
+  const t = sw?.querySelector(".asw-thumb"); if (!t || from == null) return;
+  const to = sw.style.getPropertyValue("--i");
+  t.style.transition = "none"; sw.style.setProperty("--i", from); void t.offsetWidth;
+  t.style.transition = ""; sw.style.setProperty("--i", to);
 }
 
 function portfolioView(v) {
@@ -1094,12 +1110,30 @@ function openRuleMenu() {
 
 // ------------------------------------------------------------------ alerts
 
-const alertsKey = () => `ecrin-alerts-${S.net}-${S.wallet ? S.wallet.toBase58() : ""}`;
-const alertsOn = () => { try { return localStorage.getItem(alertsKey()) === "1"; } catch (_) { return false; } };
+// Alerts follow a wallet, not a network: an Ethereum address is covered on every EVM network at once, and when
+// this device also knows the owner's other wallet (Solana or Ethereum), turning a channel on covers it too.
+const fam = (net = S.net) => (net === "sol" ? "sol" : "evm");
+const ownerOf = () => (S.wallet ? (isEvm() ? S.wallet.toBase58().toLowerCase() : S.wallet.toBase58()) : "");
+const alertsKey = () => `ecrin-alerts-${fam()}-${ownerOf()}`;
+const legacyKey = (kind) => `ecrin-${kind}-${S.net}-${S.wallet ? S.wallet.toBase58() : ""}`;
+const flag = (k, legacy) => { try { return localStorage.getItem(k) === "1" || localStorage.getItem(legacy) === "1"; } catch (_) { return false; } };
+const alertsOn = () => flag(alertsKey(), legacyKey("alerts"));
+function knownWallets() { try { return JSON.parse(localStorage.getItem("ecrin-wallets") || "{}"); } catch (_) { return {}; } }
+function rememberWallet() {
+  try { const w = knownWallets(); w[fam()] = { net: S.net, owner: S.wallet.toBase58(), vault: S.net === "sol" ? S.vault.address.toBase58() : undefined }; localStorage.setItem("ecrin-wallets", JSON.stringify(w)); } catch (_) {}
+}
+/** The owner's wallet on the other family, if this device has seen it with a vault. */
+const alsoWallets = () => Object.entries(knownWallets()).filter(([f]) => f !== fam()).map(([, t]) => t);
+/** Marks a channel on for this wallet and the others it covered, so every network shows it. */
+function markOn(kind, value = "1") {
+  const set = (f, owner) => { try { localStorage.setItem(`ecrin-${kind === "mail" ? "alerts" : kind}-${f}-${f === "evm" ? owner.toLowerCase() : owner}${kind === "mail" ? "-mail" : ""}`, value); } catch (_) {} };
+  set(fam(), S.wallet.toBase58());
+  for (const t of alsoWallets()) set(fam(t.net), t.owner);
+}
 
 function alertsCard() {
   const tg = alertsOn(), waiting = S.alertCode;
-  let mailed = null; try { mailed = localStorage.getItem(alertsKey() + "-mail"); } catch (_) {}
+  let mailed = null; try { mailed = localStorage.getItem(alertsKey() + "-mail") || localStorage.getItem(legacyKey("alerts") + "-mail"); } catch (_) {}
   const canPush = pushPossible() && !(S.readOnly && !standalone()), pushed = pushOn();
   const tile = (icon, name, state, on, btn) => `<div class="al-tile${on ? " on" : ""}"><span class="al-ti">${icon}</span><span class="al-tt"><b>${name}</b><span>${state}</span></span>${btn}</div>`;
   return `<section class="glass alerts" id="alerts">
@@ -1110,12 +1144,13 @@ function alertsCard() {
       ${canPush ? tile(I.bell, "This device", pushed ? "Notifications on" : "Off", pushed, pushed ? `<button class="btn sm" data-act="push-off">Turn off</button>` : `<button class="btn sm" data-act="push" ${S.pushBusy ? "disabled" : ""}>${S.pushBusy ? "…" : "Turn on"}</button>`)
         : isIOS() && !standalone() ? tile(I.bell, "This device", "Add Ecrin to your home screen first", false, `<button class="btn sm" data-act="install">How</button>`) : ""}
     </div>
+    <p class="al-all">${I.check}<span>${isEvm() ? "Covers this address on every network" : "Covers this wallet"}${alsoWallets().length ? " and your other wallet on this device" : ""}.</span></p>
   </section>`;
 }
 const TG_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 4.5L3 11.4l5.6 2 2.1 6.6 3.2-3.9 5 3.6z"/><path d="M8.6 13.4l9.6-6.6-7.5 8.3"/></svg>`;
 
 async function startAlerts() {
-  const body = { net: S.net, owner: S.wallet.toBase58(), vault: S.net === "sol" ? S.vault.address.toBase58() : undefined, lang: LANG };
+  const body = { net: S.net, owner: S.wallet.toBase58(), vault: S.net === "sol" ? S.vault.address.toBase58() : undefined, lang: LANG, also: alsoWallets() };
   // Open the tab first so phone browsers don't block it as a pop-up.
   const tab = window.open("", "_blank");
   try {
@@ -1127,15 +1162,15 @@ async function startAlerts() {
     for (let i = 0; i < 60 && S.alertCode === j.code; i++) {
       await new Promise((res) => setTimeout(res, 3000));
       const st = await fetch("/api/alerts/status?code=" + encodeURIComponent(j.code)).then((x) => x.json()).catch(() => ({}));
-      if (st.linked) { try { localStorage.setItem(alertsKey(), "1"); } catch (_) {} toast("Alerts are on. Telegram will message you.", "win"); break; }
+      if (st.linked) { markOn("alerts"); toast("Alerts are on. Telegram will message you.", "win"); break; }
     }
   } catch (e) { tab?.close(); toast(esc(e.message), "err"); }
   S.alertCode = null; render();
 }
 
 // Notifications on this device (Web Push). Phones need the home-screen app on iPhone; Android and computers work in the browser.
-const pushKey = () => `ecrin-push-${S.net}-${S.wallet ? S.wallet.toBase58() : ""}`;
-const pushOn = () => { try { return localStorage.getItem(pushKey()) === "1"; } catch (_) { return false; } };
+const pushKey = () => `ecrin-push-${fam()}-${ownerOf()}`;
+const pushOn = () => flag(pushKey(), legacyKey("push"));
 const pushPossible = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
 const b64uToBytes = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), (c) => c.charCodeAt(0));
 async function startPush() {
@@ -1145,11 +1180,11 @@ async function startPush() {
     const reg = await navigator.serviceWorker.register("/sw.js").then(() => navigator.serviceWorker.ready);
     const { key } = await fetch("/api/push/key").then((r) => r.json());
     const sub = (await reg.pushManager.getSubscription()) || (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uToBytes(key) }));
-    const body = { net: S.net, owner: S.wallet.toBase58(), vault: S.net === "sol" ? S.vault.address.toBase58() : undefined, lang: LANG, sub: sub.toJSON() };
+    const body = { net: S.net, owner: S.wallet.toBase58(), vault: S.net === "sol" ? S.vault.address.toBase58() : undefined, lang: LANG, sub: sub.toJSON(), also: alsoWallets() };
     const r = await fetch("/api/push/subscribe", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || "Notifications aren't available right now.");
-    try { localStorage.setItem(pushKey(), "1"); } catch (_) {}
+    markOn("push");
     toast("Notifications are on for this device.", "win");
   } catch (e) { toast(esc(e.message), "err"); }
   S.pushBusy = false; render();
@@ -1159,18 +1194,19 @@ async function stopPush() {
     const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription();
     if (sub) { await fetch("/api/push/unsubscribe", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ endpoint: sub.endpoint }) }).catch(() => {}); }
   } catch (_) {}
-  try { localStorage.removeItem(pushKey()); } catch (_) {}
+  // Turning the device off stops it for every wallet it followed.
+  try { for (const k of Object.keys(localStorage)) if (k.startsWith("ecrin-push-")) localStorage.removeItem(k); } catch (_) {}
   render();
 }
 
 async function startEmail(email) {
   S.mailBusy = true; render();
   try {
-    const body = { net: S.net, owner: S.wallet.toBase58(), vault: S.net === "sol" ? S.vault.address.toBase58() : undefined, lang: LANG, email };
+    const body = { net: S.net, owner: S.wallet.toBase58(), vault: S.net === "sol" ? S.vault.address.toBase58() : undefined, lang: LANG, email, also: alsoWallets() };
     const r = await fetch("/api/alerts/email", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || "Email alerts aren't available right now.");
-    try { localStorage.setItem(alertsKey() + "-mail", email); } catch (_) {}
+    markOn("mail", email);
     toast(j.already ? "Email alerts are already on for this address." : "Check your inbox to confirm.", "win");
   } catch (e) { toast(esc(e.message), "err"); }
   S.mailBusy = false; render();
@@ -1280,8 +1316,10 @@ function rowsChanges(v, asGuardian) {
 function sheet(html, onSubmit) {
   const d = $("#sheet"), f = $("#sheet-form");
   f.onclick = f.oninput = null;
+  const again = d.open;
   f.innerHTML = html + `<div class="acts"><button class="btn" value="cancel" formnovalidate>Close</button><button class="btn primary" value="ok">Confirm</button></div>`;
   f.onsubmit = async (e) => { if (e.submitter?.value !== "ok") return; e.preventDefault(); if ((await onSubmit(new FormData(f))) !== false) d.close(); };
+  if (again) { f.querySelectorAll(":scope > :not(.asw):not(h3):not(.acts)").forEach((n) => n.animate?.([{ opacity: 0, transform: "translateY(4px)" }, { opacity: 1, transform: "none" }], { duration: 220, easing: "cubic-bezier(.2, .8, .2, 1)" })); return; }
   d.showModal(); f.querySelector("input,select")?.focus();
 }
 const lamportsOf = (fd) => Math.round(Number(fd.get("amount")) * A().base);
@@ -1362,7 +1400,14 @@ const actions = {
   "set-lang": (el) => { if (el.dataset.v !== (LANG === "fr" ? "fr" : "en")) setLang(el.dataset.v); },
   "set-theme": (el) => { if (el.dataset.v !== (document.documentElement.dataset.theme === "dark" ? "dark" : "light")) actions.theme(el); },
   // Switching coin inside a deposit, withdraw or send sheet reopens it for the new coin.
-  asset: (el) => { S.asset = el.dataset.a; S.shown = null; render(); if ($("#sheet").open && S.sheetAct) { $("#sheet").close(); actions[S.sheetAct](); } },
+  // Switching coin redraws in place: the sheet stays open and only its contents change, the highlight slides.
+  asset: (el) => {
+    if (S.asset === el.dataset.a) return;
+    const from = Math.max(0, assets().findIndex((a) => a.id === S.asset));
+    S.asset = el.dataset.a; S.shown = null; render();
+    slideSwitch(document.querySelector("#app .asw"), from);
+    if ($("#sheet").open && S.sheetAct) { actions[S.sheetAct](); slideSwitch($("#sheet-form .asw"), from); }
+  },
   pick: (el) => { S.pick = el.dataset.k; render(); },
   create: async () => {
     const gRaw = $("#g-addr")?.value.trim(), guardian = gRaw ? keyOf(gRaw) : null;
@@ -1379,7 +1424,7 @@ const actions = {
     }
     await send(`Created a ${S.pick} vault`, () => C.x.ops.create(preset));
   },
-  deposit: () => sheet(`<h3>${titled("Deposit")}</h3>${assetSwitch(S.vault)}${amount(A().stable ? "100" : "1")}<p class="note">Wallet: ${sol(walletHas())} ${A().unit}. Deposits go straight in.${A().stable && isEvm() ? " Your wallet asks you to allow the amount first, then to deposit it." : ""}${A().stable && !walletHas() ? ` Get free test USDC at <a href="https://faucet.circle.com" target="_blank" rel="noopener">faucet.circle.com</a>.` : ""}</p>`, (fd) => send(`Deposited ${sol(lamportsOf(fd))} ${A().unit}`, () => assetOps().deposit(lamportsOf(fd)))),
+  deposit: () => sheet(`<h3>${titled("Deposit")}</h3>${assetSwitch(S.vault, "wallet")}${amount(A().stable ? "100" : "1")}<p class="note">Wallet: ${sol(walletHas())} ${A().unit}. Deposits go straight in.${A().stable && isEvm() ? " Your wallet asks you to allow the amount first, then to deposit it." : ""}${A().stable && !walletHas() ? ` Get free test USDC at <a href="https://faucet.circle.com" target="_blank" rel="noopener">faucet.circle.com</a>.` : ""}</p>`, (fd) => send(`Deposited ${sol(lamportsOf(fd))} ${A().unit}`, () => assetOps().deposit(lamportsOf(fd)))),
   withdraw: () => sheet(`<h3>${titled("Withdraw")}</h3>${assetSwitch(S.vault)}${amount()}<label class="field">To address<input name="dest" placeholder="Where it should go" required spellcheck="false" autocomplete="off" value="${S.wallet.toBase58()}"/></label><p class="note">Available: ${sol(assetView(S.vault).available)} ${A().unit}. This waits ${delayWords(S.vault.withdrawDelay)}${S.vault.lockedUntil && now() < S.vault.lockedUntil ? " and until the lock ends" : ""}. You can cancel any time.</p>`, async (fd) => {
     const dest = keyOf(fd.get("dest")); if (!dest) { toast("That address isn't valid", "err"); return false; }
     return send(`Asked to withdraw ${sol(lamportsOf(fd))} ${A().unit}`, () => assetOps().requestWithdrawal(dest, lamportsOf(fd)));

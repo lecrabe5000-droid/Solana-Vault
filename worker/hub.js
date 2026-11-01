@@ -11,6 +11,8 @@ import { alertLinks, base58, b64, decodeSolVault, decodeSolTokenVault, emptyToke
 const SITE = "https://ecrinprotocol.app";
 const NET_NAME = Object.fromEntries(Object.entries(NETS).map(([k, n]) => [k, n.name]));
 const isEvm = (net) => net !== "sol";
+/** One switch covers every network of a family: a Solana wallet's alerts, or an Ethereum address on all EVM networks. */
+const famWhere = (net) => (isEvm(net) ? "net != 'sol'" : "net = 'sol'");
 const SOL_ADDR = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/, ETH_ADDR = /^0x[0-9a-fA-F]{40}$/, EMAIL = /^[^\s@<>"']{1,64}@[^\s@<>"']{1,190}\.[a-z]{2,24}$/i;
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 const token = (n = 24) => [...crypto.getRandomValues(new Uint8Array(n))].map((b) => "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]).join("");
@@ -73,6 +75,11 @@ export class AlertHub extends DurableObject {
       CREATE TABLE IF NOT EXISTS waitlist (email TEXT PRIMARY KEY, lang TEXT, token TEXT UNIQUE, confirmed INTEGER, created INTEGER);`);
     // Each subscription remembers its language (en / fr); added after launch, so older rows read as English.
     for (const t of ["pending", "subs", "emails"]) { try { this.sql.exec(`ALTER TABLE ${t} ADD COLUMN lang TEXT`); } catch (_) {} }
+    // One device can follow several wallets (a Solana one and an Ethereum one), so device subscriptions are keyed by both.
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS push_subs (endpoint TEXT, net TEXT, owner TEXT, vault TEXT, p256dh TEXT, auth TEXT, lang TEXT, created INTEGER, PRIMARY KEY (endpoint, owner));
+      INSERT OR IGNORE INTO push_subs SELECT endpoint, net, owner, vault, p256dh, auth, lang, created FROM pushes;
+      DELETE FROM pushes;`);
+    try { this.sql.exec("ALTER TABLE pending ADD COLUMN also TEXT"); } catch (_) {}
   }
 
   get(k) { return this.sql.exec("SELECT v FROM kv WHERE k = ?", k).toArray()[0]?.v ?? null; }
@@ -112,9 +119,10 @@ export class AlertHub extends DurableObject {
    *  `render(lang)` returns { text, links } or null. */
   async notify(net, match, render) {
     const cache = {}, get = (lang) => (lang in cache ? cache[lang] : (cache[lang] = render(lang === "fr" ? "fr" : "en")));
-    if (this.env.TELEGRAM_BOT_TOKEN) for (const s of this.sql.exec(`SELECT chat, lang FROM subs WHERE net = ? AND ${match.col} = ?`, net, match.val).toArray()) { const m = get(s.lang); if (m) await this.say(s.chat, m.text, net, m.links, s.lang); }
-    if (this.env.RESEND_API_KEY) for (const e of this.sql.exec(`SELECT email, token, lang FROM emails WHERE confirmed = 1 AND net = ? AND ${match.col} = ?`, net, match.val).toArray()) { const m = get(e.lang); if (m) await this.emailAlert(e, m.text, net, m.links); }
-    const pushes = this.sql.exec(`SELECT endpoint, p256dh, auth, lang FROM pushes WHERE net = ? AND ${match.col} = ?`, net, match.val).toArray();
+    const fw = famWhere(net);
+    if (this.env.TELEGRAM_BOT_TOKEN) for (const s of this.sql.exec(`SELECT chat, MAX(lang) AS lang FROM subs WHERE ${fw} AND ${match.col} = ? GROUP BY chat`, match.val).toArray()) { const m = get(s.lang); if (m) await this.say(s.chat, m.text, net, m.links, s.lang); }
+    if (this.env.RESEND_API_KEY) for (const e of this.sql.exec(`SELECT email, MIN(token) AS token, MAX(lang) AS lang FROM emails WHERE confirmed = 1 AND ${fw} AND ${match.col} = ? GROUP BY email`, match.val).toArray()) { const m = get(e.lang); if (m) await this.emailAlert(e, m.text, net, m.links); }
+    const pushes = this.sql.exec(`SELECT endpoint, MAX(p256dh) AS p256dh, MAX(auth) AS auth, MAX(lang) AS lang FROM push_subs WHERE ${fw} AND ${match.col} = ? GROUP BY endpoint`, match.val).toArray();
     if (pushes.length) {
       const keys = await this.vapid();
       for (const p of pushes) {
@@ -122,7 +130,7 @@ export class AlertHub extends DurableObject {
         if (!m) continue;
         const status = await sendPush(p, AlertHub.pushPayload(m.text, m.links, net), keys).catch(() => 0);
         // The browser unsubscribed or the subscription expired: forget it.
-        if (status === 404 || status === 410) this.sql.exec("DELETE FROM pushes WHERE endpoint = ?", p.endpoint);
+        if (status === 404 || status === 410) this.sql.exec("DELETE FROM push_subs WHERE endpoint = ?", p.endpoint);
       }
     }
   }
@@ -142,7 +150,7 @@ export class AlertHub extends DurableObject {
       if (url.pathname === "/stats") return this.stats();
       if (url.pathname === "/pushkey") return json({ key: vapidPublic((await this.vapid()).publicJwk) });
       if (url.pathname === "/pushsub" && request.method === "POST") return this.pushSubscribe(await request.json());
-      if (url.pathname === "/pushunsub" && request.method === "POST") { const { endpoint } = await request.json(); this.sql.exec("DELETE FROM pushes WHERE endpoint = ?", String(endpoint || "")); return json({ ok: true }); }
+      if (url.pathname === "/pushunsub" && request.method === "POST") { const { endpoint } = await request.json(); this.sql.exec("DELETE FROM push_subs WHERE endpoint = ?", String(endpoint || "")); return json({ ok: true }); }
     } catch (e) { console.error(e); return json({ error: "Something went wrong. Try again." }, 500); }
     return json({ error: "Not found" }, 404);
   }
@@ -153,15 +161,27 @@ export class AlertHub extends DurableObject {
     return null;
   }
 
+  /** The wallet asked about, plus up to two more the same device follows (its Solana and Ethereum wallets). */
+  targets(net, owner, vault, also) {
+    const list = [{ net, owner, vault }, ...(Array.isArray(also) ? also.slice(0, 2) : [])].map((t) => ({ net: String(t?.net || ""), owner: String(t?.owner || ""), vault: t?.vault ? String(t.vault) : "" }));
+    const out = [];
+    for (const t of list) {
+      if (this.validVault(t.net, t.owner, t.vault)) continue;
+      t.owner = isEvm(t.net) ? t.owner.toLowerCase() : t.owner;
+      if (!out.some((o) => isEvm(o.net) === isEvm(t.net) && o.owner === t.owner)) out.push(t);
+    }
+    return out;
+  }
+
   /** The app asks for a Telegram link for one vault; the person proves the chat is theirs by pressing Start. */
-  async start({ net, owner, vault, lang }) {
+  async start({ net, owner, vault, lang, also }) {
     const bad = this.validVault(net, owner, vault);
     if (bad) return json({ error: bad }, 400);
     const now = Date.now();
     this.sql.exec("DELETE FROM pending WHERE created < ?", now - 3600_000);
     if (this.sql.exec("SELECT COUNT(*) AS n FROM pending").one().n > 5000) return json({ error: "Too many requests right now. Try again in a minute." }, 429);
     const code = token(12);
-    this.sql.exec("INSERT INTO pending (code, net, owner, vault, created, lang) VALUES (?, ?, ?, ?, ?, ?)", code, net, isEvm(net) ? owner.toLowerCase() : owner, vault || "", now, lang === "fr" ? "fr" : "en");
+    this.sql.exec("INSERT INTO pending (code, net, owner, vault, created, lang, also) VALUES (?, ?, ?, ?, ?, ?, ?)", code, net, isEvm(net) ? owner.toLowerCase() : owner, vault || "", now, lang === "fr" ? "fr" : "en", JSON.stringify(this.targets(net, owner, vault, also).slice(1)));
     let bot = this.get("bot");
     if (!bot) { const me = await this.tg("getMe", {}); bot = me.result?.username; if (!bot) return json({ error: "The Telegram bot isn't reachable." }, 503); this.set("bot", bot); }
     await this.ensureWebhook();
@@ -174,41 +194,47 @@ export class AlertHub extends DurableObject {
   }
 
   /** Email sign-up is double opt-in: nothing is sent to an address until its owner clicks the link. */
-  async subscribeEmail({ net, owner, vault, email, lang }) {
+  async subscribeEmail({ net, owner, vault, email, lang, also }) {
     lang = lang === "fr" ? "fr" : "en";
     const bad = this.validVault(net, owner, vault);
     if (bad) return json({ error: bad }, 400);
     email = String(email || "").trim().toLowerCase();
     if (!EMAIL.test(email)) return json({ error: "That email address doesn't look right." }, 400);
     owner = isEvm(net) ? owner.toLowerCase() : owner;
-    const row = this.sql.exec("SELECT confirmed, created FROM emails WHERE email = ? AND net = ? AND owner = ?", email, net, owner).toArray()[0];
-    if (row?.confirmed) return json({ ok: true, already: true });
+    const all = this.targets(net, owner, vault, also);
+    const have = (t) => this.sql.exec("SELECT confirmed, created FROM emails WHERE email = ? AND net = ? AND owner = ?", email, t.net, t.owner).toArray()[0];
+    const todo = all.filter((t) => !have(t)?.confirmed);
+    if (!todo.length) return json({ ok: true, already: true });
+    const row = have(todo[0]);
     if (row && Date.now() - row.created < 120_000) return json({ ok: true, sent: true });
     if (this.sql.exec("SELECT COUNT(*) AS n FROM emails WHERE email = ?", email).one().n >= 10) return json({ error: "That address already follows 10 vaults." }, 429);
     if (this.sql.exec("SELECT COUNT(*) AS n FROM emails WHERE confirmed = 0 AND created > ?", Date.now() - 3600_000).one().n > 500) return json({ error: "Too many requests right now. Try again later." }, 429);
-    const t = token();
-    this.sql.exec("INSERT OR REPLACE INTO emails (email, net, owner, vault, token, confirmed, created, lang) VALUES (?, ?, ?, ?, ?, 0, ?, ?)", email, net, owner, vault || "", t, Date.now(), lang);
-    const fr = lang === "fr";
+    // Every wallet in this request shares one moment, so one click confirms them all.
+    const now = Date.now(), t = token();
+    todo.forEach((x, i) => this.sql.exec("INSERT OR REPLACE INTO emails (email, net, owner, vault, token, confirmed, created, lang) VALUES (?, ?, ?, ?, ?, 0, ?, ?)", email, x.net, x.owner, x.vault || "", i ? token() : t, now, lang));
+    const fr = lang === "fr", what = todo.map((x) => `<b>${esc(short(x.owner))}</b> (${isEvm(x.net) ? (fr ? "tous les réseaux Ethereum" : "every Ethereum network") : "Solana"})`).join(fr ? " et " : " and ");
     const ok = await this.mail(email, fr ? "Confirmez vos alertes Ecrin" : "Confirm your Ecrin alerts", emailPage({
-      body: fr ? `Confirmez que vous voulez un courriel dès qu'il se passe quelque chose dans le coffre <b>${esc(short(owner))}</b> (${NET_NAME[net]}) : retraits, dépôts et changements de règles.<br><br>Si vous n'avez rien demandé, ignorez ce courriel et rien ne sera envoyé.`
-        : `Confirm that you want an email the moment anything happens to vault <b>${esc(short(owner))}</b> (${NET_NAME[net]}): withdrawals, deposits and rule changes.<br><br>If you didn't ask for this, ignore this email and nothing will be sent.`,
+      body: fr ? `Confirmez que vous voulez un courriel dès qu'il se passe quelque chose dans ${todo.length > 1 ? "les coffres" : "le coffre"} ${what} : retraits, dépôts et changements de règles.<br><br>Si vous n'avez rien demandé, ignorez ce courriel et rien ne sera envoyé.`
+        : `Confirm that you want an email the moment anything happens to ${todo.length > 1 ? "vaults" : "vault"} ${what}: withdrawals, deposits and rule changes.<br><br>If you didn't ask for this, ignore this email and nothing will be sent.`,
       button: [fr ? "Confirmer les alertes" : "Confirm alerts", `${SITE}/api/alerts/confirm?t=${t}`], lang,
     }));
     return ok ? json({ ok: true, sent: true }) : json({ error: "We couldn't send the email. Try again in a minute." }, 502);
   }
 
   confirmEmail(t) {
-    const row = this.sql.exec("SELECT email, net, owner, lang FROM emails WHERE token = ?", t).toArray()[0];
+    const row = this.sql.exec("SELECT email, net, owner, lang, created FROM emails WHERE token = ?", t).toArray()[0];
     if (!row) return page("Link expired", "This confirmation link isn't valid anymore. Ask for alerts again from your vault in Ecrin.");
-    this.sql.exec("UPDATE emails SET confirmed = 1 WHERE token = ?", t);
+    this.sql.exec("UPDATE emails SET confirmed = 1 WHERE email = ? AND created = ?", row.email, row.created);
     if (row.lang === "fr") return page("Les alertes par courriel sont activées", `Nous écrirons à <b>${esc(row.email)}</b> en moins d'une minute à chaque retrait, dépôt ou changement de règle sur le coffre <b>${esc(short(row.owner))}</b>. Chaque courriel a un lien pour se désabonner.`);
     return page("Email alerts are on", `We'll email <b>${esc(row.email)}</b> within a minute of any withdrawal, deposit or rule change on vault <b>${esc(short(row.owner))}</b>. Every email has an unsubscribe link.`);
   }
 
   unsubscribe(t, method) {
-    const gone = this.sql.exec("DELETE FROM emails WHERE token = ? RETURNING email", t).toArray().length;
+    // One link stops every alert to that address: emails cover a wallet on all its networks, so stop them all.
+    const who = this.sql.exec("SELECT email FROM emails WHERE token = ?", t).toArray()[0]?.email;
+    const gone = who ? this.sql.exec("DELETE FROM emails WHERE email = ? RETURNING email", who).toArray().length : 0;
     if (method === "POST") return json({ ok: true });
-    return page(gone ? "You're unsubscribed" : "Already unsubscribed", "Ecrin won't email you about this vault anymore. You can turn alerts back on from your vault any time.");
+    return page(gone ? "You're unsubscribed" : "Already unsubscribed", "Ecrin won't email you anymore. You can turn alerts back on from your vault any time.");
   }
 
   // --- phone and browser notifications (Web Push). The signing keys are made here on first use and never leave.
@@ -218,13 +244,14 @@ export class AlertHub extends DurableObject {
     return JSON.parse(k);
   }
 
-  pushSubscribe({ net, owner, vault, lang, sub }) {
+  pushSubscribe({ net, owner, vault, lang, sub, also }) {
     const bad = this.validVault(net, owner, vault);
     if (bad) return json({ error: bad }, 400);
     const endpoint = String(sub?.endpoint || ""), p256dh = String(sub?.keys?.p256dh || ""), auth = String(sub?.keys?.auth || "");
     if (!allowedEndpoint(endpoint) || !/^[A-Za-z0-9_-]{80,100}$/.test(p256dh) || !/^[A-Za-z0-9_-]{16,32}$/.test(auth)) return json({ error: "That browser can't receive notifications." }, 400);
-    if (this.sql.exec("SELECT COUNT(*) AS n FROM pushes").one().n > 50_000) return json({ error: "Too many devices right now." }, 429);
-    this.sql.exec("INSERT OR REPLACE INTO pushes (endpoint, net, owner, vault, p256dh, auth, lang, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", endpoint, net, isEvm(net) ? owner.toLowerCase() : owner, vault || "", p256dh, auth, lang === "fr" ? "fr" : "en", Date.now());
+    if (this.sql.exec("SELECT COUNT(*) AS n FROM push_subs").one().n > 50_000) return json({ error: "Too many devices right now." }, 429);
+    for (const t of this.targets(net, owner, vault, also))
+      this.sql.exec("INSERT OR REPLACE INTO push_subs (endpoint, net, owner, vault, p256dh, auth, lang, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", endpoint, t.net, t.owner, t.vault || "", p256dh, auth, lang === "fr" ? "fr" : "en", Date.now());
     return json({ ok: true });
   }
 
@@ -314,7 +341,9 @@ export class AlertHub extends DurableObject {
       if (!p) { await this.say(chat, fr ? "Ce lien a expiré. Ouvrez Ecrin et touchez <b>Recevoir les alertes sur Telegram</b> de nouveau." : "That link has expired. Open Ecrin and tap <b>Get alerts on Telegram</b> again."); return json({ ok: true }); }
       const pf = p.lang === "fr";
       if (this.sql.exec("SELECT COUNT(*) AS n FROM subs WHERE chat = ?", String(chat)).one().n >= 10) { await this.say(chat, pf ? "Vous suivez déjà 10 coffres ici, le maximum pour une conversation." : "You're already watching 10 vaults here, the most one chat can follow."); return json({ ok: true }); }
-      this.sql.exec("INSERT OR REPLACE INTO subs (chat, net, owner, vault, created, lang) VALUES (?, ?, ?, ?, ?, ?)", String(chat), p.net, p.owner, p.vault, Date.now(), p.lang || "en");
+      let extra = []; try { extra = JSON.parse(p.also || "[]"); } catch (_) {}
+      for (const t of [{ net: p.net, owner: p.owner, vault: p.vault }, ...extra].slice(0, 3))
+        this.sql.exec("INSERT OR REPLACE INTO subs (chat, net, owner, vault, created, lang) VALUES (?, ?, ?, ?, ?, ?)", String(chat), t.net, t.owner, t.vault || "", Date.now(), p.lang || "en");
       this.sql.exec("UPDATE pending SET chat = ? WHERE code = ?", String(chat), arg);
       await this.say(chat, pf ? `🛡 <b>Les alertes sont activées</b>\nEcrin vous écrira ici en moins d'une minute à chaque retrait, dépôt ou changement de règle sur le coffre <code>${esc(short(p.owner))}</code> (${NET_NAME[p.net]}).\n\nEnvoyez /list pour voir ce que vous suivez, /stop pour désactiver les alertes.`
         : `🛡 <b>Alerts are on</b>\nEcrin will message you here within a minute of any withdrawal, deposit or rule change on vault <code>${esc(short(p.owner))}</code> (${NET_NAME[p.net]}).\n\nSend /list to see what you follow, /stop to turn alerts off.`, p.net, null, p.lang);
@@ -348,16 +377,16 @@ export class AlertHub extends DurableObject {
 
   /** Solana vaults someone watches, with their owners. */
   watchedSol() {
-    const rows = [...this.sql.exec("SELECT owner, vault FROM subs WHERE net = 'sol'").toArray(), ...this.sql.exec("SELECT owner, vault FROM emails WHERE net = 'sol' AND confirmed = 1").toArray(), ...this.sql.exec("SELECT owner, vault FROM pushes WHERE net = 'sol'").toArray()];
+    const rows = [...this.sql.exec("SELECT owner, vault FROM subs WHERE net = 'sol'").toArray(), ...this.sql.exec("SELECT owner, vault FROM emails WHERE net = 'sol' AND confirmed = 1").toArray(), ...this.sql.exec("SELECT owner, vault FROM push_subs WHERE net = 'sol'").toArray()];
     return [...new Map(rows.map((r) => [r.vault, r.owner])).entries()].map(([vault, owner]) => ({ vault, owner }));
   }
 
   /** Vaults (Solana) or owners (Ethereum) someone watches on any channel. */
   watched(net, col) {
     return [...new Set([
-      ...this.sql.exec(`SELECT ${col} AS v FROM subs WHERE net = ?`, net).toArray(),
-      ...this.sql.exec(`SELECT ${col} AS v FROM emails WHERE net = ? AND confirmed = 1`, net).toArray(),
-      ...this.sql.exec(`SELECT ${col} AS v FROM pushes WHERE net = ?`, net).toArray(),
+      ...this.sql.exec(`SELECT ${col} AS v FROM subs WHERE ${famWhere(net)}`).toArray(),
+      ...this.sql.exec(`SELECT ${col} AS v FROM emails WHERE ${famWhere(net)} AND confirmed = 1`).toArray(),
+      ...this.sql.exec(`SELECT ${col} AS v FROM push_subs WHERE ${famWhere(net)}`).toArray(),
     ].map((r) => r.v))];
   }
 
