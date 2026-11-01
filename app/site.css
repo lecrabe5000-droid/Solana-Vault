@@ -558,7 +558,7 @@ td:first-child { color: var(--ink); font-weight: 600; width: 44%; }
 .rail-track.dragging > * { pointer-events: none; }
 
 .hero-card { transform: translate3d(0, var(--hy, 0px), 0) scale(var(--hz, 1)); transform-origin: 50% 0; will-change: transform; }
-.hero-copy { opacity: var(--ho, 1); translate: calc(var(--px, 0) * 12px) calc(var(--py, 0) * 9px); }
+.hero-copy { translate: calc(var(--px, 0) * 12px) calc(var(--py, 0) * 9px); }
 .ribbons { scale: 1.07; translate: calc(var(--px, 0) * -40px) calc(var(--py, 0) * -26px); }
 .hero-card::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: 0; transition: opacity .7s ease;
   background: radial-gradient(520px circle at var(--gx, 50%) var(--gy, 40%), rgba(125, 151, 255, .18), transparent 62%); }
@@ -598,3 +598,5 @@ td:first-child { color: var(--ink); font-weight: 600; width: 44%; }
 .hero-k { background: rgba(11, 11, 14, .62); border-color: rgba(255, 255, 255, .18); color: #eceef8; backdrop-filter: blur(10px) saturate(1.2); -webkit-backdrop-filter: blur(10px) saturate(1.2); box-shadow: 0 8px 24px -10px rgba(0, 0, 0, .6); }
 .hero-copy h1 { filter: drop-shadow(0 2px 18px rgba(11, 11, 14, .5)); }
 .lede { text-shadow: 0 1px 14px rgba(11, 11, 14, .7); }
+/* the playable card stays solid: the ribbons never show through it */
+.play { background: rgba(14, 15, 20, .94); }

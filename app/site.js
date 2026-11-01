@@ -245,7 +245,6 @@
         const k = Math.min(1, y / (innerHeight * 0.9));
         heroCard.style.setProperty("--hz", (1 - k * 0.06).toFixed(4));
         heroCard.style.setProperty("--hy", (k * 40).toFixed(1) + "px");
-        heroCard.style.setProperty("--ho", (1 - k * 0.55).toFixed(3));
       }
       ticking = false;
     });
