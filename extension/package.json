@@ -1,0 +1,22 @@
+{
+  "name": "ecrin-wallet",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Ecrin Wallet: a chequing account for trading, a savings vault nobody can rush.",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "test": "node test/keyring.test.mjs"
+  },
+  "dependencies": {
+    "@noble/hashes": "1.8.0",
+    "@scure/bip39": "1.6.0",
+    "@solana/web3.js": "1.98.4",
+    "ethers": "6.13.4",
+    "qrcode-generator": "1.4.4"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.11"
+  },
+  "type": "module"
+}
