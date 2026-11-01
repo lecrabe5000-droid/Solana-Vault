@@ -5,7 +5,7 @@ import { DurableObject } from "cloudflare:workers";
 import { CONFIG } from "../app/config.js";
 import { EVM_NETS } from "../app/config-evm.js";
 import { SOL_USDC } from "../app/config-tokens.js";
-import { alertLink, b64, decodeSolVault, decodeSolTokenVault, emptyTokenSnap, tokenVaultAddresses, tokenAmount, diffSol, decodeEvmLog, message, ownerTopic, short, esc, NETS, USDC } from "./alerts.js";
+import { alertLinks, b64, decodeSolVault, decodeSolTokenVault, emptyTokenSnap, tokenVaultAddresses, tokenAmount, diffSol, decodeEvmLog, message, ownerTopic, short, esc, NETS, USDC } from "./alerts.js";
 
 const SITE = "https://ecrinprotocol.app";
 const NET_NAME = Object.fromEntries(Object.entries(NETS).map(([k, n]) => [k, n.name]));
@@ -38,13 +38,13 @@ export function emailFrom(text) {
   return { subject: "Ecrin · " + subject, html };
 }
 
-export function emailPage({ body, button, unsub }) {
+export function emailPage({ body, button, second, unsub }) {
   return `<!doctype html><html><body style="margin:0;background:#f6f6f3;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#101114">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f6f3;padding:32px 12px"><tr><td align="center">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #e6e6e1;border-radius:18px">
       <tr><td style="padding:26px 28px 6px;font-size:13px;letter-spacing:.3em;font-weight:700;color:#2f5bff">ECRIN</td></tr>
       <tr><td style="padding:10px 28px 4px;font-size:15px;line-height:1.6;color:#45484f">${body}</td></tr>
-      ${button ? `<tr><td style="padding:18px 28px 26px"><a href="${button[1]}" style="display:inline-block;background:#101114;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 22px;border-radius:999px">${button[0]}</a></td></tr>` : ""}
+      ${button ? `<tr><td style="padding:18px 28px 26px"><a href="${button[1]}" style="display:inline-block;background:#101114;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 22px;border-radius:999px">${button[0]}</a>${second ? `&nbsp;&nbsp;<a href="${second[1]}" style="display:inline-block;border:1px solid #1f6fd1;color:#1f6fd1;text-decoration:none;font-weight:600;font-size:14px;padding:11px 20px;border-radius:999px">${second[0]}</a>` : ""}</td></tr>` : ""}
     </table>
     <p style="max-width:520px;margin:16px auto 0;font-size:12px;line-height:1.5;color:#8b8d93">Ecrin testnet beta · Not audited: test coins only.${unsub ? ` <a href="${unsub}" style="color:#8b8d93">Unsubscribe</a>` : ""}</p>
   </td></tr></table></body></html>`;
@@ -77,9 +77,9 @@ export class AlertHub extends DurableObject {
     const r = await fetch(`https://api.telegram.org/bot${this.env.TELEGRAM_BOT_TOKEN}/${method}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     return r.json().catch(() => ({ ok: false }));
   }
-  async say(chat, text, net, link) {
+  async say(chat, text, net, links) {
     const body = { chat_id: chat, text, parse_mode: "HTML", link_preview_options: { is_disabled: true } };
-    if (net) { const l = link || { label: "Open Ecrin", url: `${SITE}/app?net=${net}&tab=vault` }; body.reply_markup = { inline_keyboard: [[{ text: l.label, url: l.url }]] }; }
+    if (net) { const ls = links?.length ? links : [{ label: "Open Ecrin", url: `${SITE}/app?net=${net}&tab=vault` }]; body.reply_markup = { inline_keyboard: [ls.map((l) => ({ text: l.label, url: l.url }))] }; }
     const r = await this.tg("sendMessage", body);
     // The person blocked the bot or deleted the chat: stop sending there.
     if (!r.ok && r.error_code === 403) this.sql.exec("DELETE FROM subs WHERE chat = ?", String(chat));
@@ -96,16 +96,16 @@ export class AlertHub extends DurableObject {
     if (!r.ok) console.error("resend", r.status, await r.text().catch(() => ""));
     return r.ok;
   }
-  async emailAlert(row, text, net, link) {
+  async emailAlert(row, text, net, links) {
     const { subject, html } = emailFrom(text), unsub = `${SITE}/api/alerts/unsub?t=${row.token}`;
-    const l = link || { label: "Open Ecrin", url: `${SITE}/app?net=${net}&tab=vault` };
-    return this.mail(row.email, subject, emailPage({ body: html, button: [l.label, l.url], unsub }), unsub);
+    const [l, l2] = links?.length ? links : [{ label: "Open Ecrin", url: `${SITE}/app?net=${net}&tab=vault` }];
+    return this.mail(row.email, subject, emailPage({ body: html, button: [l.label, l.url], second: l2 && [l2.label, l2.url], unsub }), unsub);
   }
 
-  /** Sends one alert to every Telegram chat and confirmed email watching this vault. `link` is its button. */
-  async notify(net, match, text, link) {
-    if (this.env.TELEGRAM_BOT_TOKEN) for (const s of this.sql.exec(`SELECT chat FROM subs WHERE net = ? AND ${match.col} = ?`, net, match.val).toArray()) await this.say(s.chat, text, net, link);
-    if (this.env.RESEND_API_KEY) for (const e of this.sql.exec(`SELECT email, token FROM emails WHERE confirmed = 1 AND net = ? AND ${match.col} = ?`, net, match.val).toArray()) await this.emailAlert(e, text, net, link);
+  /** Sends one alert to every Telegram chat and confirmed email watching this vault. `links` are its buttons. */
+  async notify(net, match, text, links) {
+    if (this.env.TELEGRAM_BOT_TOKEN) for (const s of this.sql.exec(`SELECT chat FROM subs WHERE net = ? AND ${match.col} = ?`, net, match.val).toArray()) await this.say(s.chat, text, net, links);
+    if (this.env.RESEND_API_KEY) for (const e of this.sql.exec(`SELECT email, token FROM emails WHERE confirmed = 1 AND net = ? AND ${match.col} = ?`, net, match.val).toArray()) await this.emailAlert(e, text, net, links);
   }
 
   async fetch(request) {
@@ -276,7 +276,7 @@ export class AlertHub extends DurableObject {
       for (const ev of diffSol(prev, next)) {
         if (asset) ev.asset = asset;
         const m = message(ev, { net: "sol", owner: next?.owner || prev?.owner || owner || vault, now });
-        if (m) await this.notify("sol", { col: "vault", val: vault }, m.text, alertLink(ev, "sol", SITE, next?.owner || prev?.owner || owner));
+        if (m) await this.notify("sol", { col: "vault", val: vault }, m.text, alertLinks(ev, "sol", SITE, next?.owner || prev?.owner || owner));
       }
     }
     this.sql.exec("INSERT OR REPLACE INTO snaps (net, k, data) VALUES ('sol', ?, ?)", key, JSON.stringify(next));
@@ -306,7 +306,7 @@ export class AlertHub extends DurableObject {
           if (q) { Object.assign(d.event, { amount: JSON.parse(q.data).amount }); this.sql.exec("DELETE FROM snaps WHERE net = ? AND k = ?", net, key); }
         }
         const m = message(d.event, { net, owner: d.owner, now });
-        if (m) await this.notify(net, { col: "owner", val: d.owner }, m.text, alertLink(d.event, net, SITE, d.owner));
+        if (m) await this.notify(net, { col: "owner", val: d.owner }, m.text, alertLinks(d.event, net, SITE, d.owner));
       }
     }
     this.set(ck, to);

@@ -41,7 +41,8 @@ const now = () => Math.floor(Date.now() / 1000) + S.clockOffset;
 // A link from an alert: ?act=cancel-w|cancel-c&id=7&asset=native|usdc opens that item, ready to cancel.
 try {
   const q = new URLSearchParams(location.search), act = q.get("act"), id = Number(q.get("id"));
-  if ((act === "cancel-w" || act === "cancel-c") && Number.isInteger(id) && id > 0) S.goto = { act, id, asset: q.get("asset") === "usdc" ? "usdc" : "native", owner: q.get("owner") || "" };
+  if (act === "freeze") S.goto = { act, id: 0, asset: "native", owner: q.get("owner") || "" };
+  else if ((act === "cancel-w" || act === "cancel-c") && Number.isInteger(id) && id > 0) S.goto = { act, id, asset: q.get("asset") === "usdc" ? "usdc" : "native", owner: q.get("owner") || "" };
 } catch (_) {}
 
 let toastTimer;
@@ -317,6 +318,7 @@ function openGoto() {
   // Ids count per vault, so the link only applies to the vault it was about.
   if (g.owner && S.wallet && S.wallet.toBase58().toLowerCase() !== g.owner.toLowerCase()) return toast(`That alert is about vault ${esc(short(g.owner))}. Connect that wallet to cancel it.`, "err");
   if (!S.vault) return toast("This wallet has no vault on " + C.name + ". Connect the wallet that owns it.", "err");
+  if (g.act === "freeze") { S.tab = "vault"; render(); return S.readOnly ? signElsewhere() : freezeSheet(); }
   if (g.asset !== "native" && !assets().some((a) => a.id === g.asset)) return;
   S.asset = g.asset; S.tab = "vault"; render();
   const v = assetView(S.vault), a = A();
@@ -410,7 +412,7 @@ function signElsewhere() {
   $("#sheet-form").querySelector('button[value="ok"]').hidden = true;
 }
 const WC_ICON = `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6.1 8.6c3.3-3.2 8.5-3.2 11.8 0l.4.4a.4.4 0 0 1 0 .6l-1.3 1.3a.2.2 0 0 1-.3 0l-.5-.5a6.1 6.1 0 0 0-8.4 0l-.6.6a.2.2 0 0 1-.3 0L5.6 9.7a.4.4 0 0 1 0-.6zm14.6 2.7 1.2 1.1a.4.4 0 0 1 0 .6l-5.3 5.2a.4.4 0 0 1-.6 0l-3.8-3.7a.1.1 0 0 0-.2 0l-3.8 3.7a.4.4 0 0 1-.6 0L2.1 13a.4.4 0 0 1 0-.6l1.2-1.1a.4.4 0 0 1 .6 0l3.8 3.7a.1.1 0 0 0 .2 0l3.8-3.7a.4.4 0 0 1 .6 0l3.8 3.7a.1.1 0 0 0 .2 0l3.8-3.7a.4.4 0 0 1 .6 0z" fill="#3b99fc"/></svg>`;
-const SIGNING = new Set(["create", "deposit", "withdraw", "send", "trust", "rules", "rule", "cancel-w", "run", "cancel-c", "apply", "release", "approve"]);
+const SIGNING = new Set(["freeze", "create", "deposit", "withdraw", "send", "trust", "rules", "rule", "cancel-w", "run", "cancel-c", "apply", "release", "approve"]);
 
 // ------------------------------------------------------------------ prices and tokens
 
@@ -466,6 +468,7 @@ const I = {
   bell: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16.5V11a6 6 0 1 1 12 0v5.5l1.5 2H4.5z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>`,
   sun: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>`,
   moon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>`,
+  snow: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5v19M3.8 7.2l16.4 9.6M3.8 16.8l16.4-9.6"/><path d="M9.5 4l2.5 2 2.5-2M9.5 20l2.5-2 2.5 2M3.2 10.6l3.1-.6-.9-3M20.8 13.4l-3.1.6.9 3M3.2 13.4l3.1.6-.9 3M20.8 10.6l-3.1-.6.9-3"/></svg>`,
   check: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`,
   ext: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/></svg>`,
 };
@@ -672,6 +675,7 @@ function actionsRow() {
     <button data-act="withdraw"><span>${I.up}</span>Withdraw</button>
     <button data-act="send" title="Send to a trusted address"><span>${I.send}</span>Send</button>
     <button data-act="rules"><span>${I.sliders}</span>Rules</button>
+    <button data-act="freeze" class="qa-freeze" title="Stop everything from leaving, now"><span>${I.snow}</span>Freeze</button>
   </div>`;
 }
 
@@ -751,6 +755,7 @@ function portfolioView(v) {
   const pct = totalUsd ? Math.round((protUsd / totalUsd) * 100) : coinTotal ? Math.round((v.balance / coinTotal) * 100) : 0, ch = S.price?.change;
   const recent = readLog().slice(0, 4);
   return `
+    ${frozenBanner(v)}
     <section class="home-top">
       <div>
         <span class="label">Total balance</span>
@@ -770,11 +775,18 @@ function portfolioView(v) {
     </section>`;
 }
 
+/** While a lock holds, say so plainly at the top. */
+function frozenBanner(v) {
+  if (!(v.lockedUntil && now() < v.lockedUntil)) return "";
+  return `<div class="frozen">${I.snow}<span><b>Frozen until ${dateShort(v.lockedUntil)}.</b> Nothing can leave before then, withdrawals already waiting included. You can still cancel anything.</span></div>`;
+}
+
 function vaultView(full) {
   const v = assetView(full), a = A(), queued = v.balance - v.available;
   const changes = rowsChanges(v, false);
   const elsewhere = allWithdrawals(full).filter((w) => w.asset !== a.id);
   return `
+    ${frozenBanner(full)}
     ${assetSwitch(full)}
     ${elsewhere.length ? `<button class="notice warn-n" data-act="asset" data-a="${elsewhere[0].asset}">${I.clock}<span>${elsewhere.length === 1 ? `${sol(elsewhere[0].amount, A(elsewhere[0].asset))} ${A(elsewhere[0].asset).unit} is waiting to leave` : `${elsewhere.length} withdrawals in other coins are waiting to leave`}. <u>Show</u></span></button>` : ""}
     <section class="vault-top">
@@ -877,6 +889,30 @@ function openRule(key) {
     ok.disabled = false; ok.textContent = isStricter(v, { kind: r.kind, value }) ? "Apply now" : `Request change · waits ${delayWords(v.ruleDelay)}`;
   };
   f.addEventListener("input", label); label();
+}
+
+// Panic freeze: a time lock from now. Locking is a stricter rule, so it applies at once; while it holds nothing
+// leaves (withdrawals already waiting and trusted sends included), cancelling still works, and the guardian can
+// still release an emergency. It can't be ended early.
+function freezeSheet() {
+  const v = S.vault, cur = v.lockedUntil && now() < v.lockedUntil ? v.lockedUntil : 0;
+  const waiting = allWithdrawals(v).length;
+  const opts = [[1, "24 hours"], [7, "7 days"], [30, "30 days"], [90, "90 days"]].map(([d, label]) => {
+    const until = now() + d * DAY + 120, ok = until > cur;
+    return `<label class="opt${ok ? "" : " is-cur"}"><input type="radio" name="d" value="${d}" ${ok ? "" : "disabled"} ${d === 7 && ok ? "checked" : ""}/><span class="o-l">${label}</span><span class="o-b ${ok ? "now" : "cur"}">${ok ? "Until " + dateShort(until) : "Already locked longer"}</span></label>`;
+  }).join("");
+  sheet(`<div class="rule-h"><span class="pol-ico freeze-ico">${I.snow}</span><div><h3>Freeze your vault</h3><span class="muted small">${cur ? `Locked until ${dateShort(cur)} already` : "Applies the moment you confirm"}</span></div></div>
+    <p class="note">For when something feels wrong: a withdrawal you didn't make, a signature you regret, a stolen phone. Until the date you pick, <b>nothing leaves</b>${waiting ? `, including the ${waiting} withdrawal${waiting === 1 ? "" : "s"} already waiting` : ""}, and sends to trusted addresses stop too.</p>
+    <div class="opts">${opts}</div>
+    <p class="note">You can still cancel anything, and your guardian can still release a real emergency. A freeze can't be ended early, so pick the shortest time that gives you room to think.</p>`, (fd) => {
+    const d = Number(fd.get("d"));
+    if (!d) { toast("Pick how long", "err"); return false; }
+    const until = now() + d * DAY + 120;
+    return send(`Froze the vault until ${dateShort(until)}`, () => C.x.ops.proposeChange({ kind: "SetLockedUntil", value: until }));
+  });
+  const ok = $("#sheet-form").querySelector('button[value="ok"]');
+  ok.textContent = "Freeze now"; ok.classList.add("danger-btn");
+  if (!$("#sheet-form").querySelector('input[name="d"]:not([disabled])')) ok.disabled = true;
 }
 
 function openRuleMenu() {
@@ -989,7 +1025,7 @@ function rowsWithdrawals(v, asGuardian) {
     const guard = asGuardian
       ? (S.wallet && v.guardian?.equals(S.wallet) ? `<div class="row-acts"><button class="btn sm good" data-act="release" ${ids} data-dest="${w.dest.toBase58()}" ${S.busy ? "disabled" : ""}>Approve emergency release</button></div>` : "")
       : `<button class="keep" data-act="cancel-w" ${ids} data-amt="${w.amount}" ${S.busy ? "disabled" : ""}>${I.shield}<span>Cancel and keep ${sol(w.amount, a)} ${a.unit} safe</span></button>
-        <div class="keep-note">Free, instant, and nobody else is told.${ready ? ` <button class="link danger" data-act="run" ${ids} data-dest="${w.dest.toBase58()}" ${S.busy ? "disabled" : ""}>Send it now</button>` : ""}</div>`;
+        <div class="keep-note">Free, instant, and nobody else is told. <button class="link" data-act="freeze">Not you? Freeze everything</button>${ready ? ` <button class="link danger" data-act="run" ${ids} data-dest="${w.dest.toBase58()}" ${S.busy ? "disabled" : ""}>Send it now</button>` : ""}</div>`;
     return `<div class="row wd${ready ? " is-ready" : ""}">
       <div class="row-top"><b><span class="m">${sol(w.amount, a)}</span> ${a.unit} <span class="muted">leaving</span></b><span class="muted">to <a href="${explorer("address", w.dest.toBase58())}" target="_blank" rel="noopener">${short(w.dest)}</a></span></div>
       ${status}
@@ -1116,6 +1152,7 @@ const actions = {
     return send("Asked to trust an address", () => C.x.ops.proposeChange({ kind: "AddTrusted", value: a }));
   }),
   rules: () => openRuleMenu(),
+  freeze: () => { $("#sheet").close(); freezeSheet(); },
   rule: (el) => { $("#sheet").close(); openRule(el.dataset.k); },
   "cancel-w": (el) => { const a = A(el.dataset.asset); return send(`Cancelled. ${sol(Number(el.dataset.amt), a)} ${a.unit} stays in your vault. That's a win.`, () => assetOps(a.id).cancelWithdrawal(Number(el.dataset.id))); },
   run: (el) => send("Sent a withdrawal", () => assetOps(el.dataset.asset).executeWithdrawal(S.wallet, Number(el.dataset.id), keyOf(el.dataset.dest))),

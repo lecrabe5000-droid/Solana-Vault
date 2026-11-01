@@ -622,3 +622,12 @@ section.glass { border-radius: 20px; }
 /* the row an alert link points to */
 .row.flash { animation: flash 1.4s ease 2; }
 @keyframes flash { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 40% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--blue) 45%, transparent); } }
+
+/* panic freeze */
+.qa-freeze span { border-color: color-mix(in srgb, #4aa3ff 55%, var(--line-2)); color: #2b8be6; }
+[data-theme="dark"] .qa-freeze span { color: #7cc0ff; }
+.freeze-ico { color: #2b8be6; }
+.danger-btn { background: #1f6fd1 !important; border-color: #1f6fd1 !important; color: #fff !important; }
+.keep-note .link { color: var(--blue); }
+.frozen { display: flex; align-items: center; gap: 12px; margin: 0 0 18px; padding: 14px 16px; border-radius: 14px; background: color-mix(in srgb, #4aa3ff 14%, var(--surface, var(--bg))); border: 1px solid color-mix(in srgb, #4aa3ff 40%, transparent); color: var(--ink); font-size: 14px; }
+.frozen svg { flex: none; width: 22px; height: 22px; fill: none; stroke: #2b8be6; stroke-width: 1.7; stroke-linecap: round; }

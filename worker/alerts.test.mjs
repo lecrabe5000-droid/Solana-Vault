@@ -1,6 +1,6 @@
 // Tests for worker/alerts.js. Run from evm/ (it borrows ethers from there): node ../worker/alerts.test.mjs
 import { createRequire } from "node:module";
-import { alertLink, decodeSolVault, decodeSolTokenVault, emptyTokenSnap, diffSol, decodeEvmLog, message, base58, coin, ownerTopic, onCurve, unbase58, tokenAmount, USDC } from "./alerts.js";
+import { alertLink, alertLinks, decodeSolVault, decodeSolTokenVault, emptyTokenSnap, diffSol, decodeEvmLog, message, base58, coin, ownerTopic, onCurve, unbase58, tokenAmount, USDC } from "./alerts.js";
 
 const require = createRequire(new URL("../evm/package.json", import.meta.url));
 const { ethers } = require("ethers");
@@ -158,6 +158,9 @@ test("alert buttons go straight to the item to cancel", () => {
   eq(alertLink({ type: "requested", id: 9, asset: USDC }, "base").url, "https://ecrinprotocol.app/app?net=base&tab=vault&act=cancel-w&id=9&asset=usdc");
   eq(alertLink({ type: "changeQueued", id: 3 }, "eth").label, "Cancel it");
   ok(alertLink({ type: "requested", id: 1 }, "eth", undefined, OWNER).url.endsWith("&owner=" + OWNER));
+  const both = alertLinks({ type: "requested", id: 1 }, "sol", undefined, "abc");
+  eq(both.map((l) => l.label), ["Cancel it", "Freeze vault"]); eq(both[1].url, "https://ecrinprotocol.app/app?net=sol&tab=vault&act=freeze&owner=abc");
+  eq(alertLinks({ type: "deposit", amount: "1" }, "sol").length, 1);
   eq(alertLink({ type: "deposit", amount: "1" }, "sol"), { label: "Open Ecrin", url: "https://ecrinprotocol.app/app?net=sol&tab=vault" });
   eq(alertLink({ type: "requested", id: 4, asset: { unit: "tokens (0x33…3333)", decimals: 18 } }, "eth").label, "Open Ecrin");
 });

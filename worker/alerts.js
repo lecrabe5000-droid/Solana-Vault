@@ -230,7 +230,7 @@ function changeWords(kind, value, fmt) {
     case "SetWithdrawDelay": return `Withdrawals wait ${words(value)}`;
     case "SetRuleDelay": return `Looser rules wait ${words(value)}`;
     case "SetDailyLimit": return value ? `Daily limit ${fmt(value)}` : `No daily limit${fmt.unit ? ` on ${fmt.unit}` : ""}`;
-    case "SetLockedUntil": return value ? `Locked until ${when(value)}` : "Lock ended";
+    case "SetLockedUntil": return value ? `Locked until ${when(value)}: nothing can leave before then` : "Lock ended";
     case "SetGuardian": return value ? `Guardian set to ${short(value)}` : "Guardian removed";
     case "AddTrusted": return `Trusted address added: ${short(value)}`;
     case "RemoveTrusted": return `Trusted address removed: ${short(value)}`;
@@ -251,13 +251,21 @@ export function alertLink(event, net, site = "https://ecrinprotocol.app", owner 
   return { label: "Open Ecrin", url: base };
 }
 
+/** The buttons under an alert: the item itself, and for anything that could be an attack, a freeze. */
+export function alertLinks(event, net, site = "https://ecrinprotocol.app", owner = "") {
+  const first = alertLink(event, net, site, owner);
+  if (event.type !== "requested" && event.type !== "changeQueued") return [first];
+  const who = owner ? `&owner=${encodeURIComponent(owner)}` : "";
+  return [first, { label: "Freeze vault", url: `${site}/app?net=${net}&tab=vault&act=freeze${who}` }];
+}
+
 export function message(event, { net, owner, now = Math.floor(Date.now() / 1000) }) {
   const n = NETS[net] || NETS.eth, a = event.asset || n, fmt = (u) => `${coin(u, a.decimals)} ${a.unit}`;
   if (event.asset) fmt.unit = a.unit;
   const head = `<b>Ecrin · ${n.name}</b> · vault <code>${esc(short(owner))}</code>\n\n`;
   const e = event;
   switch (e.type) {
-    case "requested": return { urgent: true, text: head + `⏳ <b>Withdrawal requested</b>\n${e.amount ? fmt(e.amount) : "Funds"} to <code>${esc(short(e.dest))}</code>\nIt can leave ${inTime(e.readyAt, now)} (${when(e.readyAt)}).\n\n<b>Not you?</b> Tap Cancel it below. Cancelling is free and instant.` };
+    case "requested": return { urgent: true, text: head + `⏳ <b>Withdrawal requested</b>\n${e.amount ? fmt(e.amount) : "Funds"} to <code>${esc(short(e.dest))}</code>\nIt can leave ${inTime(e.readyAt, now)} (${when(e.readyAt)}).\n\n<b>Not you?</b> Tap Cancel it below (free and instant), or Freeze vault to stop everything while you look into it.` };
     case "cancelled": return { text: head + `🛡 <b>Withdrawal cancelled</b>${e.amount ? `\n${fmt(e.amount)} stays in your vault.` : "\nThe funds stay in your vault."}` };
     case "sent": return { text: head + `↗ <b>Withdrawal sent</b>\n${fmt(e.amount)} left the vault to <code>${esc(short(e.dest))}</code>.` };
     case "sentAny": return { text: head + `↗ <b>Funds left the vault</b>\n${fmt(e.amount)} to <code>${esc(short(e.dest))}</code>.` };
