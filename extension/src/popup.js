@@ -140,6 +140,30 @@ function render() {
   root.innerHTML = ({ loading: () => `<div class="splash">${LOGO}</div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView })[S.screen]();
   const f = root.querySelector("[autofocus]"); if (f) f.focus();
   bindHolds(root);
+  depth(root);
+  // The total counts up the first time it shows, so the balance arrives rather than appears.
+  const big = root.querySelector(".big:not(.sk)");
+  if (big && !S.counted && !S.hide) { S.counted = true; countUp(big); }
+}
+
+/** Number roll-up: from 0 to the shown dollar total in 0.9 s, easing out. */
+function countUp(el) {
+  const to = Number(el.textContent.replace(/[^\d.]/g, "")); if (!to) return;
+  const t0 = performance.now();
+  const step = (t) => { const k = Math.min(1, (t - t0) / 900), e = 1 - Math.pow(1 - k, 4); el.innerHTML = fig(money(to * e)); if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+
+/** Cards that catch the light: they lean toward the pointer and a sheen follows it. */
+function depth(scope) {
+  scope.querySelectorAll("[data-tilt]").forEach((c) => {
+    c.addEventListener("pointermove", (e) => {
+      const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+      c.style.setProperty("--ry", ((x - 0.5) * 10).toFixed(2) + "deg"); c.style.setProperty("--rx", ((0.5 - y) * 8).toFixed(2) + "deg");
+      c.style.setProperty("--mx", (x * 100).toFixed(1) + "%"); c.style.setProperty("--my", (y * 100).toFixed(1) + "%");
+    });
+    c.addEventListener("pointerleave", () => { ["--rx", "--ry"].forEach((v) => c.style.setProperty(v, "0deg")); });
+  });
 }
 
 function welcome() {
@@ -155,7 +179,7 @@ function welcome() {
 }
 
 function miniVault() {
-  return `<div class="mv"><svg class="mv-g" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice">${Array.from({ length: 26 }, (_, i) => `<circle cx="${330 + Math.cos(i / 2.2) * 14}" cy="${40 + Math.sin(i / 2.2) * 14}" r="${18 + i * 9}"/>`).join("")}</svg>
+  return `<div class="mv" data-tilt><i class="sheen"></i><svg class="mv-g" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice">${Array.from({ length: 26 }, (_, i) => `<circle cx="${330 + Math.cos(i / 2.2) * 14}" cy="${40 + Math.sin(i / 2.2) * 14}" r="${18 + i * 9}"/>`).join("")}</svg>
     <div class="mv-top"><span class="mv-mark">${LOGO}<b>ECRIN</b></span><span class="mv-lvl">Savings · 72 h</span></div>
     <div class="mv-bal"><span>Protected</span><b>12.40<small> SOL</small></b></div>
     <div class="mv-foot"><i class="dot"></i>Sealed · nothing waiting to leave</div></div>`;
@@ -218,7 +242,7 @@ function importPhrase() {
 
 function unlock() {
   return `<div class="lock">
-    <div class="lock-mark">${LOGO}</div>
+    <div class="lock-mark"><i class="halo"></i>${LOGO}</div>
     <h1>Welcome back</h1><p class="sub">Unlock Ecrin Wallet</p>
     <form class="stack" data-form="unlock">
       <label class="fld"><span>Password</span><input name="pw" type="password" autocomplete="current-password" autofocus required/></label>
@@ -262,12 +286,12 @@ function homeView() {
       <div class="hero-sub">${ch != null ? `<span class="chg ${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "▲" : "▼"} ${Math.abs(ch).toFixed(2)}%</span>` : ""}<span class="split"><i style="--p:${pct}%"></i></span><span class="pct">${pct}% protected</span></div>
     </section>
     <section class="accts">
-      <button class="acard chq" data-act="panel" data-p="assets">
+      <button class="acard chq" data-act="panel" data-p="assets" data-tilt><i class="sheen"></i>
         <span class="ac-k">Chequing</span>
         <b class="ac-v ${loading ? "sk" : ""}">${loading ? "&nbsp;" : mask(fig(money(t.chq)))}</b>
         <span class="ac-s"><i class="dot live"></i>Spend instantly</span>
       </button>
-      <button class="acard sav" data-act="panel" data-p="vault">
+      <button class="acard sav" data-act="panel" data-p="vault" data-tilt><i class="sheen"></i>
         <svg class="mv-g" viewBox="0 0 200 140" preserveAspectRatio="xMidYMid slice">${Array.from({ length: 18 }, (_, i) => `<circle cx="${170 + Math.cos(i / 2.2) * 8}" cy="${20 + Math.sin(i / 2.2) * 8}" r="${10 + i * 8}"/>`).join("")}</svg>
         <span class="ac-k">${I.lock}Savings</span>
         <b class="ac-v ${S.vault === undefined ? "sk" : ""}">${S.vault === undefined ? "&nbsp;" : mask(fig(money(t.sav)))}</b>
@@ -298,15 +322,15 @@ function dur(s) { if (s <= 0) return "ready"; const d = Math.floor(s / 86400), h
 // ------------------------------------------------------------------ panels (slide over the home screen)
 
 function openPanel(p, opts = {}) { S.panel = { p, step: "form", asset: opts.a || "native", amount: "", to: "", ...opts }; renderPanel(true); }
-function closePanel() { const el = $("#panel"); el.classList.remove("in"); setTimeout(() => { if (!S.panel) el.innerHTML = ""; }, 260); S.panel = null; render(); }
+function closePanel() { const el = $("#panel"); el.classList.remove("in"); document.body.classList.remove("stacked"); setTimeout(() => { if (!S.panel) el.innerHTML = ""; }, 260); S.panel = null; render(); }
 
 function renderPanel(enter = false) {
   const el = $("#panel"), P = S.panel;
   if (!P) return;
   const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, nets: netsView, reveal: revealView })[P.p]();
   el.innerHTML = `<div class="pane">${body}</div>`;
-  if (enter) requestAnimationFrame(() => el.classList.add("in"));
-  bindHolds(el);
+  if (enter) requestAnimationFrame(() => { el.classList.add("in"); document.body.classList.add("stacked"); });
+  bindHolds(el); depth(el);
   const f = el.querySelector("[autofocus]"); if (f && enter) setTimeout(() => f.focus(), 200);
 }
 
@@ -420,7 +444,7 @@ function vaultView() {
   const main = v.main, list = [...main.withdrawals.map((w) => ({ ...w, a: "native" })), ...(v.usdc?.withdrawals || []).map((w) => ({ ...w, a: "usdc" }))].sort((x, y) => x.readyAt - y.readyAt);
   const t = now() + (S.clockOff || 0);
   return `${phead("Savings vault")}
-    <div class="vcase">
+    <div class="vcase" data-tilt><i class="sheen"></i>
       <svg class="mv-g" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice">${Array.from({ length: 26 }, (_, i) => `<circle cx="${330 + Math.cos(i / 2.2) * 14}" cy="${40 + Math.sin(i / 2.2) * 14}" r="${18 + i * 9}"/>`).join("")}</svg>
       <div class="mv-top"><span class="mv-mark">${LOGO}<b>ECRIN</b></span><span class="mv-lvl">${delay(main.withdrawDelay)} delay</span></div>
       <div class="vc-rows">${vaultLine("native", main.balance)}${NETS[S.net].usdc ? vaultLine("usdc", v.usdc?.balance || 0) : ""}</div>
@@ -539,7 +563,7 @@ const actions = {
   net: async (el) => { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; closePanel(); await eng(); refresh(); },
   autolock: async (el) => { S.autolock = Number(el.dataset.v); await local.set({ autolock: S.autolock }); await touch(); renderPanel(); },
   theme: async (el) => { S.theme = el.dataset.v; document.documentElement.dataset.theme = S.theme; await local.set({ theme: S.theme }); render(); renderPanel(); },
-  lock: async () => { await session.clear(); chrome.runtime.sendMessage({ type: "lock" }).catch(() => {}); ACCT = ENG = null; S.panel = null; $("#panel").innerHTML = ""; $("#panel").classList.remove("in"); go("unlock"); },
+  lock: async () => { await session.clear(); chrome.runtime.sendMessage({ type: "lock" }).catch(() => {}); ACCT = ENG = null; S.panel = null; S.counted = false; $("#panel").innerHTML = ""; $("#panel").classList.remove("in"); document.body.classList.remove("stacked"); go("unlock"); },
   forget: () => { if (confirm("Remove this wallet from the browser? You'll need your recovery phrase to use it again. Money stays on the blockchain.")) forget(); },
 };
 
