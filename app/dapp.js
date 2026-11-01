@@ -810,7 +810,7 @@ function vaultView(full) {
         ${policyCard(v)}
         ${alertsCard()}
         <section class="glass"><div class="sec-h"><h2>Trusted addresses</h2><button class="btn sm" data-act="trust">Add</button></div>
-          ${v.trusted.length ? `<div class="trusted">${v.trusted.map((k) => `<a class="addr" href="${explorer("address", k.toBase58())}" target="_blank" rel="noopener"><i class="live"></i>${short(k)}${I.ext}</a>`).join("")}</div>` : `<div class="empty">None yet. Money sent to a trusted address arrives instantly, so adding one takes time. Trusted addresses apply to every coin.</div>`}</section>
+          ${v.trusted.length ? `<div class="trusted">${v.trusted.map((k) => `<span class="addr-row"><a class="addr" href="${explorer("address", k.toBase58())}" target="_blank" rel="noopener"><i class="live"></i>${label(k)}${I.ext}</a><button class="link" data-act="name" data-a="${k.toBase58()}">${nameOf(k) ? "Rename" : "Name it"}</button></span>`).join("")}</div>` : `<div class="empty">None yet. Money sent to a trusted address arrives instantly, so adding one takes time. Trusted addresses apply to every coin.</div>`}</section>
       </div>
     </div>`;
 }
@@ -1028,7 +1028,7 @@ function rowsWithdrawals(v, asGuardian) {
       : `<button class="keep" data-act="cancel-w" ${ids} data-amt="${w.amount}" ${S.busy ? "disabled" : ""}>${I.shield}<span>Cancel and keep ${sol(w.amount, a)} ${a.unit} safe</span></button>
         <div class="keep-note">Free, instant, and nobody else is told. <button class="link" data-act="freeze">Not you? Freeze everything</button>${ready ? ` <button class="link danger" data-act="run" ${ids} data-dest="${w.dest.toBase58()}" ${S.busy ? "disabled" : ""}>Send it now</button>` : ""}</div>`;
     return `<div class="row wd${ready ? " is-ready" : ""}">
-      <div class="row-top"><b><span class="m">${sol(w.amount, a)}</span> ${a.unit} <span class="muted">leaving</span></b><span class="muted">to <a href="${explorer("address", w.dest.toBase58())}" target="_blank" rel="noopener">${short(w.dest)}</a></span></div>
+      <div class="row-top"><b><span class="m">${sol(w.amount, a)}</span> ${a.unit} <span class="muted">leaving</span></b><span class="muted">to <a href="${explorer("address", w.dest.toBase58())}" target="_blank" rel="noopener">${label(w.dest)}</a></span></div>
       ${status}
       <div class="muted small center">${ready ? "Unlocked" : "Unlocks"} ${when(opens)}${locked && left <= 0 ? " · held by your lock" : ""}</div>
       ${guard}</div>`;
@@ -1058,8 +1058,8 @@ function changeWords({ kind, value }, aid = "native") {
     case "SetDailyLimit": return value ? `Daily limit ${sol(value, A(aid))} ${A(aid).unit}` : `Remove the ${A(aid).unit} daily limit`;
     case "SetLockedUntil": return value ? `Lock until ${new Date(value * 1000).toLocaleDateString(LOCALE)}` : "End the lock";
     case "SetGuardian": return value ? `Guardian ${short(value)}` : "Remove the guardian";
-    case "AddTrusted": return `Trust ${short(value)}`;
-    case "RemoveTrusted": return `Stop trusting ${short(value)}`;
+    case "AddTrusted": return `Trust ${nameOf(value) ? nameOf(value) + " · " : ""}${short(value)}`;
+    case "RemoveTrusted": return `Stop trusting ${nameOf(value) ? nameOf(value) + " · " : ""}${short(value)}`;
   }
   return kind;
 }
@@ -1091,6 +1091,33 @@ const amount = (v = A().stable ? "10" : "0.1") => `<label class="field">Amount (
 const titled = (verb) => (assets().length > 1 ? `${verb} ${A().unit}` : verb);
 const walletHas = () => (S.asset === "native" ? S.walletSol || 0 : S.walletTok[S.asset] || 0);
 const keyOf = (s) => (s ? C.x?.key(s) ?? null : null);
+
+// Names for addresses, kept on this device only (nothing about them goes on-chain).
+const namesKey = () => `ecrin-names-${S.net}-${S.wallet ? S.wallet.toBase58() : ""}`;
+function names() { try { return JSON.parse(localStorage.getItem(namesKey()) || "{}"); } catch (_) { return {}; } }
+function setName(addr, name) { try { const n = names(); if (name) n[String(addr)] = name.slice(0, 40); else delete n[String(addr)]; localStorage.setItem(namesKey(), JSON.stringify(n)); } catch (_) {} }
+const nameOf = (k) => names()[String(k)] || "";
+/** "Bank off-ramp · 9cRt…X2pa", or just the short address. */
+const label = (k) => (nameOf(k) ? `${esc(nameOf(k))} · ${short(k)}` : short(k));
+
+/** Address poisoning: an address that starts and ends like one you know but isn't it. Returns what it imitates. */
+function lookalike(addr) {
+  const a = String(addr || "").trim();
+  if (a.length < 20) return null;
+  const known = [...(S.vault?.trusted || []).map(String), S.wallet ? S.wallet.toBase58() : "", ...Object.keys(names()), ...allWithdrawals(S.vault).map((w) => String(w.dest))].filter(Boolean);
+  const same = (x, y) => x.toLowerCase() === y.toLowerCase();
+  if (known.some((k) => same(k, a))) return null;
+  const hit = known.find((k) => same(k.slice(0, 4), a.slice(0, 4)) && same(k.slice(-4), a.slice(-4)));
+  return hit ? (nameOf(hit) || short(hit)) : null;
+}
+/** Shows a warning under an address field while it looks like a known address. */
+function watchLookalike(input) {
+  if (!input) return;
+  const note = document.createElement("p"); note.className = "note warn-note"; note.hidden = true;
+  input.closest("label").after(note);
+  const check = () => { const hit = lookalike(input.value); note.hidden = !hit; if (hit) note.innerHTML = `<b>Careful:</b> this looks like <b>${esc(hit)}</b> but it is a different address. Scammers send tiny amounts from lookalike addresses so you copy the wrong one. Check every character.`; };
+  input.addEventListener("input", check); check();
+}
 
 const actions = {
   connect: (el) => connect(providers()[Number(el.dataset.i)][1]),
@@ -1142,17 +1169,19 @@ const actions = {
   withdraw: () => sheet(`<h3>${titled("Withdraw")}</h3>${assetSwitch(S.vault)}${amount()}<label class="field">To address<input name="dest" placeholder="Where it should go" required spellcheck="false" autocomplete="off" value="${S.wallet.toBase58()}"/></label><p class="note">Available: ${sol(assetView(S.vault).available)} ${A().unit}. This waits ${delayWords(S.vault.withdrawDelay)}${S.vault.lockedUntil && now() < S.vault.lockedUntil ? " and until the lock ends" : ""}. You can cancel any time.</p>`, async (fd) => {
     const dest = keyOf(fd.get("dest")); if (!dest) { toast("That address isn't valid", "err"); return false; }
     return send(`Asked to withdraw ${sol(lamportsOf(fd))} ${A().unit}`, () => assetOps().requestWithdrawal(dest, lamportsOf(fd)));
-  }),
+  }) || watchLookalike($('#sheet-form input[name="dest"]')),
   send: () => {
     if (!S.vault.trusted.length) return toast("Add a trusted address first", "err");
     const lim = assetView(S.vault).dailyLimit;
-    sheet(`<h3>${titled("Send")} to a trusted address</h3>${assetSwitch(S.vault)}${amount()}<label class="field">To<select name="dest">${S.vault.trusted.map((k) => `<option value="${k.toBase58()}">${short(k)}</option>`).join("")}</select></label><p class="note">Arrives instantly${lim ? `, up to ${sol(lim)} ${A().unit} a day` : ""}.</p>`,
+    sheet(`<h3>${titled("Send")} to a trusted address</h3>${assetSwitch(S.vault)}${amount()}<label class="field">To<select name="dest">${S.vault.trusted.map((k) => `<option value="${k.toBase58()}">${label(k)}</option>`).join("")}</select></label><p class="note">Arrives instantly${lim ? `, up to ${sol(lim)} ${A().unit} a day` : ""}.</p>`,
       (fd) => send(`Sent ${sol(lamportsOf(fd))} ${A().unit} to a trusted address`, () => assetOps().sendToTrusted(keyOf(fd.get("dest")), lamportsOf(fd))));
   },
-  trust: () => sheet(`<h3>Trust an address</h3><label class="field">Address<input name="addr" required placeholder="Your bank off-ramp, your rent…" spellcheck="false" autocomplete="off"/></label><p class="note">Money sent here will arrive instantly, so trusting it waits ${delayWords(S.vault.ruleDelay)}${S.vault.guardian ? ", unless your guardian approves it sooner" : ""}.</p>`, async (fd) => {
+  trust: () => { sheet(`<h3>Trust an address</h3><label class="field">Address<input name="addr" required placeholder="Your bank off-ramp, your rent…" spellcheck="false" autocomplete="off"/></label><label class="field">Name (only on this device)<input name="label" maxlength="40" placeholder="Bank off-ramp" autocomplete="off"/></label><p class="note">Money sent here will arrive instantly, so trusting it waits ${delayWords(S.vault.ruleDelay)}${S.vault.guardian ? ", unless your guardian approves it sooner" : ""}.</p>`, async (fd) => {
     const a = keyOf(fd.get("addr")); if (!a) { toast("That address isn't valid", "err"); return false; }
+    if (String(fd.get("label") || "").trim()) setName(a.toBase58(), String(fd.get("label")).trim());
     return send("Asked to trust an address", () => C.x.ops.proposeChange({ kind: "AddTrusted", value: a }));
-  }),
+  }); watchLookalike($('#sheet-form input[name="addr"]')); },
+  name: (el) => { const cur = nameOf(el.dataset.a), n = prompt(tr("Name for this address (only on this device):"), cur); if (n === null) return; setName(el.dataset.a, n.trim()); render(); },
   rules: () => openRuleMenu(),
   freeze: () => { $("#sheet").close(); freezeSheet(); },
   rule: (el) => { $("#sheet").close(); openRule(el.dataset.k); },
