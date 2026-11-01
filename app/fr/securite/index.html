@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="fr" data-default-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Sécurité · Ecrin</title>
+  <meta name="description" content="Comment Ecrin protège votre argent, ce qui est testé, ce qui manque encore, et comment signaler une faille." />
+  <meta name="theme-color" content="#f3f2ee" />
+  <meta property="og:title" content="Sécurité · Ecrin" />
+  <meta property="og:description" content="An on-chain vault for Solana and Ethereum. Every way out takes time, and you can cancel any time." />
+  <link rel="canonical" href="https://ecrinprotocol.app/fr/securite/" />
+  <link rel="alternate" hreflang="en" href="https://ecrinprotocol.app/security/" />
+  <link rel="alternate" hreflang="fr" href="https://ecrinprotocol.app/fr/securite/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Ecrin" />
+  <meta property="og:url" content="https://ecrinprotocol.app/fr/securite/" />
+  <meta property="og:image" content="https://ecrinprotocol.app/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Sécurité · Ecrin" />
+  <meta name="twitter:description" content="An on-chain vault for Solana and Ethereum. Every way out waits, and you can cancel any time." />
+  <meta name="twitter:image" content="https://ecrinprotocol.app/og.png" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ffffff'/%3E%3Crect x='5' y='5' width='22' height='22' rx='7' fill='none' stroke='%232F5BFF' stroke-width='2.2'/%3E%3Cpath d='M16 10.5l4.8 5.5L16 21.5 11.2 16z' fill='%232F5BFF'/%3E%3C/svg%3E" />
+  <link rel="preload" href="/fonts/unbounded-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/manrope-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/icon-180.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Ecrin" />
+  <link rel="stylesheet" href="/site.css" />
+  <script src="/theme.js"></script>
+  <script src="/site.js" defer></script>
+</head>
+<body class="site sec-page">
+  <header class="nav"><div class="progress" aria-hidden="true"><i></i></div>
+    <div class="nav-in">
+      <a class="logo" href="/fr/" aria-label="Ecrin"><svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="#2F5BFF" stroke-width="2.2"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="#2F5BFF"/></svg>Ecrin</a>
+      <nav class="nav-pill" aria-label="Sections"><a href="#status">État</a><a href="#rules">Les règles</a><a href="#tests">Tests</a><a href="#addresses">Adresses</a><a href="#report">Signaler une faille</a></nav>
+      <div class="nav-cta"><a class="lang" href="/security/" hreflang="en" lang="en">EN</a><button class="theme" data-theme-toggle aria-label="Changer de thème"><svg class="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg></button><a class="btn blue" href="/app">Ouvrir l'app</a></div>
+    </div>
+  </header>
+  <main class="doc">
+    <section class="doc-hero">
+      <span class="kicker">Sécurité</span>
+      <h1>Comment Ecrin protège votre argent, et ce qui manque encore.</h1>
+      <p>Ecrin est en bêta sur des réseaux de test. Cette page dit clairement ce qui vous protège aujourd'hui, ce qui a été testé et ce qui doit arriver avant de vrais fonds.</p>
+    </section>
+
+    <section id="status" class="doc-sec">
+      <h2>État</h2>
+      <div class="sgrid">
+        <div class="scell"><span class="sdot ok"></span><b>Non custodial</b><p>Ecrin ne détient jamais vos clés ni vos fonds. Seul votre portefeuille peut demander un retrait.</p></div>
+        <div class="scell"><span class="sdot ok"></span><b>Règles sur la blockchain</b><p>Les délais, le verrou, le gardien et les limites sont appliqués par le programme Solana et le contrat Ethereum, pas par ce site.</p></div>
+        <div class="scell"><span class="sdot ok"></span><b>Code ouvert</b><p>Chaque ligne est publique sur <a href="https://github.com/lecrabe5000-droid/Solana-Vault" target="_blank" rel="noopener">GitHub</a>.</p></div>
+        <div class="scell"><span class="sdot ok"></span><b>Testé à chaque changement</b><p>Tests des règles, tests sur un vrai validateur Solana, tests du contrat et tests dans le navigateur à chaque modification.</p></div>
+        <div class="scell"><span class="sdot warn"></span><b>Pas encore audité</b><p>Aucune firme indépendante n'a encore révisé le code. Jetons de test seulement jusqu'à ce que ce soit fait et corrigé.</p></div>
+        <div class="scell"><span class="sdot warn"></span><b>Modifiable sur testnet</b><p>Le programme peut encore être mis à jour par une seule clé pendant les tests. Avant le mainnet, cette clé passera à une multisignature, puis le programme sera rendu immuable.</p></div>
+      </div>
+    </section>
+
+    <section id="rules" class="doc-sec">
+      <h2>Les règles, et pourquoi elles tiennent</h2>
+      <ul class="doc-list">
+        <li><b>Chaque retrait vers une nouvelle adresse attend</b> votre délai, d'une heure à un an, et vous pouvez l'annuler jusqu'à son exécution.</li>
+        <li><b>Seules vos adresses de confiance sont instantanées</b>, et en ajouter une prend des jours (ou votre gardien).</li>
+        <li><b>Assouplir une règle attend</b>; la resserrer est immédiat. Une clé volée peut geler votre coffre, jamais le vider.</li>
+        <li><b>Un gardien ne peut approuver que ce que vous avez demandé</b> : libérer un retrait demandé, ou une adresse de confiance proposée. Il ne peut pas lancer un retrait ni choisir la destination.</li>
+        <li><b>Il n'y a aucun jeton reçu</b>, donc rien à vendre pour contourner le délai.</li>
+      </ul>
+      <div class="table-card"><table>
+              <thead><tr><th>Contournement</th><th>Pourquoi ça échoue</th></tr></thead>
+              <tbody>
+                <tr><td>Importer votre clé dans un autre portefeuille</td><td>La clé ne peut que demander un retrait. Le programme impose toujours l'attente.</td></tr>
+                <tr><td>Désactiver les règles</td><td>Assouplir une règle prend des jours, et jamais avant la fin d'un verrou.</td></tr>
+                <tr><td>Mettre l'adresse de l'attaquant en confiance</td><td>Les nouvelles adresses de confiance attendent des jours, ou l'accord de votre gardien.</td></tr>
+                <tr><td>Nommer un deuxième portefeuille gardien</td><td>Tout changement de gardien attend des jours, donc personne ne peut approuver son propre retrait.</td></tr>
+                <tr><td>Vendre un jeton reçu contre des SOL instantanés</td><td>Contrairement au staking liquide, il n'y a aucun jeton à vendre.</td></tr>
+                <tr><td>Le développeur change le code</td><td>Le programme sera rendu immuable après son audit.</td></tr>
+              </tbody>
+            </table></div>
+    </section>
+
+    <section id="tests" class="doc-sec">
+      <h2>Ce qui est testé</h2>
+      <ul class="doc-list">
+        <li><b>Les règles</b> (crates/vault-core) : chaque cas de délai, d'annulation, de gardien et de limite, en Rust et dans la copie du navigateur.</li>
+        <li><b>Le programme Solana</b> sur un vrai validateur local, coffres de jetons USDC compris.</li>
+        <li><b>Le contrat Ethereum</b> : ETH, USDC, jetons qui ne renvoient rien (comme USDT), jetons à frais, transferts refusés et tentatives de réentrée.</li>
+        <li><b>L'app</b>, de bout en bout dans un navigateur sur les deux chaînes locales, et <b>les alertes</b> qui surveillent chaque coffre.</li>
+      </ul>
+      <p><a href="https://github.com/lecrabe5000-droid/Solana-Vault/actions/workflows/ci.yml" target="_blank" rel="noopener">Voir les derniers tests sur GitHub ↗</a></p>
+    </section>
+
+    <section id="addresses" class="doc-sec">
+      <h2>Adresses officielles</h2>
+      <p>N'utilisez Ecrin qu'à <b>ecrinprotocol.app</b>. Voici les programmes et contrats avec lesquels l'app communique; vérifiez-les dans votre portefeuille avant de signer.</p>
+      <div class="addr-list" data-addresses></div>
+    </section>
+
+    <section id="limits" class="doc-sec">
+      <h2>Ce dont Ecrin ne peut pas vous protéger</h2>
+      <ul class="doc-list">
+        <li><b>L'émetteur du jeton.</b> Circle peut geler des USDC à n'importe quelle adresse, coffre compris.</li>
+        <li><b>L'argent déjà envoyé</b> à une adresse de confiance, instantané par conception. Ne faites confiance qu'à des adresses que vous contrôlez.</li>
+        <li><b>Ne pas remarquer.</b> Un délai n'aide que si vous voyez la demande : activez les alertes.</li>
+        <li><b>Les faux sites.</b> Vérifiez la barre d'adresse et ajoutez ecrinprotocol.app à vos favoris.</li>
+      </ul>
+    </section>
+
+    <section id="report" class="doc-sec">
+      <h2>Vous avez trouvé une faille?</h2>
+      <p>Dites-le-nous en privé avant d'en parler à qui que ce soit, pour qu'on puisse corriger d'abord. Décrivez ce que vous avez trouvé et comment le reproduire; ne testez jamais sur les coffres d'autres personnes.</p>
+      <p><a class="btn primary" href="https://github.com/lecrabe5000-droid/Solana-Vault/security/advisories/new" target="_blank" rel="noopener">Signaler en privé sur GitHub</a></p>
+      <p class="muted-s">Une prime aux bogues payée commencera avec le lancement sur le mainnet.</p>
+    </section>
+  </main>
+  <footer class="foot-s"><div class="wrap"><div class="foot-card"><div class="foot-top"><a class="logo" href="/fr/"><svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="#2F5BFF" stroke-width="2.2"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="#2F5BFF"/></svg>Ecrin</a><div class="foot-links"><a href="/app">App</a><a href="/demo">Démo</a><a href="https://github.com/lecrabe5000-droid/Solana-Vault" target="_blank" rel="noopener">GitHub</a></div></div><p>Code ouvert · bêta sur testnet · pas audité : n'utilisez pas de vrais fonds.</p></div></div></footer>
+  <script type="module">
+    import { CONFIG } from "/config.js";
+    import { EVM_NETS } from "/config-evm.js";
+    const fr = document.documentElement.lang === "fr";
+    const rows = [["Solana Devnet", fr ? "programme" : "program", CONFIG.programId, `https://explorer.solana.com/address/${CONFIG.programId}?cluster=devnet`],
+      ...Object.values(EVM_NETS).filter((n) => n.address).map((n) => [`${n.name} ${n.net}`, fr ? "contrat" : "contract", n.address, `${n.explorer}/address/${n.address}`])];
+    document.querySelector("[data-addresses]").innerHTML = rows.map(([net, kind, a, url]) => `<a class="addr-item" href="${url}" target="_blank" rel="noopener"><span><b>${net}</b><small>${kind}</small></span><code>${a}</code></a>`).join("");
+  </script>
+</body>
+</html>

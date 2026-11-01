@@ -62,7 +62,8 @@ FR = {
 "Start a withdrawal": "Lancer un retrait", "never": "jamais", "Choose where money goes": "Choisir où va l'argent",
 "Open source, tested on every change.": "Code ouvert, testé à chaque changement.", "✓ Solana program tests": "✓ tests du programme Solana", "✓ Ethereum contract tests": "✓ tests du contrat Ethereum", "✓ browser app, end to end": "✓ app web, de bout en bout",
 "Not audited yet.": "Pas encore audité.", "Test networks and test coins only. Mainnet comes after an independent security audit, with deposit caps at first.": "Réseaux de test et jetons de test seulement. Le mainnet viendra après un audit de sécurité indépendant, avec des plafonds de dépôt au début.",
-"Every shortcut we know of, and why it fails": "Chaque raccourci qu'on connaît, et pourquoi il échoue", "Way around it": "Contournement", "Why it fails": "Pourquoi ça échoue",
+"Every shortcut we know of, and why it fails": "Chaque raccourci qu'on connaît, et pourquoi il échoue",
+"Every shortcut we know of, and why it fails ·": "Chaque raccourci qu'on connaît, et pourquoi il échoue ·", "full security page": "page sécurité complète", "Security page": "Page sécurité", "Way around it": "Contournement", "Why it fails": "Pourquoi ça échoue",
 "Import your key into another wallet": "Importer votre clé dans un autre portefeuille", "The key can only request a withdrawal. The program still enforces the wait.": "La clé ne peut que demander un retrait. Le programme impose toujours l'attente.",
 "Turn the rules off": "Désactiver les règles", "Loosening any rule waits days, and never before a lock ends.": "Assouplir une règle prend des jours, et jamais avant la fin d'un verrou.",
 "Add the attacker's address as trusted": "Mettre l'adresse de l'attaquant en confiance", "New trusted addresses wait days, or need your guardian's approval.": "Les nouvelles adresses de confiance attendent des jours, ou l'accord de votre gardien.",
@@ -133,6 +134,7 @@ s = s.replace('href="fonts/', 'href="/fonts/')
 s = s.replace('class="lang" href="/fr/" hreflang="fr" lang="fr" aria-label="Lire en français">FR</a>', 'class="lang" href="/" hreflang="en" lang="en" aria-label="Read in English">EN</a>')
 s = s.replace('<a class="btn ghost lg" href="/fr/" hreflang="fr" lang="fr">Français</a>', '<a class="btn ghost lg" href="/" hreflang="en" lang="en">English</a>')
 for en, fr in [('&nbsp;· 31.40 SOL to 9cRt…X2pa', '&nbsp;· 31,40 SOL vers 9cRt…X2pa'), ('&nbsp;· 72 hours later', '&nbsp;· 72 heures plus tard'), ('&nbsp;· it never left', "&nbsp;· rien n'est sorti"),
+               ('href="/security/"', 'href="/fr/securite/"'),
                ('<b class="mi-big">24.00 <small>SOL</small></b>', '<b class="mi-big">24,00 <small>SOL</small></b>'), ('<b class="num" data-pl-amt>24.00</b>', '<b class="num" data-pl-amt>24,00</b>')]:
     s = s.replace(en, fr)
 open(os.path.join(ROOT, 'app/fr/index.html'), 'w').write(s)
