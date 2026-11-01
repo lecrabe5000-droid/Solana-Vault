@@ -593,3 +593,8 @@ td:first-child { color: var(--ink); font-weight: 600; width: 44%; }
   .tk-set + .tk-set { display: none; }
   .ticker { -webkit-mask-image: none; mask-image: none; } .tk-set { flex-wrap: wrap; justify-content: center; row-gap: 12px; width: 100%; } .tk-track { width: auto; }
 }
+
+/* hero label and headline stay readable when a bright ribbon passes behind them */
+.hero-k { background: rgba(11, 11, 14, .62); border-color: rgba(255, 255, 255, .18); color: #eceef8; backdrop-filter: blur(10px) saturate(1.2); -webkit-backdrop-filter: blur(10px) saturate(1.2); box-shadow: 0 8px 24px -10px rgba(0, 0, 0, .6); }
+.hero-copy h1 { filter: drop-shadow(0 2px 18px rgba(11, 11, 14, .5)); }
+.lede { text-shadow: 0 1px 14px rgba(11, 11, 14, .7); }
