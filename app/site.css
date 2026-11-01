@@ -527,3 +527,16 @@ td:first-child { color: var(--ink); font-weight: 600; width: 44%; }
 .addr-item code { color: var(--text); font-size: 12.5px; overflow-wrap: anywhere; text-align: right; }
 .muted-s { color: var(--muted); font-size: 14px; }
 @media (max-width: 560px) { .sgrid { grid-template-columns: 1fr; } .addr-item { flex-direction: column; align-items: flex-start; } .addr-item code { text-align: left; } .doc { padding: 20px 18px 20px; } }
+
+/* live numbers under the hero */
+.live { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px; max-width: 1400px; margin: 14px auto 0; color: var(--text); font-size: 14px; }
+.live b { color: var(--ink); font: 500 15px var(--num); letter-spacing: -.02em; }
+.live > span:first-of-type { color: var(--muted); }
+.live-dot { width: 8px; height: 8px; margin: 6px -10px 0 0; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 4px var(--good-soft); }
+/* waitlist */
+.wl-form { display: flex; gap: 8px; max-width: 460px; margin: 26px auto 0; }
+.wl-form input { flex: 1; min-width: 0; height: 52px; padding: 0 18px; border: 1px solid var(--line-2); border-radius: 999px; background: var(--panel); color: var(--ink); font: 500 15px var(--font); }
+.wl-form .btn { height: 52px; }
+.wl-note { margin-top: 12px !important; color: var(--muted); font-size: 13.5px !important; }
+.wl-note.ok { color: var(--good); font-weight: 600; } .wl-note.err { color: var(--bad); font-weight: 600; }
+@media (max-width: 560px) { .wl-form { flex-direction: column; } .live { font-size: 13px; gap: 4px 12px; } }

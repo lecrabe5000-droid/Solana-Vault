@@ -1,7 +1,7 @@
 // Serves the site from app/, keeps one official address, and runs Ecrin alerts.
 // - www and the production workers.dev host redirect (301) to https://ecrinprotocol.app, path and query kept.
 //   Version previews (<id>-solana-vault.<account>.workers.dev) are left alone.
-// - /api/alerts/* (Telegram link, email sign-up, confirm, unsubscribe) and /api/telegram go to the AlertHub
+// - /api/alerts/* (Telegram link, email sign-up, confirm, unsubscribe), /api/telegram, /api/waitlist and /api/stats go to the AlertHub
 //   Durable Object; a cron runs its check every minute once a channel's secret is set.
 import { AlertHub } from "./hub.js";
 
@@ -19,7 +19,7 @@ export default {
       url.port = "";
       return Response.redirect(url.toString(), 301);
     }
-    const route = { "/api/alerts/start": "/start", "/api/alerts/status": "/status", "/api/alerts/email": "/email", "/api/alerts/confirm": "/confirm", "/api/alerts/unsub": "/unsub", "/api/telegram": "/telegram" }[url.pathname];
+    const route = { "/api/alerts/start": "/start", "/api/alerts/status": "/status", "/api/alerts/email": "/email", "/api/alerts/confirm": "/confirm", "/api/alerts/unsub": "/unsub", "/api/telegram": "/telegram", "/api/waitlist": "/waitlist", "/api/waitlist/confirm": "/wconfirm", "/api/stats": "/stats" }[url.pathname];
     if (route) return hub(env).fetch(new Request("https://hub" + route + url.search, request));
     return env.ASSETS.fetch(request);
   },

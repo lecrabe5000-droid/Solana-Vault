@@ -5,7 +5,7 @@ import { DurableObject } from "cloudflare:workers";
 import { CONFIG } from "../app/config.js";
 import { EVM_NETS } from "../app/config-evm.js";
 import { SOL_USDC } from "../app/config-tokens.js";
-import { alertLinks, b64, decodeSolVault, decodeSolTokenVault, emptyTokenSnap, tokenVaultAddresses, tokenAmount, diffSol, decodeEvmLog, message, ownerTopic, short, esc, NETS, USDC } from "./alerts.js";
+import { alertLinks, base58, b64, decodeSolVault, decodeSolTokenVault, emptyTokenSnap, tokenVaultAddresses, tokenAmount, diffSol, decodeEvmLog, message, ownerTopic, short, esc, NETS, USDC } from "./alerts.js";
 
 const SITE = "https://ecrinprotocol.app";
 const NET_NAME = Object.fromEntries(Object.entries(NETS).map(([k, n]) => [k, n.name]));
@@ -67,7 +67,8 @@ export class AlertHub extends DurableObject {
       CREATE TABLE IF NOT EXISTS subs (chat TEXT, net TEXT, owner TEXT, vault TEXT, created INTEGER, PRIMARY KEY (chat, net, owner));
       CREATE TABLE IF NOT EXISTS emails (email TEXT, net TEXT, owner TEXT, vault TEXT, token TEXT UNIQUE, confirmed INTEGER, created INTEGER, PRIMARY KEY (email, net, owner));
       CREATE TABLE IF NOT EXISTS snaps (net TEXT, k TEXT, data TEXT, PRIMARY KEY (net, k));
-      CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT);`);
+      CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT);
+      CREATE TABLE IF NOT EXISTS waitlist (email TEXT PRIMARY KEY, lang TEXT, token TEXT UNIQUE, confirmed INTEGER, created INTEGER);`);
     // Each subscription remembers its language (en / fr); added after launch, so older rows read as English.
     for (const t of ["pending", "subs", "emails"]) { try { this.sql.exec(`ALTER TABLE ${t} ADD COLUMN lang TEXT`); } catch (_) {} }
   }
@@ -123,6 +124,9 @@ export class AlertHub extends DurableObject {
       if (url.pathname === "/confirm") return this.confirmEmail(url.searchParams.get("t") || "");
       if (url.pathname === "/unsub") return this.unsubscribe(url.searchParams.get("t") || "", request.method);
       if (url.pathname === "/tick") { await this.tick(); return json({ ok: true }); }
+      if (url.pathname === "/waitlist" && request.method === "POST") return mail ? await this.joinWaitlist(await request.json()) : json({ error: "The waitlist isn't open yet." }, 503);
+      if (url.pathname === "/wconfirm") return this.confirmWaitlist(url.searchParams.get("t") || "");
+      if (url.pathname === "/stats") return this.stats();
     } catch (e) { console.error(e); return json({ error: "Something went wrong. Try again." }, 500); }
     return json({ error: "Not found" }, 404);
   }
@@ -189,6 +193,74 @@ export class AlertHub extends DurableObject {
     const gone = this.sql.exec("DELETE FROM emails WHERE token = ? RETURNING email", t).toArray().length;
     if (method === "POST") return json({ ok: true });
     return page(gone ? "You're unsubscribed" : "Already unsubscribed", "Ecrin won't email you about this vault anymore. You can turn alerts back on from your vault any time.");
+  }
+
+  // --- Ecrin Wallet waitlist: double opt-in like email alerts (nothing is sent until the link is clicked).
+  async joinWaitlist({ email, lang }) {
+    email = String(email || "").trim().toLowerCase(); lang = lang === "fr" ? "fr" : "en";
+    const fr = lang === "fr";
+    if (!EMAIL.test(email)) return json({ error: fr ? "Cette adresse courriel ne semble pas valide." : "That email address doesn't look right." }, 400);
+    const row = this.sql.exec("SELECT confirmed, created FROM waitlist WHERE email = ?", email).toArray()[0];
+    if (row?.confirmed) return json({ ok: true, already: true });
+    if (row && Date.now() - row.created < 120_000) return json({ ok: true, sent: true });
+    if (this.sql.exec("SELECT COUNT(*) AS n FROM waitlist WHERE confirmed = 0 AND created > ?", Date.now() - 3600_000).one().n > 300) return json({ error: fr ? "Trop de demandes. Réessayez plus tard." : "Too many requests right now. Try again later." }, 429);
+    const t = token();
+    this.sql.exec("INSERT OR REPLACE INTO waitlist (email, lang, token, confirmed, created) VALUES (?, ?, ?, 0, ?)", email, lang, t, Date.now());
+    const ok = await this.mail(email, fr ? "Confirmez votre place sur la liste Ecrin Wallet" : "Confirm your spot on the Ecrin Wallet list", emailPage({
+      body: fr ? "Confirmez que vous voulez être averti quand Ecrin Wallet ouvre : le portefeuille où votre épargne est dans un coffre par défaut.<br><br>Si vous n'avez rien demandé, ignorez ce courriel."
+        : "Confirm that you want to hear when Ecrin Wallet opens: the wallet where your savings sit in a vault by default.<br><br>If you didn't ask for this, ignore this email.",
+      button: [fr ? "Confirmer" : "Confirm", `${SITE}/api/waitlist/confirm?t=${t}`], lang,
+    }));
+    return ok ? json({ ok: true, sent: true }) : json({ error: fr ? "Impossible d'envoyer le courriel. Réessayez dans une minute." : "We couldn't send the email. Try again in a minute." }, 502);
+  }
+
+  confirmWaitlist(t) {
+    const row = this.sql.exec("SELECT lang FROM waitlist WHERE token = ?", t).toArray()[0];
+    if (!row) return page("Link expired", "This link isn't valid anymore. Join the list again from ecrinprotocol.app.");
+    this.sql.exec("UPDATE waitlist SET confirmed = 1 WHERE token = ?", t);
+    return row.lang === "fr" ? page("Vous êtes sur la liste", "On vous écrira quand Ecrin Wallet ouvrira. Rien d'autre.") : page("You're on the list", "We'll email you when Ecrin Wallet opens. Nothing else.");
+  }
+
+  // --- Live numbers for the landing page, read from the chains and cached for 10 minutes.
+  async stats() {
+    const cached = this.get("stats"), at = Number(this.get("stats_at") || 0);
+    if (!cached || Date.now() - at > 10 * 60_000) {
+      try { await this.computeStats(); } catch (e) { console.error("stats", e); if (!cached) return json({ error: "unavailable" }, 503); }
+    }
+    return new Response(this.get("stats"), { headers: { "content-type": "application/json", "cache-control": "public, max-age=300" } });
+  }
+
+  async computeStats() {
+    const out = { vaults: 0, sol: "0", tokenVaults: 0, networks: 0, waitlist: this.sql.exec("SELECT COUNT(*) AS n FROM waitlist WHERE confirmed = 1").one().n, at: Date.now() };
+    if (CONFIG.programId) {
+      out.networks++;
+      const disc = async (name) => base58(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("account:" + name))).slice(0, 8));
+      const vaults = await rpc(CONFIG.rpc, "getProgramAccounts", [CONFIG.programId, { encoding: "base64", commitment: "confirmed", dataSlice: { offset: 41, length: 8 }, filters: [{ memcmp: { offset: 0, bytes: await disc("VaultAccount") } }] }]);
+      let lamports = 0n;
+      for (const a of vaults) { const d = b64(a.account.data[0]); if (d.length === 8) lamports += new DataView(d.buffer, d.byteOffset, 8).getBigUint64(0, true); }
+      out.vaults += vaults.length; out.sol = String(lamports);
+      const tv = await rpc(CONFIG.rpc, "getProgramAccounts", [CONFIG.programId, { encoding: "base64", commitment: "confirmed", dataSlice: { offset: 0, length: 0 }, filters: [{ memcmp: { offset: 0, bytes: await disc("TokenVaultAccount") } }] }]).catch(() => []);
+      out.tokenVaults = tv.length;
+    }
+    // Ethereum-style networks: count VaultCreated logs, scanning only blocks not seen yet.
+    const created = "0x597fbcb71eb7ed6d840f5b85c8b386c7a28ff717ed702eca46f373d330158bb4";
+    for (const [net, E] of Object.entries(EVM_NETS)) {
+      if (!E.address) continue;
+      out.networks++;
+      try {
+        const key = `stats_${net}_${E.address.toLowerCase()}`;
+        let { from, n } = JSON.parse(this.get(key) || "null") || { from: E.fromBlock || 0, n: 0 };
+        const head = parseInt(await rpc(E.rpc, "eth_blockNumber", []), 16) - 2;
+        for (let i = 0; i < 20 && from <= head; i++) {
+          const to = Math.min(head, from + 49_999);
+          const logs = await rpc(E.rpc, "eth_getLogs", [{ address: E.address, fromBlock: "0x" + from.toString(16), toBlock: "0x" + to.toString(16), topics: [created] }]);
+          n += logs.length; from = to + 1;
+        }
+        this.set(key, JSON.stringify({ from, n }));
+        out.vaults += n;
+      } catch (e) { console.error("stats", net, e.message); }
+    }
+    this.set("stats", JSON.stringify(out)); this.set("stats_at", Date.now());
   }
 
   async telegram(request) {

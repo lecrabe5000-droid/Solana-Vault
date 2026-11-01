@@ -105,6 +105,33 @@
     show();
   }
 
+  // Live numbers from the chains (cached by the worker); stays hidden if they can't be read.
+  const live = document.querySelector("[data-stats]");
+  if (live) fetch("/api/stats").then((r) => (r.ok ? r.json() : null)).then((st) => {
+    if (!st || !st.vaults) return;
+    const loc = root.lang === "fr" ? "fr-CA" : "en-US";
+    live.querySelector('[data-st="vaults"]').textContent = st.vaults.toLocaleString(loc);
+    live.querySelector('[data-st="sol"]').textContent = (Number(BigInt(st.sol || "0") / 10_000_000n) / 100).toLocaleString(loc, { maximumFractionDigits: 2 });
+    live.querySelector('[data-st="networks"]').textContent = st.networks;
+    live.hidden = false;
+  }).catch(() => {});
+
+  // Ecrin Wallet waitlist: the worker emails a confirmation link.
+  document.querySelectorAll("[data-waitlist]").forEach((f) => f.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const note = f.parentElement.querySelector("[data-wl-note]"), btn = f.querySelector("button"), fr = root.lang === "fr";
+    btn.disabled = true;
+    try {
+      const r = await fetch("/api/waitlist", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: f.email.value, lang: fr ? "fr" : "en" }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || (fr ? "Réessayez dans une minute." : "Try again in a minute."));
+      note.className = "wl-note ok";
+      note.textContent = j.already ? (fr ? "Vous êtes déjà sur la liste." : "You're already on the list.") : (fr ? "Vérifiez vos courriels pour confirmer." : "Check your inbox to confirm.");
+      f.reset();
+    } catch (err) { note.className = "wl-note err"; note.textContent = err.message; }
+    btn.disabled = false;
+  }));
+
   // The engraved pattern on every case, and the hero dial's ticks.
   document.querySelectorAll("[data-guilloche]").forEach((svg) => {
     svg.innerHTML = Array.from({ length: 34 }, (_, i) => `<circle cx="${330 + Math.cos(i / 2.2) * 14}" cy="${40 + Math.sin(i / 2.2) * 14}" r="${18 + i * 9}"/>`).join("");
