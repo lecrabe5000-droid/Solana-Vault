@@ -144,7 +144,7 @@ function switchNet(n) {
   try { S.provider?.disconnect?.(); } catch (_) {}
   Object.assign(S, { asset: "native", tok: {}, walletTok: {}, readOnly: false, net: n, wallet: null, provider: null, walletSol: null, vault: undefined, price: null, tokens: [], tab: "portfolio", shown: null, chart: null, watchOwner: "", watched: undefined, err: null });
   C = NETS[n];
-  try { localStorage.setItem("ecrin-net", n); } catch (_) {}
+  try { localStorage.setItem("ecrin-net", n); if (n !== "sol") localStorage.setItem("ecrin-last-evm", n); } catch (_) {}
   render(); loadPrice(); reconnect();
 }
 
@@ -341,7 +341,9 @@ let wcMod = null;
 const wcOn = () => !!WC.projectId;
 async function wc() {
   if (!wcMod) wcMod = await import("./vendor/wc/walletconnect.js");
-  wcMod.initWalletConnect({ projectId: WC.projectId, theme: document.documentElement.dataset.theme === "dark" ? "dark" : "light" });
+  const theme = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+  wcMod.initWalletConnect({ projectId: WC.projectId, theme, solana: S.net === "sol" });
+  wcMod.walletConnectTheme(theme); // the modal matches the page every time it opens
   return wcMod;
 }
 /** Connects through the WalletConnect modal (QR code on computers, wallet apps on phones). */
@@ -350,7 +352,14 @@ async function connectWC() {
   connecting = true;
   try {
     const m = await wc();
-    const { provider, address } = await m.connectWith(S.net === "sol" ? "solana" : "eip155");
+    const { namespace, provider, address } = await m.connectWith(S.net === "sol" ? "solana" : "eip155");
+    // Every wallet is offered; if it was a Solana wallet on an Ethereum network (or the reverse), move the app over.
+    const want = namespace === "solana" ? "sol" : isEvm() ? S.net : (() => { try { const n = localStorage.getItem("ecrin-last-evm"); return NETS[n]?.x ? n : null; } catch (_) { return null; } })() || Object.keys(NETS).find((k) => k !== "sol" && NETS[k].x);
+    if (want && want !== S.net) {
+      Object.assign(S, { asset: "native", tok: {}, walletTok: {}, net: want, walletSol: null, price: null, tokens: [], shown: null, chart: null, err: null });
+      C = NETS[want]; try { localStorage.setItem("ecrin-net", want); } catch (_) {}
+      loadPrice();
+    }
     S.readOnly = false; S.viaWC = true; S.vault = undefined;
     if (isEvm()) {
       await ensureChain(provider);
@@ -375,6 +384,8 @@ const inWalletBrowser = () => isPhone() && !!(window.phantom?.solana || window.s
 let installPrompt = null;
 addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installPrompt = e; render(); });
 addEventListener("appinstalled", () => { installPrompt = null; render(); });
+// The theme was switched in another tab: redraw so the switch and the WalletConnect modal match.
+addEventListener("ecrin-theme", () => { wcMod?.walletConnectTheme(document.documentElement.dataset.theme); render(); });
 
 function installCard() {
   if (!isPhone() || standalone()) return "";
