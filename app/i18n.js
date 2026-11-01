@@ -128,6 +128,11 @@ const EXACT = {
   "Name for this address (only on this device):": "Nom pour cette adresse (sur cet appareil seulement) :",
   "Careful:": "Attention :", "this looks like": "cette adresse ressemble à",
   "but it is a different address. Scammers send tiny amounts from lookalike addresses so you copy the wrong one. Check every character.": "mais c'est une autre adresse. Les fraudeurs envoient de petits montants depuis des adresses semblables pour que vous copiiez la mauvaise. Vérifiez chaque caractère.",
+  "On this device": "Sur cet appareil", "On this phone": "Sur ce téléphone", "Notify this device": "Notifier cet appareil", "Turning on…": "Activation…", "Turn off": "Désactiver",
+  "Notifications are on for this device.": "Les notifications sont activées sur cet appareil.",
+  "To get notifications on iPhone, add Ecrin to your home screen first, then open it from there.": "Pour recevoir des notifications sur iPhone, ajoutez d'abord Ecrin à votre écran d'accueil, puis ouvrez-le de là.",
+  "Notifications are blocked for this site. Allow them in your browser settings, then try again.": "Les notifications sont bloquées pour ce site. Autorisez-les dans les réglages du navigateur, puis réessayez.",
+  "Notifications aren't available right now.": "Les notifications ne sont pas disponibles pour le moment.",
   // errors (chain.js / evm.js)
   "Only the vault owner can do that.": "Seul le propriétaire du coffre peut faire ça.", "Only the guardian can do that.": "Seul le gardien peut faire ça.", "This vault has no guardian.": "Ce coffre n'a pas de gardien.",
   "Enter an amount above zero.": "Entrez un montant supérieur à zéro.", "Not enough funds that aren't already queued.": "Pas assez de fonds qui ne sont pas déjà en attente.", "That address isn't trusted yet.": "Cette adresse n'est pas encore de confiance.",

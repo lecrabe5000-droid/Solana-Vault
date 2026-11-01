@@ -5,6 +5,7 @@ import { DurableObject } from "cloudflare:workers";
 import { CONFIG } from "../app/config.js";
 import { EVM_NETS } from "../app/config-evm.js";
 import { SOL_USDC } from "../app/config-tokens.js";
+import { newVapidKeys, vapidPublic, sendPush, allowedEndpoint } from "./push.js";
 import { alertLinks, base58, b64, decodeSolVault, decodeSolTokenVault, emptyTokenSnap, tokenVaultAddresses, tokenAmount, diffSol, decodeEvmLog, message, ownerTopic, short, esc, NETS, USDC } from "./alerts.js";
 
 const SITE = "https://ecrinprotocol.app";
@@ -68,6 +69,7 @@ export class AlertHub extends DurableObject {
       CREATE TABLE IF NOT EXISTS emails (email TEXT, net TEXT, owner TEXT, vault TEXT, token TEXT UNIQUE, confirmed INTEGER, created INTEGER, PRIMARY KEY (email, net, owner));
       CREATE TABLE IF NOT EXISTS snaps (net TEXT, k TEXT, data TEXT, PRIMARY KEY (net, k));
       CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT);
+      CREATE TABLE IF NOT EXISTS pushes (endpoint TEXT PRIMARY KEY, net TEXT, owner TEXT, vault TEXT, p256dh TEXT, auth TEXT, lang TEXT, created INTEGER);
       CREATE TABLE IF NOT EXISTS waitlist (email TEXT PRIMARY KEY, lang TEXT, token TEXT UNIQUE, confirmed INTEGER, created INTEGER);`);
     // Each subscription remembers its language (en / fr); added after launch, so older rows read as English.
     for (const t of ["pending", "subs", "emails"]) { try { this.sql.exec(`ALTER TABLE ${t} ADD COLUMN lang TEXT`); } catch (_) {} }
@@ -112,6 +114,17 @@ export class AlertHub extends DurableObject {
     const cache = {}, get = (lang) => (lang in cache ? cache[lang] : (cache[lang] = render(lang === "fr" ? "fr" : "en")));
     if (this.env.TELEGRAM_BOT_TOKEN) for (const s of this.sql.exec(`SELECT chat, lang FROM subs WHERE net = ? AND ${match.col} = ?`, net, match.val).toArray()) { const m = get(s.lang); if (m) await this.say(s.chat, m.text, net, m.links, s.lang); }
     if (this.env.RESEND_API_KEY) for (const e of this.sql.exec(`SELECT email, token, lang FROM emails WHERE confirmed = 1 AND net = ? AND ${match.col} = ?`, net, match.val).toArray()) { const m = get(e.lang); if (m) await this.emailAlert(e, m.text, net, m.links); }
+    const pushes = this.sql.exec(`SELECT endpoint, p256dh, auth, lang FROM pushes WHERE net = ? AND ${match.col} = ?`, net, match.val).toArray();
+    if (pushes.length) {
+      const keys = await this.vapid();
+      for (const p of pushes) {
+        const m = get(p.lang);
+        if (!m) continue;
+        const status = await sendPush(p, AlertHub.pushPayload(m.text, m.links, net), keys).catch(() => 0);
+        // The browser unsubscribed or the subscription expired: forget it.
+        if (status === 404 || status === 410) this.sql.exec("DELETE FROM pushes WHERE endpoint = ?", p.endpoint);
+      }
+    }
   }
 
   async fetch(request) {
@@ -127,6 +140,9 @@ export class AlertHub extends DurableObject {
       if (url.pathname === "/waitlist" && request.method === "POST") return mail ? await this.joinWaitlist(await request.json()) : json({ error: "The waitlist isn't open yet." }, 503);
       if (url.pathname === "/wconfirm") return this.confirmWaitlist(url.searchParams.get("t") || "");
       if (url.pathname === "/stats") return this.stats();
+      if (url.pathname === "/pushkey") return json({ key: vapidPublic((await this.vapid()).publicJwk) });
+      if (url.pathname === "/pushsub" && request.method === "POST") return this.pushSubscribe(await request.json());
+      if (url.pathname === "/pushunsub" && request.method === "POST") { const { endpoint } = await request.json(); this.sql.exec("DELETE FROM pushes WHERE endpoint = ?", String(endpoint || "")); return json({ ok: true }); }
     } catch (e) { console.error(e); return json({ error: "Something went wrong. Try again." }, 500); }
     return json({ error: "Not found" }, 404);
   }
@@ -193,6 +209,29 @@ export class AlertHub extends DurableObject {
     const gone = this.sql.exec("DELETE FROM emails WHERE token = ? RETURNING email", t).toArray().length;
     if (method === "POST") return json({ ok: true });
     return page(gone ? "You're unsubscribed" : "Already unsubscribed", "Ecrin won't email you about this vault anymore. You can turn alerts back on from your vault any time.");
+  }
+
+  // --- phone and browser notifications (Web Push). The signing keys are made here on first use and never leave.
+  async vapid() {
+    let k = this.get("vapid");
+    if (!k) { k = JSON.stringify(await newVapidKeys()); this.set("vapid", k); }
+    return JSON.parse(k);
+  }
+
+  pushSubscribe({ net, owner, vault, lang, sub }) {
+    const bad = this.validVault(net, owner, vault);
+    if (bad) return json({ error: bad }, 400);
+    const endpoint = String(sub?.endpoint || ""), p256dh = String(sub?.keys?.p256dh || ""), auth = String(sub?.keys?.auth || "");
+    if (!allowedEndpoint(endpoint) || !/^[A-Za-z0-9_-]{80,100}$/.test(p256dh) || !/^[A-Za-z0-9_-]{16,32}$/.test(auth)) return json({ error: "That browser can't receive notifications." }, 400);
+    if (this.sql.exec("SELECT COUNT(*) AS n FROM pushes").one().n > 50_000) return json({ error: "Too many devices right now." }, 429);
+    this.sql.exec("INSERT OR REPLACE INTO pushes (endpoint, net, owner, vault, p256dh, auth, lang, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", endpoint, net, isEvm(net) ? owner.toLowerCase() : owner, vault || "", p256dh, auth, lang === "fr" ? "fr" : "en", Date.now());
+    return json({ ok: true });
+  }
+
+  /** Turns an alert's text and first button into a notification. */
+  static pushPayload(text, links, net) {
+    const lines = text.split("\n").map((l) => l.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim()).filter(Boolean);
+    return { title: lines[1] || "Ecrin", body: lines.slice(2).join(" ").slice(0, 220), url: links?.[0]?.url || `${SITE}/app?net=${net}&tab=vault` };
   }
 
   // --- Ecrin Wallet waitlist: double opt-in like email alerts (nothing is sent until the link is clicked).
@@ -309,7 +348,7 @@ export class AlertHub extends DurableObject {
 
   /** Solana vaults someone watches, with their owners. */
   watchedSol() {
-    const rows = [...this.sql.exec("SELECT owner, vault FROM subs WHERE net = 'sol'").toArray(), ...this.sql.exec("SELECT owner, vault FROM emails WHERE net = 'sol' AND confirmed = 1").toArray()];
+    const rows = [...this.sql.exec("SELECT owner, vault FROM subs WHERE net = 'sol'").toArray(), ...this.sql.exec("SELECT owner, vault FROM emails WHERE net = 'sol' AND confirmed = 1").toArray(), ...this.sql.exec("SELECT owner, vault FROM pushes WHERE net = 'sol'").toArray()];
     return [...new Map(rows.map((r) => [r.vault, r.owner])).entries()].map(([vault, owner]) => ({ vault, owner }));
   }
 
@@ -318,6 +357,7 @@ export class AlertHub extends DurableObject {
     return [...new Set([
       ...this.sql.exec(`SELECT ${col} AS v FROM subs WHERE net = ?`, net).toArray(),
       ...this.sql.exec(`SELECT ${col} AS v FROM emails WHERE net = ? AND confirmed = 1`, net).toArray(),
+      ...this.sql.exec(`SELECT ${col} AS v FROM pushes WHERE net = ?`, net).toArray(),
     ].map((r) => r.v))];
   }
 

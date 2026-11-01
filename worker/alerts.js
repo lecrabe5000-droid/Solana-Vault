@@ -83,7 +83,7 @@ const words = (s, fr) => { s = Number(s); if (s % 86400 === 0) { const d = s / 8
 export const when = (t, fr) => new Date(Number(t) * 1000).toLocaleString(fr ? "fr-CA" : "en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC" }) + " UTC";
 const inTime = (t, now, fr) => {
   const s = Number(t) - now; if (s <= 0) return fr ? "maintenant" : "now";
-  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.ceil((s % 3600) / 60);
+  const tm = Math.ceil(s / 60), d = Math.floor(tm / 1440), h = Math.floor((tm % 1440) / 60), m = tm % 60;
   return fr ? (d ? `dans ${d} j ${h} h` : h ? `dans ${h} h ${m} min` : `dans ${m} min`) : (d ? `in ${d}d ${h}h` : h ? `in ${h}h ${m}m` : `in ${m} min`);
 };
 

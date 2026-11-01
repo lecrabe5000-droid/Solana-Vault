@@ -19,12 +19,13 @@ export default {
       url.port = "";
       return Response.redirect(url.toString(), 301);
     }
-    const route = { "/api/alerts/start": "/start", "/api/alerts/status": "/status", "/api/alerts/email": "/email", "/api/alerts/confirm": "/confirm", "/api/alerts/unsub": "/unsub", "/api/telegram": "/telegram", "/api/waitlist": "/waitlist", "/api/waitlist/confirm": "/wconfirm", "/api/stats": "/stats" }[url.pathname];
+    const route = { "/api/alerts/start": "/start", "/api/alerts/status": "/status", "/api/alerts/email": "/email", "/api/alerts/confirm": "/confirm", "/api/alerts/unsub": "/unsub", "/api/telegram": "/telegram", "/api/waitlist": "/waitlist", "/api/waitlist/confirm": "/wconfirm", "/api/stats": "/stats", "/api/push/key": "/pushkey", "/api/push/subscribe": "/pushsub", "/api/push/unsubscribe": "/pushunsub" }[url.pathname];
     if (route) return hub(env).fetch(new Request("https://hub" + route + url.search, request));
     return env.ASSETS.fetch(request);
   },
 
   async scheduled(_event, env, ctx) {
-    if (env.TELEGRAM_BOT_TOKEN || env.RESEND_API_KEY) ctx.waitUntil(hub(env).fetch("https://hub/tick", { method: "POST" }));
+    // Telegram and email need their secrets; phone notifications need nothing, so the check always runs.
+    ctx.waitUntil(hub(env).fetch("https://hub/tick", { method: "POST" }));
   },
 };

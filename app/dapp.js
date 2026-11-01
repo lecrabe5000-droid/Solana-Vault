@@ -938,6 +938,7 @@ function alertsCard() {
       : "A delay only protects you if you notice. Get a Telegram message or an email within a minute of anything happening to this vault."}</p></div>
     ${on ? `<button class="btn sm" data-act="alerts">Add another chat</button>`
       : `<button class="btn primary wide" data-act="alerts" ${waiting ? "disabled" : ""}>${waiting ? "Waiting for Telegram… press Start there" : "Get alerts on Telegram"}</button>`}
+    ${pushCard()}
     <div class="al-mail">
       <span class="label">Or by email</span>
       ${mailed ? `<p class="al-sent">${I.bell}<span>We sent a confirmation link to <b>${esc(mailed)}</b>. Alerts start once you click it.</span></p>` : ""}
@@ -963,6 +964,42 @@ async function startAlerts() {
     }
   } catch (e) { tab?.close(); toast(esc(e.message), "err"); }
   S.alertCode = null; render();
+}
+
+// Notifications on this device (Web Push). Phones need the home-screen app on iPhone; Android and computers work in the browser.
+const pushKey = () => `ecrin-push-${S.net}-${S.wallet ? S.wallet.toBase58() : ""}`;
+const pushOn = () => { try { return localStorage.getItem(pushKey()) === "1"; } catch (_) { return false; } };
+const pushPossible = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+function pushCard() {
+  if (S.readOnly && !standalone()) return "";
+  if (!pushPossible()) return isIOS() && !standalone() ? `<div class="al-push"><span class="label">On this phone</span><p class="hint">To get notifications on iPhone, add Ecrin to your home screen first, then open it from there.</p></div>` : "";
+  if (pushOn()) return `<div class="al-push"><span class="label">On this device</span><p class="al-sent">${I.bell}<span>Notifications are on for this device.</span> <button class="link" data-act="push-off">Turn off</button></p></div>`;
+  return `<div class="al-push"><span class="label">On this device</span><button class="btn wide" data-act="push" ${S.pushBusy ? "disabled" : ""}>${I.bell}<span>${S.pushBusy ? "Turning on…" : "Notify this device"}</span></button></div>`;
+}
+const b64uToBytes = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), (c) => c.charCodeAt(0));
+async function startPush() {
+  S.pushBusy = true; render();
+  try {
+    if ((await Notification.requestPermission()) !== "granted") throw new Error("Notifications are blocked for this site. Allow them in your browser settings, then try again.");
+    const reg = await navigator.serviceWorker.register("/sw.js").then(() => navigator.serviceWorker.ready);
+    const { key } = await fetch("/api/push/key").then((r) => r.json());
+    const sub = (await reg.pushManager.getSubscription()) || (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uToBytes(key) }));
+    const body = { net: S.net, owner: S.wallet.toBase58(), vault: S.net === "sol" ? S.vault.address.toBase58() : undefined, lang: LANG, sub: sub.toJSON() };
+    const r = await fetch("/api/push/subscribe", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || "Notifications aren't available right now.");
+    try { localStorage.setItem(pushKey(), "1"); } catch (_) {}
+    toast("Notifications are on for this device.", "win");
+  } catch (e) { toast(esc(e.message), "err"); }
+  S.pushBusy = false; render();
+}
+async function stopPush() {
+  try {
+    const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription();
+    if (sub) { await fetch("/api/push/unsubscribe", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ endpoint: sub.endpoint }) }).catch(() => {}); }
+  } catch (_) {}
+  try { localStorage.removeItem(pushKey()); } catch (_) {}
+  render();
 }
 
 async function startEmail(email) {
@@ -1130,6 +1167,8 @@ const actions = {
     if (S.tab === "guardian" && S.watchOwner) refresh();
   },
   alerts: () => startAlerts(),
+  push: () => startPush(),
+  "push-off": () => stopPush(),
   wc: () => { $("#sheet").close(); connectWC(); },
   install: () => installGuide(),
   "install-off": () => { try { localStorage.setItem("ecrin-install-off", "1"); } catch (_) {} render(); },
