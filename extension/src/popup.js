@@ -394,6 +394,10 @@ function importPhrase() {
 }
 
 function unlock() {
+  if (S.bioBusy) return `<div class="bio-ov ${S.bioBusy}">
+    <div class="bio-logo"><svg class="bio-ring" viewBox="0 0 120 120" aria-hidden="true"><circle class="trk" cx="60" cy="60" r="54"/><circle class="arc" cx="60" cy="60" r="54" pathLength="100"/></svg>
+      <span class="bio-tile">${S.bioBusy === "ok" ? `<svg class="bio-ok" viewBox="0 0 24 24"><path d="M6 12.5l4 4L18 8"/></svg>` : LOGO}</span></div>
+    <b>${S.bioBusy === "ok" ? "Unlocked" : `Unlocking with ${bioName()}`}</b><span>${S.bioBusy === "ok" ? "Welcome back" : "Look at your phone"}</span></div>`;
   return `<div class="lock">
     <div class="lock-mark"><i class="halo"></i>${LOGO}</div>
     <h1>Welcome back</h1><p class="sub">Unlock Ecrin Wallet</p>
@@ -867,8 +871,11 @@ async function useNet(n) {
 const actions = {
   "bio-unlock": async () => {
     if (S.busy || !S.bio) return;
-    try { const phrase = await bioUnlock(S.bio); await session.set({ phrase }); useAccount(phrase); await touch(); home(); }
-    catch (e) { if (e?.name !== "NotAllowedError") toast(e?.message || `${bioName()} didn't work. Use your password.`, "err"); }
+    S.bioBusy = "scan"; render();
+    try {
+      const phrase = await bioUnlock(S.bio); await session.set({ phrase }); useAccount(phrase); await touch();
+      S.bioBusy = "ok"; render(); await new Promise((r) => setTimeout(r, 650)); S.bioBusy = null; home();
+    } catch (e) { S.bioBusy = null; render(); if (e?.name !== "NotAllowedError") toast(e?.message || `${bioName()} didn't work. Use your password.`, "err"); }
   },
   "bio-toggle": async () => {
     if (S.bio) { if (!confirm(`Turn off ${bioName()}? You'll unlock with your password.`)) return; await local.remove("bio"); S.bio = null; toast(`${bioName()} is off`, "win"); return renderPanel(); }
