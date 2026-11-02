@@ -968,3 +968,27 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 .book-save input { flex: 1; min-width: 0; height: 36px; padding: 0 12px; border: 0; border-radius: 10px; background: var(--s1); box-shadow: 0 0 0 1px var(--line-2); color: var(--ink); font: 400 13.5px var(--font); }
 .share { gap: 6px; margin: 0 auto 10px; } .share svg { width: 14px; height: 14px; }
 .hid-note { padding: 8px 12px 4px; color: var(--muted); font-size: 11.5px; }
+
+/* sent and received: Ecrin's laser-line diamond, the same language as the Safe */
+.fx-sent, .fx-in { display: block; width: 132px; height: 132px; margin: 0 auto 6px; overflow: visible; fill: none; stroke: var(--eb); stroke-linecap: round; stroke-linejoin: round; }
+:root[data-theme="dark"] .fx-sent, :root[data-theme="dark"] .fx-in { stroke: #5b7cff; }
+.fx-sent .d-o, .fx-in .d-o { stroke-width: 1.6; stroke-dasharray: 100; stroke-dashoffset: 100; animation: fx-draw .5s ease forwards; }
+.fx-sent .d-f, .fx-in .d-f { stroke-width: .8; opacity: .7; stroke-dasharray: 100; stroke-dashoffset: 100; animation: fx-draw .45s .3s ease forwards; }
+.fx-sent .dia { transform-origin: 60px 60px; animation: fx-launch .55s .8s cubic-bezier(.6, 0, .8, .4) forwards; }
+.fx-sent .streaks path { stroke-width: .9; stroke-dasharray: 46; stroke-dashoffset: 46; opacity: 0; animation: fx-streak .5s .85s ease-out forwards; }
+.fx-sent .streaks path:nth-child(2) { animation-delay: .92s; } .fx-sent .streaks path:nth-child(3) { animation-delay: .98s; }
+.fx-sent .ring { stroke-width: .8; opacity: .45; stroke-dasharray: 100; stroke-dashoffset: 100; animation: fx-draw .6s 1.25s ease forwards; }
+.fx-sent .tick { stroke-width: 2; stroke-dasharray: 100; stroke-dashoffset: 100; animation: fx-draw .4s 1.35s ease forwards; }
+@keyframes fx-draw { to { stroke-dashoffset: 0; } }
+@keyframes fx-launch { to { transform: translate(46px, -46px) scale(.35); opacity: 0; } }
+@keyframes fx-streak { 0% { opacity: .9; stroke-dashoffset: 46; } 100% { opacity: 0; stroke-dashoffset: -46; } }
+.fx-recv { position: absolute; inset: 0; z-index: 60; display: grid; place-content: center; justify-items: center; gap: 4px; background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: fade-in .2s ease both; transition: opacity .45s; pointer-events: none; }
+.fx-recv.out { opacity: 0; }
+.fx-in .ray { stroke-width: .8; stroke-dasharray: 70; stroke-dashoffset: -70; opacity: .8; animation: fx-ray .55s calc(var(--i) * .03s) cubic-bezier(.3, 0, .2, 1) forwards; }
+.fx-in .dia { animation: none; } .fx-in .d-o { animation-delay: .45s; } .fx-in .d-f { animation-delay: .7s; }
+.fx-in .d-fill { fill: var(--eb); fill-opacity: 0; animation: fx-draw .5s .45s ease forwards, fx-fill .5s .9s ease forwards; }
+@keyframes fx-ray { 0% { stroke-dashoffset: -70; opacity: .9; } 100% { stroke-dashoffset: 70; opacity: 0; } }
+@keyframes fx-fill { to { fill-opacity: .22; } }
+.fx-recv b { font: var(--num-w) 30px var(--num); letter-spacing: var(--num-ls); color: var(--ink); animation: rise .4s .95s ease both; }
+.fx-recv small { color: var(--muted); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; animation: rise .4s 1.05s ease both; }
+@media (prefers-reduced-motion: reduce) { .fx-sent *, .fx-recv *, .fx-recv { animation: none !important; } .fx-sent .tick { stroke-dashoffset: 0; } .fx-sent .arr { opacity: 0; } }

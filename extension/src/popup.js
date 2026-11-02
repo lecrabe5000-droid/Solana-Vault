@@ -694,6 +694,10 @@ function hold(label, busy) {
 }
 
 function doneView(title, text, extra = "") {
+  const mark = title === "Sent" ? `<svg class="fx-sent" viewBox="0 0 120 120" aria-hidden="true"><g class="streaks"><path d="M30 92 L62 60"/><path d="M40 100 L68 72"/><path d="M22 82 L52 52"/></g><g class="dia"><path class="d-o" pathLength="100" d="M60 22 L88 50 L60 98 L32 50 Z"/><path class="d-f" pathLength="100" d="M32 50 H88 M46 36 L60 50 L74 36 M60 50 V98 M46 36 L52 50 M74 36 L68 50"/></g><circle class="ring" cx="60" cy="60" r="34" pathLength="100"/><path class="tick" pathLength="100" d="M45 61 L55 71 L76 49"/></svg>` : null;
+  if (mark) return `<div class="done">${mark}<h2>${title}</h2><p>${text}</p>
+    ${S.panel.sig ? `<a class="link" href="${NETS[S.net].explorer("tx", S.panel.sig)}" target="_blank">View on the explorer ${I.ext}</a>` : ""}${extra}
+    <div class="pfoot"><button class="btn primary xl" data-act="close">Done</button></div></div>`;
   return `<div class="done"><div class="done-mark"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="29"/><path d="M20 33l8 8 16-17"/></svg></div><h2>${title}</h2><p>${text}</p>
     ${S.panel.sig ? `<a class="link" href="${NETS[S.net].explorer("tx", S.panel.sig)}" target="_blank">View on the explorer ${I.ext}</a>` : ""}${extra}
     <div class="pfoot"><button class="btn primary xl" data-act="close">Done</button></div></div>`;
@@ -1239,7 +1243,7 @@ function noticeIncoming(bal) {
   for (const [a, now, was] of [["native", bal.native, prev.native], ["usdc", bal.usdc, prev.usdc]]) {
     if (!(now > was)) continue;
     const text = `Received ${amt(now - was, a)} ${A(a).unit} on ${NETS[S.net].name}`;
-    toast(text, "win");
+    recvFx(`+${amt(now - was, a)} ${A(a).unit}`);
     if (document.hidden && window.Notification?.permission === "granted") try { new Notification("Ecrin Wallet", { body: text, icon: "/icon2-192.png" }); } catch (_) {}
   }
 }
@@ -1250,4 +1254,12 @@ if (globalThis.ECRIN_WEB) {
   document.addEventListener("touchstart", (e) => { const r = $("#root"); y0 = S.screen === "home" && !S.panel && r.scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive: true });
   document.addEventListener("touchend", (e) => { if (y0 != null && e.changedTouches[0].clientY - y0 > 90) { toast("Refreshing…"); refresh(); loadAll(); loadPrices(); } y0 = null; }, { passive: true });
   document.addEventListener("click", (e) => { if (e.target.closest(".btn.primary, .acts button, [data-act='ap-ok']")) navigator.vibrate?.(8); }, true);
+}
+
+function recvFx(label) {
+  const host = document.querySelector(".device") || document.body, el = document.createElement("div");
+  el.className = "fx-recv"; el.setAttribute("aria-live", "polite");
+  el.innerHTML = `<svg class="fx-in" viewBox="0 0 120 120"><g class="rays"><path class="ray" style="--i:0" d="M60 60 L130.0 60.0"/><path class="ray" style="--i:1" d="M60 60 L109.5 109.5"/><path class="ray" style="--i:2" d="M60 60 L60.1 130.0"/><path class="ray" style="--i:3" d="M60 60 L10.6 109.6"/><path class="ray" style="--i:4" d="M60 60 L-10.0 60.1"/><path class="ray" style="--i:5" d="M60 60 L10.4 10.6"/><path class="ray" style="--i:6" d="M60 60 L59.8 -10.0"/><path class="ray" style="--i:7" d="M60 60 L109.4 10.4"/></g><g class="dia"><path class="d-o d-fill" pathLength="100" d="M60 22 L88 50 L60 98 L32 50 Z"/><path class="d-f" pathLength="100" d="M32 50 H88 M46 36 L60 50 L74 36 M60 50 V98 M46 36 L52 50 M74 36 L68 50"/></g></svg><b>${esc(label)}</b><small>Received</small>`;
+  host.appendChild(el); navigator.vibrate?.([10, 40, 10]);
+  setTimeout(() => el.classList.add("out"), 2500); setTimeout(() => el.remove(), 3000);
 }
