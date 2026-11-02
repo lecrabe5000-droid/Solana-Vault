@@ -32,6 +32,7 @@ export function explainError(err) {
   const hit = named || (num >= 6000 ? ERRORS[num - 6000] : null);
   if (hit) return { code: hit[0], message: hit[1] };
   if (/User rejected|rejected the request/i.test(text)) return { code: "Rejected", message: "You cancelled it in your wallet." };
+  if (/no record of a prior credit|AccountNotFound/i.test(text)) return { code: "NoSol", message: "This wallet has no SOL yet. You need a little to pay the network fee: use Receive to get free test SOL." };
   if (/insufficient lamports|insufficient funds for fee|0x1\b/i.test(text)) return { code: "NoSol", message: "Your wallet doesn't have enough SOL for this (and the fee)." };
   return { code: "Unknown", message: text.slice(0, 200) };
 }

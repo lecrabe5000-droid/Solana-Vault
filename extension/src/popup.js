@@ -736,7 +736,8 @@ function createVaultView(title) {
         ${[["gentle", "Gentle", "24 h", "Lighter protection"], ["strong", "Strong", "72 h", "Recommended"]].map(([k, n, d, s]) => `<button class="preset ${P.kind === k || (!P.kind && k === "strong") ? "on" : ""}" data-act="kind" data-k="${k}"><b>${n}</b><span class="pd">${d}</span><small>${s}</small></button>`).join("")}
       </div>
     </div>
-    <div class="pfoot">${P.step === "sending" ? hold("Opening…", true) : `<button class="btn primary xl" data-act="create-vault">Open vault</button>`}</div>`;
+    ${S.bal && !S.bal.native ? `<p class="note">${I.recv}<span>Your Wallet has no ${NETS[S.net].unit} yet. Opening your Safe costs a tiny network fee. <a class="link" href="${NETS[S.net].faucet}" target="_blank">Get free test ${NETS[S.net].unit} ${I.ext}</a></span></p>` : ""}
+    <div class="pfoot">${P.step === "sending" ? hold("Opening…", true) : `<button class="btn primary xl" data-act="create-vault" ${S.bal && !S.bal.native ? "disabled" : ""}>Open vault</button>`}</div>`;
 }
 
 /** One Safe for everything: every network that has a vault, each in its own section, with its own delay, balances
@@ -827,7 +828,12 @@ function revealView() {
 // ------------------------------------------------------------------ actions
 
 function toast(text, kind = "") { const t = $("#toast"); t.textContent = text; t.className = "toast show " + kind; clearTimeout(t._t); t._t = setTimeout(() => (t.className = "toast " + kind), 2600); }
-const errText = (e) => { try { return ENG?.explain?.(e)?.message || e.message; } catch (_) { return String(e?.message || e); } };
+const errText = (e) => {
+  const raw = String(e?.shortMessage || e?.message || e);
+  if (/insufficient funds/i.test(raw)) return `Not enough ${NETS[S.net].unit} for this and the network fee. Use Receive to get free test coins.`;
+  let m; try { m = ENG?.explain?.(e)?.message || raw; } catch (_) { m = raw; }
+  return m.length > 160 ? m.slice(0, 157) + "…" : m;
+};
 
 const actKey = () => `act:${S.net}:${ENG?.address || ""}`;
 async function readActivity() { const k = actKey(), o = await local.get(k); return o[k] || []; }
