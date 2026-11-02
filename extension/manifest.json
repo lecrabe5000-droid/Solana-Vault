@@ -3,7 +3,7 @@
   "name": "Ecrin Wallet",
   "short_name": "Ecrin",
   "version": "0.1.0",
-  "description": "A chequing account for trading, a savings vault nobody can rush. Solana and Ethereum. Testnet beta.",
+  "description": "A wallet for spending, a safe nobody can rush. Solana and Ethereum. Testnet beta.",
   "action": {
     "default_popup": "popup.html",
     "default_title": "Ecrin Wallet",
@@ -32,7 +32,9 @@
   "host_permissions": [
     "https://api.devnet.solana.com/*",
     "https://*.publicnode.com/*",
-    "https://api.coingecko.com/*"
+    "https://api.coingecko.com/*",
+    "https://api.binance.com/*",
+    "https://api.exchange.coinbase.com/*"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; base-uri 'none'; frame-ancestors 'none'"

@@ -1,4 +1,4 @@
-// Ecrin Wallet popup. Two accounts on every network: Chequing (the wallet: spend instantly) and Savings (the
+// Ecrin Wallet popup. Two accounts on every network: Wallet (spend instantly) and Safe (the
 // Ecrin vault: anything leaving waits its delay and can be cancelled). One recovery phrase, encrypted on disk;
 // while unlocked it sits only in the browser's memory (chrome.storage.session) and is wiped by auto-lock.
 import * as web3 from "@solana/web3.js";
@@ -94,7 +94,8 @@ async function eng() {
 }
 
 async function boot() {
-  const st = await local.get(["box", "net", "theme", "autolock", "hide", "nums", "range", "dev"]);
+  const st = await local.get(["box", "net", "theme", "autolock", "hide", "nums", "range", "dev", "prices"]);
+  if (st.prices?.p && Date.now() - st.prices.at < 86400_000) S.prices = st.prices.p;
   if (st.nums) S.nums = { ...S.nums, ...st.nums };
   if (["1", "7", "30", "365"].includes(st.range)) S.range = st.range;
   S.mock = !!st.dev?.mockPrices;
@@ -137,36 +138,79 @@ async function refresh() {
   if (S.panel) renderPanel();
 }
 
-async function loadPrices() {
-  if (S.mock) { S.prices = { solana: { usd: 172.4, usd_24h_change: 2.31 }, ethereum: { usd: 3410, usd_24h_change: -0.84 }, "polygon-ecosystem-token": { usd: 0.42, usd_24h_change: 1.2 } }; if (S.screen === "home") render(); return loadSeries(); }
+// Prices come from CoinGecko first, then Binance, then Coinbase: if one is down or rate-limits us, the next answers.
+const SYM = { solana: "SOL", ethereum: "ETH", "polygon-ecosystem-token": "POL" };
+const getJSON = async (url) => { const r = await fetch(url, { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return r.json(); };
+
+async function spotPrices() {
+  try { const j = await getJSON("https://api.coingecko.com/api/v3/simple/price?ids=solana,ethereum,polygon-ecosystem-token&vs_currencies=usd&include_24hr_change=true"); if (j?.solana?.usd) return j; } catch (_) {}
   try {
-    const r = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=solana,ethereum,polygon-ecosystem-token&vs_currencies=usd&include_24hr_change=true");
-    if (r.ok) { S.prices = await r.json(); if (S.screen === "home") render(); }
+    const j = await getJSON(`https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(Object.values(SYM).map((x) => x + "USDT")))}`);
+    const out = {}; for (const [cg, x] of Object.entries(SYM)) { const t = j.find((r) => r.symbol === x + "USDT"); if (t) out[cg] = { usd: Number(t.lastPrice), usd_24h_change: Number(t.priceChangePercent) }; }
+    if (out.solana) return out;
   } catch (_) {}
-  loadSeries();
+  const out = {};
+  await Promise.all(Object.entries(SYM).map(async ([cg, x]) => { try { const t = await getJSON(`https://api.exchange.coinbase.com/products/${x}-USD/stats`); out[cg] = { usd: Number(t.last), usd_24h_change: ((t.last - t.open) / t.open) * 100 }; } catch (_) {} }));
+  return out.solana ? out : null;
 }
 
-/** Price history for the chart, one fetch per coin and range, kept for five minutes. Fetches every coin you hold. */
+async function loadPrices() {
+  if (S.mock) { S.prices = { solana: { usd: 172.4, usd_24h_change: 2.31 }, ethereum: { usd: 3410, usd_24h_change: -0.84 }, "polygon-ecosystem-token": { usd: 0.42, usd_24h_change: 1.2 } }; if (S.screen === "home") render(); return loadSeries(); }
+  const p = await spotPrices().catch(() => null);
+  if (p) { S.prices = { ...S.prices, ...p }; local.set({ prices: { at: Date.now(), p: S.prices } }); if (S.screen === "home") render(); }
+  await loadSeries();
+  // No spot price anywhere: use the last point of the history instead.
+  let filled = false;
+  for (const cg of Object.keys(SYM)) { const h = S.series[`${cg}:${S.range}`]; if (!S.prices[cg]?.usd && h) { S.prices[cg] = { usd: h.pts[h.pts.length - 1][1] }; filled = true; } }
+  if (filled && S.screen === "home") render();
+  if (!p) setTimeout(loadPrices, 30_000);
+}
+
+/** Price history for the chart, one fetch per coin and range, kept for five minutes and saved, so the last chart
+ *  shows at once next time (even offline) while a fresh one loads. Every source is tried before giving up. */
 async function loadSeries() {
+  if (!S.seriesLoaded) { S.seriesLoaded = true; try { const st = await local.get("series"); for (const [k, v] of Object.entries(st.series || {})) if (!S.series[k]) S.series[k] = v; } catch (_) {} }
   const cgs = [...new Set([NETS[S.net].cg, ...Object.keys(worth().coins)])];
-  await Promise.all(cgs.map(loadSeriesFor));
+  const ok = await Promise.all(cgs.map(loadSeriesFor));
+  if (ok.includes(false)) { clearTimeout(S.seriesRetry); S.seriesRetry = setTimeout(loadSeries, 20_000); }
+}
+const RANGE = { 1: ["15m", 96, 900], 7: ["1h", 168, 3600], 30: ["6h", 120, 21600], 365: ["1d", 365, 86400] };
+async function historyFrom(cg, days) {
+  try { const j = await getJSON(`https://api.coingecko.com/api/v3/coins/${cg}/market_chart?vs_currency=usd&days=${days}`); if (j.prices?.length > 2) return j.prices; } catch (_) {}
+  const x = SYM[cg], [iv, n, g] = RANGE[days] || RANGE[7];
+  if (!x) return null;
+  try { const j = await getJSON(`https://api.binance.com/api/v3/klines?symbol=${x}USDT&interval=${iv}&limit=${n}`); if (j.length > 2) return j.map((k) => [k[0], Number(k[4])]); } catch (_) {}
+  try {
+    // Coinbase returns at most 300 candles per call, newest first: ask in slices and stitch them together.
+    const end = Math.floor(Date.now() / 1000), start = end - days * 86400, out = [];
+    for (let a = start; a < end; a += g * 300) {
+      const b = Math.min(end, a + g * 300);
+      const j = await getJSON(`https://api.exchange.coinbase.com/products/${x}-USD/candles?granularity=${g}&start=${new Date(a * 1000).toISOString()}&end=${new Date(b * 1000).toISOString()}`);
+      out.push(...j.map((k) => [k[0] * 1000, Number(k[4])]));
+    }
+    out.sort((p, q) => p[0] - q[0]);
+    if (out.length > 2) return out;
+  } catch (_) {}
+  return null;
+}
+function fakeHistory(cg, days, last) {
+  const n = 80, now = Date.now(), span = days * 86400_000; let v = 100, seed = days * 7 + cg.length;
+  const rnd = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+  const pts = Array.from({ length: n }, (_, i) => { v *= 1 + (rnd() - 0.47) * 0.035; return [now - span + (span * i) / (n - 1), v]; });
+  const f = (last || 100) / pts[n - 1][1]; return pts.map(([t, y]) => [t, y * f]);
 }
 async function loadSeriesFor(cg) {
   const k = `${cg}:${S.range}`, hit = S.series[k];
-  if (hit && Date.now() - hit.at < 300_000) return;
-  let pts = null;
-  if (S.mock) {
-    const n = 80, now = Date.now(), span = Number(S.range) * 86400_000; let v = 160, seed = Number(S.range) * 7 + cg.length;
-    const rnd = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
-    pts = Array.from({ length: n }, (_, i) => { v *= 1 + (rnd() - 0.47) * 0.035; return [now - span + (span * i) / (n - 1), v]; });
-    const last = S.prices[cg]?.usd || v, f = last / pts[n - 1][1]; pts = pts.map(([t, x]) => [t, x * f]);
-  } else {
-    try {
-      const r = await fetch(`https://api.coingecko.com/api/v3/coins/${cg}/market_chart?vs_currency=usd&days=${S.range}`);
-      if (r.ok) pts = (await r.json()).prices;
-    } catch (_) {}
-  }
-  if (pts?.length > 2) { S.series[k] = { at: Date.now(), pts }; S.drawChart = true; if (S.screen === "home" && !S.scrubbing) render(); }
+  if (hit && Date.now() - hit.at < 300_000) return true;
+  const days = Number(S.range);
+  let pts = S.mock ? fakeHistory(cg, days, S.prices[cg]?.usd) : await historyFrom(cg, days);
+  // The web demo runs on pretend money: if every price server is out of reach, it draws a pretend history too.
+  if (!pts && globalThis.ECRIN_DEMO) pts = fakeHistory(cg, days, S.prices[cg]?.usd || { solana: 170, ethereum: 3400 }[cg] || 1);
+  if (!(pts?.length > 2)) return false;
+  S.series[k] = { at: Date.now(), pts }; S.drawChart = true;
+  try { const st = await local.get("series"); local.set({ series: { ...(st.series || {}), [k]: { at: Date.now(), pts: pts.length > 200 ? pts.filter((_, i) => i % Math.ceil(pts.length / 200) === 0 || i === pts.length - 1) : pts } } }); } catch (_) {}
+  if (S.screen === "home" && !S.scrubbing) render();
+  return true;
 }
 
 /** Net worth across every network: what each holds in chequing and savings, priced. The current network's own
@@ -262,7 +306,7 @@ function depth(scope) {
 function welcome() {
   return `<div class="onb">
     <div class="onb-art">${miniVault()}</div>
-    <div class="onb-copy"><h1>Ecrin Wallet</h1><p>A chequing account for trading.<br/>A savings vault nobody can rush.</p></div>
+    <div class="onb-copy"><h1>Ecrin Wallet</h1><p>A wallet for spending.<br/>A safe nobody can rush.</p></div>
     <div class="onb-acts">
       <button class="btn primary xl" data-act="start-create">Create a new wallet</button>
       <button class="btn ghost xl" data-act="start-import">I have a recovery phrase</button>
@@ -274,7 +318,7 @@ function welcome() {
 
 function miniVault() {
   return `<div class="mv" data-tilt><i class="sheen"></i><svg class="mv-g" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice">${Array.from({ length: 26 }, (_, i) => `<circle cx="${330 + Math.cos(i / 2.2) * 14}" cy="${40 + Math.sin(i / 2.2) * 14}" r="${18 + i * 9}"/>`).join("")}</svg>
-    <div class="mv-top"><span class="mv-mark">${LOGO}<b>ECRIN</b></span><span class="mv-lvl">Savings · 72 h</span></div>
+    <div class="mv-top"><span class="mv-mark">${LOGO}<b>ECRIN</b></span><span class="mv-lvl">Safe · 72 h</span></div>
     <div class="mv-bal"><span>Protected</span><b>12.40<small> SOL</small></b></div>
     <div class="mv-foot"><i class="dot"></i>Sealed · nothing waiting to leave</div></div>`;
 }
@@ -299,7 +343,7 @@ function createPhrase() {
   const words = S.phrase.split(" ");
   return `<div class="flow">
     <header class="fhead"><button class="ib" data-act="to-pw" aria-label="Back">${I.back}</button>${steps(2)}<span></span></header>
-    <h2>Your recovery phrase</h2><p class="sub">These 12 words are your wallet. Write them on paper, in order. Anyone who has them can spend your chequing account at once; your savings vault still makes them wait.</p>
+    <h2>Your recovery phrase</h2><p class="sub">These 12 words are your wallet. Write them on paper, in order. Anyone who has them can spend your Wallet at once; your Safe still makes them wait.</p>
     <div class="phrase ${S.revealed ? "shown" : ""}">${words.map((w, i) => `<span><i>${i + 1}</i>${esc(w)}</span>`).join("")}
       ${S.revealed ? "" : `<button class="reveal" data-act="reveal">${I.eye}<b>Tap to reveal</b><small>Make sure nobody can see your screen</small></button>`}</div>
     <label class="tick"><input type="checkbox" data-tick ${S.wrote ? "checked" : ""}/><span>I wrote it down somewhere safe, offline</span></label>
@@ -377,13 +421,13 @@ function homeView() {
     </section>
     <section class="accts">
       <button class="acard chq" data-act="panel" data-p="assets" data-tilt><i class="sheen"></i>
-        <span class="ac-k">Chequing</span>
+        <span class="ac-k">Wallet</span>
         <b class="ac-v ${loading ? "sk" : ""}">${loading ? "&nbsp;" : mask(fig(money(w.chq)))}</b>
         <span class="ac-s"><i class="dot live"></i>Spend instantly</span>
       </button>
       <button class="acard sav" data-act="panel" data-p="vault" data-tilt><i class="sheen"></i>
         <svg class="mv-g" viewBox="0 0 200 140" preserveAspectRatio="xMidYMid slice">${Array.from({ length: 18 }, (_, i) => `<circle cx="${170 + Math.cos(i / 2.2) * 8}" cy="${20 + Math.sin(i / 2.2) * 8}" r="${10 + i * 8}"/>`).join("")}</svg>
-        <span class="ac-k">${I.lock}Savings</span>
+        <span class="ac-k">${I.lock}Safe</span>
         <b class="ac-v ${loading ? "sk" : ""}">${loading ? "&nbsp;" : mask(fig(money(w.sav)))}</b>
         <span class="ac-s">${w.leaving ? `<i class="dot warn"></i>${w.leaving} leaving` : w.vaults ? `<i class="dot"></i>${pct}% of net worth` : `<i class="dot off"></i>Not set up`}</span>
       </button>
@@ -426,8 +470,16 @@ function deltaHTML(d, ch, label, pctOnly) {
  *  Holding nothing yet, it shows the current network's coin price. */
 function chartData() {
   const w = worth(), cgs = Object.keys(w.coins), M = 80;
-  const list = (cgs.length ? cgs : [NETS[S.net].cg]).map((cg) => [cg, S.series[`${cg}:${S.range}`]]);
-  if (list.some(([, h]) => !h)) return null;
+  // A coin whose history hasn't arrived yet counts at today's price, so one slow server never blanks the chart.
+  const want = cgs.length ? cgs : [NETS[S.net].cg];
+  const have = want.filter((cg) => S.series[`${cg}:${S.range}`]);
+  if (!have.length) {
+    if (!w.ready || w.total == null) return null;
+    const now = Date.now(), span = Number(S.range) * 86400_000;
+    return { times: Array.from({ length: M }, (_, i) => now - span + (span * i) / (M - 1)), vals: Array(M).fill(w.total), coinOnly: false, flat: true };
+  }
+  const flatPts = (cg) => [[0, S.prices[cg]?.usd || 0]];
+  const list = [...have, ...want.filter((cg) => !have.includes(cg))].map((cg) => [cg, S.series[`${cg}:${S.range}`] || { pts: flatPts(cg) }]);
   const at = (pts, i) => pts[Math.min(pts.length - 1, Math.round((i / (M - 1)) * (pts.length - 1)))];
   const base = list[0][1].pts, times = Array.from({ length: M }, (_, i) => at(base, i)[0]);
   const vals = times.map((_, i) => (cgs.length ? w.usdc + list.reduce((s, [cg, h]) => s + w.coins[cg] * at(h.pts, i)[1], 0) : at(base, i)[1]));
@@ -485,7 +537,7 @@ function spark(cg) {
   return `<svg class="spark ${a === "usdc" ? "flat" : up ? "up" : "dn"}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="${d}"/></svg>`;
 }
 
-const ACT = { send: ["Sent", I.send], protect: ["Moved to savings", I.protect], withdraw: ["Withdrawal started", I.clock], release: ["Released to chequing", I.recv], cancel: ["Withdrawal cancelled", I.shield], vault: ["Savings vault opened", I.lock] };
+const ACT = { send: ["Sent", I.send], protect: ["Moved to Safe", I.protect], withdraw: ["Withdrawal started", I.clock], release: ["Released to Wallet", I.recv], cancel: ["Withdrawal cancelled", I.shield], vault: ["Safe opened", I.lock] };
 /** Every network at once: reads chequing and savings on each, prices them, and adds it all up. */
 async function loadAll() {
   const { dev } = await local.get("dev");
@@ -520,10 +572,10 @@ function allView() {
   const n = (v, d) => v.toLocaleString("en-US", { maximumFractionDigits: d });
   return `${phead("All assets")}
     <div class="all-total"><span class="lbl">Across every network</span><div class="big">${mask(fig(money(total)))}</div>
-      <span class="sub">${total ? `${Math.round((saved / total) * 100)}% protected in savings` : "Nothing here yet"}</span></div>
+      <span class="sub">${total ? `${Math.round((saved / total) * 100)}% protected in your Safe` : "Nothing here yet"}</span></div>
     ${total ? `<div class="alloc">${coins.map((c) => `<i style="flex:${c.usd || 0.0001};background:${COL[c.unit] || "#888"}"></i>`).join("")}</div>
     <div class="alloc-l">${coins.map((c) => `<span><i style="background:${COL[c.unit] || "#888"}"></i>${c.unit} ${Math.round((c.usd / total) * 100)}%</span>`).join("")}</div>` : ""}
-    <div class="list-h"><b>By network</b><span>Chequing · Savings</span></div>
+    <div class="list-h"><b>By network</b><span>Wallet · Safe</span></div>
     <section class="list">${items.length ? items.sort((a, b) => (b.usd || 0) - (a.usd || 0)).map((i) => `<button class="arow" data-act="net-go" data-n="${i.k}"><span class="cstack">${coin(i.coin)}${i.coin === "usdc" || i.coin !== i.k ? `<span class="cmini">${coin(i.k)}</span>` : ""}</span>
       <span class="ar-t"><b>${i.name}</b><small>${i.net} · ${mask(n(i.chq, i.dec))}${i.sav ? ` <span class="sv">${I.lock}${mask(n(i.sav, i.dec))}</span>` : ""}</small></span>
       <span class="ar-r"><b>${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}</small></span></button>`).join("")
@@ -533,7 +585,7 @@ function allView() {
 
 function activityList() {
   const list = S.activity || [];
-  if (!list.length) return `<section class="list"><div class="empty">${I.clock}<b>No activity yet</b><span>Sends, savings moves and withdrawals show up here.</span></div></section>`;
+  if (!list.length) return `<section class="list"><div class="empty">${I.clock}<b>No activity yet</b><span>Sends, Safe moves and withdrawals show up here.</span></div></section>`;
   const when = (ms) => new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   return `<section class="list">${list.map((e) => {
     const [title, ic] = ACT[e.t] || ["Transaction", I.arrow], out = e.t === "send";
@@ -592,7 +644,7 @@ function sendView() {
       <div class="rev">
         <div class="rev-amt">${assetCoin(a, "lg")}<b>${fig(amt(units, a))}</b><span>${A(a).unit}</span><small>${usdOf(units, a) != null ? money(usdOf(units, a)) : ""}</small></div>
         <dl class="rev-l">
-          <div><dt>From</dt><dd>Chequing · ${short(e.address)}</dd></div>
+          <div><dt>From</dt><dd>Wallet · ${short(e.address)}</dd></div>
           <div><dt>To</dt><dd class="mono">${esc(P.to.trim())}</dd></div>
           <div><dt>Network</dt><dd>${NETS[S.net].name} ${NETS[S.net].net}</dd></div>
           <div><dt>Network fee</dt><dd>${e.feeText()}</dd></div>
@@ -604,7 +656,7 @@ function sendView() {
   const valid = units > 0 && units <= sendMax() && e.isAddress(P.to);
   return `${phead("Send")}
     ${assetPick()}
-    ${amountBlock(sendMax(), "Chequing")}
+    ${amountBlock(sendMax(), "Wallet")}
     <label class="fld to"><span>To</span><div class="in-btn"><input data-to placeholder="${NETS[S.net].fam === "sol" ? "Solana address" : "0x… address"}" value="${esc(P.to)}" spellcheck="false" autocomplete="off"/><button type="button" class="ib sm" data-act="paste" aria-label="Paste">${I.paste}</button></div></label>
     ${P.to && !e.isAddress(P.to) ? `<p class="err">That isn't a ${NETS[S.net].name} address.</p>` : ""}
     <div class="pfoot"><button class="btn primary xl" data-act="review" ${valid ? "" : "disabled"}>Review</button></div>`;
@@ -651,16 +703,16 @@ function moveView() {
   if (!v) return createVaultView(isIn ? "Protect" : "Withdraw");
   const units = parseAmt(P.amount, a), main = v.main, tv = a === "usdc" ? v.usdc : main;
   const max = isIn ? sendMaxProtect() : tv?.available || 0;
-  if (P.step === "done") return isIn ? doneView("Protected", `${amt(P.sent, a)} ${A(a).unit} is in your savings vault. Anything leaving it waits ${delay(main.withdrawDelay)}.`) : doneView("Withdrawal started", `${amt(P.sent, a)} ${A(a).unit} reaches chequing in ${delay(main.withdrawDelay)}. You can cancel it until then.`);
+  if (P.step === "done") return isIn ? doneView("Protected", `${amt(P.sent, a)} ${A(a).unit} is in your Safe. Anything leaving it waits ${delay(main.withdrawDelay)}.`) : doneView("Withdrawal started", `${amt(P.sent, a)} ${A(a).unit} reaches your Wallet in ${delay(main.withdrawDelay)}. You can cancel it until then.`);
   const lim = a === "usdc" ? v.usdc?.dailyLimit : main.dailyLimit, overLim = !isIn && lim && units > lim;
   const valid = units > 0 && units <= max && !overLim;
   return `${phead(isIn ? "Protect" : "Withdraw")}
-    <div class="flowline ${isIn ? "in" : "out"}"><span>${isIn ? "Chequing" : "Savings"}</span><i></i><span>${isIn ? "Savings" : "Chequing"}</span></div>
+    <div class="flowline ${isIn ? "in" : "out"}"><span>${isIn ? "Wallet" : "Safe"}</span><i></i><span>${isIn ? "Safe" : "Wallet"}</span></div>
     ${assetPick()}
-    ${amountBlock(max, isIn ? "Chequing" : "Savings, free to leave")}
+    ${amountBlock(max, isIn ? "Wallet" : "Safe, free to leave")}
     ${overLim ? `<p class="err">Over your daily limit of ${amt(lim, a)} ${A(a).unit}. Split it into smaller withdrawals.</p>` : ""}
-    <p class="note">${isIn ? `${I.lock}<span>Once inside, anything leaving waits <b>${delay(main.withdrawDelay)}</b>, and you can cancel it the whole time. Not even someone with your recovery phrase can rush it.</span>` : `${I.clock}<span>Arrives in chequing in <b>${delay(main.withdrawDelay)}</b>${main.lockedUntil && now() < main.lockedUntil ? " and not before the lock ends" : ""}. You can cancel it any time before.</span>`}</p>
-    <div class="pfoot">${P.step === "sending" ? hold(isIn ? "Protecting…" : "Starting…", true) : `<button class="btn primary xl" data-act="${isIn ? "do-protect" : "do-withdraw"}" ${valid ? "" : "disabled"}>${isIn ? "Move to savings" : "Start withdrawal"}</button>`}</div>`;
+    <p class="note">${isIn ? `${I.lock}<span>Once inside, anything leaving waits <b>${delay(main.withdrawDelay)}</b>, and you can cancel it the whole time. Not even someone with your recovery phrase can rush it.</span>` : `${I.clock}<span>Arrives in your Wallet in <b>${delay(main.withdrawDelay)}</b>${main.lockedUntil && now() < main.lockedUntil ? " and not before the lock ends" : ""}. You can cancel it any time before.</span>`}</p>
+    <div class="pfoot">${P.step === "sending" ? hold(isIn ? "Protecting…" : "Starting…", true) : `<button class="btn primary xl" data-act="${isIn ? "do-protect" : "do-withdraw"}" ${valid ? "" : "disabled"}>${isIn ? "Move to Safe" : "Start withdrawal"}</button>`}</div>`;
 }
 function sendMaxProtect() { const a = S.panel.asset; return a === "native" ? Math.max(0, (S.bal?.native || 0) - (S.panel.reserve || 0) - (NETS[S.net].fam === "sol" ? 3_000_000 : 0)) : S.bal?.usdc || 0; }
 
@@ -669,10 +721,10 @@ function createVaultView(title) {
   return `${phead(title)}
     <div class="cv">
       <div class="cv-art">${miniVault()}</div>
-      <h2>Open your savings vault</h2>
-      <p class="sub">Money you move here can't leave in a hurry: every withdrawal waits, and you can cancel it the whole time. Your chequing account stays instant.</p>
+      <h2>Open your Safe</h2>
+      <p class="sub">Money you move here can't leave in a hurry: every withdrawal waits, and you can cancel it the whole time. Your Wallet stays instant.</p>
       <div class="presets">
-        ${[["gentle", "Gentle", "24 h", "Everyday savings"], ["strong", "Strong", "72 h", "Recommended"]].map(([k, n, d, s]) => `<button class="preset ${P.kind === k || (!P.kind && k === "strong") ? "on" : ""}" data-act="kind" data-k="${k}"><b>${n}</b><span class="pd">${d}</span><small>${s}</small></button>`).join("")}
+        ${[["gentle", "Gentle", "24 h", "Lighter protection"], ["strong", "Strong", "72 h", "Recommended"]].map(([k, n, d, s]) => `<button class="preset ${P.kind === k || (!P.kind && k === "strong") ? "on" : ""}" data-act="kind" data-k="${k}"><b>${n}</b><span class="pd">${d}</span><small>${s}</small></button>`).join("")}
       </div>
     </div>
     <div class="pfoot">${P.step === "sending" ? hold("Opening…", true) : `<button class="btn primary xl" data-act="create-vault">Open vault</button>`}</div>`;
@@ -680,10 +732,10 @@ function createVaultView(title) {
 
 function vaultView() {
   const v = S.vault;
-  if (!v) return createVaultView("Savings");
+  if (!v) return createVaultView("Safe");
   const main = v.main, list = [...main.withdrawals.map((w) => ({ ...w, a: "native" })), ...(v.usdc?.withdrawals || []).map((w) => ({ ...w, a: "usdc" }))].sort((x, y) => x.readyAt - y.readyAt);
   const t = now() + (S.clockOff || 0);
-  return `${phead("Savings vault")}
+  return `${phead("Safe")}
     <div class="vcase" data-tilt><i class="sheen"></i>
       <svg class="mv-g" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice">${Array.from({ length: 26 }, (_, i) => `<circle cx="${330 + Math.cos(i / 2.2) * 14}" cy="${40 + Math.sin(i / 2.2) * 14}" r="${18 + i * 9}"/>`).join("")}</svg>
       <div class="mv-top"><span class="mv-mark">${LOGO}<b>ECRIN</b></span><span class="mv-lvl">${delay(main.withdrawDelay)} delay</span></div>
@@ -693,7 +745,7 @@ function vaultView() {
     <div class="list-h"><b>Waiting to leave</b><span>cancel any time</span></div>
     ${list.length ? list.map((w) => {
       const left = w.readyAt - t, ready = left <= 0;
-      return `<div class="wrow ${ready ? "ready" : ""}">${assetCoin(w.a)}<span class="wr-t"><b>${amt(w.amount, w.a)} ${A(w.a).unit}</b><small>to ${String(w.dest) === ENG.address ? "your chequing" : short(String(w.dest))}</small></span>
+      return `<div class="wrow ${ready ? "ready" : ""}">${assetCoin(w.a)}<span class="wr-t"><b>${amt(w.amount, w.a)} ${A(w.a).unit}</b><small>to ${String(w.dest) === ENG.address ? "your Wallet" : short(String(w.dest))}</small></span>
         <span class="wr-r"><b class="cd">${ready ? "Ready" : dur(left)}</b>${ready ? `<button class="btn sm primary" data-act="execute" data-id="${w.id}" data-a="${w.a}" data-d="${esc(String(w.dest))}">Release</button>` : ""}<button class="btn sm danger" data-act="cancel-w" data-id="${w.id}" data-a="${w.a}">Cancel</button></span></div>`;
     }).join("") : `<div class="empty">${I.shield}<b>Sealed</b><span>Nothing is waiting to leave.</span></div>`}
     <a class="link center" href="https://ecrinprotocol.app/app" target="_blank">Rules, guardian and alerts on ecrinprotocol.app ${I.ext}</a>`;
@@ -702,8 +754,8 @@ const vaultLine = (a, units) => `<div class="vl">${assetCoin(a)}<b>${mask(fig(am
 
 function assetsView() {
   const t = totals();
-  return `${phead("Chequing")}
-    <p class="sub pad">Your everyday wallet. It sends at once, like any wallet. Keep what you trade with here, and the rest in savings.</p>
+  return `${phead("Wallet")}
+    <p class="sub pad">Your everyday wallet. It sends at once, like any wallet. Keep what you trade with here, and the rest in your Safe.</p>
     <section class="list">${assetRow("native", t.b.native, t.vn)}${NETS[S.net].usdc ? assetRow("usdc", t.b.usdc, t.vu) : ""}</section>
     <div class="vacts"><button class="btn" data-act="panel" data-p="send">${I.send}Send</button><button class="btn" data-act="panel" data-p="receive">${I.recv}Receive</button></div>`;
 }
@@ -817,8 +869,8 @@ const actions = {
   "create-vault": () => txRun(async () => (await eng()).createVault(S.panel.kind || "strong"), null, { t: "vault" }),
   "do-protect": () => { const P = S.panel, units = parseAmt(P.amount, P.asset); P.sent = units; txRun(async () => (await eng()).protect(P.asset, units), null, { t: "protect", a: P.asset, n: units }); },
   "do-withdraw": () => { const P = S.panel, units = parseAmt(P.amount, P.asset); P.sent = units; txRun(async () => (await eng()).request(P.asset, ENG.address, units), null, { t: "withdraw", a: P.asset, n: units }); },
-  "cancel-w": async (el) => { try { el.disabled = true; await (await eng()).cancel(el.dataset.a, Number(el.dataset.id)); await logActivity({ t: "cancel", a: el.dataset.a }); S.activity = await readActivity(); toast("Cancelled. It stays in savings.", "win"); await refresh(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
-  execute: async (el) => { try { el.disabled = true; await (await eng()).execute(el.dataset.a, Number(el.dataset.id), el.dataset.d); await logActivity({ t: "release", a: el.dataset.a }); S.activity = await readActivity(); toast("Released to chequing", "win"); await refresh(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
+  "cancel-w": async (el) => { try { el.disabled = true; await (await eng()).cancel(el.dataset.a, Number(el.dataset.id)); await logActivity({ t: "cancel", a: el.dataset.a }); S.activity = await readActivity(); toast("Cancelled. It stays in your Safe.", "win"); await refresh(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
+  execute: async (el) => { try { el.disabled = true; await (await eng()).execute(el.dataset.a, Number(el.dataset.id), el.dataset.d); await logActivity({ t: "release", a: el.dataset.a }); S.activity = await readActivity(); toast("Released to Wallet", "win"); await refresh(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
   net: async (el) => { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; S.drawChart = true; closePanel(); await eng(); S.activity = await readActivity(); refresh(); loadSeries(); },
   "row-send": async (el) => { if (el.dataset.n !== S.net) { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; await eng(); S.activity = await readActivity(); await refresh(); } openPanel("send", { a: el.dataset.a }); const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); },
   "net-go": async (el) => { if (el.dataset.n !== S.net) await actions.net(el); else closePanel(); },
