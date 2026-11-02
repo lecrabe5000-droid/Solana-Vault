@@ -17,21 +17,21 @@ A wallet for spending, a safe nobody can rush. Solana and Ethereum. Testnet beta
 
 Ecrin Wallet gives you two accounts in one: a Wallet and a Safe.
 
-WALLET: your everyday account. Send and receive SOL, ETH and USDC at once, like any wallet.
+WALLET: your everyday account. Send and receive coins instantly, like any wallet.
 
 SAFE: your Ecrin vault. Anything leaving it waits a delay you choose (24 hours or 3 days), and you can cancel it the whole time. A wallet drainer, a phishing signature, someone who stole your recovery phrase, or your own 3 a.m. impulse: they all hit the same wall, which is time.
 
-• One recovery phrase for Solana, Ethereum, Base, Arbitrum, Optimism and Polygon. It gives the same addresses as Phantom and MetaMask.
+• One recovery phrase for Solana and Ethereum-compatible networks, with the same addresses other popular wallets give you.
 • Move money between your Wallet and your Safe in one tap.
-• Send with 25%, 50% or Max, a clear review of exactly what leaves, a warning before sending to a new address, and press-and-hold to confirm.
-• Works with Solana and Ethereum apps. Before you approve anything a site asks, Ecrin shows exactly what would leave your wallet, and flags permits, unlimited approvals and look-alike sites in red.
-• Phishing protection: hundreds of thousands of known scam sites are blocked before they can ask for anything.
-• One Safe for every network, a live price chart, and light or dark mode.
+• Send with a clear review of exactly what leaves, a warning before sending to a new address, and press-and-hold to confirm.
+• Before you approve anything a website asks, Ecrin shows exactly what would leave your wallet and flags risky requests in red.
+• Phishing protection: known scam sites are blocked before they can ask for anything.
+• A token page with a live chart for every coin, an address book, and light or dark mode.
 • Your recovery phrase is encrypted on your computer and never leaves it. No account, no tracking, no ads.
 
-TESTNET BETA: Ecrin Wallet currently runs on test networks with test coins only (Solana Devnet and the Sepolia/Amoy testnets). It has not been audited yet. Don't use real funds.
+TESTNET BETA: Ecrin Wallet currently runs on test networks with test coins only. It has not been audited yet. Don't use real funds.
 
-Website: https://ecrinprotocol.app · Security: https://ecrinprotocol.app/security/ · Source code: https://github.com/lecrabe5000-droid/Solana-Vault
+Website: https://ecrinprotocol.app
 
 **Category:** Tools (or "Productivity" if Tools isn't offered)
 
