@@ -550,6 +550,7 @@ async function loadAll() {
   }));
   S.all = rows;
   if (S.panel?.p === "all") { S.panel.rows = rows; renderPanel(); }
+  if (S.panel?.p === "vault") renderPanel();
   if (S.screen === "home" && !S.scrubbing) render();
   loadSeries();
 }
@@ -730,24 +731,38 @@ function createVaultView(title) {
     <div class="pfoot">${P.step === "sending" ? hold("Opening…", true) : `<button class="btn primary xl" data-act="create-vault">Open vault</button>`}</div>`;
 }
 
+/** One Safe for everything: every network that has a vault, each in its own section, with its own delay, balances
+ *  and withdrawals. Actions switch to that network first, so nothing depends on the network picker. */
 function vaultView() {
-  const v = S.vault;
-  if (!v) return createVaultView("Safe");
-  const main = v.main, list = [...main.withdrawals.map((w) => ({ ...w, a: "native" })), ...(v.usdc?.withdrawals || []).map((w) => ({ ...w, a: "usdc" }))].sort((x, y) => x.readyAt - y.readyAt);
-  const t = now() + (S.clockOff || 0);
+  const rows = S.all;
+  if (!rows) return `${phead("Safe")}<div class="vcase safe-all"><div class="mv-top"><span class="mv-mark">${LOGO}<b>ECRIN</b></span><span class="mv-lvl">Every network</span></div><div class="sa-tot"><span class="lbl">Protected</span><b class="sk">&nbsp;</b></div></div>`;
+  const mine = [ACCT?.sol?.publicKey?.toBase58?.(), ACCT?.evm?.address?.toLowerCase?.()].filter(Boolean);
+  const isMine = (d) => mine.includes(String(d)) || mine.includes(String(d).toLowerCase());
+  const t = now() + (S.clockOff || 0), px = (k) => S.prices[NETS[k].cg]?.usd;
+  const live = rows.filter((r) => r.ok).map((r) => (r.k === S.net && S.vault !== undefined ? { ...r, v: S.vault } : r));
+  const open = live.filter((r) => r.v), closed = Object.values(NETS).filter((N) => (N.fam === "sol" || N.contract) && !open.some((r) => r.k === N.key));
+  const usdOf = (r) => ((r.v.main.balance / BASE) * (px(r.k) || 0)) + ((r.v.usdc?.balance || 0) / USDC_BASE);
+  const total = open.reduce((x, r) => x + usdOf(r), 0);
+  const section = (r) => {
+    const N = NETS[r.k], v = r.v, main = v.main;
+    const list = [...main.withdrawals.map((w) => ({ ...w, a: "native" })), ...(v.usdc?.withdrawals || []).map((w) => ({ ...w, a: "usdc" }))].sort((x, y) => x.readyAt - y.readyAt);
+    const line = (a, units) => `<span class="sn-l">${a === "usdc" ? coin("usdc") : coin(r.k)}<b>${mask(fig(amt(units, a)))}</b><small>${a === "usdc" ? "USDC" : N.unit}</small></span>`;
+    return `<section class="snet">
+      <div class="sn-h">${coin(r.k)}<span class="sn-t"><b>${N.name}</b><small>${delay(main.withdrawDelay)} delay</small></span><span class="sn-v">${px(r.k) != null || v.usdc ? mask(money(usdOf(r))) : ""}</span></div>
+      <div class="sn-b">${line("native", main.balance)}${N.usdc && (N.fam === "sol" || N.tokens) ? line("usdc", v.usdc?.balance || 0) : ""}</div>
+      ${list.map((w) => { const left = w.readyAt - t, ready = left <= 0; const unit = w.a === "usdc" ? "USDC" : N.unit;
+        return `<div class="wrow ${ready ? "ready" : ""}">${w.a === "usdc" ? coin("usdc") : coin(r.k)}<span class="wr-t"><b>${amt(w.amount, w.a)} ${unit}</b><small>to ${isMine(w.dest) ? "your Wallet" : short(String(w.dest))}</small></span>
+          <span class="wr-r"><b class="cd">${ready ? "Ready" : dur(left)}</b>${ready ? `<button class="btn sm primary" data-act="execute" data-n="${r.k}" data-id="${w.id}" data-a="${w.a}" data-d="${esc(String(w.dest))}">Release</button>` : ""}<button class="btn sm danger" data-act="cancel-w" data-n="${r.k}" data-id="${w.id}" data-a="${w.a}">Cancel</button></span></div>`; }).join("")}
+      <div class="sn-a"><button class="btn sm" data-act="safe-go" data-n="${r.k}" data-p="protect">${I.protect}Protect</button><button class="btn sm" data-act="safe-go" data-n="${r.k}" data-p="withdraw">${I.out}Withdraw</button></div>
+    </section>`;
+  };
+  const waiting = open.reduce((x, r) => x + r.v.main.withdrawals.length + (r.v.usdc?.withdrawals?.length || 0), 0);
   return `${phead("Safe")}
-    <div class="vcase" data-tilt><i class="sheen"></i>
-      <svg class="mv-g" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice">${Array.from({ length: 26 }, (_, i) => `<circle cx="${330 + Math.cos(i / 2.2) * 14}" cy="${40 + Math.sin(i / 2.2) * 14}" r="${18 + i * 9}"/>`).join("")}</svg>
-      <div class="mv-top"><span class="mv-mark">${LOGO}<b>ECRIN</b></span><span class="mv-lvl">${delay(main.withdrawDelay)} delay</span></div>
-      <div class="vc-rows">${vaultLine("native", main.balance)}${NETS[S.net].usdc ? vaultLine("usdc", v.usdc?.balance || 0) : ""}</div>
-    </div>
-    <div class="vacts"><button class="btn" data-act="panel" data-p="protect">${I.protect}Protect more</button><button class="btn" data-act="panel" data-p="withdraw">${I.out}Withdraw</button></div>
-    <div class="list-h"><b>Waiting to leave</b><span>cancel any time</span></div>
-    ${list.length ? list.map((w) => {
-      const left = w.readyAt - t, ready = left <= 0;
-      return `<div class="wrow ${ready ? "ready" : ""}">${assetCoin(w.a)}<span class="wr-t"><b>${amt(w.amount, w.a)} ${A(w.a).unit}</b><small>to ${String(w.dest) === ENG.address ? "your Wallet" : short(String(w.dest))}</small></span>
-        <span class="wr-r"><b class="cd">${ready ? "Ready" : dur(left)}</b>${ready ? `<button class="btn sm primary" data-act="execute" data-id="${w.id}" data-a="${w.a}" data-d="${esc(String(w.dest))}">Release</button>` : ""}<button class="btn sm danger" data-act="cancel-w" data-id="${w.id}" data-a="${w.a}">Cancel</button></span></div>`;
-    }).join("") : `<div class="empty">${I.shield}<b>Sealed</b><span>Nothing is waiting to leave.</span></div>`}
+    <div class="vcase safe-all"><div class="mv-top"><span class="mv-mark">${LOGO}<b>ECRIN</b></span><span class="mv-lvl">Every network</span></div>
+      <div class="sa-tot"><span class="lbl">Protected</span><b>${mask(fig(money(total)))}</b><small>${open.length ? `${open.length} network${open.length > 1 ? "s" : ""} · ${waiting ? `${waiting} waiting to leave` : "nothing waiting to leave"}` : "Not opened yet"}</small></div></div>
+    ${open.map(section).join("") || `<div class="empty">${I.shield}<b>Your Safe is empty</b><span>Open it on any network below. Anything leaving it waits, and you can cancel it the whole time.</span></div>`}
+    ${closed.length ? `<div class="list-h"><b>Add a network</b><span>same Safe</span></div>
+      <section class="list">${closed.map((N) => `<button class="arow" data-act="safe-go" data-n="${N.key}" data-p="protect">${coin(N.key)}<span class="ar-t"><b>${N.name}</b><small>${N.net} · not opened</small></span><span class="ar-r"><b class="sn-open">Open</b></span></button>`).join("")}</section>` : ""}
     <a class="link center" href="https://ecrinprotocol.app/app" target="_blank">Rules, guardian and alerts on ecrinprotocol.app ${I.ext}</a>`;
 }
 const vaultLine = (a, units) => `<div class="vl">${assetCoin(a)}<b>${mask(fig(amt(units, a)))}</b><span>${A(a).unit}</span></div>`;
@@ -818,6 +833,12 @@ async function txRun(fn, after, log) {
 async function knownDest(to) { const { sent = {} } = await local.get("sent"); return !!sent[`${S.net}:${to}`]; }
 async function rememberDest(to) { const { sent = {} } = await local.get("sent"); sent[`${S.net}:${to}`] = Date.now(); await local.set({ sent }); }
 
+async function useNet(n) {
+  if (!n || n === S.net) return;
+  S.net = n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; S.drawChart = true;
+  await eng(); S.activity = await readActivity(); await refresh(); loadSeries();
+}
+
 const actions = {
   "start-create": () => go("createPw", { phrase: newPhrase(), revealed: false, wrote: false }),
   "start-import": () => go("importPhrase"),
@@ -850,7 +871,7 @@ const actions = {
     if (S.panel && p !== S.panel.p) { S.panel = { p, step: "form", asset: el.dataset.a || "native", amount: "", to: "" }; renderPanel(); }
     else openPanel(p, { a: el.dataset.a });
     if (p === "send" || p === "protect") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); }
-    if (p === "all") loadAll();
+    if (p === "all" || p === "vault") loadAll();
   },
   settings: () => openPanel("settings"),
   nets: () => openPanel("nets"),
@@ -869,8 +890,9 @@ const actions = {
   "create-vault": () => txRun(async () => (await eng()).createVault(S.panel.kind || "strong"), null, { t: "vault" }),
   "do-protect": () => { const P = S.panel, units = parseAmt(P.amount, P.asset); P.sent = units; txRun(async () => (await eng()).protect(P.asset, units), null, { t: "protect", a: P.asset, n: units }); },
   "do-withdraw": () => { const P = S.panel, units = parseAmt(P.amount, P.asset); P.sent = units; txRun(async () => (await eng()).request(P.asset, ENG.address, units), null, { t: "withdraw", a: P.asset, n: units }); },
-  "cancel-w": async (el) => { try { el.disabled = true; await (await eng()).cancel(el.dataset.a, Number(el.dataset.id)); await logActivity({ t: "cancel", a: el.dataset.a }); S.activity = await readActivity(); toast("Cancelled. It stays in your Safe.", "win"); await refresh(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
-  execute: async (el) => { try { el.disabled = true; await (await eng()).execute(el.dataset.a, Number(el.dataset.id), el.dataset.d); await logActivity({ t: "release", a: el.dataset.a }); S.activity = await readActivity(); toast("Released to Wallet", "win"); await refresh(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
+  "safe-go": async (el) => { el.disabled = true; await useNet(el.dataset.n); S.panel = null; openPanel(el.dataset.p); if (el.dataset.p === "protect") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); } },
+  "cancel-w": async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).cancel(el.dataset.a, Number(el.dataset.id)); await logActivity({ t: "cancel", a: el.dataset.a }); S.activity = await readActivity(); toast("Cancelled. It stays in your Safe.", "win"); await refresh(); loadAll(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
+  execute: async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).execute(el.dataset.a, Number(el.dataset.id), el.dataset.d); await logActivity({ t: "release", a: el.dataset.a }); S.activity = await readActivity(); toast("Released to Wallet", "win"); await refresh(); loadAll(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
   net: async (el) => { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; S.drawChart = true; closePanel(); await eng(); S.activity = await readActivity(); refresh(); loadSeries(); },
   "row-send": async (el) => { if (el.dataset.n !== S.net) { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; await eng(); S.activity = await readActivity(); await refresh(); } openPanel("send", { a: el.dataset.a }); const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); },
   "net-go": async (el) => { if (el.dataset.n !== S.net) await actions.net(el); else closePanel(); },

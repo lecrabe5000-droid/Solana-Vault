@@ -811,3 +811,23 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 .delta { font: 400 13.5px var(--font); }
 .flow h2, .done h2, .cv h2, .adr-hero b { font: 600 22px/1.2 var(--font); letter-spacing: -.015em; }
 .onb-copy h1, .lock h1 { font: 600 26px/1.15 var(--font); letter-spacing: -.02em; }
+
+/* the Safe: one place, every network in its own section */
+.safe-all { aspect-ratio: auto; min-height: 0; gap: 18px; }
+.sa-tot { display: grid; gap: 2px; }
+.sa-tot b { font: var(--num-w) 34px/1.1 var(--num); letter-spacing: var(--num-ls); color: var(--ink); }
+.sa-tot small { color: var(--muted); font-size: 12px; }
+.snet { margin-top: 12px; padding: 12px; border-radius: 16px; background: var(--s1); box-shadow: 0 0 0 1px var(--line); }
+.sn-h { display: flex; align-items: center; gap: 10px; }
+.sn-h .coin { width: 30px; height: 30px; }
+.sn-t { flex: 1; display: grid; line-height: 1.25; } .sn-t b { font-weight: 600; font-size: 14.5px; } .sn-t small { color: var(--muted); font-size: 12px; }
+.sn-v { font: var(--num-w) 15px var(--num); letter-spacing: -.01em; }
+.sn-b { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 10px 0 2px 40px; }
+.sn-l { display: inline-flex; align-items: center; gap: 6px; } .sn-l .coin { width: 18px; height: 18px; }
+.sn-l b { font: var(--num-w) 16px var(--num); letter-spacing: var(--num-ls); } .sn-l small { color: var(--muted); font-size: 11.5px; }
+.snet .wrow { margin: 10px 0 0; box-shadow: 0 0 0 1px var(--line); background: var(--bg); }
+.sn-a { display: flex; gap: 8px; margin-top: 12px; } .sn-a .btn { flex: 1; gap: 6px; }
+.sn-a .btn svg { width: 15px; height: 15px; }
+.sn-open { color: var(--eb); font: 600 13px var(--font) !important; }
+:root[data-theme="dark"] .sn-open { color: #5b7cff; }
+.vcase.safe-all { flex: none; height: auto; aspect-ratio: auto; overflow: visible; }
