@@ -31,6 +31,17 @@ if (!process.argv.includes("--watch")) {
   console.log("zip → app/downloads/ecrin-wallet-beta.zip");
 }
 
+// Ecrin Wallet for phones: the same popup, real networks, served at ecrinprotocol.app/wallet/ (add to home screen).
+if (!process.argv.includes("--watch")) {
+  const D = "../app/wallet";
+  fs.mkdirSync(D, { recursive: true });
+  await build({ ...opts, entryPoints: { wallet: "src/popup.js" }, outdir: D, inject: ["src/web-shim.js", "src/shims.js"] });
+  let css = fs.readFileSync("popup.css", "utf8").replace(/url\("fonts\//g, 'url("/fonts/');
+  css = css.replace("html, body { width: 360px; height: 600px; overflow: hidden; }", "html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--bg); } .device { position: relative; width: 100%; max-width: 480px; height: 100dvh; margin: 0 auto; overflow: hidden; transform: translateZ(0); background: var(--bg); color: var(--ink); font: 500 14px/1.45 var(--font); padding-top: env(safe-area-inset-top); box-sizing: border-box; }");
+  fs.writeFileSync(`${D}/wallet.css`, css);
+  console.log("phone wallet → app/wallet/");
+}
+
 // The web demo: the same popup, with chrome.* stood in for and pretend money instead of a blockchain.
 // Served at ecrinprotocol.app/wallet-demo/.
 if (!process.argv.includes("--watch")) {

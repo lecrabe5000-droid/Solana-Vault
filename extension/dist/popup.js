@@ -2250,7 +2250,7 @@ zoo`.split(`
       <div class="srow"><span>${T.theme==="dark"?fe.moon:fe.sun}Appearance</span><span class="seg">${["light","dark"].map(r=>`<button data-act="theme" data-v="${r}" aria-pressed="${T.theme===r}">${r==="light"?"Light":"Dark"}</button>`).join("")}</span></div>
       <button class="srow" data-act="panel" data-p="numbers"><span><b class="nf-ico">1.2</b>Numbers</span><span class="sv">${RE.find(([r])=>r===T.nums.face)[1]} ${fe.arrow}</span></button>
       <button class="srow" data-act="panel" data-p="nets"><span>${H0()}Network</span><span class="sv">${_e[T.net].name} ${fe.arrow}</span></button>
-      <button class="srow" data-act="panel" data-p="sites"><span>${fe.link}Connected sites</span><span class="sv">${fe.arrow}</span></button>
+      ${globalThis.ECRIN_WEB||globalThis.ECRIN_DEMO?"":`<button class="srow" data-act="panel" data-p="sites"><span>${fe.link}Connected sites</span><span class="sv">${fe.arrow}</span></button>`}
       <button class="srow" data-act="panel" data-p="reveal"><span>${fe.eye}Show recovery phrase</span><span class="sv">${fe.arrow}</span></button>
       <a class="srow" href="https://ecrinprotocol.app/app" target="_blank"><span>${fe.shield}Vault rules and alerts</span><span class="sv">${fe.ext}</span></a>
       <button class="srow" data-act="lock"><span>${fe.lock}Lock now</span><span></span></button>
