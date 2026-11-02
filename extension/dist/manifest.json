@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Ecrin Wallet",
   "short_name": "Ecrin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A wallet for spending, a safe nobody can rush. Solana and Ethereum. Testnet beta.",
   "action": {
     "default_popup": "popup.html",
@@ -27,17 +27,42 @@
   "permissions": [
     "storage",
     "alarms",
-    "clipboardWrite"
+    "clipboardWrite",
+    "unlimitedStorage"
   ],
   "host_permissions": [
     "https://api.devnet.solana.com/*",
     "https://*.publicnode.com/*",
     "https://api.coingecko.com/*",
     "https://api.binance.com/*",
-    "https://api.exchange.coinbase.com/*"
+    "https://api.exchange.coinbase.com/*",
+    "https://raw.githubusercontent.com/*"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; base-uri 'none'; frame-ancestors 'none'"
   },
-  "minimum_chrome_version": "116"
+  "minimum_chrome_version": "116",
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "inpage.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ]
 }

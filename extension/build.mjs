@@ -15,7 +15,12 @@ const opts = {
   inject: ["src/shims.js"], legalComments: "linked", logLevel: "warning",
 };
 if (process.argv.includes("--watch")) { const c = await context(opts); await c.watch(); console.log("watching…"); }
-else { await build(opts); console.log("built", fs.readdirSync(out).join(" ")); }
+else {
+  await build(opts);
+  // The page scripts: plain IIFEs (content scripts can't be modules), no shims, tiny.
+  await build({ entryPoints: { inpage: "src/inpage.js", content: "src/content.js" }, bundle: true, format: "iife", outdir: out, minify: true, target: "chrome116", legalComments: "none", logLevel: "warning" });
+  console.log("built", fs.readdirSync(out).join(" "));
+}
 
 // A zip of dist/ for testers, served by the website.
 if (!process.argv.includes("--watch")) {

@@ -24,6 +24,8 @@ SAFE: your Ecrin vault. Anything leaving it waits a delay you choose (24 hours o
 • One recovery phrase for Solana, Ethereum, Base, Arbitrum, Optimism and Polygon. It gives the same addresses as Phantom and MetaMask.
 • Move money between your Wallet and your Safe in one tap.
 • Send with 25%, 50% or Max, a clear review of exactly what leaves, a warning before sending to a new address, and press-and-hold to confirm.
+• Works with Solana and Ethereum apps. Before you approve anything a site asks, Ecrin shows exactly what would leave your wallet, and flags permits, unlimited approvals and look-alike sites in red.
+• Phishing protection: hundreds of thousands of known scam sites are blocked before they can ask for anything.
 • One Safe for every network, a live price chart, and light or dark mode.
 • Your recovery phrase is encrypted on your computer and never leaves it. No account, no tracking, no ads.
 
@@ -63,7 +65,9 @@ Ecrin Wallet is a self-custody cryptocurrency wallet. It holds the user's keys o
 - **storage**: stores the user's encrypted recovery phrase and their settings (network, theme, auto-lock time, number style) on their own computer, and keeps the unlocked wallet in memory until auto-lock.
 - **alarms**: locks the wallet automatically after the idle time the user chose.
 - **clipboardWrite**: copies the user's own wallet address when they press Copy.
-- **Host permissions** (api.devnet.solana.com, *.publicnode.com, api.coingecko.com, api.binance.com, api.exchange.coinbase.com): read balances and send the user's transactions through public blockchain servers, and fetch coin prices for the balance and chart (CoinGecko, with Binance and Coinbase as backups).
+- **unlimitedStorage**: keeps the public phishing blocklists (several MB) on the user's computer so scam sites are checked locally, without sending browsing data anywhere.
+- **Content scripts on all http/https pages**: lets websites find the wallet (Solana Wallet Standard and the Ethereum provider) and shows a full-page warning on known phishing sites. The script carries requests to the extension; it doesn't read page content or record browsing.
+- **Host permissions** (api.devnet.solana.com, *.publicnode.com, api.coingecko.com, api.binance.com, api.exchange.coinbase.com, raw.githubusercontent.com): read balances and send the user's transactions through public blockchain servers, and fetch coin prices for the balance and chart (CoinGecko, with Binance and Coinbase as backups), and download the public phishing blocklists from GitHub.
 
 **Remote code:** No, I am not using remote code. (All code is in the package. The wallet only exchanges data with blockchain servers.)
 

@@ -6,6 +6,7 @@ import { ethers } from "ethers";
 import qrcode from "qrcode-generator";
 import { newPhrase, isPhrase, normalize, seal, open, deriveAccount, strength, WORDS } from "./keyring.js";
 import { NETS, BASE, USDC_BASE, engine } from "./chains.js";
+import { makeApprovals } from "./approve.js";
 
 const VERSION = chrome.runtime.getManifest().version;
 const $ = (s, r = document) => r.querySelector(s);
@@ -26,6 +27,9 @@ function applyNums() { const r = document.documentElement; r.dataset.numFace = S
 
 const I = {
   send: '<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  link: '<svg viewBox="0 0 24 24"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/></svg>',
+  x: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  warn: '<svg viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg>',
   recv: '<svg viewBox="0 0 24 24"><path d="M12 4v15M5.5 12.5L12 19l6.5-6.5"/></svg>',
   protect: '<svg viewBox="0 0 24 24"><path d="M12 2.5l7.5 3v6c0 4.6-3.2 8.6-7.5 10-4.3-1.4-7.5-5.4-7.5-10v-6z"/><path d="M12 8v7M9 12l3 3 3-3"/></svg>',
   out: '<svg viewBox="0 0 24 24"><path d="M12 2.5l7.5 3v6c0 4.6-3.2 8.6-7.5 10-4.3-1.4-7.5-5.4-7.5-10v-6z"/><path d="M12 15V8M9 11l3-3 3 3"/></svg>',
@@ -84,6 +88,8 @@ let ENG = null, ACCT = null;
 function useAccount(phrase) {
   ACCT = deriveAccount(phrase, { web3, ethers });
   ENG = null;
+  // Public addresses only, so websites you connected can see your address while the wallet is locked.
+  local.set({ pub: { sol: ACCT.sol.publicKey.toBase58(), evm: ACCT.evm.address } });
 }
 async function eng() {
   if (!ENG || ENG.N.key !== S.net) {
@@ -106,9 +112,9 @@ async function boot() {
   try { chrome.runtime.connect?.({ name: "popup" }); } catch (_) {}
   S.hide = !!st.hide;
   document.documentElement.dataset.theme = S.theme;
-  if (!st.box) return go("welcome");
+  if (!st.box) { if (AP.id) { S.req = { gone: true, nowallet: true }; return go("approve"); } return go("welcome"); }
   const ses = await session.get(["phrase", "until"]);
-  if (ses.phrase && ses.until > Date.now()) { useAccount(ses.phrase); await touch(); return home(); }
+  if (ses.phrase && ses.until > Date.now()) { useAccount(ses.phrase); await touch(); return AP.id ? startApproval() : home(); }
   await session.clear();
   go("unlock");
 }
@@ -244,7 +250,7 @@ function go(screen, extra = {}) { Object.assign(S, { screen }, extra); render();
 function render() {
   const root = $("#root");
   root.dataset.screen = S.screen;
-  root.innerHTML = ({ loading: () => `<div class="splash">${LOGO}</div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView })[S.screen]();
+  root.innerHTML = ({ loading: () => `<div class="splash">${LOGO}</div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
   const f = root.querySelector("[autofocus]"); if (f) f.focus();
   bindHolds(root);
   depth(root);
@@ -607,7 +613,7 @@ function closePanel() { const el = $("#panel"); el.classList.remove("in"); docum
 function renderPanel(enter = false) {
   const el = $("#panel"), P = S.panel;
   if (!P) return;
-  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, nets: netsView, reveal: revealView, numbers: numbersView, all: allView, addrs: addrsView })[P.p]();
+  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, nets: netsView, reveal: revealView, numbers: numbersView, all: allView, addrs: addrsView, sites: sitesView })[P.p]();
   el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}">${body}</div>`;
   P.fresh = false;
   if (enter) requestAnimationFrame(() => { el.classList.add("in"); document.body.classList.add("stacked"); });
@@ -791,6 +797,7 @@ function settingsView() {
       <div class="srow"><span>${S.theme === "dark" ? I.moon : I.sun}Appearance</span><span class="seg">${["light", "dark"].map((t) => `<button data-act="theme" data-v="${t}" aria-pressed="${S.theme === t}">${t === "light" ? "Light" : "Dark"}</button>`).join("")}</span></div>
       <button class="srow" data-act="panel" data-p="numbers"><span><b class="nf-ico">1.2</b>Numbers</span><span class="sv">${NUM_FACES.find(([k]) => k === S.nums.face)[1]} ${I.arrow}</span></button>
       <button class="srow" data-act="panel" data-p="nets"><span>${netCoin()}Network</span><span class="sv">${NETS[S.net].name} ${I.arrow}</span></button>
+      <button class="srow" data-act="panel" data-p="sites"><span>${I.link}Connected sites</span><span class="sv">${I.arrow}</span></button>
       <button class="srow" data-act="panel" data-p="reveal"><span>${I.eye}Show recovery phrase</span><span class="sv">${I.arrow}</span></button>
       <a class="srow" href="https://ecrinprotocol.app/app" target="_blank"><span>${I.shield}Vault rules and alerts</span><span class="sv">${I.ext}</span></a>
       <button class="srow" data-act="lock"><span>${I.lock}Lock now</span><span></span></button>
@@ -840,6 +847,16 @@ async function useNet(n) {
 }
 
 const actions = {
+  "ap-ok": async (el) => {
+    const R = S.req; if (!R || R.busy) return;
+    R.busy = true; render();
+    try { const result = await APX.sign(R); await chrome.runtime.sendMessage({ type: "approval-done", id: R.id, ok: true, result }); window.close(); }
+    catch (e) { R.busy = false; R.err = e?.shortMessage || e?.message || String(e); render(); }
+  },
+  "ap-no": async () => { await chrome.runtime.sendMessage({ type: "approval-done", id: S.req?.id, ok: false }).catch(() => {}); window.close(); },
+  "ap-risk": () => { S.req.risk = !S.req.risk; render(); },
+  "site-off": async (el) => { await chrome.runtime.sendMessage({ type: "site-disconnect", origin: el.dataset.o }); toast("Disconnected", "win"); renderPanel(); loadSites(); },
+  "lists-refresh": async (el) => { el.disabled = true; const r = await chrome.runtime.sendMessage({ type: "lists-refresh" }).catch(() => null); toast(r ? `Updated: ${r.count.toLocaleString("en-US")} scam sites` : "Couldn't download the lists right now", r ? "win" : "err"); loadSites(); },
   "start-create": () => go("createPw", { phrase: newPhrase(), revealed: false, wrote: false }),
   "start-import": () => go("importPhrase"),
   // Web demo only: a ready wallet with pretend money, no setup.
@@ -872,6 +889,7 @@ const actions = {
     else openPanel(p, { a: el.dataset.a });
     if (p === "send" || p === "protect") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); }
     if (p === "all" || p === "vault") loadAll();
+    if (p === "sites") loadSites();
   },
   settings: () => openPanel("settings"),
   nets: () => openPanel("nets"),
@@ -970,7 +988,7 @@ document.addEventListener("submit", async (e) => {
   }
   if (kind === "unlock") {
     S.busy = true; render();
-    try { const { box } = await local.get("box"); const phrase = await open(box, d.pw); await session.set({ phrase }); useAccount(phrase); await touch(); S.busy = false; home(); }
+    try { const { box } = await local.get("box"); const phrase = await open(box, d.pw); await session.set({ phrase }); useAccount(phrase); await touch(); S.busy = false; AP.id ? startApproval() : home(); }
     catch (_) { S.busy = false; render(); const x = $("[data-err]"); if (x) x.textContent = "Wrong password"; $("#root form")?.classList.add("shake"); }
     return;
   }
@@ -984,3 +1002,78 @@ setInterval(() => { if (S.panel?.p === "vault") renderPanel(); }, 30_000);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.panel) closePanel(); });
 
 boot();
+
+/* ------------------------------------------------------------------ requests from websites */
+
+const AP = { id: (location.hash.match(/^#approve=([\w-]+)$/) || [])[1] || null };
+const APX = makeApprovals({ web3, ethers, getAcct: () => ACCT, getDev: async () => (await local.get("dev")).dev || {} });
+
+async function startApproval() {
+  S.screen = "approve"; S.req = null; render();
+  try { const port = chrome.runtime.connect({ name: "approval" }); setInterval(() => port.postMessage(1), 20_000); } catch (_) {}
+  const r = await chrome.runtime.sendMessage({ type: "approval-get", id: AP.id }).catch(() => null);
+  if (!r) { S.req = { gone: true }; return render(); }
+  S.req = r; render();
+  try { r.pv = await APX.preview(r); } catch (e) { r.pv = { fail: `Ecrin couldn't check this request: ${e?.message || e}` }; }
+  if (S.req === r) render();
+}
+
+function approveView() {
+  const R = S.req;
+  if (!R) return `<div class="splash">${LOGO}</div>`;
+  if (R.gone) return `<div class="ap"><div class="ap-gone">${I.clock}<b>${R.nowallet ? "No wallet yet" : "This request has ended"}</b><span>${R.nowallet ? "Open Ecrin Wallet from the toolbar to create or import a wallet, then try again on the site." : "The site withdrew it, or it was already answered."}</span><button class="btn" onclick="window.close()">Close</button></div></div>`;
+  const site = R.site, pv = R.pv, kind = R.kind;
+  const netName = R.fam === "sol" ? "Solana Devnet" : (() => { const n = Object.values(NETS).find((x) => x.E?.chainId === Number(R.chainId)); return n ? `${n.name} ${n.net}` : "Ethereum"; })();
+  const netKey = R.fam === "sol" ? "sol" : (Object.values(NETS).find((x) => x.E?.chainId === Number(R.chainId))?.key || "eth");
+  const title = { connect: "Connect to this site?", sign: "Sign a message", solmsg: "Sign a message", typed: "Sign a permission", tx: "Approve a transaction", soltx: R.send ? "Approve a transaction" : "Sign a transaction" }[kind];
+  const banners = [];
+  if (site.phish) banners.push(["bad", `<b>Known scam site.</b> ${esc(site.host)} is on a phishing list. Sites like this copy real apps to steal money. Ecrin strongly advises you to reject.`]);
+  if (site.like) banners.push(["bad", site.like.kind === "chars" ? `<b>Look-alike address.</b> ${esc(site.host)} uses letters that imitate other letters, a common phishing trick.` : `<b>Look-alike site.</b> ${esc(site.host)} looks like <b>${esc(site.like.like)}</b>, but it isn't. Check the address bar carefully.`]);
+  if (!site.https) banners.push(["warn", "This site isn't secure (no https). Anyone on your network could change what it shows you."]);
+  if (kind === "connect" && site.first && !site.phish && !site.like) banners.push(["note", "You haven't connected to this site before. Only connect to sites you trust."]);
+  for (const d of pv?.danger || []) banners.push(["bad", esc(d)]);
+  if (pv?.fail) banners.push(["warn", esc(pv.fail)]);
+  for (const n of pv?.notes || []) banners.push(["note", esc(n)]);
+  const risky = site.phish || site.like || (pv?.danger || []).length > 0 || ((kind === "tx" || kind === "soltx") && !!pv?.fail);
+  const loading = kind !== "connect" && !pv;
+  const row = (sign, x) => `<div class="ap-r">${x.unit === "SOL" ? coin("sol") : x.unit === "USDC" ? coin("usdc") : x.unit === "ETH" ? coin("eth") : x.unit === "POL" ? coin("pol") : `<span class="coin tk">${esc(String(x.unit).slice(0, 1))}</span>`}<b class="${sign === "−" ? "out" : "in"}">${sign}${esc(x.amt)} ${esc(x.unit)}</b>${x.to ? `<small>to ${esc(short(x.to))}</small>` : ""}</div>`;
+  let body = "";
+  if (kind === "connect") body = `<div class="ap-card"><div class="ap-li">${I.check}<span>See your ${R.fam === "sol" ? "Solana" : "Ethereum"} address and balances</span></div><div class="ap-li">${I.check}<span>Ask you to approve transactions</span></div><div class="ap-li no">${I.x}<span>Move anything without your approval</span></div></div>`;
+  else if (loading) body = `<div class="ap-card ap-load"><span class="sk">&nbsp;</span><small>Checking exactly what this does…</small></div>`;
+  else if (kind === "sign" || kind === "solmsg") body = `<div class="ap-lbl">${pv.signin ? "Sign-in message" : "Message"}</div><pre class="ap-msg">${esc(pv.text)}</pre><p class="ap-fine">Signing a message costs nothing and moves nothing${pv.raw ? ", unless the data is a hidden permission" : ""}.</p>`;
+  else if (kind === "typed") body = `<div class="ap-lbl">${esc(pv.title)}</div><div class="ap-card ap-fields">${(pv.fields || []).map(([k, v]) => `<div><span>${esc(k)}</span><b>${esc(v.length > 46 ? short(v) : v)}</b></div>`).join("")}</div>`;
+  else {
+    const lv = pv.leaves || [], gt = pv.gets || [];
+    body = `<div class="ap-lbl">What leaves your wallet</div><div class="ap-card">${lv.length ? lv.map((x) => row("−", x)).join("") : `<div class="ap-r none">Nothing${pv.fail ? " that Ecrin could see" : ""}</div>`}</div>
+      ${gt.length ? `<div class="ap-lbl">What you receive</div><div class="ap-card">${gt.map((x) => row("+", x)).join("")}</div>` : ""}
+      <div class="ap-kv">${pv.to ? `<div><span>To</span><b>${esc(short(pv.to))}</b></div>` : ""}<div><span>Network fee</span><b>${esc(pv.fee || "—")}</b></div></div>`;
+  }
+  const label = kind === "connect" ? "Connect" : kind === "tx" || (kind === "soltx" && R.send) ? "Approve" : "Sign";
+  return `<div class="ap">
+    <header class="ap-top"><span class="ap-site"><i class="${site.phish || site.like ? "bad" : ""}">${esc(site.host.replace(/^www\./, "").slice(0, 1).toUpperCase())}</i><span><b>${esc(site.host)}</b><small>${site.https ? "wants to use Ecrin Wallet" : "not secure"}</small></span></span><span class="ap-net">${coin(netKey)}${esc(netName)}</span></header>
+    <h2 class="ap-h">${title}</h2>
+    ${banners.map(([k, t]) => `<div class="ap-b ${k}">${k === "note" ? I.shield : I.warn}<span>${t}</span></div>`).join("")}
+    ${body}
+    ${R.err ? `<div class="ap-b bad">${I.warn}<span>${esc(R.err)}</span></div>` : ""}
+    <div class="ap-foot">
+      ${risky ? `<label class="ap-risk"><input type="checkbox" data-act="ap-risk" ${R.risk ? "checked" : ""}/> I understand the risk and still want to continue</label>` : ""}
+      <div class="ap-btns"><button class="btn" data-act="ap-no">Reject</button><button class="btn primary ${risky ? "risky" : ""}" data-act="ap-ok" ${R.busy || loading || (risky && !R.risk) ? "disabled" : ""}>${R.busy ? "Working…" : label}</button></div>
+    </div>
+  </div>`;
+}
+
+async function loadSites() {
+  const { sites = {} } = await local.get("sites");
+  const stats = await local.get("phishList").then((x) => x.phishList).catch(() => null);
+  if (S.panel?.p === "sites") { S.panel.sites = sites; S.panel.list = stats ? { at: stats.at, count: stats.count } : null; renderPanel(); }
+}
+function sitesView() {
+  const P = S.panel, list = Object.entries(P.sites || {}).filter(([, v]) => v.sol || v.evm).sort((a, b) => (b[1].at || 0) - (a[1].at || 0));
+  return `${phead("Connected sites")}
+    <p class="sub pad">Sites you allowed to see your address and ask for approvals. Disconnecting stops them asking.</p>
+    <section class="list">${list.length ? list.map(([o, v]) => `<div class="arow"><span class="coin tk">${esc(new URL(o).hostname.slice(0, 1).toUpperCase())}</span><span class="ar-t"><b>${esc(new URL(o).hostname)}</b><small>${[v.sol && "Solana", v.evm && "Ethereum"].filter(Boolean).join(" · ")}</small></span><button class="btn sm" data-act="site-off" data-o="${esc(o)}">Disconnect</button></div>`).join("")
+      : `<div class="empty">${I.link}<b>No connected sites</b><span>When a site asks to connect, Ecrin shows it here.</span></div>`}</section>
+    <div class="list-h"><b>Phishing protection</b><span>${P.list ? `updated ${new Date(P.list.at).toLocaleDateString()}` : "not downloaded yet"}</span></div>
+    <p class="sub pad">${P.list ? `${P.list.count.toLocaleString("en-US")} known scam sites are blocked before they can ask for anything.` : "Ecrin downloads public lists of scam sites (MetaMask and ScamSniffer) once a day."} Look-alike addresses of popular apps are flagged too.</p>
+    <div class="vacts"><button class="btn" data-act="lists-refresh">Update the list now</button></div>`;
+}

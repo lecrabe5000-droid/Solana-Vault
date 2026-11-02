@@ -831,3 +831,54 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 .sn-open { color: var(--eb); font: 600 13px var(--font) !important; }
 :root[data-theme="dark"] .sn-open { color: #5b7cff; }
 .vcase.safe-all { flex: none; height: auto; aspect-ratio: auto; overflow: visible; }
+
+/* =====================================================================================
+   REQUESTS FROM WEBSITES: the approval window. The site, what it asks, exactly what leaves.
+   Red is used here only, and only for real danger.
+   ===================================================================================== */
+:root { --bad: #ff5a5a; --bad-soft: rgba(255, 90, 90, .1); }
+.ap { display: flex; flex-direction: column; height: 100%; padding: 14px 16px 0; overflow-y: auto; }
+.ap-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ap-site { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ap-site i { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--s2); box-shadow: 0 0 0 1px var(--line-2); font: 600 15px var(--font); font-style: normal; }
+.ap-site i.bad { background: var(--bad-soft); color: var(--bad); box-shadow: 0 0 0 1px var(--bad); }
+.ap-site > span { display: grid; min-width: 0; line-height: 1.25; }
+.ap-site b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14.5px; font-weight: 600; }
+.ap-site small { color: var(--muted); font-size: 12px; }
+.ap-net { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px 4px 4px; border-radius: 999px; box-shadow: 0 0 0 1px var(--line-2); color: var(--muted); font-size: 11.5px; }
+.ap-net .coin { width: 18px; height: 18px; }
+.ap-h { margin: 22px 0 14px; font: 600 22px/1.2 var(--font); letter-spacing: -.015em; }
+.ap-b { display: flex; gap: 10px; margin-bottom: 8px; padding: 10px 12px; border-radius: 12px; font-size: 12.5px; line-height: 1.45; box-shadow: 0 0 0 1px var(--line); background: var(--s1); color: var(--muted); }
+.ap-b svg { flex: none; width: 16px; height: 16px; margin-top: 1px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ap-b b { color: inherit; font-weight: 600; }
+.ap-b.bad { background: var(--bad-soft); color: var(--bad); box-shadow: 0 0 0 1px rgba(255, 90, 90, .45); }
+.ap-b.warn { color: var(--ink); box-shadow: 0 0 0 1px var(--line-2); }
+.ap-lbl { margin: 12px 0 6px; color: var(--muted); font-size: 10.5px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; }
+.ap-card { padding: 4px 12px; border-radius: 14px; background: var(--s1); box-shadow: 0 0 0 1px var(--line); }
+.ap-r { display: flex; align-items: center; gap: 10px; padding: 9px 0; }
+.ap-r + .ap-r { border-top: 1px solid var(--line); }
+.ap-r .coin { width: 26px; height: 26px; }
+.ap-r b { font: 600 17px var(--font); letter-spacing: -.01em; } .ap-r b.out { color: var(--ink); } .ap-r b.in { color: var(--eb); }
+:root[data-theme="dark"] .ap-r b.in { color: #5b7cff; }
+.ap-r small { margin-left: auto; color: var(--muted); font-size: 12px; font-family: ui-monospace, Menlo, monospace; }
+.ap-r.none { color: var(--muted); font-size: 13px; }
+.coin.tk { display: grid; place-items: center; background: var(--s3); color: var(--ink); font: 600 12px var(--font); }
+.coin.tk::after { display: none; }
+.ap-kv { margin-top: 10px; } .ap-kv div { display: flex; justify-content: space-between; gap: 12px; padding: 6px 2px; font-size: 13px; }
+.ap-kv span { color: var(--muted); } .ap-kv b { font-weight: 500; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
+.ap-li { display: flex; align-items: center; gap: 10px; padding: 9px 0; font-size: 13.5px; }
+.ap-li + .ap-li { border-top: 1px solid var(--line); }
+.ap-li svg { flex: none; width: 16px; height: 16px; fill: none; stroke: var(--eb); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.ap-li.no { color: var(--muted); } .ap-li.no svg { stroke: var(--muted); }
+.ap-msg { max-height: 210px; overflow: auto; margin: 0; padding: 12px; border-radius: 14px; background: var(--s1); box-shadow: 0 0 0 1px var(--line); font: 12.5px/1.5 ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
+.ap-fine { margin: 8px 2px 0; color: var(--muted); font-size: 12px; }
+.ap-fields { padding: 6px 12px; } .ap-fields div { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 12.5px; }
+.ap-fields span { color: var(--muted); } .ap-fields b { font-weight: 500; text-align: right; word-break: break-all; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+.ap-load { display: grid; gap: 8px; padding: 16px 12px; } .ap-load .sk { height: 20px; border-radius: 6px; } .ap-load small { color: var(--muted); }
+.ap-foot { position: sticky; bottom: 0; margin-top: auto; padding: 14px 0 16px; background: var(--bg); }
+.ap-risk { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 10px; color: var(--bad); font-size: 12.5px; cursor: pointer; }
+.ap-risk input { margin-top: 2px; accent-color: var(--bad); }
+.ap-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } .ap-btns .btn { height: 48px; }
+:root[data-theme] .ap-btns .btn.primary.risky:not(:disabled) { background: var(--bad); }
+.ap-gone { display: grid; justify-items: center; gap: 8px; margin: auto; padding: 40px 20px; text-align: center; color: var(--muted); }
+.ap-gone svg { width: 34px; height: 34px; fill: none; stroke: var(--muted); stroke-width: 1.6; } .ap-gone b { color: var(--ink); font-size: 16px; } .ap-gone .btn { margin-top: 10px; }
