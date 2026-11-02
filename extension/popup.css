@@ -916,3 +916,6 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 :root[data-theme] .toast { width: max-content; max-width: min(320px, calc(100% - 32px)); padding: 11px 14px; border-radius: 14px; line-height: 1.4; text-align: left; font-weight: 500; overflow-wrap: anywhere; }
 :root[data-theme] .toast.err { background: #2a1416; color: #ffb4b4; box-shadow: 0 0 0 1px rgba(255, 90, 90, .45); }
 :root[data-theme="light"] .toast.err { background: #fff1f1; color: #b3261e; box-shadow: 0 0 0 1px rgba(179, 38, 30, .35); }
+/* the Safe's 3D emblem: the Ecrin diamond in its case, drawn in fine lines */
+.v3d { position: relative; height: 190px; margin: -6px -6px 4px; }
+.v3d canvas { display: block; width: 100%; height: 100%; }

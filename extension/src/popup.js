@@ -7,6 +7,7 @@ import qrcode from "qrcode-generator";
 import { newPhrase, isPhrase, normalize, seal, open, deriveAccount, strength, WORDS } from "./keyring.js";
 import { NETS, BASE, USDC_BASE, engine } from "./chains.js";
 import { makeApprovals } from "./approve.js";
+import { mountVault3d } from "./vault3d.js";
 
 const VERSION = chrome.runtime.getManifest().version;
 const $ = (s, r = document) => r.querySelector(s);
@@ -619,7 +620,7 @@ function renderPanel(enter = false) {
   el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}">${body}</div>`;
   P.fresh = false;
   if (enter) requestAnimationFrame(() => { el.classList.add("in"); document.body.classList.add("stacked"); });
-  bindHolds(el); depth(el);
+  bindHolds(el); depth(el); mountVault3d(el);
   const f = el.querySelector("[autofocus]"); if (f && enter) setTimeout(() => f.focus(), 200);
 }
 
@@ -767,7 +768,7 @@ function vaultView() {
   };
   const waiting = open.reduce((x, r) => x + r.v.main.withdrawals.length + (r.v.usdc?.withdrawals?.length || 0), 0);
   return `${phead("Safe")}
-    <div class="vcase safe-all"><div class="mv-top"><span class="mv-mark">${LOGO}<b>ECRIN</b></span><span class="mv-lvl">Every network</span></div>
+    <div class="vcase safe-all"><div class="v3d"><canvas data-vault3d aria-hidden="true"></canvas></div><div class="mv-top"><span class="mv-mark">${LOGO}<b>ECRIN</b></span><span class="mv-lvl">Every network</span></div>
       <div class="sa-tot"><span class="lbl">Protected</span><b>${mask(fig(money(total)))}</b><small>${open.length ? `${open.length} network${open.length > 1 ? "s" : ""} · ${waiting ? `${waiting} waiting to leave` : "nothing waiting to leave"}` : "Not opened yet"}</small></div></div>
     <button class="earn-card" data-act="panel" data-p="earn"><span class="ec-ic">${I.spark}</span><span class="ec-t"><b>Earn on your Safe</b><small>Stake SOL without taking it out · about ${STAKE_APY_TEXT} a year</small></span><span class="soon">Coming soon</span></button>
     ${open.map(section).join("") || `<div class="empty">${I.shield}<b>Your Safe is empty</b><span>Open it on any network below. Anything leaving it waits, and you can cancel it the whole time.</span></div>`}
