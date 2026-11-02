@@ -66,7 +66,7 @@ const COIN = {
   arb: () => '<svg viewBox="0 0 32 32"><path d="M16 5.2l9.4 5.4v10.8L16 26.8l-9.4-5.4V10.6z" fill="none" stroke="#9dcced" stroke-width="1.4"/><path d="M17.6 12.2l4.4 7.7-1.9 1.1-4.1-7.2zM14.4 12.2l1.6 2.8-3.3 5.9-1.9-1.1z" fill="#28a0f0"/><path d="M13.3 10.9h2.6l-6 10.4-1.6-.9zM16.1 10.9h2.6l5 8.7-1.6.9z" fill="#fff"/></svg>',
   op: () => '<svg viewBox="0 0 32 32"><text x="15.6" y="20.4" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-style="italic" font-size="11" letter-spacing="-.3" fill="#fff">OP</text></svg>',
   pol: () => '<svg viewBox="0 0 32 32"><path d="M20.4 12.6l-3-1.75a.9.9 0 0 0-.9 0l-3 1.75v3.4l-2.6 1.5-2.6-1.5v-3l2.6-1.5 1.5.86v-1.7L10.9 9.6a.9.9 0 0 0-.9 0l-3 1.75a.9.9 0 0 0-.45.78v3.5c0 .32.17.62.45.78l3 1.75c.28.16.62.16.9 0l3-1.75v-3.4l2.6-1.5 2.6 1.5v3l-2.6 1.5-1.5-.86v1.7l1.5.87c.28.16.62.16.9 0l3-1.75a.9.9 0 0 0 .45-.78v-3.5a.9.9 0 0 0-.45-.78z" fill="#fff" transform="translate(2.4 2.1)"/></svg>',
-  usdc: () => '<svg viewBox="0 0 32 32"><path d="M12.6 7.6a9.2 9.2 0 0 0 0 16.8M19.4 7.6a9.2 9.2 0 0 1 0 16.8" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/><path d="M18.6 13.6c-.2-1.3-1.2-2-2.6-2-1.6 0-2.6.8-2.6 2s1 1.7 2.6 2.1c1.7.4 2.8.9 2.8 2.3 0 1.3-1.2 2.2-2.8 2.2-1.5 0-2.6-.7-2.8-2.1M16 10.2v1.4M16 20.2v1.6" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  usdc: () => '<svg viewBox="0 0 32 32"><path d="M12.2 8.4a8.8 8.8 0 0 0 0 15.2M19.8 8.4a8.8 8.8 0 0 1 0 15.2" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><text x="16" y="20.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="12.5" fill="#fff">$</text></svg>',
 };
 const coin = (k, cls = "") => `<span class="coin c-${k} ${cls}" aria-hidden="true">${(COIN[k] || COIN.eth)()}</span>`;
 const netCoin = (n = S.net) => coin(n);
@@ -479,14 +479,14 @@ function tokenList(w) {
   const groups = {}; for (const i of items) (groups[i.unit] ||= []).push(i);
   const row = (i, sub) => {
     const p = i.a === "usdc" ? { usd: 1 } : S.prices[i.cg], ch = i.a === "usdc" ? null : p?.usd_24h_change;
-    return `<button class="arow" data-act="row-send" data-n="${i.k}" data-a="${i.a}"><span class="cstack">${coin(i.coin)}${i.coin !== i.k ? `<span class="cmini">${coin(i.k)}</span>` : ""}</span>
+    return `<button class="arow" data-act="tok" data-u="${i.unit}" data-n="${i.k}"><span class="cstack">${coin(i.coin)}${i.coin !== i.k ? `<span class="cmini">${coin(i.k)}</span>` : ""}</span>
       <span class="ar-t"><b>${i.name}</b><small>${i.a === "usdc" ? i.net : p?.usd != null ? money(p.usd) : i.net}${ch != null ? ` <span class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</span>` : ""}</small></span>
       ${spark(i.cg)}<span class="ar-r"><b>${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}${i.sav ? ` <span class="sv">${I.lock}${mask(n(i.sav, i.dec))}</span>` : ""}</small></span></button>`.replace('class="arow"', `class="arow${sub ? " sub" : ""}"`);
   };
   const out = Object.values(groups).map((g) => {
     if (g.length === 1) return row(g[0]);
     const t = g.reduce((s2, i) => ({ usd: s2.usd + (i.usd || 0), amt: s2.amt + i.chq + i.sav, sav: s2.sav + i.sav }), { usd: 0, amt: 0, sav: 0 }), f = g[0], open = S.open?.[f.unit];
-    return `<button class="arow grp" data-act="grp" data-u="${f.unit}"><span class="cstack">${coin(f.a === "usdc" ? "usdc" : f.unit === "ETH" ? "eth" : f.coin)}</span>
+    return `<button class="arow grp" data-act="tok" data-u="${f.unit}"><span class="cstack">${coin(f.a === "usdc" ? "usdc" : f.unit === "ETH" ? "eth" : f.coin)}</span>
       <span class="ar-t"><b>${f.name}</b><small>${g.length} networks ${I.chev}</small></span>${spark(f.cg)}
       <span class="ar-r"><b>${mask(money(t.usd))}</b><small>${mask(n(t.amt, f.dec))} ${f.unit}${t.sav ? ` <span class="sv">${I.lock}${mask(n(t.sav, f.dec))}</span>` : ""}</small></span></button>${open ? g.map((i) => `<button class="arow sub" data-act="row-send" data-n="${i.k}" data-a="${i.a}">${coin(i.k)}<span class="ar-t"><b>${NETS[i.k].name}</b><small>${NETS[i.k].net}</small></span><span class="ar-r"><b>${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}</small></span></button>`).join("") : ""}`;
   });
@@ -646,7 +646,7 @@ function closePanel() { const el = $("#panel"); el.classList.remove("in"); docum
 function renderPanel(enter = false) {
   const el = $("#panel"), P = S.panel;
   if (!P) return;
-  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, nets: netsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, all: allView, addrs: addrsView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
+  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, nets: netsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, all: allView, addrs: addrsView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
   el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}">${body}</div>`;
   P.fresh = false;
   if (enter) requestAnimationFrame(() => { el.classList.add("in"); document.body.classList.add("stacked"); });
@@ -901,6 +901,11 @@ async function useNet(n) {
 }
 
 const actions = {
+  tok: (el) => { const u = el.dataset.u, cg = u === "USDC" ? null : { SOL: "solana", ETH: "ethereum", POL: "polygon-ecosystem-token" }[u]; openPanel("tok", { u, cg, n: el.dataset.n }); if (cg) loadSeriesFor(cg).then(() => S.panel?.p === "tok" && renderPanel()); },
+  "tok-do": async (el) => { const P = S.panel, w = worth(), list = w.items.filter((i) => i.unit === P.u), p = el.dataset.p;
+    const best = list.filter((i) => (p === "withdraw" ? i.sav : i.chq) > 0).sort((x, y) => (y.usd || 0) - (x.usd || 0))[0] || list[0];
+    const k = best?.k || P.n || (P.u === "SOL" ? "sol" : P.u === "POL" ? "pol" : "eth"), a = P.u === "USDC" ? "usdc" : "native";
+    await useNet(k); S.panel = null; openPanel(p, { a }); if (p === "send" || p === "protect" || p === "swap") { const e = await eng(); S.panel.reserve = await e.reserve(a); renderPanel(); } },
   "pick-coin": () => { const P = S.panel; S.panel = { p: "pick", back: P.p, step: "form" }; renderPanel(); },
   "pick-go": async (el) => { await useNet(el.dataset.n); S.panel = null; openPanel(el.dataset.p, { a: el.dataset.a }); if (el.dataset.p !== "receive" && el.dataset.p !== "withdraw") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); } },
   grp: (el) => { S.open = { ...(S.open || {}), [el.dataset.u]: !S.open?.[el.dataset.u] }; render(); },
@@ -1017,7 +1022,7 @@ const actions = {
   "row-send": async (el) => { if (el.dataset.n !== S.net) { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; await eng(); S.activity = await readActivity(); await refresh(); } openPanel("send", { a: el.dataset.a }); const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); },
   "net-go": async (el) => { if (el.dataset.n !== S.net) await actions.net(el); else closePanel(); },
   tab: async (el) => { S.tab = el.dataset.t; if (S.tab === "activity") S.activity = await readActivity(); render(); },
-  range: async (el) => { S.range = el.dataset.d; await local.set({ range: S.range }); S.drawChart = true; render(); loadSeries(); },
+  range: async (el) => { S.range = el.dataset.d; await local.set({ range: S.range }); S.drawChart = true; render(); if (S.panel?.p === "tok") { renderPanel(); loadSeriesFor(S.panel.cg).then(() => S.panel?.p === "tok" && renderPanel()); } else loadSeries(); },
   num: async (el) => { S.nums[el.dataset.k] = el.dataset.v; applyNums(); await local.set({ nums: S.nums }); renderPanel(); render(); },
   autolock: async (el) => { S.autolock = Number(el.dataset.v); await local.set({ autolock: S.autolock }); await touch(); renderPanel(); },
   theme: async (el) => { S.theme = el.dataset.v; document.documentElement.dataset.theme = S.theme; await local.set({ theme: S.theme }); render(); renderPanel(); },
@@ -1315,4 +1320,39 @@ function pickView() {
   return `${phead({ send: "Send which coin?", protect: "Protect which coin?", withdraw: "Withdraw which coin?", receive: "Receive which coin?" }[P.back] || "Choose a coin")}
     <section class="list">${list.length ? list.map((i) => `<button class="arow" data-act="pick-go" data-n="${i.k}" data-a="${i.a}" data-p="${P.back}"><span class="cstack">${coin(i.coin)}${i.coin !== i.k ? `<span class="cmini">${coin(i.k)}</span>` : ""}</span>
       <span class="ar-t"><b>${i.name}</b><small>${i.net}</small></span>${need ? `<span class="ar-r"><b>${mask(n(i[need], i.dec))} ${i.unit}</b><small>${i.usd != null ? mask(money(i.usd * (i[need] / ((i.chq + i.sav) || 1)))) : ""}</small></span>` : ""}</button>`).join("") : `<div class="empty">${I.recv}<b>Nothing here yet</b><span>${need === "sav" ? "Your Safe is empty." : "Use Receive to get free test coins."}</span></div>`}</section>`;
+}
+
+/* ------------------------------------------------------------------ the token page */
+const ABOUT = {
+  SOL: "Solana is a fast, low-cost blockchain used for payments, trading and apps. SOL pays the network fees and can be staked to help secure the network.",
+  ETH: "Ether is the coin of Ethereum, the largest network for smart contracts. It pays the fees on Ethereum and on its faster networks such as Base, Arbitrum and Optimism.",
+  POL: "POL is the coin of Polygon, a network with low fees that runs the same apps as Ethereum. It pays the fees on Polygon and secures the network.",
+  USDC: "USD Coin is a digital dollar issued by Circle. Each USDC is backed by cash and short-term US government bonds, so its price stays close to $1.",
+};
+function tokenView() {
+  const P = S.panel, w = worth(), list = w.items.filter((i) => i.unit === P.u), f = list[0];
+  const name = f?.name || COIN_NAME[P.u] || P.u, px = P.u === "USDC" ? 1 : S.prices[P.cg]?.usd, ch = P.u === "USDC" ? 0 : S.prices[P.cg]?.usd_24h_change;
+  const tot = list.reduce((a, i) => ({ amt: a.amt + i.chq + i.sav, sav: a.sav + i.sav, usd: a.usd + (i.usd || 0) }), { amt: 0, sav: 0, usd: 0 }), dec = f?.dec ?? 4;
+  const n = (v, d) => v.toLocaleString("en-US", { maximumFractionDigits: d });
+  // The coin's own price chart for the chosen range (USDC holds at $1).
+  const h = P.cg ? S.series[`${P.cg}:${S.range}`] : null, W = 328, H = 92;
+  let chart = `<div class="tk-chart"><div class="ch-sk"></div></div>`;
+  if (P.u === "USDC" || h) {
+    const v = P.u === "USDC" ? Array(40).fill(1) : h.pts.filter((_, i, a) => i % Math.max(1, Math.floor(a.length / 120)) === 0).map((x) => x[1]);
+    const lo = Math.min(...v), hi = Math.max(...v), sp = hi - lo || 1, xy = v.map((y, i) => [(i / (v.length - 1)) * W, 8 + (1 - (y - lo) / sp) * (H - 16)]);
+    const d = xy.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join("");
+    const up = v[v.length - 1] >= v[0];
+    chart = `<div class="tk-chart ${up ? "up" : "dn"}"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg></div>`;
+  }
+  const ranges = `<div class="ranges">${[["1", "1D"], ["7", "1W"], ["30", "1M"], ["365", "1Y"]].map(([dd, l]) => `<button data-act="range" data-d="${dd}" aria-pressed="${S.range === dd}">${l}</button>`).join("")}</div>`;
+  const icon = P.u === "USDC" ? coin("usdc") : P.u === "ETH" ? coin("eth") : coin(P.u === "SOL" ? "sol" : "pol");
+  return `${phead(esc(name))}
+    <div class="tk-hero">${icon}<div class="tk-px">${px != null ? money(px) : "—"}</div>${ch != null && P.u !== "USDC" ? `<div class="tk-ch ${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}% today</div>` : P.u === "USDC" ? `<div class="tk-ch">Stays close to $1</div>` : ""}</div>
+    ${chart}${ranges}
+    <nav class="acts tk-acts">${[["send", "Send", I.send], ["receive", "Receive", I.recv], ["swap", "Swap", I.swap], ["protect", "Protect", I.protect]].map(([p2, l, ic]) => `<button data-act="tok-do" data-p="${p2}"><span>${ic}</span>${l}</button>`).join("")}</nav>
+    <div class="list-h"><b>Your ${esc(P.u)}</b><span>${mask(money(tot.usd))}</span></div>
+    <section class="list">${list.length ? list.map((i) => `<div class="arow">${coin(i.k)}<span class="ar-t"><b>${NETS[i.k].name}</b><small>Wallet ${mask(n(i.chq, i.dec))}${i.sav ? ` · <span class="sv">${I.lock}Safe ${mask(n(i.sav, i.dec))}</span>` : ""}</small></span><span class="ar-r"><b>${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}</small></span></div>`).join("") : `<div class="empty">${I.recv}<b>You don't hold ${esc(P.u)} yet</b><span>Use Receive to get some.</span></div>`}</section>
+    ${tot.sav ? `<p class="fine pad">${mask(n(tot.sav, dec))} ${esc(P.u)} is protected in your Safe.</p>` : ""}
+    <div class="list-h"><b>About</b><span></span></div>
+    <p class="tk-about">${ABOUT[P.u] || ""}</p>`;
 }

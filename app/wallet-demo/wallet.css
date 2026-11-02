@@ -1013,3 +1013,15 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 .chart { position: relative; }
 :root[data-theme] .ch-tip { display: inline-flex !important; align-items: baseline; gap: 6px; top: -6px; padding: 3px 8px; border-radius: 999px; background: var(--s2); box-shadow: 0 0 0 1px var(--line-2); color: var(--muted); font: 500 10.5px var(--font); pointer-events: none; z-index: 2; }
 .ch-tip b { color: var(--ink); font: 600 11.5px var(--font); }
+/* network badge: small, tucked into the corner so the coin stays readable */
+.cmini { width: 16px !important; height: 16px !important; right: -3px !important; bottom: -3px !important; }
+.cmini .coin { width: 16px !important; height: 16px !important; box-shadow: 0 0 0 2px var(--bg); }
+/* token page */
+.tk-hero { display: grid; justify-items: center; gap: 4px; padding: 6px 0 4px; }
+.tk-hero .coin { width: 48px; height: 48px; margin-bottom: 6px; }
+.tk-px { font: var(--num-w) 34px/1.1 var(--num); letter-spacing: var(--num-ls); }
+.tk-ch { color: var(--muted); font-size: 13px; } .tk-ch.up { color: var(--eb); } :root[data-theme="dark"] .tk-ch.up { color: #7f98ff; }
+.tk-chart { height: 96px; margin: 14px -16px 4px; color: var(--eb); } :root[data-theme="dark"] .tk-chart { color: #5b7cff; }
+.tk-chart svg { width: 100%; height: 100%; display: block; } .tk-chart .ch-sk { height: 70px; margin: 12px 16px; border-radius: 10px; }
+:root[data-theme] .tk-acts { grid-template-columns: repeat(4, 1fr); margin: 14px 0 8px; }
+.tk-about { margin: 0 2px 16px; color: var(--muted); font-size: 13px; line-height: 1.55; }
