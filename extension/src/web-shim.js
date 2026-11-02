@@ -5,7 +5,10 @@
 // - storage.session → memory only: the unlocked phrase disappears when the page closes or auto-lock runs.
 // - auto-lock → a timer in the page instead of the extension's background alarm.
 const KEY = "ecrin-wallet-web";
-const read = () => { try { return JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (_) { return {}; } };
+const LOCAL = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+// Developer overrides (a test network, another program) only work on a developer's own machine, so a script that
+// ever ran on the website couldn't quietly point the wallet at a fake network.
+const read = () => { try { const o = JSON.parse(localStorage.getItem(KEY) || "{}"); if (!LOCAL) delete o.dev; return o; } catch (_) { return {}; } };
 const write = (o) => { try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (_) {} };
 const pick = (o, k) => (k == null ? o : Object.fromEntries((Array.isArray(k) ? k : [k]).filter((x) => x in o).map((x) => [x, o[x]])));
 let mem = {}, timer = 0;

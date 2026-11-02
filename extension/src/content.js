@@ -45,7 +45,10 @@ function block(r) {
   </div></div>`;
   root.querySelector("code").textContent = location.hostname;
   root.querySelector(".go").onclick = () => { if (history.length > 1) history.back(); setTimeout(() => location.replace("https://ecrinprotocol.app/"), 300); };
-  root.querySelector(".ig").onclick = () => { chrome.runtime.sendMessage({ type: "allow-site" }).catch(() => {}); host.remove(); };
-  const put = () => (document.documentElement || document).appendChild(host);
+  let ignored = false;
+  root.querySelector(".ig").onclick = () => { ignored = true; chrome.runtime.sendMessage({ type: "allow-site" }).catch(() => {}); host.remove(); };
+  const put = () => { if (!ignored && !host.isConnected) (document.documentElement || document).appendChild(host); };
   if (document.documentElement) put(); else document.addEventListener("readystatechange", put, { once: true });
+  // A scam page may try to delete the warning: put it straight back.
+  new MutationObserver(put).observe(document, { childList: true, subtree: true });
 }

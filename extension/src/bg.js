@@ -50,6 +50,8 @@ async function broadcast(origin, fam, event, data) {
 // Requests waiting for you in an Ecrin window.
 const pending = new Map();
 async function approve(req) {
+  // One open request per site: a page can't flood the screen with approval windows.
+  for (const p of pending.values()) if (p.req.origin === req.origin) throw err(4001, "Ecrin Wallet already has a request open for this site. Answer it first.");
   const id = crypto.randomUUID();
   return new Promise((resolve, reject) => {
     pending.set(id, { req, resolve, reject, win: null });
@@ -118,6 +120,7 @@ async function handleEvm(origin, method, params) {
       const kind = method === "eth_sendTransaction" ? "tx" : method.startsWith("eth_signTypedData") ? "typed" : "sign";
       let body;
       const [x, y] = params || [], pick = String(x).toLowerCase() === p.evm.toLowerCase() ? y : x;
+      if (JSON.stringify(params || []).length > 32_768) throw err(-32602, "That request is too large.");
       if (kind === "sign") body = { message: method === "eth_sign" ? y : pick };
       else if (kind === "typed") body = { data: typeof pick === "string" ? pick : JSON.stringify(pick) };
       else {
@@ -152,9 +155,12 @@ async function handleSol(origin, method, params) {
         const chain = String(params?.chain || "solana:devnet");
         if (chain === "solana:mainnet" || chain === "solana:mainnet-beta") throw err(4100, "Ecrin Wallet runs on Solana Devnet during the beta.");
         if (!Array.isArray(params?.txs) || !params.txs.length) throw err(-32602, "No transaction to sign.");
+        if (params.txs.length > 8 || params.txs.some((t) => !Array.isArray(t) || t.length > 1232 || t.some((x) => !Number.isInteger(x) || x < 0 || x > 255))) throw err(-32602, "That transaction is malformed or too large.");
         return approve({ fam: "sol", kind: "soltx", origin, site: await siteInfo(origin), txs: params.txs, send: !!params.send, chain });
       }
-      return approve({ fam: "sol", kind: "solmsg", origin, site: await siteInfo(origin), message: params?.message || [] });
+      const msg = params?.message;
+      if (!Array.isArray(msg) || !msg.length || msg.length > 4096 || msg.some((x) => !Number.isInteger(x) || x < 0 || x > 255)) throw err(-32602, "That message is malformed or too long.");
+      return approve({ fam: "sol", kind: "solmsg", origin, site: await siteInfo(origin), message: msg });
     }
     default: throw err(4200, `Ecrin Wallet doesn't support ${method} yet.`);
   }

@@ -89,6 +89,12 @@ export function makeApprovals({ web3, ethers, getAcct, getDev }) {
     return out;
   }
 
+  // A message that parses as a Solana transaction (or its inner message) could be replayed as one.
+  function looksLikeSolTx(b) {
+    try { web3.VersionedTransaction.deserialize(b); return true; } catch (_) {}
+    try { web3.VersionedMessage.deserialize(b); return true; } catch (_) {}
+    return false;
+  }
   function previewMessage(bytesOrHex, fam, host) {
     let text, raw = false;
     if (fam === "evm") {
@@ -106,6 +112,7 @@ export function makeApprovals({ web3, ethers, getAcct, getDev }) {
       if (dom !== host) out.danger.push(`This sign-in is for ${dom}, but the request comes from ${host}. A site is trying to sign in somewhere else as you.`);
     }
     if (raw) out.notes.push("This isn't readable text. Signing unreadable data can authorize things you can't see.");
+    if (fam === "sol" && looksLikeSolTx(Uint8Array.from(bytesOrHex))) out.danger.push("This \"message\" is really a Solana transaction in disguise. Ecrin won't sign it.");
     return out;
   }
 
@@ -196,7 +203,10 @@ export function makeApprovals({ web3, ethers, getAcct, getDev }) {
         return sent.hash;
       }
     }
-    if (req.kind === "solmsg") return Array.from(ed25519.sign(Uint8Array.from(req.message), A.sol.secretKey.slice(0, 32)));
+    if (req.kind === "solmsg") {
+      if (looksLikeSolTx(Uint8Array.from(req.message))) throw new Error("Refused: this \"message\" is really a Solana transaction. Signing it could move your money.");
+      return Array.from(ed25519.sign(Uint8Array.from(req.message), A.sol.secretKey.slice(0, 32)));
+    }
     if (req.kind === "soltx") {
       const conn = await solConn(req.chain), out = [];
       for (const b of req.txs) {
