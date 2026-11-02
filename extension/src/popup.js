@@ -137,6 +137,7 @@ async function touch() {
 }
 
 async function home() {
+  checkUpdate(); loadBackup();
   S.screen = "home"; await eng(); S.activity = await readActivity().catch(() => []); render();
   loadAll();
   refresh();
@@ -431,6 +432,7 @@ function homeView() {
       </div>
     </header>
     ${S.err ? `<div class="banner">${esc(S.err)}</div>` : ""}
+    ${updateBanner()}${backupCard()}
     <section class="hero"><svg class="hero-g" viewBox="0 0 360 230" preserveAspectRatio="xMidYMin slice" aria-hidden="true">${Array.from({ length: 30 }, (_, i) => `<ellipse cx="${180 + Math.sin(i / 2.6) * 6}" cy="${-10 + Math.cos(i / 2.6) * 4}" rx="${40 + i * 9}" ry="${22 + i * 6.2}"/>`).join("")}</svg>
       <div class="hero-l"><span class="lbl">Net worth</span><button class="eye" data-act="hide" aria-label="${S.hide ? "Show" : "Hide"} balances">${S.hide ? I.eyeOff : I.eye}</button></div>
       <div class="big ${loading ? "sk" : ""}">${loading ? "&nbsp;" : mask(fig(money(w.total)))}</div>
@@ -625,7 +627,7 @@ function closePanel() { const el = $("#panel"); el.classList.remove("in"); docum
 function renderPanel(enter = false) {
   const el = $("#panel"), P = S.panel;
   if (!P) return;
-  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, nets: netsView, reveal: revealView, numbers: numbersView, all: allView, addrs: addrsView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
+  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, nets: netsView, reveal: revealView, numbers: numbersView, backup: backupView, all: allView, addrs: addrsView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
   el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}">${body}</div>`;
   P.fresh = false;
   if (enter) requestAnimationFrame(() => { el.classList.add("in"); document.body.classList.add("stacked"); });
@@ -851,6 +853,7 @@ async function readActivity() { const k = actKey(), o = await local.get(k); retu
 async function logActivity(e) { const k = actKey(), list = await readActivity(); await local.set({ [k]: [{ at: Date.now(), ...e }, ...list].slice(0, 40) }); }
 
 async function txRun(fn, after, log) {
+  if (S.upd?.must) return toast("A security update is required before you can send. Update Ecrin Wallet first.", "err");
   const P = S.panel; P.step = "sending"; renderPanel();
   try { const sig = await fn(); P.sig = typeof sig === "string" ? sig : null; await after?.(); if (log) await logActivity({ ...log, sig: P.sig }); P.step = "done"; await refresh(); S.activity = await readActivity(); loadAll(); }
   catch (e) { console.warn(e); P.step = "form"; toast(errText(e), "err"); }
@@ -867,6 +870,14 @@ async function useNet(n) {
 }
 
 const actions = {
+  "upd-go": () => { if (globalThis.ECRIN_WEB) location.reload(); else window.open("https://ecrinprotocol.app/#wallet", "_blank"); },
+  "bk-later": async () => { await local.set({ backup: { ...S.backup, at: Date.now() } }); S.backup = { ...S.backup, at: Date.now() }; render(); },
+  "bk-check": async () => {
+    const { phrase } = await session.get("phrase"), w = phrase.split(" "), P = S.panel;
+    const ok = P.ask.every((i) => (document.querySelector(`[data-bk="${i}"]`)?.value || "").trim().toLowerCase() === w[i]);
+    if (!ok) return toast("Not quite. Check your paper and try again.", "err");
+    S.backup = { ...S.backup, done: true }; await local.set({ backup: S.backup }); closePanel(); toast("Backup confirmed. Keep that paper safe.", "win");
+  },
   "bio-unlock": async () => {
     if (S.busy || !S.bio || S.bioRun) return;
     S.bioRun = true; S.bioBusy = "scan"; render();
@@ -884,6 +895,7 @@ const actions = {
   "swap-sol": async () => { await useNet("sol"); S.panel = null; openPanel("swap"); const e = await eng(); S.panel.reserve = await e.reserve("native"); renderPanel(); },
   "ap-ok": async (el) => {
     const R = S.req; if (!R || R.busy) return;
+    if (S.upd?.must) { R.err = "A security update is required before you can sign. Update Ecrin Wallet first."; return render(); }
     R.busy = true; render();
     try { const result = await APX.sign(R); await chrome.runtime.sendMessage({ type: "approval-done", id: R.id, ok: true, result }); window.close(); }
     catch (e) { R.busy = false; R.err = e?.shortMessage || e?.message || String(e); render(); }
@@ -912,7 +924,7 @@ const actions = {
     go("createVerify", { quizErr: false });
   },
   pick: (el) => { const q = S.quiz.find((x) => !x.ok), w = S.phrase.split(" ")[q.i]; if (el.dataset.w === w) { q.ok = true; S.quizErr = false; } else S.quizErr = true; render(); },
-  "finish-create": async () => { S.busy = true; render(); await saveWallet(S.phrase, S.pw); S.busy = false; S.phrase = S.pw = null; home(); },
+  "finish-create": async () => { S.busy = true; render(); await saveWallet(S.phrase, S.pw); await local.set({ backup: { at: Date.now(), done: false } }); S.busy = false; S.phrase = S.pw = null; home(); },
   forgot: () => { if (confirm("Without the password, the only way back in is your recovery phrase. Remove this wallet from the browser and import it again?")) forget(); },
   copy: async (el) => { await navigator.clipboard.writeText(el.dataset.v); toast("Address copied", "win"); },
   "qr-for": async (el) => { if (el.dataset.n !== S.net) { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; await eng(); refresh(); } S.panel = { p: "receive", step: "form", asset: "native", amount: "", to: "" }; renderPanel(); },
@@ -1156,4 +1168,40 @@ function earnView() {
       <p class="fine pad">Staking opens after Ecrin's security audit, on mainnet.</p>
     </div>
     <div class="pfoot"><button class="btn primary xl" disabled>Coming soon</button></div>`;
+}
+
+/* ------------------------------------------------------------------ updates and backup check */
+
+// The latest version lives at ecrinprotocol.app/wallet-version.json. Older than "minimum" means a security fix:
+// signing stops until the wallet is updated.
+const vnum = (v) => String(v || "0").split(/[^\d.]/)[0].split(".").map(Number);
+const older = (a, b) => { const x = vnum(a), y = vnum(b); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0); } return false; };
+async function checkUpdate() {
+  if (globalThis.ECRIN_DEMO) return;
+  try {
+    const j = await (await fetch("https://ecrinprotocol.app/wallet-version.json", { cache: "no-store" })).json();
+    const mine = chrome.runtime.getManifest().version;
+    S.upd = older(mine, j.latest) ? { latest: j.latest, must: older(mine, j.minimum), notes: j.notes || "" } : null;
+    if (S.screen === "home") render();
+  } catch (_) {}
+}
+function updateBanner() {
+  const u = S.upd; if (!u) return "";
+  return `<button class="upd ${u.must ? "must" : ""}" data-act="upd-go">${I.warn}<span><b>${u.must ? "Security update required" : "Update available"}</b><small>${u.must ? "Sending and signing are paused until you update." : `Version ${esc(u.latest)} is ready.`} ${globalThis.ECRIN_WEB ? "Tap to reload." : "Tap to download."}</small></span></button>`;
+}
+
+const BK_DAYS = 3;
+async function loadBackup() { S.backup = (await local.get("backup")).backup || null; }
+function backupCard() {
+  const b = S.backup; if (!b || b.done || Date.now() - b.at < BK_DAYS * 86400_000) return "";
+  return `<div class="bk"><span class="bk-ic">${I.shield}</span><span class="bk-t"><b>Check your backup</b><small>Make sure your 12 words are written down correctly. It takes 20 seconds.</small></span>
+    <span class="bk-a"><button class="btn sm primary" data-act="panel" data-p="backup">Check</button><button class="btn sm" data-act="bk-later">Later</button></span></div>`;
+}
+function backupView() {
+  const P = S.panel;
+  if (!P.ask) { const a = new Set(); while (a.size < 3) a.add(Math.floor(Math.random() * 12)); P.ask = [...a].sort((x, y) => x - y); }
+  return `${phead("Check your backup")}
+    <p class="sub pad">Look at the paper where you wrote your recovery phrase and type these words.</p>
+    <div class="stack pad">${P.ask.map((i) => `<label class="fld"><span>Word #${i + 1}</span><input data-bk="${i}" autocomplete="off" autocapitalize="none" spellcheck="false"/></label>`).join("")}</div>
+    <div class="pfoot"><button class="btn primary xl" data-act="bk-check">Confirm</button></div>`;
 }

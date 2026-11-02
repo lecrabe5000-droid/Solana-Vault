@@ -954,3 +954,8 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 /* Face ID done: the turning tile settles and shows a tick */
 .spin.done { animation: bio-pop .45s cubic-bezier(.2, .9, .3, 1.3) both; }
 .spin .bio-ok { width: 36px; height: 36px; }
+.upd, .bk { display: flex; align-items: center; gap: 10px; width: 100%; margin: 6px 0 4px; padding: 10px 12px; border: 0; border-radius: 14px; background: var(--s1); box-shadow: 0 0 0 1px var(--line-2); color: var(--ink); text-align: left; cursor: pointer; }
+.upd svg, .bk-ic svg { flex: none; width: 18px; height: 18px; fill: none; stroke: var(--eb); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.upd span, .bk-t { display: grid; line-height: 1.3; flex: 1; } .upd b, .bk-t b { font-size: 13.5px; font-weight: 600; } .upd small, .bk-t small { color: var(--muted); font-size: 11.5px; }
+.upd.must { background: var(--bad-soft); box-shadow: 0 0 0 1px rgba(255, 90, 90, .45); } .upd.must svg { stroke: var(--bad); } .upd.must b { color: var(--bad); }
+.bk { cursor: default; } .bk-a { display: grid; gap: 6px; }
