@@ -105,6 +105,7 @@ async function eng() {
 }
 
 async function boot() {
+  const pr = await local.get(["book", "hideSmall", "order", "recvNotify"]); Object.assign(S, { book: pr.book || {}, hideSmall: !!pr.hideSmall, order: pr.order || "value", recvNotify: pr.recvNotify });
   const st = await local.get(["box", "net", "theme", "autolock", "hide", "nums", "range", "dev", "prices", "bio"]);
   S.bio = globalThis.ECRIN_WEB && st.bio ? st.bio : null;
   // The phone app opens on the spinning Ecrin mark for a moment.
@@ -148,7 +149,7 @@ async function refresh() {
   try {
     const e = await eng();
     const [bal, vault] = await Promise.all([e.balances(), e.vault().catch((err) => (console.warn(err), null))]);
-    S.bal = bal; S.vault = vault; S.err = null;
+    noticeIncoming(bal); S.bal = bal; S.vault = vault; S.err = null;
   } catch (err) { console.warn(err); S.err = `Can't reach ${NETS[S.net].name} right now. Retrying…`; setTimeout(refresh, 6000); }
   if (S.screen === "home") render();
   if (S.panel) renderPanel();
@@ -466,7 +467,10 @@ function tokenList(w) {
   if (!w.ready) return `<section class="list">${[1, 2, 3].map(() => `<div class="arow"><span class="coin sk"></span><span class="ar-t"><b class="sk">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</b><small class="sk">&nbsp;&nbsp;&nbsp;&nbsp;</small></span></div>`).join("")}</section>`;
   if (!w.items.length) return `<section class="list"><div class="empty">${I.recv}<b>No coins yet</b><span>Use Receive to get free test coins on any network.</span></div></section>`;
   const n = (v, d) => v.toLocaleString("en-US", { maximumFractionDigits: d });
-  return `<section class="list">${w.items.map((i) => {
+  let items = S.hideSmall ? w.items.filter((i) => !(i.usd != null && i.usd < 1)) : w.items;
+  if (S.order === "name") items = [...items].sort((x, y) => x.name.localeCompare(y.name));
+  const hidden = w.items.length - items.length;
+  return `<section class="list">${hidden ? `<div class="hid-note">${hidden} small balance${hidden > 1 ? "s" : ""} hidden</div>` : ""}${items.map((i) => {
     const p = i.a === "usdc" ? { usd: 1 } : S.prices[i.cg], ch = i.a === "usdc" ? null : p?.usd_24h_change;
     return `<button class="arow" data-act="row-send" data-n="${i.k}" data-a="${i.a}"><span class="cstack">${coin(i.coin)}${i.coin !== i.k ? `<span class="cmini">${coin(i.k)}</span>` : ""}</span>
       <span class="ar-t"><b>${i.name}</b><small>${i.a === "usdc" ? i.net : p?.usd != null ? money(p.usd) : i.net}${ch != null ? ` <span class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</span>` : ""}</small></span>
@@ -606,7 +610,7 @@ function allView() {
 
 function activityList() {
   const list = S.activity || [];
-  if (!list.length) return `<section class="list"><div class="empty">${I.clock}<b>No activity yet</b><span>Sends, Safe moves and withdrawals show up here.</span></div></section>`;
+  if (!list.length) return `<section class="list"><div class="empty">${I.clock}<b>No activity yet</b><button class="btn sm" data-act="panel" data-p="receive" style="margin:8px auto 0">Receive your first coins</button><span>Sends, Safe moves and withdrawals show up here.</span></div></section>`;
   const when = (ms) => new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   return `<section class="list">${list.map((e) => {
     const [title, ic] = ACT[e.t] || ["Transaction", I.arrow], out = e.t === "send";
@@ -658,7 +662,7 @@ function sendMax() { const a = S.panel.asset; return a === "native" ? Math.max(0
 
 function sendView() {
   const P = S.panel, e = ENG, a = P.asset, units = parseAmt(P.amount, a);
-  if (P.step === "done") return doneView("Sent", `${amt(P.sent, a)} ${A(a).unit} is on its way.`);
+  if (P.step === "done") return doneView("Sent", `${amt(P.sent, a)} ${A(a).unit} is on its way${bookName(P.to.trim()) ? ` to ${esc(bookName(P.to.trim()))}` : ""}.`, bookName(P.to.trim()) ? "" : `<div class="book-save"><input data-bookname placeholder="Name this address (optional)" maxlength="24" autocomplete="off"/><button class="btn sm" data-act="book-save">Save</button></div>`);
   if (P.step === "review" || P.step === "sending") {
     const self = P.to.trim() === e.address;
     return `${phead("Review")}
@@ -680,6 +684,8 @@ function sendView() {
     ${amountBlock(sendMax(), "Wallet")}
     <label class="fld to"><span>To</span><div class="in-btn"><input data-to placeholder="${NETS[S.net].fam === "sol" ? "Solana address" : "0x… address"}" value="${esc(P.to)}" spellcheck="false" autocomplete="off"/><button type="button" class="ib sm" data-act="paste" aria-label="Paste">${I.paste}</button></div></label>
     ${P.to && !e.isAddress(P.to) ? `<p class="err">That isn't a ${NETS[S.net].name} address.</p>` : ""}
+    ${bookName(P.to.trim()) ? `<p class="book-to">${I.check}Sending to <b>${esc(bookName(P.to.trim()))}</b></p>` : ""}
+    ${bookList().length ? `<div class="book">${bookList().map(([a, n]) => `<button class="${P.to.trim() === a ? "on" : ""}" data-act="book-pick" data-a="${esc(a)}"><i>${esc(n.slice(0, 1).toUpperCase())}</i>${esc(n)}</button>`).join("")}</div>` : ""}
     <div class="pfoot"><button class="btn primary xl" data-act="review" ${valid ? "" : "disabled"}>Review</button></div>`;
 }
 
@@ -712,6 +718,7 @@ function receiveView() {
     <div class="recv">
       <div class="qr">${q.createSvgTag({ cellSize: 5, margin: 0, scalable: true })}<span class="qr-c">${netCoin()}</span></div>
       <p class="recv-n">Your ${N.name} address</p>
+      ${navigator.share ? `<button class="btn sm share" data-act="share-addr">${I.send}Share address</button>` : ""}
       <button class="addr" data-act="copy-addr"><span class="mono">${esc(e.address)}</span>${I.copy}</button>
       <p class="fine">Only send ${N.name} ${N.net} coins${N.usdc ? " or USDC" : ""} to this address. ${N.fam === "evm" ? "The same address works on every Ethereum-style network." : ""}</p>
       <a class="link" href="${N.faucet}" target="_blank">Get free test ${N.unit} ${I.ext}</a>
@@ -815,6 +822,9 @@ function settingsView() {
       <button class="srow" data-act="panel" data-p="nets"><span>${netCoin()}Network</span><span class="sv">${NETS[S.net].name} ${I.arrow}</span></button>
       ${globalThis.ECRIN_WEB || globalThis.ECRIN_DEMO ? "" : `<button class="srow" data-act="panel" data-p="sites"><span>${I.link}Connected sites</span><span class="sv">${I.arrow}</span></button>`}
       ${globalThis.ECRIN_WEB && bioPossible() ? `<button class="srow" data-act="bio-toggle"><span>${I.face}${bioName() === "Face ID" ? "Face ID" : "Biometric unlock"}</span><span class="sv">${S.bio ? "On" : "Off"} ${I.arrow}</span></button>` : ""}
+      <button class="srow" data-act="tog" data-k="recvNotify"><span>${I.recv}Notify when I receive coins</span><span class="sv">${S.recvNotify === false ? "Off" : "On"}</span></button>
+      <button class="srow" data-act="tog" data-k="hideSmall"><span>${I.eyeOff}Hide balances under $1</span><span class="sv">${S.hideSmall ? "On" : "Off"}</span></button>
+      <button class="srow" data-act="tog" data-k="order"><span>${I.arrow}Order coins by</span><span class="sv">${S.order === "name" ? "Name" : "Value"}</span></button>
       <button class="srow" data-act="panel" data-p="reveal"><span>${I.eye}Show recovery phrase</span><span class="sv">${I.arrow}</span></button>
       <a class="srow" href="https://ecrinprotocol.app/app" target="_blank"><span>${I.shield}Vault rules and alerts</span><span class="sv">${I.ext}</span></a>
       <button class="srow" data-act="lock"><span>${I.lock}Lock now</span><span></span></button>
@@ -855,7 +865,7 @@ async function logActivity(e) { const k = actKey(), list = await readActivity();
 async function txRun(fn, after, log) {
   if (S.upd?.must) return toast("A security update is required before you can send. Update Ecrin Wallet first.", "err");
   const P = S.panel; P.step = "sending"; renderPanel();
-  try { const sig = await fn(); P.sig = typeof sig === "string" ? sig : null; await after?.(); if (log) await logActivity({ ...log, sig: P.sig }); P.step = "done"; await refresh(); S.activity = await readActivity(); loadAll(); }
+  try { S.lastTx = Date.now(); const sig = await fn(); S.lastTx = Date.now(); P.sig = typeof sig === "string" ? sig : null; await after?.(); if (log) await logActivity({ ...log, sig: P.sig }); P.step = "done"; await refresh(); S.activity = await readActivity(); loadAll(); }
   catch (e) { console.warn(e); P.step = "form"; toast(errText(e), "err"); }
   renderPanel();
 }
@@ -870,6 +880,16 @@ async function useNet(n) {
 }
 
 const actions = {
+  "book-pick": (el) => { S.panel.to = el.dataset.a; renderPanel(); },
+  "book-save": async () => { const n = ($("#panel [data-bookname]")?.value || "").trim(); if (!n) return; const f = NETS[S.net].fam; S.book[f] = { ...(S.book[f] || {}), [S.panel.to.trim()]: n }; await local.set({ book: S.book }); toast(`Saved as ${n}`, "win"); renderPanel(); },
+  "share-addr": async () => { try { await navigator.share({ title: "My " + NETS[S.net].name + " address", text: ENG.address }); } catch (_) {} },
+  tog: async (el) => {
+    const k = el.dataset.k;
+    if (k === "order") S.order = S.order === "name" ? "value" : "name";
+    else if (k === "recvNotify") { S.recvNotify = S.recvNotify === false; if (S.recvNotify && globalThis.ECRIN_WEB && window.Notification && Notification.permission === "default") await Notification.requestPermission().catch(() => {}); }
+    else S[k] = !S[k];
+    await local.set({ [k]: S[k] }); renderPanel(); render();
+  },
   "upd-go": () => { if (globalThis.ECRIN_WEB) location.reload(); else window.open("https://ecrinprotocol.app/#wallet", "_blank"); },
   "bk-later": async () => { await local.set({ backup: { ...S.backup, at: Date.now() } }); S.backup = { ...S.backup, at: Date.now() }; render(); },
   "bk-check": async () => {
@@ -1204,4 +1224,30 @@ function backupView() {
     <p class="sub pad">Look at the paper where you wrote your recovery phrase and type these words.</p>
     <div class="stack pad">${P.ask.map((i) => `<label class="fld"><span>Word #${i + 1}</span><input data-bk="${i}" autocomplete="off" autocapitalize="none" spellcheck="false"/></label>`).join("")}</div>
     <div class="pfoot"><button class="btn primary xl" data-act="bk-check">Confirm</button></div>`;
+}
+
+/* ------------------------------------------------------------------ address book, incoming coins, phone touches */
+
+const bookList = () => Object.entries(S.book?.[NETS[S.net].fam] || {}).sort((a, b) => a[1].localeCompare(b[1]));
+const bookName = (a) => (a && S.book?.[NETS[S.net].fam]?.[a]) || null;
+
+// Money arriving while the wallet is open: a toast, and a phone notification if the app is in the background.
+function noticeIncoming(bal) {
+  const prev = S.bal, key = `${S.net}:${ENG?.address}`;
+  if (!prev || S.balKey !== key) { S.balKey = key; return; }
+  if (S.recvNotify === false || Date.now() - (S.lastTx || 0) < 90_000) return;
+  for (const [a, now, was] of [["native", bal.native, prev.native], ["usdc", bal.usdc, prev.usdc]]) {
+    if (!(now > was)) continue;
+    const text = `Received ${amt(now - was, a)} ${A(a).unit} on ${NETS[S.net].name}`;
+    toast(text, "win");
+    if (document.hidden && window.Notification?.permission === "granted") try { new Notification("Ecrin Wallet", { body: text, icon: "/icon2-192.png" }); } catch (_) {}
+  }
+}
+
+// Phone app: pull down to refresh, and a light tap of the vibration motor on important buttons (Android).
+if (globalThis.ECRIN_WEB) {
+  let y0 = null;
+  document.addEventListener("touchstart", (e) => { const r = $("#root"); y0 = S.screen === "home" && !S.panel && r.scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive: true });
+  document.addEventListener("touchend", (e) => { if (y0 != null && e.changedTouches[0].clientY - y0 > 90) { toast("Refreshing…"); refresh(); loadAll(); loadPrices(); } y0 = null; }, { passive: true });
+  document.addEventListener("click", (e) => { if (e.target.closest(".btn.primary, .acts button, [data-act='ap-ok']")) navigator.vibrate?.(8); }, true);
 }

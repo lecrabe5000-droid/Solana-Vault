@@ -199,3 +199,22 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
   if (m.type === "site-check") { check(m.host).then(reply); return true; }
 });
 
+
+/* ---------- incoming coins: a notification when your balance goes up (every 5 minutes) ---------- */
+chrome.alarms.create("recv", { periodInMinutes: 5 });
+chrome.alarms.onAlarm.addListener(async (a) => {
+  if (a.name !== "recv") return;
+  const { pub, recvNotify, dev, seenBal = {} } = await chrome.storage.local.get(["pub", "recvNotify", "dev", "seenBal"]);
+  if (!pub || recvNotify === false) return;
+  const rpc = (url, method, params) => fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) }).then((r) => r.json()).then((j) => j.result);
+  const checks = [["sol", "Solana", "SOL", 1e9, () => rpc(dev?.solRpc || "https://api.devnet.solana.com", "getBalance", [pub.sol]).then((r) => r?.value)],
+    ...Object.values(EVM_NETS).map((n) => [n.key, n.name, n.unit, 1e18, () => rpc(dev?.evm?.[n.key]?.rpc || n.rpc, "eth_getBalance", [pub.evm, "latest"]).then((r) => (r ? Number(BigInt(r)) : null))])];
+  const next = { ...seenBal };
+  await Promise.all(checks.map(async ([k, name, unit, base, get]) => {
+    const v = await get().catch(() => null); if (v == null) return;
+    const key = `${k}:${k === "sol" ? pub.sol : pub.evm}`, was = seenBal[key];
+    if (was != null && v > was) chrome.notifications?.create(`recv-${key}-${Date.now()}`, { type: "basic", iconUrl: "icons/128.png", title: "Ecrin Wallet", message: `Received ${+((v - was) / base).toFixed(6)} ${unit} on ${name}` });
+    next[key] = v;
+  }));
+  await chrome.storage.local.set({ seenBal: next });
+});

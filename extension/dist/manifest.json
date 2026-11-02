@@ -28,7 +28,8 @@
     "storage",
     "alarms",
     "clipboardWrite",
-    "unlimitedStorage"
+    "unlimitedStorage",
+    "notifications"
   ],
   "host_permissions": [
     "https://api.devnet.solana.com/*",
