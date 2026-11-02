@@ -454,7 +454,7 @@ function chartView() {
   S.chart = { c, xy, W };
   return `<div class="chart ${up ? "up" : "dn"}${draw}" data-chart>
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="${c.coinOnly ? NETS[S.net].unit + " price" : "Portfolio value"}">
-      <defs><linearGradient id="cf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="cf0"/><stop offset="1" class="cf1"/></linearGradient><linearGradient id="cl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9b7bff"/><stop offset=".55" stop-color="#6d8bff"/><stop offset="1" stop-color="#4fc3ff"/></linearGradient></defs>
+      <defs><linearGradient id="cf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="cf0"/><stop offset="1" class="cf1"/></linearGradient><linearGradient id="cl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2f5bff"/><stop offset=".6" stop-color="#5b7cff"/><stop offset="1" stop-color="#b9c6ff"/></linearGradient></defs>
       <path class="ch-area" d="${d}L${W},${H}L0,${H}Z" fill="url(#cf)"/>
       <path class="ch-line" d="${d}" pathLength="1"/>
       <line class="ch-x" x1="0" x2="0" y1="0" y2="${H}"/>
