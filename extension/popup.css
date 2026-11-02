@@ -882,3 +882,33 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 :root[data-theme] .ap-btns .btn.primary.risky:not(:disabled) { background: var(--bad); }
 .ap-gone { display: grid; justify-items: center; gap: 8px; margin: auto; padding: 40px 20px; text-align: center; color: var(--muted); }
 .ap-gone svg { width: 34px; height: 34px; fill: none; stroke: var(--muted); stroke-width: 1.6; } .ap-gone b { color: var(--ink); font-size: 16px; } .ap-gone .btn { margin-top: 10px; }
+
+/* swap and earn (coming soon) */
+.soon { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; background: var(--acc-soft); color: var(--eb); font: 600 10.5px var(--font); letter-spacing: .04em; white-space: nowrap; }
+:root[data-theme="dark"] .soon { color: #7f98ff; }
+.acts { gap: 0; } .acts span { width: 46px; height: 46px; } .acts button { font-size: 11.5px; }
+.sw { padding: 0 16px; }
+.sw-box { position: relative; padding: 12px 14px 10px; border-radius: 16px; background: var(--s1); box-shadow: 0 0 0 1px var(--line); }
+.sw-box .amt { padding: 0; } .sw-box .amt-in input { font-size: 34px !important; text-align: left; } .sw-box .amt-in { justify-content: flex-start; } .sw-box .amt-in span { display: none; }
+.sw-box .amt-usd, .sw-box .avail { text-align: left; } .sw-box .pcts { justify-content: flex-start; }
+.sw-k { color: var(--muted); font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }
+.sw-coin { position: absolute; right: 12px; top: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border-radius: 999px; box-shadow: 0 0 0 1px var(--line-2); font-weight: 600; font-size: 13px; }
+.sw-coin .coin { width: 24px; height: 24px; }
+.sw-out { display: flex; align-items: center; min-height: 52px; } .sw-out b { font: var(--num-w) 30px var(--num); letter-spacing: var(--num-ls); color: var(--muted); }
+.sw-out .sw-coin { position: static; margin-left: auto; }
+.sw-flip { display: grid; place-items: center; width: 38px; height: 38px; margin: -10px auto; position: relative; z-index: 2; border: 0; border-radius: 12px; background: var(--bg); color: var(--ink); box-shadow: 0 0 0 1px var(--line-2); cursor: pointer; }
+.sw-flip svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.sw-kv { margin-top: 12px; } .sw .note { margin-top: 10px; }
+.earn-card { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 12px; padding: 12px; border: 0; border-radius: 16px; background: var(--s1); box-shadow: 0 0 0 1px var(--line); color: var(--ink); text-align: left; cursor: pointer; }
+.earn-card:hover { box-shadow: 0 0 0 1px var(--line-2); }
+.ec-ic { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 10px; background: var(--acc-soft); color: var(--eb); }
+:root[data-theme="dark"] .ec-ic { color: #7f98ff; }
+.ec-ic svg, .ap-li svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ec-t { flex: 1; display: grid; line-height: 1.3; } .ec-t b { font-weight: 600; font-size: 14px; } .ec-t small { color: var(--muted); font-size: 11.5px; }
+.earn { padding: 0 16px; }
+.earn-hero { display: grid; justify-items: center; gap: 4px; padding: 18px 0 20px; text-align: center; }
+.earn-hero b { font: var(--num-w) 34px/1.1 var(--num); letter-spacing: var(--num-ls); } .earn-hero small { color: var(--muted); font-size: 12.5px; }
+.earn .ap-li svg { stroke: var(--eb); }
+:root[data-theme="dark"] .earn .ap-li svg { stroke: #7f98ff; }
+:root[data-theme] .acts { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; justify-items: center; }
+.soon-row { display: flex; justify-content: center; margin: -2px 0 12px; }

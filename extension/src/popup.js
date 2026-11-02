@@ -28,6 +28,8 @@ function applyNums() { const r = document.documentElement; r.dataset.numFace = S
 const I = {
   send: '<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
   link: '<svg viewBox="0 0 24 24"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/></svg>',
+  swap: '<svg viewBox="0 0 24 24"><path d="M7 4v14M3.5 14.5L7 18l3.5-3.5M17 20V6M13.5 9.5L17 6l3.5 3.5"/></svg>',
+  spark: '<svg viewBox="0 0 24 24"><path d="M4 17l5-5 4 4 7-8"/><path d="M15 8h5v5"/></svg>',
   x: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   warn: '<svg viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg>',
   recv: '<svg viewBox="0 0 24 24"><path d="M12 4v15M5.5 12.5L12 19l6.5-6.5"/></svg>',
@@ -439,7 +441,7 @@ function homeView() {
       </button>
     </section>
     <nav class="acts">
-      ${[["send", "Send", I.send], ["receive", "Receive", I.recv], ["protect", "Protect", I.protect], ["withdraw", "Withdraw", I.out]].map(([p, l, ic]) => `<button data-act="panel" data-p="${p}"><span>${ic}</span>${l}</button>`).join("")}
+      ${[["send", "Send", I.send], ["receive", "Receive", I.recv], ["swap", "Swap", I.swap], ["protect", "Protect", I.protect], ["withdraw", "Withdraw", I.out]].map(([p, l, ic]) => `<button data-act="panel" data-p="${p}"><span>${ic}</span>${l}</button>`).join("")}
     </nav>
     <div class="tabs" role="tablist"><button role="tab" data-act="tab" data-t="tokens" aria-selected="${S.tab === "tokens"}">Tokens</button><button role="tab" data-act="tab" data-t="activity" aria-selected="${S.tab === "activity"}">Activity</button><i class="tab-ind" style="--i:${S.tab === "activity" ? 1 : 0}"></i></div>
     ${S.tab === "activity" ? activityList() : tokenList(w)}
@@ -613,7 +615,7 @@ function closePanel() { const el = $("#panel"); el.classList.remove("in"); docum
 function renderPanel(enter = false) {
   const el = $("#panel"), P = S.panel;
   if (!P) return;
-  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, nets: netsView, reveal: revealView, numbers: numbersView, all: allView, addrs: addrsView, sites: sitesView })[P.p]();
+  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, nets: netsView, reveal: revealView, numbers: numbersView, all: allView, addrs: addrsView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
   el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}">${body}</div>`;
   P.fresh = false;
   if (enter) requestAnimationFrame(() => { el.classList.add("in"); document.body.classList.add("stacked"); });
@@ -766,6 +768,7 @@ function vaultView() {
   return `${phead("Safe")}
     <div class="vcase safe-all"><div class="mv-top"><span class="mv-mark">${LOGO}<b>ECRIN</b></span><span class="mv-lvl">Every network</span></div>
       <div class="sa-tot"><span class="lbl">Protected</span><b>${mask(fig(money(total)))}</b><small>${open.length ? `${open.length} network${open.length > 1 ? "s" : ""} · ${waiting ? `${waiting} waiting to leave` : "nothing waiting to leave"}` : "Not opened yet"}</small></div></div>
+    <button class="earn-card" data-act="panel" data-p="earn"><span class="ec-ic">${I.spark}</span><span class="ec-t"><b>Earn on your Safe</b><small>Stake SOL without taking it out · about ${STAKE_APY_TEXT} a year</small></span><span class="soon">Coming soon</span></button>
     ${open.map(section).join("") || `<div class="empty">${I.shield}<b>Your Safe is empty</b><span>Open it on any network below. Anything leaving it waits, and you can cancel it the whole time.</span></div>`}
     ${closed.length ? `<div class="list-h"><b>Add a network</b><span>same Safe</span></div>
       <section class="list">${closed.map((N) => `<button class="arow" data-act="safe-go" data-n="${N.key}" data-p="protect">${coin(N.key)}<span class="ar-t"><b>${N.name}</b><small>${N.net} · not opened</small></span><span class="ar-r"><b class="sn-open">Open</b></span></button>`).join("")}</section>` : ""}
@@ -847,6 +850,8 @@ async function useNet(n) {
 }
 
 const actions = {
+  "swap-flip": async () => { const P = S.panel; P.asset = P.asset === "usdc" ? "native" : "usdc"; P.amount = ""; P.pct = null; P.reserve = await (await eng()).reserve(P.asset); renderPanel(); },
+  "swap-sol": async () => { await useNet("sol"); S.panel = null; openPanel("swap"); const e = await eng(); S.panel.reserve = await e.reserve("native"); renderPanel(); },
   "ap-ok": async (el) => {
     const R = S.req; if (!R || R.busy) return;
     R.busy = true; render();
@@ -887,7 +892,7 @@ const actions = {
     const p = el.dataset.p;
     if (S.panel && p !== S.panel.p) { S.panel = { p, step: "form", asset: el.dataset.a || "native", amount: "", to: "" }; renderPanel(); }
     else openPanel(p, { a: el.dataset.a });
-    if (p === "send" || p === "protect") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); }
+    if (p === "send" || p === "protect" || p === "swap") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); }
     if (p === "all" || p === "vault") loadAll();
     if (p === "sites") loadSites();
   },
@@ -897,7 +902,7 @@ const actions = {
   asset: async (el) => { const P = S.panel; P.asset = el.dataset.a; P.amount = ""; P.pct = null; P.reserve = await (await eng()).reserve(P.asset); renderPanel(); },
   pct: (el) => {
     const P = S.panel, p = Number(el.dataset.v), a = P.asset;
-    const max = P.p === "send" ? sendMax() : P.p === "protect" ? sendMaxProtect() : (a === "usdc" ? S.vault?.usdc?.available : S.vault?.main?.available) || 0;
+    const max = P.p === "send" || P.p === "swap" ? sendMax() : P.p === "protect" ? sendMaxProtect() : (a === "usdc" ? S.vault?.usdc?.available : S.vault?.main?.available) || 0;
     const units = Math.floor((max * p) / 100), x = A(a);
     P.pct = p; P.amount = units ? String(Math.floor((units / x.base) * 10 ** x.dec) / 10 ** x.dec) : "";
     renderPanel();
@@ -1076,4 +1081,49 @@ function sitesView() {
     <div class="list-h"><b>Phishing protection</b><span>${P.list ? `updated ${new Date(P.list.at).toLocaleDateString()}` : "not downloaded yet"}</span></div>
     <p class="sub pad">${P.list ? `${P.list.count.toLocaleString("en-US")} known scam sites are blocked before they can ask for anything.` : "Ecrin downloads public lists of scam sites (MetaMask and ScamSniffer) once a day."} Look-alike addresses of popular apps are flagged too.</p>
     <div class="vacts"><button class="btn" data-act="lists-refresh">Update the list now</button></div>`;
+}
+
+/* ------------------------------------------------------------------ swap (Jupiter) and staking: coming soon */
+
+// Swaps go through Jupiter, Solana's main swap service, with Ecrin's referral fee, via ecrinprotocol.app/api/swap
+// (the relay keeps the Jupiter key secret). They open with mainnet: on test networks Jupiter has no markets, so the
+// screen shows an estimate from current prices and the button says "Coming soon".
+const SWAP = { live: false, feeBps: 50, api: "https://ecrinprotocol.app/api/swap" };
+const STAKE_APY = 0.065, STAKE_APY_TEXT = "6–7%";
+
+function swapView() {
+  const P = S.panel, N = NETS[S.net];
+  if (N.fam !== "sol") return `${phead("Swap")}<div class="cv"><div class="cv-art">${I.swap}</div><h2>Swaps start on Solana</h2><p class="sub">Swap any Solana coin at the best price across every exchange, through Jupiter. Ethereum-style networks come later.</p></div><div class="pfoot"><button class="btn primary xl" data-act="swap-sol">Go to Solana</button></div>`;
+  const a = P.asset, b = a === "usdc" ? "native" : "usdc", units = parseAmt(P.amount, a), px = S.prices.solana?.usd;
+  const fee = SWAP.feeBps / 10_000, inAmt = units / A(a).base;
+  const out = px && inAmt ? (a === "native" ? inAmt * px : inAmt / px) * (1 - fee) : 0;
+  const rate = px ? (a === "native" ? `1 SOL ≈ ${money(px)}` : `1 USDC ≈ ${(1 / px).toFixed(6)} SOL`) : "—";
+  return `${phead("Swap")}
+    <div class="soon-row"><span class="soon">Coming soon · opens with mainnet</span></div>
+    <div class="sw">
+      <div class="sw-box"><span class="sw-k">You pay</span>${amountBlock(sendMax(), "In your Wallet")}<span class="sw-coin">${assetCoin(a)}${A(a).unit}</span></div>
+      <button class="sw-flip" data-act="swap-flip" aria-label="Swap direction">${I.swap}</button>
+      <div class="sw-box out"><span class="sw-k">You receive (estimate)</span><div class="sw-out"><b>${out ? out.toLocaleString("en-US", { maximumFractionDigits: b === "usdc" ? 2 : 4 }) : "0"}</b><span class="sw-coin">${assetCoin(b)}${A(b).unit}</span></div></div>
+      <div class="ap-kv sw-kv"><div><span>Rate</span><b>${rate}</b></div><div><span>Ecrin fee</span><b>${(SWAP.feeBps / 100).toFixed(1)}%</b></div><div><span>Route</span><b>Jupiter, best price</b></div></div>
+      <p class="note">${I.lock}<span>Swaps use your Wallet only. Money in your Safe never moves without its delay.</span></p>
+    </div>
+    <div class="pfoot"><button class="btn primary xl" disabled>${SWAP.live ? "Swap" : "Coming soon"}</button></div>`;
+}
+
+function earnView() {
+  const v = S.vault?.main && S.net === "sol" ? S.vault.main.balance / BASE : (S.all || []).find((r) => r.k === "sol" && r.v)?.v.main.balance / BASE || 0;
+  const px = S.prices.solana?.usd, yr = v * STAKE_APY;
+  return `${phead("Earn")}
+    <div class="soon-row"><span class="soon">Coming soon · after the audit</span></div>
+    <div class="earn">
+      <div class="earn-hero"><span class="lbl">Estimated rewards</span><b>${yr ? `${yr.toLocaleString("en-US", { maximumFractionDigits: 3 })} SOL` : "—"}</b><small>${yr && px ? `≈ ${money(yr * px)} a year on the ${v.toLocaleString("en-US", { maximumFractionDigits: 2 })} SOL in your Safe` : "Protect some SOL in your Safe to see your estimate"}</small></div>
+      <div class="ap-card">
+        <div class="ap-li">${I.lock}<span>Your SOL stays inside your Safe while it earns. Every delay still applies.</span></div>
+        <div class="ap-li">${I.spark}<span>About ${STAKE_APY_TEXT} a year from Solana staking. Rates change; nothing is guaranteed.</span></div>
+        <div class="ap-li">${I.clock}<span>Unstaking takes about 2 days on Solana, then your Safe's usual delay.</span></div>
+        <div class="ap-li">${I.shield}<span>Ecrin keeps a small share of the rewards, shown before you stake.</span></div>
+      </div>
+      <p class="fine pad">Staking opens after Ecrin's security audit, on mainnet.</p>
+    </div>
+    <div class="pfoot"><button class="btn primary xl" disabled>Coming soon</button></div>`;
 }
