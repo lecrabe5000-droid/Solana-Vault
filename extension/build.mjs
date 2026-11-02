@@ -38,6 +38,20 @@ if (!process.argv.includes("--watch")) {
   await build({ ...opts, entryPoints: { wallet: "src/popup.js" }, outdir: D, inject: ["src/web-shim.js", "src/shims.js"] });
   let css = fs.readFileSync("popup.css", "utf8").replace(/url\("fonts\//g, 'url("/fonts/');
   css = css.replace("html, body { width: 360px; height: 600px; overflow: hidden; }", "html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--bg); } .device { position: relative; width: 100%; max-width: 480px; height: 100dvh; margin: 0 auto; overflow: hidden; transform: translateZ(0); background: var(--bg); color: var(--ink); font: 500 14px/1.45 var(--font); padding-top: env(safe-area-inset-top); box-sizing: border-box; }");
+  // Phone-only: keep clear of the clock, the notch/Dynamic Island and the home bar; no zoom on text fields; no
+  // grey tap flashes or rubber-band edges.
+  css += `
+.device { padding: 0 !important; }
+#root, #panel { top: env(safe-area-inset-top, 0px); }
+.home, #panel .pane, .lock, .onb, .flow { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important; }
+.pfoot { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+.toast { bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important; }
+html, body, #root, #panel .pane { overscroll-behavior: none; }
+* { -webkit-tap-highlight-color: transparent; }
+button, .btn, .srow, .arow, .acard { -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+input, textarea, select { font-size: max(16px, 1em); }
+.fld input, .fld textarea, [data-to] { font-size: 16px !important; }
+`;
   fs.writeFileSync(`${D}/wallet.css`, css);
   console.log("phone wallet → app/wallet/");
 }
