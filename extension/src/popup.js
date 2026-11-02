@@ -8,6 +8,7 @@ import { newPhrase, isPhrase, normalize, seal, open, deriveAccount, strength, WO
 import { NETS, BASE, USDC_BASE, engine } from "./chains.js";
 import { makeApprovals } from "./approve.js";
 import { mountVault3d } from "./vault3d.js";
+import { bioEnable, bioUnlock, bioName, bioPossible } from "./bio.js";
 
 const VERSION = chrome.runtime.getManifest().version;
 const $ = (s, r = document) => r.querySelector(s);
@@ -31,6 +32,7 @@ const I = {
   link: '<svg viewBox="0 0 24 24"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/></svg>',
   swap: '<svg viewBox="0 0 24 24"><path d="M7 4v14M3.5 14.5L7 18l3.5-3.5M17 20V6M13.5 9.5L17 6l3.5 3.5"/></svg>',
   spark: '<svg viewBox="0 0 24 24"><path d="M4 17l5-5 4 4 7-8"/><path d="M15 8h5v5"/></svg>',
+  face: '<svg viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 9.5v1M15 9.5v1M12 9.5v3.5h-1M9.5 16a3.5 3.5 0 0 0 5 0"/></svg>',
   x: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   warn: '<svg viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg>',
   recv: '<svg viewBox="0 0 24 24"><path d="M12 4v15M5.5 12.5L12 19l6.5-6.5"/></svg>',
@@ -103,7 +105,10 @@ async function eng() {
 }
 
 async function boot() {
-  const st = await local.get(["box", "net", "theme", "autolock", "hide", "nums", "range", "dev", "prices"]);
+  const st = await local.get(["box", "net", "theme", "autolock", "hide", "nums", "range", "dev", "prices", "bio"]);
+  S.bio = globalThis.ECRIN_WEB && st.bio ? st.bio : null;
+  // The phone app opens on the spinning Ecrin mark for a moment.
+  if (globalThis.ECRIN_WEB) await new Promise((r) => setTimeout(r, Math.max(0, 1300 - performance.now())));
   if (st.prices?.p && Date.now() - st.prices.at < 86400_000) S.prices = st.prices.p;
   if (st.nums) S.nums = { ...S.nums, ...st.nums };
   if (["1", "7", "30", "365"].includes(st.range)) S.range = st.range;
@@ -120,6 +125,7 @@ async function boot() {
   if (ses.phrase && ses.until > Date.now()) { useAccount(ses.phrase); await touch(); return AP.id ? startApproval() : home(); }
   await session.clear();
   go("unlock");
+  if (S.bio) actions["bio-unlock"]();
 }
 
 /** Keeps the wallet unlocked while it's being used; the background locks it after the chosen idle time. */
@@ -253,7 +259,7 @@ function go(screen, extra = {}) { Object.assign(S, { screen }, extra); render();
 function render() {
   const root = $("#root");
   root.dataset.screen = S.screen;
-  root.innerHTML = ({ loading: () => `<div class="splash">${LOGO}</div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
+  root.innerHTML = ({ loading: () => `<div class="splash"><span class="spin">${LOGO}</span></div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
   const f = root.querySelector("[autofocus]"); if (f) f.focus();
   bindHolds(root);
   depth(root);
@@ -391,10 +397,11 @@ function unlock() {
   return `<div class="lock">
     <div class="lock-mark"><i class="halo"></i>${LOGO}</div>
     <h1>Welcome back</h1><p class="sub">Unlock Ecrin Wallet</p>
+    ${S.bio ? `<button class="btn primary xl bio-btn" data-act="bio-unlock">${I.face}Unlock with ${bioName()}</button><p class="or">or use your password</p>` : ""}
     <form class="stack" data-form="unlock">
       <label class="fld"><span>Password</span><input name="pw" type="password" autocomplete="current-password" autofocus required/></label>
       <p class="err" data-err></p>
-      <button class="btn primary xl">${S.busy ? "Unlocking…" : "Unlock"}</button>
+      <button class="btn ${S.bio ? "" : "primary"} xl">${S.busy ? "Unlocking…" : "Unlock"}</button>
     </form>
     <button class="link" data-act="forgot">Forgot your password?</button>
   </div>`;
@@ -803,6 +810,7 @@ function settingsView() {
       <button class="srow" data-act="panel" data-p="numbers"><span><b class="nf-ico">1.2</b>Numbers</span><span class="sv">${NUM_FACES.find(([k]) => k === S.nums.face)[1]} ${I.arrow}</span></button>
       <button class="srow" data-act="panel" data-p="nets"><span>${netCoin()}Network</span><span class="sv">${NETS[S.net].name} ${I.arrow}</span></button>
       ${globalThis.ECRIN_WEB || globalThis.ECRIN_DEMO ? "" : `<button class="srow" data-act="panel" data-p="sites"><span>${I.link}Connected sites</span><span class="sv">${I.arrow}</span></button>`}
+      ${globalThis.ECRIN_WEB && bioPossible() ? `<button class="srow" data-act="bio-toggle"><span>${I.face}${bioName() === "Face ID" ? "Face ID" : "Biometric unlock"}</span><span class="sv">${S.bio ? "On" : "Off"} ${I.arrow}</span></button>` : ""}
       <button class="srow" data-act="panel" data-p="reveal"><span>${I.eye}Show recovery phrase</span><span class="sv">${I.arrow}</span></button>
       <a class="srow" href="https://ecrinprotocol.app/app" target="_blank"><span>${I.shield}Vault rules and alerts</span><span class="sv">${I.ext}</span></a>
       <button class="srow" data-act="lock"><span>${I.lock}Lock now</span><span></span></button>
@@ -857,6 +865,16 @@ async function useNet(n) {
 }
 
 const actions = {
+  "bio-unlock": async () => {
+    if (S.busy || !S.bio) return;
+    try { const phrase = await bioUnlock(S.bio); await session.set({ phrase }); useAccount(phrase); await touch(); home(); }
+    catch (e) { if (e?.name !== "NotAllowedError") toast(e?.message || `${bioName()} didn't work. Use your password.`, "err"); }
+  },
+  "bio-toggle": async () => {
+    if (S.bio) { if (!confirm(`Turn off ${bioName()}? You'll unlock with your password.`)) return; await local.remove("bio"); S.bio = null; toast(`${bioName()} is off`, "win"); return renderPanel(); }
+    try { const { phrase } = await session.get("phrase"); const box = await bioEnable(phrase); await local.set({ bio: box }); S.bio = box; toast(`${bioName()} is on`, "win"); renderPanel(); }
+    catch (e) { if (e?.name !== "NotAllowedError") toast(e?.message || `Couldn't turn on ${bioName()}`, "err"); }
+  },
   "swap-flip": async () => { const P = S.panel; P.asset = P.asset === "usdc" ? "native" : "usdc"; P.amount = ""; P.pct = null; P.reserve = await (await eng()).reserve(P.asset); renderPanel(); },
   "swap-sol": async () => { await useNet("sol"); S.panel = null; openPanel("swap"); const e = await eng(); S.panel.reserve = await e.reserve("native"); renderPanel(); },
   "ap-ok": async (el) => {
