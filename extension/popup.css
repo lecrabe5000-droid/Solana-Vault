@@ -692,83 +692,76 @@ body { font-family: var(--font); letter-spacing: 0; font-feature-settings: "tnum
 .acct-a svg { width: 11px; height: 11px; stroke-width: 2.2; }
 
 /* =====================================================================================
-   ECRIN GLOW: black and ivory, one colour (Ecrin blue), light coming from behind the money.
-   Glass surfaces, round glass buttons, a blue glow under the balance. Replaces the violet.
+   MINIMAL: flat black or ivory, hairlines instead of shadows, one flat Ecrin blue for the main action.
+   No glows, no gradients, no glass, no shine. Overrides every earlier layer.
    ===================================================================================== */
-:root { --eb: #2f5bff; --eb-2: #5b7cff; --eb-3: #a9b8ff;
-  --sig: linear-gradient(140deg, #7d97ff 0%, #2f5bff 52%, #1c37c9 100%); --sig-solid: #3d64ff;
-  --blue-shadow: inset 0 1px 0 rgba(255, 255, 255, .42), inset 0 -2px 0 rgba(0, 12, 90, .3), 0 1px 1px rgba(0, 0, 0, .3), 0 12px 28px -10px rgba(47, 91, 255, .75); }
+:root { --eb: #2f5bff; }
 :root[data-theme="dark"] {
-  --sig: linear-gradient(140deg, #7d97ff 0%, #2f5bff 52%, #1c37c9 100%); --sig-solid: #3d64ff;
-  --bg: #050608; --ink: #f2efe8; --muted: #8e8b85; --dim: #57554f; --on-ink: #050608;
-  --line: rgba(255, 255, 255, .06); --line-2: rgba(255, 255, 255, .11);
-  --s1: rgba(255, 255, 255, .035); --s2: rgba(255, 255, 255, .06); --s3: rgba(255, 255, 255, .09);
-  --acc: #f2efe8; --acc-ink: #ffffff; --acc-soft: rgba(47, 91, 255, .13); --acc-line: rgba(91, 124, 255, .5);
-  --vault: #8fa5ff; --pos: #5fd3a0; --neg: #f07a80;
-  --top: radial-gradient(85% 46% at 50% -6%, rgba(47, 91, 255, .34), transparent 72%), radial-gradient(40% 26% at 92% 0%, rgba(140, 165, 255, .12), transparent 70%), linear-gradient(180deg, #090c1a 0%, #050608 58%);
-  --graphite: linear-gradient(180deg, rgba(255, 255, 255, .07) 0%, rgba(255, 255, 255, .025) 100%);
-  --raise: inset 0 1px 0 rgba(255, 255, 255, .09), inset 0 0 0 1px rgba(255, 255, 255, .055), 0 1px 2px rgba(0, 0, 0, .55), 0 14px 28px -16px rgba(0, 0, 0, .95);
-  --pearl: var(--sig); --pearl-shadow: var(--blue-shadow);
+  --bg: #0b0b0c; --s1: #141415; --s2: #1b1b1d; --s3: #232326; --line: rgba(255, 255, 255, .07); --line-2: rgba(255, 255, 255, .12);
+  --ink: #f2f0eb; --muted: #8c8a85; --dim: #5a5955; --on-ink: #0b0b0c;
+  --acc: #f2f0eb; --acc-ink: #ffffff; --acc-soft: rgba(47, 91, 255, .12); --acc-line: rgba(47, 91, 255, .5); --vault: #7f98ff;
 }
 :root[data-theme="light"] {
-  --sig: linear-gradient(140deg, #7d97ff 0%, #2f5bff 52%, #1c37c9 100%); --sig-solid: #3d64ff;
-  --bg: #f4f1ea; --ink: #0d0d0f; --muted: #75716a; --vault: #2f5bff;
-  --acc-soft: rgba(47, 91, 255, .08); --acc-line: rgba(47, 91, 255, .4);
-  --top: radial-gradient(85% 46% at 50% -6%, rgba(47, 91, 255, .13), transparent 72%), radial-gradient(90% 55% at 50% -8%, rgba(255, 255, 255, .9), transparent 65%);
+  --bg: #f6f5f1; --s1: #ffffff; --s2: #efede8; --s3: #e6e3dc; --line: rgba(15, 15, 15, .08); --line-2: rgba(15, 15, 15, .14);
+  --ink: #0f0f10; --muted: #74726c; --dim: #a6a39c; --on-ink: #ffffff;
+  --acc: #0f0f10; --acc-ink: #ffffff; --acc-soft: rgba(47, 91, 255, .07); --acc-line: rgba(47, 91, 255, .4); --vault: #2f5bff;
 }
-:root[data-theme="dark"] body, :root[data-theme="dark"] #panel .pane { background: var(--top), #050608; }
-:root[data-theme="dark"] body { background: #050608; }
-:root[data-theme="dark"] .top, :root[data-theme="dark"] .phead { background: rgba(6, 8, 16, .62); backdrop-filter: blur(22px) saturate(1.5); -webkit-backdrop-filter: blur(22px) saturate(1.5); }
+:root[data-theme] {
+  --sig: var(--eb); --sig-solid: var(--eb); --pearl: var(--eb); --pearl-shadow: none;
+  --top: none; --graphite: var(--s1); --raise: 0 0 0 1px var(--line); --well: inset 0 0 0 1px var(--line-2); --glow: transparent;
+}
+:root[data-theme] body, :root[data-theme] #panel .pane { background: var(--bg); }
+:root[data-theme] .top, :root[data-theme] .phead { background: var(--bg); backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none; }
+.hero-g, .mv-g, .sheen, .hero::before { display: none !important; }
+.big { text-shadow: none !important; }
+.btn.primary::after, .hold::after, .mv::after, .vcase::after { display: none !important; }
 
-/* the glow under the balance, breathing slowly */
-.hero::before { content: ""; position: absolute; z-index: -2; left: 50%; top: -30px; width: 320px; height: 220px; translate: -50% 0; border-radius: 50%; pointer-events: none;
-  background: radial-gradient(closest-side, rgba(47, 91, 255, .5), rgba(47, 91, 255, .14) 55%, transparent); filter: blur(26px); animation: breathe 7s ease-in-out infinite; }
-:root[data-theme="light"] .hero::before { background: radial-gradient(closest-side, rgba(47, 91, 255, .2), rgba(47, 91, 255, .05) 55%, transparent); }
-@keyframes breathe { 50% { opacity: .72; transform: scale(1.06); } }
-:root[data-theme="dark"] .hero-g { stroke: #8fa5ff; opacity: .09; }
-:root[data-theme="dark"] .big { text-shadow: 0 0 40px rgba(47, 91, 255, .35); }
+/* surfaces: flat, one hairline */
+:root[data-theme] .acard, :root[data-theme] .acard.chq, :root[data-theme] .acard.sav, :root[data-theme] .rev-l, :root[data-theme] .note, :root[data-theme] .wrow, :root[data-theme] .addr,
+:root[data-theme] .preset, :root[data-theme] .nprev, :root[data-theme] .list, :root[data-theme] .mv, :root[data-theme] .vcase {
+  background: var(--s1); color: var(--ink); box-shadow: 0 0 0 1px var(--line); backdrop-filter: none; -webkit-backdrop-filter: none; filter: none; }
+:root[data-theme] .acard:hover { transform: none; box-shadow: 0 0 0 1px var(--line-2); }
+.acard.sav .ac-k, .acard.sav .ac-k svg { color: var(--eb); }
+:root[data-theme="dark"] .acard.sav .ac-k { color: #7f98ff; }
+.acard.sav .ac-v { color: var(--ink); } .acard.sav .ac-s { color: var(--muted); }
+.mv, .vcase, .mv *, .vcase * { text-shadow: none; }
+:root[data-theme] .mv .vl b, :root[data-theme] .vcase .vl b { color: var(--ink); }
+:root[data-theme] .vl span { color: var(--muted); }
 
-/* the mark and the signature pieces are Ecrin blue in both themes */
-.acct-ic, :root[data-theme="light"] .acct-ic { background: var(--sig); color: #fff; box-shadow: var(--blue-shadow); }
-.tab-ind, :root[data-theme="dark"] .tab-ind, .split i, :root[data-theme="dark"] .split i { background: var(--sig); box-shadow: 0 0 12px rgba(47, 91, 255, .6); }
-.steps i.on, :root[data-theme="dark"] .steps i.on, :root[data-theme="dark"] .meter[data-s="3"] i:nth-child(-n+3) { background: var(--sig-solid); }
-:root[data-theme="dark"] .done-mark svg { fill: rgba(47, 91, 255, .14); stroke: #8fa5ff; }
-:root[data-theme="dark"] .hold-fill { background: linear-gradient(90deg, rgba(0, 10, 70, .5), rgba(0, 10, 70, .18)); }
-:root[data-theme="dark"] .pcts button.on, :root[data-theme="light"] .pcts button.on { background: var(--sig); color: #fff; box-shadow: var(--blue-shadow); }
+/* buttons: flat; primary is flat Ecrin blue, the rest a hairline */
+:root[data-theme] .btn { background: var(--s1); box-shadow: 0 0 0 1px var(--line-2); filter: none; }
+:root[data-theme] .btn:hover:not(:disabled) { background: var(--s2); filter: none; }
+:root[data-theme] .btn:active:not(:disabled) { transform: scale(.98); box-shadow: 0 0 0 1px var(--line-2); }
+:root[data-theme] .btn.primary, :root[data-theme] .hold, :root[data-theme] .pcts button.on, :root[data-theme] .nr-on { background: var(--eb); color: #fff; box-shadow: none; }
+:root[data-theme] .btn.primary:hover:not(:disabled) { background: #2550f0; }
+:root[data-theme] .btn.primary:disabled { background: var(--s2); color: var(--dim); }
+:root[data-theme] .hold-fill { background: rgba(0, 0, 0, .22); }
+:root[data-theme] .pcts button { box-shadow: 0 0 0 1px var(--line-2); background: transparent; }
+:root[data-theme] .seg, :root[data-theme] .seg2, :root[data-theme] .fld input, :root[data-theme] .fld textarea { background: var(--s1); box-shadow: 0 0 0 1px var(--line); }
+:root[data-theme] .seg button[aria-pressed="true"], :root[data-theme] .seg2 > i { background: var(--s3); box-shadow: none; }
 
-/* glass surfaces */
-:root[data-theme="dark"] .acard.chq, :root[data-theme="dark"] .rev-l, :root[data-theme="dark"] .note, :root[data-theme="dark"] .wrow, :root[data-theme="dark"] .addr, :root[data-theme="dark"] .preset, :root[data-theme="dark"] .nprev, :root[data-theme="dark"] .list {
-  background: linear-gradient(180deg, rgba(255, 255, 255, .065), rgba(255, 255, 255, .02)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .09), inset 0 0 0 1px rgba(255, 255, 255, .06), 0 18px 34px -22px rgba(0, 0, 0, .95); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
-
-/* savings: the one card lit in blue, in both themes */
-.acard.sav, :root[data-theme="dark"] .acard.sav, :root[data-theme="light"] .acard.sav { background: radial-gradient(130% 120% at 92% -12%, #4a6dff 0%, #1e3bc4 30%, #0d1a5c 62%, #070a1a 100%); color: #f2efe8;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), inset 0 0 0 1px rgba(140, 165, 255, .28), 0 16px 34px -14px rgba(47, 91, 255, .65); }
-.acard.sav .ac-k, .acard.sav .ac-s { color: rgba(242, 239, 232, .72); } .acard.sav .ac-v { color: #f2efe8; }
-.acard.sav .mv-g { stroke: #a9b8ff; opacity: .16; }
-.mv, .vcase, :root[data-theme="dark"] .mv, :root[data-theme="dark"] .vcase, :root[data-theme="light"] .mv, :root[data-theme="light"] .vcase { background: radial-gradient(130% 110% at 90% -12%, #4a6dff 0%, #1e3bc4 26%, #0d1a5c 58%, #070a1a 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .2), inset 0 0 0 1px rgba(140, 165, 255, .26), 0 30px 60px -26px rgba(47, 91, 255, .6); }
-.mv .vl b small, .vcase .vl b small, .mv [class*="unit"], .vcase [class*="unit"] { color: #a9b8ff; }
-
-/* chart: Ecrin blue, glowing */
-.chart .cf0, :root[data-theme="dark"] .chart .cf0, .chart.up .cf0, .chart.dn .cf0 { stop-color: #2f5bff; stop-opacity: .3; }
-:root[data-theme="light"] .chart .cf0 { stop-opacity: .14; }
-.chart .ch-line, :root[data-theme="dark"] .chart .ch-line { stroke: url(#cl); }
-:root[data-theme="dark"] .chart .ch-line { filter: drop-shadow(0 6px 14px rgba(47, 91, 255, .55)); }
-:root[data-theme="light"] .chart .ch-line { filter: drop-shadow(0 5px 10px rgba(47, 91, 255, .25)); }
-
-/* round glass buttons: a lit rim, a specular highlight, depth below; Send is solid Ecrin blue */
-.acts span { position: relative; overflow: hidden; width: 54px; height: 54px; transition: transform .18s var(--ease), box-shadow .25s, filter .2s; }
-.acts span::before { content: ""; position: absolute; left: 14%; right: 14%; top: 3px; height: 46%; border-radius: 50% / 60% 60% 40% 40%; pointer-events: none;
-  background: linear-gradient(180deg, rgba(255, 255, 255, .28), rgba(255, 255, 255, 0)); }
-.acts span svg { position: relative; }
-:root[data-theme="dark"] .acts span { background: radial-gradient(120% 120% at 50% 0%, rgba(255, 255, 255, .13) 0%, rgba(255, 255, 255, .045) 50%, rgba(255, 255, 255, .02) 100%), rgba(14, 16, 26, .55); color: var(--ink);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), inset 0 -1px 0 rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(255, 255, 255, .08), 0 16px 26px -12px rgba(0, 0, 0, .95); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
-:root[data-theme="light"] .acts span { background: radial-gradient(120% 120% at 50% 0%, #ffffff 0%, #f6f3ec 60%, #ebe7de 100%); color: var(--ink);
-  box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0, 0, 0, .06), 0 0 0 1px rgba(20, 18, 14, .06), 0 12px 22px -12px rgba(40, 32, 20, .35); }
-:root[data-theme="light"] .acts span::before { background: linear-gradient(180deg, rgba(255, 255, 255, .9), rgba(255, 255, 255, 0)); }
-.acts button:first-child span, :root[data-theme="dark"] .acts button:first-child span, :root[data-theme="light"] .acts button:first-child span { background: var(--sig); color: #fff;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), inset 0 -2px 0 rgba(0, 12, 90, .3), 0 0 0 5px rgba(47, 91, 255, .12), 0 14px 30px -8px rgba(47, 91, 255, .8); }
-.acts button:first-child span::before { background: linear-gradient(180deg, rgba(255, 255, 255, .38), rgba(255, 255, 255, 0)); }
-.acts button:hover span { transform: translateY(-2px); filter: brightness(1.1); }
-.acts button:active span { transform: scale(.94); filter: brightness(.95); }
+/* round buttons: plain circles with a hairline; Send is the only filled one */
+.acts span { width: 50px; height: 50px; transition: background .15s, transform .12s; }
+.acts span::before { display: none; }
+:root[data-theme] .acts span { background: var(--s1); color: var(--ink); box-shadow: 0 0 0 1px var(--line-2); backdrop-filter: none; -webkit-backdrop-filter: none; filter: none; }
+:root[data-theme] .acts button:first-child span { background: var(--eb); color: #fff; box-shadow: none; }
+.acts button:hover span { background: var(--s2); transform: none; filter: none; } .acts button:first-child:hover span { background: #2550f0; }
+.acts button:active span { transform: scale(.95); }
 .acts button { color: var(--muted); } .acts button:hover { color: var(--ink); }
+
+/* the mark, tabs, steps: flat */
+:root[data-theme] .acct-ic { background: var(--eb); color: #fff; box-shadow: none; }
+:root[data-theme] .tab-ind, :root[data-theme] .split i { background: var(--ink); box-shadow: none; }
+:root[data-theme] .steps i.on, :root[data-theme] .meter[data-s="3"] i:nth-child(-n+3) { background: var(--ink); }
+:root[data-theme] .done-mark svg { fill: none; stroke: var(--eb); }
+:root[data-theme] .netchip, :root[data-theme] .ib { box-shadow: none; }
+
+/* chart: one thin line, no wash, no glow */
+:root[data-theme] .chart .ch-line { stroke: var(--ink); stroke-width: 1.6; filter: none; }
+:root[data-theme] .chart .cf0 { stop-opacity: 0; }
+/* the vault card follows the theme now that it's flat */
+:root[data-theme] .mv-mark { color: var(--eb); } :root[data-theme="dark"] .mv-mark { color: #7f98ff; }
+:root[data-theme] .mv-mark b, :root[data-theme] .mv-bal b { color: var(--ink); }
+:root[data-theme] .mv-lvl { border-color: var(--line-2); color: var(--muted); font-weight: 500; }
+:root[data-theme] .mv-bal span, :root[data-theme] .mv-bal small { color: var(--muted); }
+:root[data-theme] .mv, :root[data-theme] .vcase { color: var(--ink); }
