@@ -637,3 +637,36 @@ body { font-family: var(--font); letter-spacing: -.005em; font-feature-settings:
 .acct, .acct-n, .acct-a { white-space: nowrap; }
 .netchip { padding: 0 6px 0 3px; gap: 2px; }
 .ch-tip { display: none; }
+
+/* =====================================================================================
+   HERITAGE: Caslon for the money, Jost for everything else, small labels set wide in capitals.
+   ===================================================================================== */
+@font-face { font-family: "Caslon"; font-weight: 400; font-display: block; src: url("fonts/libre-caslon-display-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Jost"; font-weight: 300; font-display: block; src: url("fonts/jost-latin-300-normal.woff2") format("woff2"); }
+@font-face { font-family: "Jost"; font-weight: 400; font-display: block; src: url("fonts/jost-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Jost"; font-weight: 500; font-display: block; src: url("fonts/jost-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Jost"; font-weight: 600; font-display: block; src: url("fonts/jost-latin-600-normal.woff2") format("woff2"); }
+:root { --font: "Jost", "Geist", system-ui, sans-serif; }
+body { font-family: var(--font); letter-spacing: 0; font-feature-settings: "tnum" 1; }
+:root[data-num-face="serif"], :root[data-num-face="serif"][data-num-weight] { --num: "Caslon", "Libre Caslon Display", Georgia, serif; --num-w: 400; --num-ls: 0; }
+.nopts button[data-face="serif"] b { font: 400 19px "Caslon", Georgia, serif; }
+.nopts button[data-face="serif"] span::after { content: " · Heritage"; }
+:root[data-num-face="serif"] .big { font-size: 52px; line-height: 1; margin-top: 8px; }
+:root[data-num-face="serif"] .ac-v { font-size: 23px; }
+:root[data-num-face="serif"] .amt-in input { font-size: 54px; }
+:root[data-num-face="serif"] .rev-amt b { font-size: 40px; }
+:root[data-num-face="serif"] .vl b { font-size: 25px; }
+:root[data-num-face="serif"] .ar-r b { font: 400 17px "Caslon", Georgia, serif; letter-spacing: 0; }
+:root[data-num-face="serif"] .dec { opacity: .42; }
+/* labels: light, wide, capitals */
+.lbl, .ac-k, .recv-n, .nrow-h, .list-h b, .delta .dl { font-family: var(--font); font-weight: 400; letter-spacing: .3em; text-transform: uppercase; font-size: 10.5px; }
+.list-h b { font-size: 10.5px; color: var(--muted); }
+.delta { font: 400 14px var(--font); letter-spacing: .01em; }
+.ar-t b, .acct-n, .phead b, .tabs button, .acts button, .btn, .srow, .nr-t b { font-family: var(--font); }
+.ar-t b { font-weight: 500; font-size: 15px; letter-spacing: .01em; }
+.tabs button { font-weight: 500; letter-spacing: .14em; text-transform: uppercase; font-size: 11.5px; }
+.acts button { font-weight: 400; letter-spacing: .04em; }
+.btn { font-weight: 500; letter-spacing: .04em; }
+.phead { font-weight: 500; letter-spacing: .06em; }
+.flow h2, .done h2, .cv h2 { font: 400 26px/1.15 "Caslon", Georgia, serif; letter-spacing: 0; }
+.onb-copy h1, .lock h1 { font: 400 30px/1.1 "Caslon", Georgia, serif; letter-spacing: 0; background: none; -webkit-background-clip: border-box; background-clip: border-box; color: var(--ink); }
