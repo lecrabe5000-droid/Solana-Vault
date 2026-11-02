@@ -15,7 +15,7 @@ const session = { get: (k) => chrome.storage.session.get(k), set: (o) => chrome.
 const short = (a) => (a ? `${String(a).slice(0, 4)}…${String(a).slice(-4)}` : "");
 const now = () => Math.floor(Date.now() / 1000);
 
-const S = { screen: "loading", net: "sol", theme: "dark", autolock: 15, panel: null, prices: {}, bal: null, vault: undefined, busy: false, hide: false, range: "7", series: {}, nums: { face: "serif", weight: "500", cents: "dim" }, tab: "tokens" };
+const S = { screen: "loading", net: "sol", theme: "dark", autolock: 15, panel: null, prices: {}, bal: null, vault: undefined, busy: false, hide: false, range: "7", series: {}, nums: { face: "sans", weight: "500", cents: "dim" }, tab: "tokens" };
 const NUM_FACES = [["display", "Display"], ["sans", "Sans"], ["serif", "Serif"], ["mono", "Mono"]];
 const NUM_WEIGHTS = [["400", "Light"], ["500", "Regular"], ["600", "Bold"]];
 const NUM_CENTS = [["dim", "Dimmed"], ["full", "Full"], ["hide", "Hidden"]];
