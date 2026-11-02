@@ -124,8 +124,8 @@ async function boot() {
   const ses = await session.get(["phrase", "until"]);
   if (ses.phrase && ses.until > Date.now()) { useAccount(ses.phrase); await touch(); return AP.id ? startApproval() : home(); }
   await session.clear();
+  if (S.bio) { S.bioBusy = "scan"; go("unlock"); return actions["bio-unlock"](); }
   go("unlock");
-  if (S.bio) actions["bio-unlock"]();
 }
 
 /** Keeps the wallet unlocked while it's being used; the background locks it after the chosen idle time. */
@@ -394,10 +394,8 @@ function importPhrase() {
 }
 
 function unlock() {
-  if (S.bioBusy) return `<div class="bio-ov ${S.bioBusy}">
-    <div class="bio-logo"><svg class="bio-ring" viewBox="0 0 120 120" aria-hidden="true"><circle class="trk" cx="60" cy="60" r="54"/><circle class="arc" cx="60" cy="60" r="54" pathLength="100"/></svg>
-      <span class="bio-tile">${S.bioBusy === "ok" ? `<svg class="bio-ok" viewBox="0 0 24 24"><path d="M6 12.5l4 4L18 8"/></svg>` : LOGO}</span></div>
-    <b>${S.bioBusy === "ok" ? "Unlocked" : `Unlocking with ${bioName()}`}</b><span>${S.bioBusy === "ok" ? "Welcome back" : "Look at your phone"}</span></div>`;
+  if (S.bioBusy === "ok") return `<div class="splash bio-done"><span class="spin done"><svg class="bio-ok" viewBox="0 0 24 24"><path d="M6 12.5l4 4L18 8"/></svg></span></div>`;
+  if (S.bioBusy) return `<div class="splash"><span class="spin">${LOGO}</span></div>`;
   return `<div class="lock">
     <div class="lock-mark"><i class="halo"></i>${LOGO}</div>
     <h1>Welcome back</h1><p class="sub">Unlock Ecrin Wallet</p>
@@ -870,12 +868,12 @@ async function useNet(n) {
 
 const actions = {
   "bio-unlock": async () => {
-    if (S.busy || !S.bio) return;
-    S.bioBusy = "scan"; render();
+    if (S.busy || !S.bio || S.bioRun) return;
+    S.bioRun = true; S.bioBusy = "scan"; render();
     try {
       const phrase = await bioUnlock(S.bio); await session.set({ phrase }); useAccount(phrase); await touch();
-      S.bioBusy = "ok"; render(); await new Promise((r) => setTimeout(r, 650)); S.bioBusy = null; home();
-    } catch (e) { S.bioBusy = null; render(); if (e?.name !== "NotAllowedError") toast(e?.message || `${bioName()} didn't work. Use your password.`, "err"); }
+      S.bioBusy = "ok"; render(); await new Promise((r) => setTimeout(r, 650)); S.bioBusy = null; S.bioRun = false; home();
+    } catch (e) { S.bioBusy = null; S.bioRun = false; render(); if (e?.name !== "NotAllowedError") toast(e?.message || `${bioName()} didn't work. Use your password.`, "err"); }
   },
   "bio-toggle": async () => {
     if (S.bio) { if (!confirm(`Turn off ${bioName()}? You'll unlock with your password.`)) return; await local.remove("bio"); S.bio = null; toast(`${bioName()} is off`, "win"); return renderPanel(); }
