@@ -588,7 +588,7 @@ async function loadAll() {
   }));
   S.all = rows;
   if (S.panel?.p === "all") { S.panel.rows = rows; renderPanel(); }
-  if (S.panel?.p === "vault") renderPanel();
+  if (S.panel?.p === "vault" || S.panel?.p === "rules") renderPanel();
   if (S.screen === "home" && !S.scrubbing) render();
   loadSeries();
 }
@@ -645,7 +645,7 @@ function closePanel() { const el = $("#panel"); el.classList.remove("in"); docum
 function renderPanel(enter = false) {
   const el = $("#panel"), P = S.panel;
   if (!P) return;
-  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, nets: netsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, all: allView, addrs: addrsView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
+  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, nets: netsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, addrs: addrsView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
   el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}">${body}</div>`;
   P.fresh = false;
   if (enter) requestAnimationFrame(() => { el.classList.add("in"); document.body.classList.add("stacked"); });
@@ -808,6 +808,7 @@ function vaultView() {
   return `${phead("Safe")}
     <div class="vcase safe-all"><div class="v3d"><canvas data-vault3d aria-hidden="true"></canvas></div><div class="mv-top"><span class="mv-mark">${LOGO}<b>ECRIN</b></span><span class="mv-lvl">Every network</span></div>
       <div class="sa-tot"><span class="lbl">Protected</span><b>${mask(fig(money(total)))}</b><small>${open.length ? `${open.length} network${open.length > 1 ? "s" : ""} · ${waiting ? `${waiting} waiting to leave` : "nothing waiting to leave"}` : "Not opened yet"}</small></div></div>
+    <button class="earn-card rules-card" data-act="panel" data-p="rules"><span class="ec-ic">${I.shield}</span><span class="ec-t"><b>Rules and alerts</b><small>Delay, daily limit, guardian, trusted addresses, freeze, Telegram and email alerts</small></span>${I.arrow}</button>
     <button class="earn-card" data-act="panel" data-p="earn"><span class="ec-ic">${I.spark}</span><span class="ec-t"><b>Earn on your Safe</b><small>Stake SOL without taking it out · about ${STAKE_APY_TEXT} a year</small></span><span class="soon">Coming soon</span></button>
     ${open.map(section).join("") || `<div class="empty">${I.shield}<b>Your Safe is empty</b><span>Open it on any network below. Anything leaving it waits, and you can cancel it the whole time.</span></div>`}
     ${closed.length ? `<div class="list-h"><b>Add a network</b><span>same Safe</span></div>
@@ -899,6 +900,26 @@ async function useNet(n) {
 }
 
 const actions = {
+  "rule-open": (el) => { S.panel.edit = el.dataset.k; renderPanel(); },
+  "rule-back": () => { S.panel.edit = null; renderPanel(); },
+  "rule-set": async (el) => {
+    const P = S.panel, k = el.dataset.k, val = (sel) => (document.querySelector(sel)?.value || "").trim();
+    const jobs = [];
+    try {
+      if (k === "delay") { const d = Number(el.dataset.v); jobs.push(["all", { kind: "SetWithdrawDelay", value: d }]); }
+      if (k === "freeze") { const d = Number(el.dataset.v); jobs.push(["all", { kind: "SetLockedUntil", value: now() + d * 86400 + 120 }]); }
+      if (k === "limit") { for (const f of ["sol", "evm"]) { const t = val(`[data-lim="${f}"]`); if (t === "") continue; const n = t === "0" || /^none$/i.test(t) ? null : Math.round(Number(t) * BASE); if (n != null && !(n > 0)) throw new Error("Enter an amount, or 0 for no limit."); jobs.push([f, { kind: "SetDailyLimit", value: n }]); } }
+      if (k === "guardian") { for (const f of ["sol", "evm"]) { const t = val(`[data-g="${f}"]`); if (!t) continue; if (!validFor(f, t)) throw new Error(`That isn't a${f === "sol" ? " Solana" : "n Ethereum"} address.`); jobs.push([f, { kind: "SetGuardian", value: t }]); } }
+      if (k === "trust") { const t = val("[data-trust]"), f = /^0x[0-9a-fA-F]{40}$/.test(t) ? "evm" : "sol"; if (!validFor(f, t)) throw new Error("That isn't a Solana or Ethereum address."); jobs.push([f, { kind: "AddTrusted", value: t }]); }
+      if (k === "untrust") jobs.push([el.dataset.f, { kind: "RemoveTrusted", value: el.dataset.a }]);
+      if (!jobs.length) throw new Error("Nothing to change.");
+    } catch (e) { return toast(e.message, "err"); }
+    await applyEverywhere(jobs);
+  },
+  "rc-apply": async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).applyChange(Number(el.dataset.id)); toast("Rule applied", "win"); } catch (e) { toast(errText(e), "err"); } await loadAll(); },
+  "rc-cancel": async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).cancelChange(Number(el.dataset.id)); toast("Change cancelled", "win"); } catch (e) { toast(errText(e), "err"); } await loadAll(); },
+  "al-tg": async () => { try { const r = await alertCall("/api/alerts/start", {}); if (!r.url) throw new Error(r.error || "Alerts aren't available right now."); window.open(r.url, "_blank"); toast("Telegram opened: tap Start in the chat.", "win"); } catch (e) { toast(e.message, "err"); } },
+  "al-mail": async () => { const email = ($("#panel [data-mail]")?.value || "").trim(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast("Enter your email address", "err"); try { const r = await alertCall("/api/alerts/email", { email }); if (r.error) throw new Error(r.error); toast(r.already ? "Email alerts are already on." : "Check your inbox to confirm.", "win"); } catch (e) { toast(e.message, "err"); } },
   tok: (el) => { const u = el.dataset.u, cg = u === "USDC" ? null : { SOL: "solana", ETH: "ethereum", POL: "polygon-ecosystem-token" }[u]; openPanel("tok", { u, cg, n: el.dataset.n }); if (cg) loadSeriesFor(cg).then(() => S.panel?.p === "tok" && renderPanel()); },
   "tok-do": async (el) => { const P = S.panel, w = worth(), list = w.items.filter((i) => i.unit === P.u), p = el.dataset.p;
     const best = list.filter((i) => (p === "withdraw" ? i.sav : i.chq) > 0).sort((x, y) => (y.usd || 0) - (x.usd || 0))[0] || list[0];
@@ -988,7 +1009,7 @@ const actions = {
     if (S.panel && p !== S.panel.p) { S.panel = { p, step: "form", asset: el.dataset.a || "native", amount: "", to: "" }; renderPanel(); }
     else openPanel(p, { a: el.dataset.a });
     if (p === "send" || p === "protect" || p === "swap") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); }
-    if (p === "all" || p === "vault") loadAll();
+    if (p === "all" || p === "vault" || p === "rules") loadAll();
     if (p === "sites") loadSites();
   },
   settings: () => openPanel("settings"),
@@ -1383,4 +1404,80 @@ function bindTokChart(el) {
     tip.innerHTML = `<b>${money(v[i])}</b>${tl ? fmtT(tl[i]) : ""}`; tip.style.left = `${Math.max(14, Math.min(86, (xy[i][0] / W) * 100))}%`; if (pxEl) pxEl.innerHTML = money(v[i]); };
   svg.addEventListener("pointermove", move); svg.addEventListener("pointerdown", move);
   svg.addEventListener("pointerleave", () => { c.classList.remove("scrub"); if (pxEl) pxEl.innerHTML = keep; });
+}
+
+/* ------------------------------------------------------------------ Safe rules and alerts, for every network at once */
+const validFor = (f, t) => (f === "evm" ? /^0x[0-9a-fA-F]{40}$/.test(t) : /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(t));
+const famOf = (k) => (NETS[k].fam === "sol" ? "sol" : "evm");
+const openVaults = () => (S.all || []).filter((r) => r.ok && r.v);
+
+/** Sends each change to every network with a Safe in that family ("all" = every network), one after another. */
+async function applyEverywhere(jobs) {
+  const P = S.panel; P.busy = true; renderPanel();
+  const back = S.net; let done = 0; const fails = [];
+  for (const [f, change] of jobs) for (const r of openVaults().filter((r) => f === "all" || famOf(r.k) === f)) {
+    try { await useNet(r.k); await (await eng()).propose(change); done++; } catch (e) { fails.push(`${NETS[r.k].name}: ${errText(e)}`); }
+  }
+  await useNet(back); P.busy = false; P.edit = null;
+  if (fails.length) toast(fails[0], "err"); else toast(done ? `Done on ${done} network${done > 1 ? "s" : ""}. Stricter rules apply now; looser ones wait.` : "Open your Safe first.", done ? "win" : "err");
+  await loadAll(); renderPanel();
+}
+
+async function alertCall(path, extra) {
+  const vs = openVaults(), sol = vs.find((r) => r.k === "sol"), evm = vs.find((r) => famOf(r.k) === "evm");
+  if (!sol && !evm) throw new Error("Open your Safe first, then turn on alerts.");
+  const t = (r) => ({ net: r.k, owner: r.k === "sol" ? ACCT.sol.publicKey.toBase58() : ACCT.evm.address, vault: r.k === "sol" ? r.v.main.address?.toBase58?.() : undefined });
+  const [first, ...also] = [sol, evm].filter(Boolean).map(t);
+  const base = globalThis.ECRIN_WEB ? "" : "https://ecrinprotocol.app";
+  const res = await fetch(base + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...first, also, lang: "en", ...extra }) });
+  return res.json().catch(() => ({}));
+}
+
+function rulesView() {
+  const P = S.panel, vs = openVaults();
+  if (!S.all) return `${phead("Rules and alerts")}<div class="ap-card ap-load"><span class="sk">&nbsp;</span></div>`;
+  if (!vs.length) return `${phead("Rules and alerts")}<div class="empty">${I.shield}<b>Open your Safe first</b><span>Rules and alerts apply to your Safe on every network.</span></div>`;
+  const m = vs[0].v.main, t = now() + (S.clockOff || 0);
+  const busy = P.busy ? `<div class="ap-b note">${I.clock}<span>Updating every network…</span></div>` : "";
+  const fmtLim = (r) => (r.v.main.dailyLimit ? `${amt(r.v.main.dailyLimit, "native")} ${NETS[r.k].unit}` : "No limit");
+  const lockTxt = m.lockedUntil && t < m.lockedUntil ? `Frozen until ${new Date(m.lockedUntil * 1000).toLocaleDateString()}` : "Off";
+  const guard = (f) => { const r = vs.find((x) => famOf(x.k) === f); return r?.v.main.guardian ? short(String(r.v.main.guardian)) : "None"; };
+  const trusted = vs.flatMap((r) => (r.v.main.trusted || []).map((a) => [famOf(r.k), String(a)])).filter((x, i, a) => a.findIndex((y) => y[1] === x[1]) === i);
+  const pending = vs.flatMap((r) => (r.v.main.changes || []).map((c) => ({ ...c, k: r.k })));
+  const label = (c) => ({ SetWithdrawDelay: `Delay → ${delay(c.value)}`, SetRuleDelay: `Rule delay → ${delay(c.value)}`, SetDailyLimit: `Daily limit → ${c.value ? amt(Number(c.value), "native") : "none"}`, SetLockedUntil: "Lock date", SetGuardian: `Guardian → ${c.value ? short(String(c.value)) : "none"}`, AddTrusted: `Trust ${short(String(c.value))}`, RemoveTrusted: `Remove ${short(String(c.value))}` }[c.kind] || c.kind);
+  if (P.edit) {
+    const E = {
+      delay: ["Withdrawal delay", `<p class="sub">How long anything leaving your Safe waits. Longer applies now; shorter waits ${delay(m.ruleDelay)}.</p><div class="presets">${[[86400, "24 h"], [3 * 86400, "3 days"], [7 * 86400, "7 days"]].map(([v2, l]) => `<button class="preset ${m.withdrawDelay === v2 ? "on" : ""}" data-act="rule-set" data-k="delay" data-v="${v2}"><b>${l}</b></button>`).join("")}</div>`],
+      limit: ["Daily limit", `<p class="sub">The most that can leave your Safe in a day, per network. Lower applies now; higher waits ${delay(m.ruleDelay)}. Enter 0 for no limit.</p>
+        <div class="stack">${vs.some((r) => r.k === "sol") ? `<label class="fld"><span>Solana · SOL per day</span><input data-lim="sol" inputmode="decimal" placeholder="e.g. 5"/></label>` : ""}${vs.some((r) => famOf(r.k) === "evm") ? `<label class="fld"><span>Ethereum-style networks · ETH/POL per day</span><input data-lim="evm" inputmode="decimal" placeholder="e.g. 0.5"/></label>` : ""}</div>
+        <div class="pfoot"><button class="btn primary xl" data-act="rule-set" data-k="limit">Save limit</button></div>`],
+      guardian: ["Guardian", `<p class="sub">Someone you trust who can release a real emergency faster. They can never start a withdrawal or choose where money goes. Changing it waits ${delay(m.ruleDelay)}.</p>
+        <div class="stack">${vs.some((r) => r.k === "sol") ? `<label class="fld"><span>Guardian's Solana address</span><input data-g="sol" spellcheck="false" autocomplete="off"/></label>` : ""}${vs.some((r) => famOf(r.k) === "evm") ? `<label class="fld"><span>Guardian's Ethereum address (all Ethereum-style networks)</span><input data-g="evm" spellcheck="false" autocomplete="off" placeholder="0x…"/></label>` : ""}</div>
+        <div class="pfoot"><button class="btn primary xl" data-act="rule-set" data-k="guardian">Save guardian</button></div>`],
+      trust: ["Trusted addresses", `<p class="sub">Your own addresses (exchange, cold wallet) that can be paid straight from the Safe. Adding one waits ${delay(m.ruleDelay)}; removing applies now.</p>
+        <section class="list">${trusted.length ? trusted.map(([f, a]) => `<div class="arow"><span class="ar-t"><b class="mono">${short(a)}</b><small>${f === "sol" ? "Solana" : "Ethereum-style networks"}</small></span><button class="btn sm" data-act="rule-set" data-k="untrust" data-f="${f}" data-a="${esc(a)}">Remove</button></div>`).join("") : `<div class="hid-note">None yet</div>`}</section>
+        <label class="fld"><span>Add an address</span><input data-trust spellcheck="false" autocomplete="off" placeholder="Solana or 0x… address"/></label>
+        <div class="pfoot"><button class="btn primary xl" data-act="rule-set" data-k="trust">Add address</button></div>`],
+      freeze: ["Freeze your Safe", `<p class="sub">For when something feels wrong: until the date you pick, <b>nothing leaves</b> your Safe on any network, including withdrawals already waiting. You can still cancel, and your guardian can still release an emergency. A freeze can't be ended early.</p>
+        <div class="presets">${[[1, "24 hours"], [7, "7 days"], [30, "30 days"]].map(([d, l]) => `<button class="preset" data-act="rule-set" data-k="freeze" data-v="${d}"><b>${l}</b><small>until ${new Date((now() + d * 86400) * 1000).toLocaleDateString()}</small></button>`).join("")}</div>`],
+    }[P.edit];
+    return `${phead(E[0])}${busy}<div class="pad-x">${E[1]}</div>`;
+  }
+  const row = (k, ic, title, v) => `<button class="srow" data-act="rule-open" data-k="${k}"><span>${ic}${title}</span><span class="sv">${esc(v)} ${I.arrow}</span></button>`;
+  return `${phead("Rules and alerts")}${busy}
+    <p class="sub pad">One set of rules for your Safe on every network (${vs.map((r) => NETS[r.k].name).join(", ")}).</p>
+    <div class="sets">
+      ${row("delay", I.clock, "Withdrawal delay", delay(m.withdrawDelay))}
+      ${row("limit", I.out, "Daily limit", vs.map(fmtLim).filter((x, i, a) => a.indexOf(x) === i).join(" · "))}
+      ${row("guardian", I.shield, "Guardian", [vs.some((r) => r.k === "sol") && `SOL ${guard("sol")}`, vs.some((r) => famOf(r.k) === "evm") && `ETH ${guard("evm")}`].filter(Boolean).join(" · "))}
+      ${row("trust", I.check, "Trusted addresses", trusted.length ? `${trusted.length}` : "None")}
+      ${row("freeze", I.lock, "Freeze", lockTxt)}
+    </div>
+    ${pending.length ? `<div class="list-h"><b>Waiting changes</b><span>cancel any time</span></div><section class="list">${pending.map((c) => { const ready = c.readyAt <= t; return `<div class="wrow ${ready ? "ready" : ""}">${coin(c.k)}<span class="wr-t"><b>${esc(label(c.change))}</b><small>${NETS[c.k].name}</small></span><span class="wr-r"><b class="cd">${ready ? "Ready" : dur(c.readyAt - t)}</b>${ready ? `<button class="btn sm primary" data-act="rc-apply" data-n="${c.k}" data-id="${c.id}">Apply</button>` : ""}<button class="btn sm danger" data-act="rc-cancel" data-n="${c.k}" data-id="${c.id}">Cancel</button></span></div>`; }).join("")}</section>` : ""}
+    <div class="list-h"><b>Alerts</b><span>when a withdrawal is requested</span></div>
+    <div class="sets">
+      <button class="srow" data-act="al-tg"><span>${I.send}Telegram</span><span class="sv">Turn on ${I.ext}</span></button>
+      <div class="srow mailrow"><span>${I.recv}Email</span><span class="mail-in"><input data-mail type="email" placeholder="you@example.com" autocomplete="email"/><button class="btn sm" data-act="al-mail">On</button></span></div>
+    </div>
+    <p class="fine pad">Alerts cover your Solana and Ethereum addresses on every network. If a withdrawal you didn't make shows up, open your Safe and cancel it.</p>`;
 }

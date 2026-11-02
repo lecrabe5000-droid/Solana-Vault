@@ -1040,3 +1040,6 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 .tk-info { padding: 4px 14px; border-radius: 16px; background: var(--s1); box-shadow: 0 0 0 1px var(--line); }
 .tk-info div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; font-size: 13px; } .tk-info div + div { border-top: 1px solid var(--line); }
 .tk-info span { color: var(--muted); } .tk-info b { font-weight: 500; text-align: right; } .tk-info b.up { color: var(--eb); }
+.rules-card { margin-top: 12px; } .rules-card > svg:last-child { width: 14px; height: 14px; fill: none; stroke: var(--muted); stroke-width: 2; }
+.pad-x { padding: 0 2px; } .pad-x .presets { margin-top: 12px; } .pad-x .stack { margin-top: 12px; } .pad-x .list { margin: 10px 0; }
+.mailrow { cursor: default; } .mail-in { display: flex; gap: 6px; } .mail-in input { width: 150px; height: 30px; padding: 0 10px; border: 0; border-radius: 8px; background: var(--s2); color: var(--ink); font: 400 13px var(--font); }

@@ -34,5 +34,13 @@ export function engine({ acct, net }) {
     cancel: (a, id) => act(() => { const t = side(a); t.withdrawals = t.withdrawals.filter((w) => w.id !== id); }),
     execute: (a, id) => act(() => { const t = side(a), w = t.withdrawals.find((x) => x.id === id); t.withdrawals = t.withdrawals.filter((x) => x.id !== id); t.balance -= w.amount; B[a] += w.amount; }),
     chainTime: async () => now(),
+    // Rule changes, like the real program: stricter applies now, looser waits the rule delay.
+    propose: (c) => act(() => {
+      const m = B.vault.main, strict = (c.kind === "SetWithdrawDelay" && c.value >= m.withdrawDelay) || (c.kind === "SetDailyLimit" && c.value != null && (m.dailyLimit == null || c.value <= m.dailyLimit)) || (c.kind === "SetLockedUntil" && c.value > (m.lockedUntil || 0)) || c.kind === "RemoveTrusted";
+      const apply = () => { if (c.kind === "SetWithdrawDelay") m.withdrawDelay = c.value; else if (c.kind === "SetDailyLimit") m.dailyLimit = c.value; else if (c.kind === "SetLockedUntil") m.lockedUntil = c.value; else if (c.kind === "SetGuardian") m.guardian = c.value; else if (c.kind === "AddTrusted") m.trusted.push(c.value); else if (c.kind === "RemoveTrusted") m.trusted = m.trusted.filter((t) => String(t) !== String(c.value)); };
+      if (strict) apply(); else m.changes.push({ id: B.id++, change: { kind: c.kind, value: c.value }, readyAt: now() + m.ruleDelay, apply });
+    }),
+    cancelChange: (id) => act(() => { B.vault.main.changes = B.vault.main.changes.filter((x) => x.id !== id); }),
+    applyChange: (id) => act(() => { const m = B.vault.main, x = m.changes.find((y) => y.id === id); if (x && x.readyAt <= now()) { x.apply?.(); m.changes = m.changes.filter((y) => y.id !== id); } }),
   };
 }

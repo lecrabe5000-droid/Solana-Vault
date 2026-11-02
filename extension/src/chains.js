@@ -76,6 +76,11 @@ function solEngine({ web3, acct, N, dev }) {
     cancel: (asset, id) => run(asset === "native" ? client.build.cancelWithdrawal(me, id) : tok.build.cancelWithdrawal(me, id)),
     execute: (asset, id, dest) => run(asset === "native" ? client.build.executeWithdrawal(me, me, id, key(dest)) : tok.build.executeWithdrawal(me, me, id, key(dest))),
     chainTime: () => client.chainTime(),
+    vaultAddress: () => client.vaultAddress?.(me)?.toBase58?.() || null,
+    // Rule changes: stricter ones apply at once, looser ones wait the Safe's rule delay (the program decides).
+    propose: (c) => run(client.build.proposeChange(me, { kind: c.kind, value: ["SetGuardian", "AddTrusted", "RemoveTrusted"].includes(c.kind) ? (c.value ? new web3.PublicKey(c.value) : null) : c.value })),
+    cancelChange: (id) => run(client.build.cancelChange(me, id)),
+    applyChange: (id) => run(client.build.applyChange(me, me, id)),
   };
 }
 
@@ -120,5 +125,8 @@ function evmEngine({ ethers, acct, N, dev }) {
     cancel: (asset, id) => (asset === "native" ? client.ops.cancelWithdrawal(id) : vt.ops.cancelWithdrawal(id)),
     execute: (asset, id) => (asset === "native" ? client.ops.executeWithdrawal(wallet.address, id) : vt.ops.executeWithdrawal(wallet.address, id)),
     chainTime: () => client.chainTime(),
+    propose: (c) => client.ops.proposeChange(c),
+    cancelChange: (id) => client.ops.cancelChange(id),
+    applyChange: (id) => client.ops.applyChange(wallet.address, id),
   };
 }
