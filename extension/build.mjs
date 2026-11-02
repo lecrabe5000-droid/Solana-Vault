@@ -50,6 +50,13 @@ html, body, #root, #panel .pane { overscroll-behavior: none; }
 * { -webkit-tap-highlight-color: transparent; }
 button, .btn, .srow, .arow, .acard { -webkit-user-select: none; user-select: none; touch-action: manipulation; }
 input, textarea, select { font-size: max(16px, 1em); }
+/* Always portrait: turned sideways, the app asks to be held upright instead of reflowing. */
+.rotate-note { display: none; }
+@media (orientation: landscape) and (max-height: 520px) {
+  .device > * { visibility: hidden; }
+  .rotate-note { display: grid; visibility: visible !important; position: fixed; inset: 0; z-index: 999; place-content: center; justify-items: center; gap: 12px; background: var(--bg); color: var(--muted); font: 500 14px var(--font); }
+  .rotate-note svg { width: 34px; height: 34px; fill: none; stroke: var(--eb); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+}
 .fld input, .fld textarea, [data-to] { font-size: 16px !important; }
 `;
   fs.writeFileSync(`${D}/wallet.css`, css);

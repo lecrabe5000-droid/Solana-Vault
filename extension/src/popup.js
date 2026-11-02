@@ -261,7 +261,7 @@ function go(screen, extra = {}) { Object.assign(S, { screen }, extra); render();
 function render() {
   const root = $("#root");
   root.dataset.screen = S.screen;
-  root.innerHTML = ({ loading: () => `<div class="splash"><span class="spin">${LOGO}</span></div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
+  root.innerHTML = ({ loading: () => `<div class="splash"><span class="spin-tile">${LOGO}</span></div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
   const f = root.querySelector("[autofocus]"); if (f) f.focus();
   bindHolds(root);
   depth(root);
@@ -396,8 +396,8 @@ function importPhrase() {
 }
 
 function unlock() {
-  if (S.bioBusy === "ok") return `<div class="splash bio-done"><span class="spin done"><svg class="bio-ok" viewBox="0 0 24 24"><path d="M6 12.5l4 4L18 8"/></svg></span></div>`;
-  if (S.bioBusy) return `<div class="splash"><span class="spin">${LOGO}</span></div>`;
+  if (S.bioBusy === "ok") return `<div class="splash bio-done"><span class="spin-tile done"><svg class="bio-ok" viewBox="0 0 24 24"><path d="M6 12.5l4 4L18 8"/></svg></span></div>`;
+  if (S.bioBusy) return `<div class="splash"><span class="spin-tile">${LOGO}</span></div>`;
   return `<div class="lock">
     <div class="lock-mark"><i class="halo"></i>${LOGO}</div>
     <h1>Welcome back</h1><p class="sub">Unlock Ecrin Wallet</p>
