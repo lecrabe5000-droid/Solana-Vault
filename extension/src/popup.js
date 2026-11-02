@@ -302,7 +302,7 @@ function bindChart(root) {
     S.scrubbing = true; el.classList.add("scrub");
     x.setAttribute("x1", p[0]); x.setAttribute("x2", p[0]);
     pin.style.left = `${(p[0] / W) * 100}%`; pin.style.top = `${p[1]}px`;
-    tip.textContent = fmtT(c.times[i]); tip.style.left = `${Math.max(14, Math.min(86, (p[0] / W) * 100))}%`;
+    tip.innerHTML = `<b>${S.hide ? "•••" : money(c.vals[i])}</b>${fmtT(c.times[i])}`; tip.style.left = `${Math.max(14, Math.min(86, (p[0] / W) * 100))}%`;
     if (big && !S.hide) big.innerHTML = fig(money(c.vals[i]));
     const dd = c.vals[i] - c.vals[0], ch = (dd / (c.vals[0] || 1)) * 100;
     const cur = root.querySelector("[data-chg]"); if (cur) cur.outerHTML = deltaHTML(dd, ch, fmtT(c.times[i]), c.coinOnly);

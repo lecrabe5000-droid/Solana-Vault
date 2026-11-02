@@ -1009,6 +1009,10 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 .from svg:last-child { width: 14px; height: 14px; fill: none; stroke: var(--muted); stroke-width: 2; }
 .arow.sub { padding-left: 26px; opacity: .92; } .arow.sub .coin { width: 24px; height: 24px; }
 .arow.grp small svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 2.2; vertical-align: -1px; }
+/* chart ticker: a small pill riding the hairline while you scrub */
+.chart { position: relative; }
+:root[data-theme] .ch-tip { display: inline-flex !important; align-items: baseline; gap: 6px; top: -6px; padding: 3px 8px; border-radius: 999px; background: var(--s2); box-shadow: 0 0 0 1px var(--line-2); color: var(--muted); font: 500 10.5px var(--font); pointer-events: none; z-index: 2; }
+.ch-tip b { color: var(--ink); font: 600 11.5px var(--font); }
 
 .device { padding: 0 !important; }
 #root, #panel { top: env(safe-area-inset-top, 0px); }
