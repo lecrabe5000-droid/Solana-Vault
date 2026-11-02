@@ -24,7 +24,7 @@ SAFE: your Ecrin vault. Anything leaving it waits a delay you choose (24 hours o
 • One recovery phrase for Solana, Ethereum, Base, Arbitrum, Optimism and Polygon. It gives the same addresses as Phantom and MetaMask.
 • Move money between your Wallet and your Safe in one tap.
 • Send with 25%, 50% or Max, a clear review of exactly what leaves, a warning before sending to a new address, and press-and-hold to confirm.
-• A live price chart, light or dark mode, and your choice of typeface for every number.
+• One Safe for every network, a live price chart, and light or dark mode.
 • Your recovery phrase is encrypted on your computer and never leaves it. No account, no tracking, no ads.
 
 TESTNET BETA: Ecrin Wallet currently runs on test networks with test coins only (Solana Devnet and the Sepolia/Amoy testnets). It has not been audited yet. Don't use real funds.
@@ -39,10 +39,10 @@ Website: https://ecrinprotocol.app · Security: https://ecrinprotocol.app/securi
 
 **Screenshots (1280×800, in this order):**
 1. `screenshot-1-home.png`
-2. `screenshot-2-send.png`
-3. `screenshot-3-vault.png`
-4. `screenshot-4-protect.png`
-5. `screenshot-5-numbers.png`
+2. `screenshot-2-safe.png`
+3. `screenshot-3-send.png`
+4. `screenshot-4-review.png`
+5. `screenshot-5-addresses.png`
 
 **Small promo tile (440×280):** `promo-small-440x280.png`
 
