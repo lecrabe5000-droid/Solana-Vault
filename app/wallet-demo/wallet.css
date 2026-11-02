@@ -1004,3 +1004,8 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 .words input { flex: 1; min-width: 0; border: 0; background: none; color: var(--ink); font: 500 13px var(--font); outline: none; padding: 0; }
 .wl-n { display: flex; gap: 6px; margin-bottom: 6px; } .wl-n button { height: 26px; padding: 0 10px; border: 0; border-radius: 999px; background: var(--s1); box-shadow: 0 0 0 1px var(--line-2); color: var(--muted); font: 500 12px var(--font); cursor: pointer; } .wl-n button.on { color: var(--ink); box-shadow: 0 0 0 1.5px var(--eb); }
 .sr-only { position: absolute !important; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.from { display: flex; align-items: center; gap: 10px; width: 100%; margin: 0 0 10px; padding: 8px 12px 8px 8px; border: 0; border-radius: 14px; background: var(--s1); box-shadow: 0 0 0 1px var(--line); color: var(--ink); text-align: left; cursor: pointer; }
+.from .coin { flex: none; width: 30px; height: 30px; } .from > span:not(.coin) { flex: 1; display: grid; line-height: 1.25; } .from b { font-weight: 600; font-size: 14px; } .from small { color: var(--muted); font-size: 11.5px; }
+.from svg:last-child { width: 14px; height: 14px; fill: none; stroke: var(--muted); stroke-width: 2; }
+.arow.sub { padding-left: 26px; opacity: .92; } .arow.sub .coin { width: 24px; height: 24px; }
+.arow.grp small svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 2.2; vertical-align: -1px; }
