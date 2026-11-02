@@ -604,3 +604,9 @@ td:first-child { color: var(--ink); font-weight: 600; width: 44%; }
 .wl-try { margin-top: 14px; text-align: center; }
 .wl-try .btn { gap: 8px; }
 .wl-try svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.wl-try { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 28px !important; }
+.wl-try .btn.primary svg { width: 17px; height: 17px; }
+.wl-how { max-width: 520px; margin: 14px auto 0 !important; color: var(--muted); font-size: 13.5px !important; line-height: 1.55; }
+.wl-how code { padding: 1px 6px; border-radius: 6px; background: var(--panel-2); color: var(--ink); font-size: 12.5px; }
+#wallet .wl-form { margin-top: 34px; }
+@media (max-width: 560px) { .wl-form input { flex: none; width: 100%; height: 52px; } }
