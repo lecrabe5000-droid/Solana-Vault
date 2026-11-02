@@ -1,7 +1,7 @@
 // Ecrin service worker: makes the app installable and keeps its shell available on a bad connection.
 // Network first for everything; the cache is only a fallback. Never caches the API or other origins.
-const CACHE = "ecrin-v4";
-const SHELL = ["/app", "/app.css", "/dapp.js", "/chain.js", "/evm.js", "/vault.js", "/config.js", "/config-evm.js", "/deployments-evm.js", "/config-tokens.js", "/config-wc.js", "/i18n.js", "/theme.js", "/vendor/solana-web3.min.js", "/vendor/ethers.umd.min.js", "/icon-192.png"];
+const CACHE = "ecrin-v5";
+const SHELL = ["/app", "/app.css", "/dapp.js", "/chain.js", "/evm.js", "/vault.js", "/config.js", "/config-evm.js", "/deployments-evm.js", "/config-tokens.js", "/config-wc.js", "/i18n.js", "/theme.js", "/vendor/solana-web3.min.js", "/vendor/ethers.umd.min.js", "/icon2-192.png"];
 
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {}).then(() => self.skipWaiting())); });
 self.addEventListener("activate", (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
@@ -18,7 +18,7 @@ self.addEventListener("fetch", (e) => {
 self.addEventListener("push", (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (_) { d = { title: "Ecrin", body: e.data ? e.data.text() : "" }; }
-  e.waitUntil(self.registration.showNotification(d.title || "Ecrin", { body: d.body || "", icon: "/icon-192.png", badge: "/icon-192.png", tag: d.tag, renotify: true, data: { url: d.url || "/app" } }));
+  e.waitUntil(self.registration.showNotification(d.title || "Ecrin", { body: d.body || "", icon: "/icon2-192.png", badge: "/icon2-192.png", tag: d.tag, renotify: true, data: { url: d.url || "/app" } }));
 });
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
