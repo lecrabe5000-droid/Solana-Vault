@@ -307,18 +307,3 @@
   if (liveBox && "MutationObserver" in window) new MutationObserver(() => { if (!liveBox.hidden && !liveBox.dataset.counted) { liveBox.dataset.counted = "1"; liveBox.querySelectorAll("b").forEach(countUp); } }).observe(liveBox, { attributes: true });
 
 })();
-
-// The wallet in the hero: its net worth counts up once, the way the real wallet does when it opens.
-(() => {
-  const el = document.querySelector(".hero-phone [data-count]");
-  if (!el || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const end = Number(el.dataset.count), fmt = (v) => "$" + Math.round(v).toLocaleString("en-US");
-  const t0 = performance.now() + 700, dur = 1800;
-  el.textContent = fmt(end * 0.82);
-  const step = (now) => {
-    const k = Math.min(1, Math.max(0, (now - t0) / dur)), e = 1 - Math.pow(1 - k, 4);
-    el.textContent = fmt(end * (0.82 + 0.18 * e));
-    if (k < 1) requestAnimationFrame(step);
-  };
-  requestAnimationFrame(step);
-})();

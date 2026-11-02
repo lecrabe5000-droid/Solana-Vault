@@ -22,8 +22,8 @@
   <meta name="twitter:description" content="An on-chain vault for Solana and Ethereum. Every way out waits, and you can cancel any time." />
   <meta name="twitter:image" content="https://ecrinprotocol.app/og.png" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ffffff'/%3E%3Crect x='5' y='5' width='22' height='22' rx='7' fill='none' stroke='%232F5BFF' stroke-width='2.2'/%3E%3Cpath d='M16 10.5l4.8 5.5L16 21.5 11.2 16z' fill='%232F5BFF'/%3E%3C/svg%3E" />
-  <link rel="preload" href="/fonts/libre-caslon-display-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="preload" href="/fonts/jost-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="fonts/unbounded-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="fonts/manrope-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="apple-touch-icon" href="/icon-180.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -56,46 +56,23 @@
   <div class="mcta" data-mcta aria-hidden="true"><span><b>Ecrin</b> · testnet beta</span><a class="btn primary" href="/app" tabindex="-1">Open the app</a></div>
 
   <main>
-    <!-- Hero: midnight, the wallet in a phone -->
+    <!-- Hero: an obsidian card with drifting ribbons -->
     <section class="hero-s" data-tone="base">
       <div class="hero-card">
-        <div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+        <svg class="ribbons" viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <g class="rb rb1"><path d="M-120 620 C 160 520, 260 760, 520 640 S 900 300, 1320 420" stroke="#2f5bff"/></g>
+          <g class="rb rb2"><path d="M-80 120 C 220 260, 360 40, 640 150 S 1000 420, 1300 260" stroke="#ffb547"/></g>
+          <g class="rb rb3"><path d="M-100 380 C 200 300, 300 520, 560 470 S 940 620, 1320 560" stroke="#f1f0ea"/></g>
+          <g class="rb rb4"><path d="M120 -60 C 260 160, 120 300, 300 420 S 380 700, 260 860" stroke="#7d97ff"/></g>
+          <g class="rb rb5"><path d="M1080 -80 C 940 140, 1120 260, 980 420 S 900 640, 1060 860" stroke="#e2603f"/></g>
+        </svg>
+        <div class="hero-shade" aria-hidden="true"></div>
         <div class="hero-copy">
           <span class="hero-k">The vault with a delay · Solana and Ethereum</span>
           <h1>Your savings, out of reach of anyone in a hurry.</h1>
           <p class="lede">Nothing leaves without a delay you choose. A drainer, a phishing signature, a stolen key or a bad night all hit the same wall: time. You see it coming, and you cancel.</p>
           <div class="hero-cta"><a class="btn ivory lg" href="/app"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 2.5l7.5 3v6c0 4.6-3.2 8.6-7.5 10-4.3-1.4-7.5-5.4-7.5-10v-6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 12.2l2.4 2.4 4.6-4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Open the app</a><a class="btn glass lg" href="/demo">Try the demo</a></div>
-        </div>
-        <div class="hero-phone" aria-hidden="true">
-          <div class="phone"><div class="ph-screen">
-            <div class="ph-island"></div>
-            <div class="ph-status"><b>9:41</b><span><i></i><i></i><i></i><i></i></span></div>
-            <div class="ph-top"><span class="ph-acct"><i class="ph-logo"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="currentColor"/></svg></i>Account 1<em>7uFM…GqD3</em></span><span class="ph-net"><i class="coin sol"></i></span></div>
-            <div class="ph-lbl">Net worth</div>
-            <div class="ph-big"><span data-count="24816">$24,816</span><span class="ph-c">.40</span></div>
-            <div class="ph-delta"><b>+$412.08 (1.69%)</b><i></i>1W</div>
-            <svg class="ph-chart" viewBox="0 -4 300 104" preserveAspectRatio="none"><defs><linearGradient id="phl" x1="0" x2="1"><stop offset="0" stop-color="#a58bff"/><stop offset=".5" stop-color="#7a8cff"/><stop offset="1" stop-color="#4fc3ff"/></linearGradient><linearGradient id="pha" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6d7dff" stop-opacity=".32"/><stop offset="1" stop-color="#6d7dff" stop-opacity="0"/></linearGradient></defs><path class="ph-area" d="M0.0 10.0 C3.2 10.0 3.2 12.7 6.4 12.7 C9.6 12.7 9.6 14.0 12.8 14.0 C16.0 14.0 16.0 17.3 19.1 17.3 C22.3 17.3 22.3 21.2 25.5 21.2 C28.7 21.2 28.7 25.8 31.9 25.8 C35.1 25.8 35.1 30.6 38.3 30.6 C41.5 30.6 41.5 35.9 44.7 35.9 C47.9 35.9 47.9 42.9 51.1 42.9 C54.3 42.9 54.3 49.7 57.4 49.7 C60.6 49.7 60.6 56.9 63.8 56.9 C67.0 56.9 67.0 59.9 70.2 59.9 C73.4 59.9 73.4 64.5 76.6 64.5 C79.8 64.5 79.8 68.3 83.0 68.3 C86.2 68.3 86.2 69.2 89.4 69.2 C92.6 69.2 92.6 67.2 95.7 67.2 C98.9 67.2 98.9 66.6 102.1 66.6 C105.3 66.6 105.3 64.5 108.5 64.5 C111.7 64.5 111.7 58.3 114.9 58.3 C118.1 58.3 118.1 55.1 121.3 55.1 C124.5 55.1 124.5 52.2 127.7 52.2 C130.9 52.2 130.9 50.8 134.0 50.8 C137.2 50.8 137.2 50.6 140.4 50.6 C143.6 50.6 143.6 54.8 146.8 54.8 C150.0 54.8 150.0 57.7 153.2 57.7 C156.4 57.7 156.4 60.8 159.6 60.8 C162.8 60.8 162.8 64.5 166.0 64.5 C169.1 64.5 169.1 65.8 172.3 65.8 C175.5 65.8 175.5 64.3 178.7 64.3 C181.9 64.3 181.9 62.4 185.1 62.4 C188.3 62.4 188.3 62.0 191.5 62.0 C194.7 62.0 194.7 62.2 197.9 62.2 C201.1 62.2 201.1 65.2 204.3 65.2 C207.4 65.2 207.4 70.7 210.6 70.7 C213.8 70.7 213.8 74.4 217.0 74.4 C220.2 74.4 220.2 78.8 223.4 78.8 C226.6 78.8 226.6 81.8 229.8 81.8 C233.0 81.8 233.0 82.0 236.2 82.0 C239.4 82.0 239.4 80.8 242.6 80.8 C245.7 80.8 245.7 81.7 248.9 81.7 C252.1 81.7 252.1 80.6 255.3 80.6 C258.5 80.6 258.5 77.4 261.7 77.4 C264.9 77.4 264.9 76.1 268.1 76.1 C271.3 76.1 271.3 74.1 274.5 74.1 C277.7 74.1 277.7 70.8 280.9 70.8 C284.0 70.8 284.0 67.2 287.2 67.2 C290.4 67.2 290.4 67.0 293.6 67.0 C296.8 67.0 296.8 64.8 300.0 64.8 L300 100 L0 100Z" fill="url(#pha)"/><path class="ph-line" d="M0.0 10.0 C3.2 10.0 3.2 12.7 6.4 12.7 C9.6 12.7 9.6 14.0 12.8 14.0 C16.0 14.0 16.0 17.3 19.1 17.3 C22.3 17.3 22.3 21.2 25.5 21.2 C28.7 21.2 28.7 25.8 31.9 25.8 C35.1 25.8 35.1 30.6 38.3 30.6 C41.5 30.6 41.5 35.9 44.7 35.9 C47.9 35.9 47.9 42.9 51.1 42.9 C54.3 42.9 54.3 49.7 57.4 49.7 C60.6 49.7 60.6 56.9 63.8 56.9 C67.0 56.9 67.0 59.9 70.2 59.9 C73.4 59.9 73.4 64.5 76.6 64.5 C79.8 64.5 79.8 68.3 83.0 68.3 C86.2 68.3 86.2 69.2 89.4 69.2 C92.6 69.2 92.6 67.2 95.7 67.2 C98.9 67.2 98.9 66.6 102.1 66.6 C105.3 66.6 105.3 64.5 108.5 64.5 C111.7 64.5 111.7 58.3 114.9 58.3 C118.1 58.3 118.1 55.1 121.3 55.1 C124.5 55.1 124.5 52.2 127.7 52.2 C130.9 52.2 130.9 50.8 134.0 50.8 C137.2 50.8 137.2 50.6 140.4 50.6 C143.6 50.6 143.6 54.8 146.8 54.8 C150.0 54.8 150.0 57.7 153.2 57.7 C156.4 57.7 156.4 60.8 159.6 60.8 C162.8 60.8 162.8 64.5 166.0 64.5 C169.1 64.5 169.1 65.8 172.3 65.8 C175.5 65.8 175.5 64.3 178.7 64.3 C181.9 64.3 181.9 62.4 185.1 62.4 C188.3 62.4 188.3 62.0 191.5 62.0 C194.7 62.0 194.7 62.2 197.9 62.2 C201.1 62.2 201.1 65.2 204.3 65.2 C207.4 65.2 207.4 70.7 210.6 70.7 C213.8 70.7 213.8 74.4 217.0 74.4 C220.2 74.4 220.2 78.8 223.4 78.8 C226.6 78.8 226.6 81.8 229.8 81.8 C233.0 81.8 233.0 82.0 236.2 82.0 C239.4 82.0 239.4 80.8 242.6 80.8 C245.7 80.8 245.7 81.7 248.9 81.7 C252.1 81.7 252.1 80.6 255.3 80.6 C258.5 80.6 258.5 77.4 261.7 77.4 C264.9 77.4 264.9 76.1 268.1 76.1 C271.3 76.1 271.3 74.1 274.5 74.1 C277.7 74.1 277.7 70.8 280.9 70.8 C284.0 70.8 284.0 67.2 287.2 67.2 C290.4 67.2 290.4 67.0 293.6 67.0 C296.8 67.0 296.8 64.8 300.0 64.8" pathLength="1" fill="none" stroke="url(#phl)" stroke-width="2.2" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>
-            <div class="ph-range"><span>1D</span><b>1W</b><span>1M</span><span>1Y</span></div>
-            <div class="ph-accts"><span class="ph-card"><small>Chequing</small><b>$6,204<em>.12</em></b><span><i class="on"></i>Spend instantly</span></span><span class="ph-card sav"><small><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>Savings</small><b>$18,612<em>.28</em></b><span><i></i>75% of net worth</span></span></div>
-            <div class="ph-acts"><span class="ph-act on"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></i>Send</span><span class="ph-act"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg></i>Receive</span><span class="ph-act"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 2.8v5.6c0 4.3-3 8-7 9.6-4-1.6-7-5.3-7-9.6V5.8z"/><path d="M12 8v6M9.5 11.5L12 14l2.5-2.5"/></svg></i>Protect</span><span class="ph-act"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 2.8v5.6c0 4.3-3 8-7 9.6-4-1.6-7-5.3-7-9.6V5.8z"/><path d="M12 15V9M9.5 11.5L12 9l2.5 2.5"/></svg></i>Withdraw</span></div>
-            <div class="ph-tabs"><b>Tokens</b><span>Activity</span></div>
-            <div class="ph-list"><span class="ph-row"><i class="coin sol"></i><span class="ph-rt"><b>Solana</b><small>$171.20 <em>+2.4%</em></small></span><span class="ph-rr"><b>$14,382.40</b><small>84.01 SOL</small></span></span><span class="ph-row"><i class="coin usdc"></i><span class="ph-rt"><b>USDC</b><small>Solana</small></span><span class="ph-rr"><b>$7,312.50</b><small>7,312.50 USDC</small></span></span><span class="ph-row"><i class="coin eth"></i><span class="ph-rt"><b>Ethereum</b><small>$3,121.80 <em>+1.1%</em></small></span><span class="ph-rr"><b>$3,121.50</b><small>0.9999 ETH</small></span></span></div>
-          </div></div>
-          <div class="ph-float f1"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l7.5 3v6c0 4.6-3.2 8.6-7.5 10-4.3-1.4-7.5-5.4-7.5-10v-6z"/><path d="M8.5 12.2l2.4 2.4 4.6-4.8"/></svg></i><span><b>Withdrawal cancelled</b><small>24.00 SOL stayed in savings</small></span></div>
-          <div class="ph-float f2"><i><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg></i><span><b>Savings delay</b><small>72 hours, cancel any time</small></span></div>
-        </div>
-        <span class="hero-note">Testnet beta · not audited · test coins only</span>
-      </div>
-      <div class="live" data-stats hidden><i class="live-dot"></i><span>Live on test networks</span><span><b data-st="vaults">0</b> vaults</span><span><b data-st="sol">0</b> SOL protected</span><span><b data-st="networks">0</b> networks</span></div>
-    </section>
-
-    <!-- Ticker: every threat hits the same wall -->
-    <div class="ticker" aria-hidden="true"><div class="tk-track"><div class="tk-set"><span class="tk-i"><i class="tk-dot"></i>Wallet drainers</span><span class="tk-i"><i class="tk-dot"></i>Phishing signatures</span><span class="tk-i"><i class="tk-dot"></i>Leaked seed phrases</span><span class="tk-i"><i class="tk-dot"></i>Address poisoning</span><span class="tk-i"><i class="tk-dot"></i>Fake support pages</span><span class="tk-i"><i class="tk-dot"></i>Stolen phones</span><span class="tk-i"><i class="tk-dot"></i>Someone forcing you</span><span class="tk-i"><i class="tk-dot"></i>Gambling urges</span><span class="tk-i"><i class="tk-dot"></i>Revenge trades</span><span class="tk-i"><i class="tk-dot"></i>Panic sells</span><span class="tk-i"><i class="tk-dot"></i>3 a.m. impulses</span><span class="tk-i tk-end">all hit the same wall: time</span></div><div class="tk-set"><span class="tk-i"><i class="tk-dot"></i>Wallet drainers</span><span class="tk-i"><i class="tk-dot"></i>Phishing signatures</span><span class="tk-i"><i class="tk-dot"></i>Leaked seed phrases</span><span class="tk-i"><i class="tk-dot"></i>Address poisoning</span><span class="tk-i"><i class="tk-dot"></i>Fake support pages</span><span class="tk-i"><i class="tk-dot"></i>Stolen phones</span><span class="tk-i"><i class="tk-dot"></i>Someone forcing you</span><span class="tk-i"><i class="tk-dot"></i>Gambling urges</span><span class="tk-i"><i class="tk-dot"></i>Revenge trades</span><span class="tk-i"><i class="tk-dot"></i>Panic sells</span><span class="tk-i"><i class="tk-dot"></i>3 a.m. impulses</span><span class="tk-i tk-end">all hit the same wall: time</span></div></div></div>
-
-    <!-- Try it: cancel a withdrawal -->
-    <section class="sec try-s" data-tone="base">
-      <div class="big-head"><h2>Someone just asked to withdraw. <span class="nb">Stop them.</span></h2><p>This is how every Ecrin vault behaves. A request waits out the delay, and one tap sends it back.</p></div>
-      <div class="try-stage"><div class="play" data-play aria-live="polite">
+          <div class="play" data-play aria-live="polite">
             <div class="pl-top"><span class="pl-k"><i class="pl-dot"></i><span data-pl-title>Someone just asked to withdraw</span></span><span class="pl-try">Try it</span></div>
             <div class="pl-attack">
               <div class="pl-amt"><b class="num" data-pl-amt>24.00</b><small data-pl-unit>SOL</small></div>
@@ -106,8 +83,14 @@
             <div class="pl-safe" hidden><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29"/><path d="M20 33l8 8 16-17"/></svg><b data-pl-safe>Kept safe. 24 SOL never left.</b><span>The thief got a queued request and nothing else.</span></div>
             <div class="pl-foot"><span data-pl-count>0 attacks stopped</span><span>Real vaults work exactly like this.</span></div>
           </div>
+        </div>
+        <span class="hero-note">Testnet beta · not audited · test coins only</span>
       </div>
+      <div class="live" data-stats hidden><i class="live-dot"></i><span>Live on test networks</span><span><b data-st="vaults">0</b> vaults</span><span><b data-st="sol">0</b> SOL protected</span><span><b data-st="networks">0</b> networks</span></div>
     </section>
+
+    <!-- Ticker: every threat hits the same wall -->
+    <div class="ticker" aria-hidden="true"><div class="tk-track"><div class="tk-set"><span class="tk-i"><i class="tk-dot"></i>Wallet drainers</span><span class="tk-i"><i class="tk-dot"></i>Phishing signatures</span><span class="tk-i"><i class="tk-dot"></i>Leaked seed phrases</span><span class="tk-i"><i class="tk-dot"></i>Address poisoning</span><span class="tk-i"><i class="tk-dot"></i>Fake support pages</span><span class="tk-i"><i class="tk-dot"></i>Stolen phones</span><span class="tk-i"><i class="tk-dot"></i>Someone forcing you</span><span class="tk-i"><i class="tk-dot"></i>Gambling urges</span><span class="tk-i"><i class="tk-dot"></i>Revenge trades</span><span class="tk-i"><i class="tk-dot"></i>Panic sells</span><span class="tk-i"><i class="tk-dot"></i>3 a.m. impulses</span><span class="tk-i tk-end">all hit the same wall: time</span></div><div class="tk-set"><span class="tk-i"><i class="tk-dot"></i>Wallet drainers</span><span class="tk-i"><i class="tk-dot"></i>Phishing signatures</span><span class="tk-i"><i class="tk-dot"></i>Leaked seed phrases</span><span class="tk-i"><i class="tk-dot"></i>Address poisoning</span><span class="tk-i"><i class="tk-dot"></i>Fake support pages</span><span class="tk-i"><i class="tk-dot"></i>Stolen phones</span><span class="tk-i"><i class="tk-dot"></i>Someone forcing you</span><span class="tk-i"><i class="tk-dot"></i>Gambling urges</span><span class="tk-i"><i class="tk-dot"></i>Revenge trades</span><span class="tk-i"><i class="tk-dot"></i>Panic sells</span><span class="tk-i"><i class="tk-dot"></i>3 a.m. impulses</span><span class="tk-i tk-end">all hit the same wall: time</span></div></div></div>
 
     <!-- Threats -->
     <section id="threats" class="sec" data-tone="base">
