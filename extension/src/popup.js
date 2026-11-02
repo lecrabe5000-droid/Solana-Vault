@@ -235,11 +235,13 @@ async function loadSeriesFor(cg) {
 function worth() {
   const rows = (S.all || []).filter((r) => r.ok && r.k !== S.net);
   if (S.bal) rows.push({ k: S.net, b: S.bal, v: S.vault, ok: true });
-  const items = [], coins = {}; let usdc = 0, chq = 0, sav = 0, leaving = 0, vaults = 0;
+  const items = [], coins = {}; let usdc = 0, chq = 0, sav = 0, leaving = 0, vaults = 0; const leaveAmt = {};
   for (const r of rows) {
     const N = NETS[r.k], px = S.prices[N.cg]?.usd, natC = r.b.native || 0, natS = r.v?.main?.balance || 0, uC = r.b.usdc || 0, uS = r.v?.usdc?.balance || 0;
     if (r.v) vaults++;
     leaving += (r.v?.main?.withdrawals?.length || 0) + (r.v?.usdc?.withdrawals?.length || 0);
+    for (const x of r.v?.main?.withdrawals || []) leaveAmt[N.unit] = (leaveAmt[N.unit] || 0) + x.amount / BASE;
+    for (const x of r.v?.usdc?.withdrawals || []) leaveAmt.USDC = (leaveAmt.USDC || 0) + x.amount / USDC_BASE;
     if (natC + natS > 0) {
       coins[N.cg] = (coins[N.cg] || 0) + (natC + natS) / BASE;
       const c = px != null ? (natC / BASE) * px : 0, v = px != null ? (natS / BASE) * px : 0; chq += c; sav += v;
@@ -251,7 +253,8 @@ function worth() {
     }
   }
   items.sort((x, y) => (y.usd || 0) - (x.usd || 0));
-  return { items, coins, usdc, chq, sav, total: chq + sav, leaving, vaults, ready: rows.length > 0, all: !!S.all };
+  const lv = Object.entries(leaveAmt), leavingText = lv.length ? `${lv[0][1].toLocaleString("en-US", { maximumFractionDigits: lv[0][0] === "USDC" ? 2 : 4 })} ${lv[0][0]}${lv.length > 1 ? ` +${lv.length - 1} more` : ""}` : "";
+  return { items, coins, usdc, chq, sav, total: chq + sav, leaving, leavingText, vaults, ready: rows.length > 0, all: !!S.all };
 }
 
 // ------------------------------------------------------------------ screens
@@ -386,7 +389,9 @@ function importPhrase() {
     <header class="fhead"><button class="ib" data-act="to-welcome" aria-label="Back">${I.back}</button><span class="ftitle">Import</span><span></span></header>
     <h2>Enter your recovery phrase</h2><p class="sub">12 or 24 words, separated by spaces. The same phrase as in Phantom or MetaMask gives the same addresses.</p>
     <form class="stack" data-form="import">
-      <label class="fld"><span>Recovery phrase</span><textarea name="phrase" rows="3" autocomplete="off" spellcheck="false" autofocus required></textarea></label>
+      <div class="fld"><span>Recovery phrase</span><div class="wl-n">${[12, 24].map((n) => `<button type="button" data-act="wn" data-n="${n}" class="${(S.wn || 12) === n ? "on" : ""}">${n} words</button>`).join("")}</div>
+        <div class="words">${Array.from({ length: S.wn || 12 }, (_, i) => `<label><span>${i + 1}</span><input data-w="${i}" autocomplete="off" autocapitalize="none" spellcheck="false" ${i === 0 ? "autofocus" : ""}/></label>`).join("")}</div>
+        <textarea name="phrase" class="sr-only" tabindex="-1" aria-hidden="true"></textarea><p class="fine">Tip: paste the whole phrase into the first box.</p></div>
       <label class="fld"><span>New password for this computer</span><input name="pw" type="password" autocomplete="new-password" minlength="8" required/></label>
       <div class="meter" data-meter><i></i><i></i><i></i><i></i></div>
       <p class="err" data-err></p>
@@ -450,7 +455,7 @@ function homeView() {
         <svg class="mv-g" viewBox="0 0 200 140" preserveAspectRatio="xMidYMid slice">${Array.from({ length: 18 }, (_, i) => `<circle cx="${170 + Math.cos(i / 2.2) * 8}" cy="${20 + Math.sin(i / 2.2) * 8}" r="${10 + i * 8}"/>`).join("")}</svg>
         <span class="ac-k">${I.lock}Safe</span>
         <b class="ac-v ${loading ? "sk" : ""}">${loading ? "&nbsp;" : mask(fig(money(w.sav)))}</b>
-        <span class="ac-s">${w.leaving ? `<i class="dot warn"></i>${w.leaving} leaving` : w.vaults ? `<i class="dot"></i>${pct}% of net worth` : `<i class="dot off"></i>Not set up`}</span>
+        <span class="ac-s">${w.leaving ? `<i class="dot warn"></i>${w.leavingText || w.leaving} leaving` : w.vaults ? `<i class="dot"></i>${pct}% of net worth` : `<i class="dot off"></i>Not set up`}</span>
       </button>
     </section>
     <nav class="acts">
@@ -884,6 +889,7 @@ async function useNet(n) {
 }
 
 const actions = {
+  wn: (el) => { S.wn = Number(el.dataset.n); render(); },
   "book-pick": (el) => { S.panel.to = el.dataset.a; renderPanel(); },
   "book-save": async () => { const n = ($("#panel [data-bookname]")?.value || "").trim(); if (!n) return; const f = NETS[S.net].fam; S.book[f] = { ...(S.book[f] || {}), [S.panel.to.trim()]: n }; await local.set({ book: S.book }); toast(`Saved as ${n}`, "win"); renderPanel(); },
   "share-addr": async () => { try { await navigator.share({ title: "My " + NETS[S.net].name + " address", text: ENG.address }); } catch (_) {} },
@@ -1034,6 +1040,13 @@ document.addEventListener("click", (e) => {
 
 document.addEventListener("input", (e) => {
   const t = e.target;
+  if (t.matches("[data-w]")) {
+    const boxes = [...document.querySelectorAll("[data-w]")], words = t.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (words.length > 1) { if (words.length === 24 && boxes.length === 12) { S.wn = 24; render(); return setTimeout(() => { const b = [...document.querySelectorAll("[data-w]")]; words.forEach((w, i) => b[i] && (b[i].value = w)); sync(); }, 0); } words.forEach((w, i) => { const b = boxes[Number(t.dataset.w) + i]; if (b) b.value = w; }); boxes[Math.min(boxes.length - 1, Number(t.dataset.w) + words.length)]?.focus(); }
+    else if (/\s$/.test(t.value)) { t.value = t.value.trim(); boxes[Number(t.dataset.w) + 1]?.focus(); }
+    sync(); return;
+    function sync() { const ta = document.querySelector('textarea[name="phrase"]'); if (ta) ta.value = [...document.querySelectorAll("[data-w]")].map((b) => b.value.trim().toLowerCase()).filter(Boolean).join(" "); }
+  }
   if (t.matches("[data-amount]")) {
     const v = t.value.replace(/[^\d.,]/g, "").replace(",", "."), parts = v.split(".");
     S.panel.amount = parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : v; S.panel.pct = null;

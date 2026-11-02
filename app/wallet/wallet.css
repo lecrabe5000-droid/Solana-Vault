@@ -992,6 +992,18 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 .fx-recv b { font: var(--num-w) 30px var(--num); letter-spacing: var(--num-ls); color: var(--ink); animation: rise .4s .95s ease both; }
 .fx-recv small { color: var(--muted); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; animation: rise .4s 1.05s ease both; }
 @media (prefers-reduced-motion: reduce) { .fx-sent *, .fx-recv *, .fx-recv { animation: none !important; } .fx-sent .tick { stroke-dashoffset: 0; } .fx-sent .arr { opacity: 0; } }
+/* chart reveal: wipe left to right (a dash animation measured the line wrongly and stopped short) */
+.chart.draw .ch-line { stroke-dasharray: none !important; stroke-dashoffset: 0 !important; animation: none !important; }
+.chart.draw svg { animation: ch-reveal 1.2s var(--ease) both; }
+@keyframes ch-reveal { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+/* recovery phrase: one box per word */
+.words { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.words label { display: flex; align-items: center; gap: 4px; height: 36px; padding: 0 8px; border-radius: 10px; background: var(--s1); box-shadow: 0 0 0 1px var(--line-2); }
+.words label:focus-within { box-shadow: 0 0 0 1.5px var(--eb); }
+.words span { color: var(--muted); font-size: 10.5px; min-width: 14px; }
+.words input { flex: 1; min-width: 0; border: 0; background: none; color: var(--ink); font: 500 13px var(--font); outline: none; padding: 0; }
+.wl-n { display: flex; gap: 6px; margin-bottom: 6px; } .wl-n button { height: 26px; padding: 0 10px; border: 0; border-radius: 999px; background: var(--s1); box-shadow: 0 0 0 1px var(--line-2); color: var(--muted); font: 500 12px var(--font); cursor: pointer; } .wl-n button.on { color: var(--ink); box-shadow: 0 0 0 1.5px var(--eb); }
+.sr-only { position: absolute !important; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
 .device { padding: 0 !important; }
 #root, #panel { top: env(safe-area-inset-top, 0px); }
