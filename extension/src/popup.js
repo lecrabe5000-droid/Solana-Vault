@@ -645,7 +645,7 @@ function closePanel() { const el = $("#panel"); el.classList.remove("in"); docum
 function renderPanel(enter = false) {
   const el = $("#panel"), P = S.panel;
   if (!P) return;
-  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, nets: netsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, addrs: addrsView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
+  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, addrs: addrsView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
   el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}">${body}</div>`;
   P.fresh = false;
   if (enter) requestAnimationFrame(() => { el.classList.add("in"); document.body.classList.add("stacked"); });
@@ -823,15 +823,6 @@ function assetsView() {
     <p class="sub pad">Your everyday wallet. It sends at once, like any wallet. Keep what you trade with here, and the rest in your Safe.</p>
     <section class="list">${assetRow("native", t.b.native, t.vn)}${NETS[S.net].usdc ? assetRow("usdc", t.b.usdc, t.vu) : ""}</section>
     <div class="vacts"><button class="btn" data-act="panel" data-p="send">${I.send}Send</button><button class="btn" data-act="panel" data-p="receive">${I.recv}Receive</button></div>`;
-}
-
-function netsView() {
-  return `${phead("Network")}
-    <div class="nets">${Object.values(NETS).map((n) => {
-      const live = n.fam === "sol" || !!n.contract;
-      return `<button class="nrow ${S.net === n.key ? "on" : ""}" data-act="net" data-n="${n.key}">${coin(n.key)}<span class="nr-t"><b>${n.name}</b><small>${n.net} testnet${live ? "" : " · vault coming soon"}</small></span>${S.net === n.key ? `<i class="nr-on">${I.check}</i>` : ""}</button>`;
-    }).join("")}</div>
-    <p class="fine pad">Your Ethereum address is the same on every Ethereum-style network.</p>`;
 }
 
 function settingsView() {
@@ -1013,7 +1004,6 @@ const actions = {
     if (p === "sites") loadSites();
   },
   settings: () => openPanel("settings"),
-  nets: () => openPanel("nets"),
   close: () => closePanel(),
   asset: async (el) => { const P = S.panel; P.asset = el.dataset.a; P.amount = ""; P.pct = null; P.reserve = await (await eng()).reserve(P.asset); renderPanel(); },
   pct: (el) => {
