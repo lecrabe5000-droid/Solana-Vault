@@ -586,3 +586,54 @@ svg.spark.up path { stroke: var(--pos); } svg.spark.dn path { stroke: var(--neg)
 .ar-t small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ar-r small { white-space: nowrap; }
 .spark { width: 46px; }
+
+/* =====================================================================================
+   TYPE: Geist for the interface, Instrument Serif for the money. Quiet, exact, a little editorial.
+   ===================================================================================== */
+@font-face { font-family: "Geist"; font-weight: 400; font-display: block; src: url("/fonts/geist-sans-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Geist"; font-weight: 500; font-display: block; src: url("/fonts/geist-sans-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Geist"; font-weight: 600; font-display: block; src: url("/fonts/geist-sans-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Geist"; font-weight: 700; font-display: block; src: url("/fonts/geist-sans-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "Instrument Serif"; font-weight: 400; font-display: block; src: url("/fonts/instrument-serif-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Instrument Serif"; font-weight: 400; font-style: italic; font-display: block; src: url("/fonts/instrument-serif-latin-400-italic.woff2") format("woff2"); }
+:root { --font: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif; }
+body { font-family: var(--font); letter-spacing: -.005em; font-feature-settings: "tnum" 1, "ss01" 1; }
+:root[data-num-face="serif"] { --num: "Instrument Serif", "Iowan Old Style", Georgia, serif; --num-ls: -.01em; --num-w: 400; }
+:root[data-num-face="serif"][data-num-weight] { --num-w: 400; }
+:root[data-num-face="sans"] { --num: "Geist", system-ui, sans-serif; --num-ls: -.035em; }
+:root[data-num-face="sans"] { --num-w: 600; } :root[data-num-face="sans"][data-num-weight="400"] { --num-w: 400; } :root[data-num-face="sans"][data-num-weight="600"] { --num-w: 700; }
+.nopts button[data-face="serif"] b { font: 400 20px "Instrument Serif", Georgia, serif; letter-spacing: 0; }
+.nopts button[data-face="sans"] b { font: 600 16px "Geist", sans-serif; letter-spacing: -.03em; }
+
+/* the serif money sits larger, the way a statement prints it */
+:root[data-num-face="serif"] .big { font-size: 50px; line-height: 1; margin-top: 6px; }
+:root[data-num-face="serif"] .ac-v { font-size: 25px; line-height: 1.1; }
+:root[data-num-face="serif"] .amt-in input { font-size: 58px; }
+:root[data-num-face="serif"] .rev-amt b { font-size: 42px; }
+:root[data-num-face="serif"] .vl b { font-size: 27px; }
+:root[data-num-face="serif"] .mv-bal b { font-size: 34px; }
+:root[data-num-face="serif"] .preset .pd { font-size: 28px; }
+:root[data-num-face="serif"] .dec { opacity: .5; }
+.ar-r b { font: 600 14px var(--font); letter-spacing: -.01em; }
+
+/* the change: one quiet line, like a private-bank statement */
+.hero-sub { margin-top: 10px; min-height: 18px; }
+.delta { display: inline-flex; align-items: baseline; gap: 5px; font: 500 13px var(--font); letter-spacing: .005em; }
+.delta.up { color: color-mix(in srgb, var(--pos) 80%, var(--ink)); } .delta.dn { color: color-mix(in srgb, var(--neg) 80%, var(--ink)); }
+.delta .dp { opacity: .85; }
+.delta .dl { margin-left: 4px; padding-left: 9px; border-left: 1px solid var(--line-2); color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+.lbl { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; font-weight: 600; }
+.ac-k { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; }
+.ac-k svg { width: 11px; height: 11px; }
+
+/* the account header: the Ecrin mark, the name, the address as a quiet pill */
+.acct { gap: 8px; padding: 4px 6px 4px 4px; }
+.acct-ic { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; background: var(--pearl); color: var(--acc-ink); box-shadow: var(--pearl-shadow); }
+.acct-ic .logo { width: 16px; height: 16px; }
+.acct-n { font-weight: 600; font-size: 14px; letter-spacing: -.01em; }
+.acct-a { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; border-radius: 99px; background: var(--s2); color: var(--muted); font: 500 11px ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: -.02em; }
+.acct-a svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 2; }
+.acct:hover .acct-a { color: var(--ink); }
+.acct, .acct-n, .acct-a { white-space: nowrap; }
+.netchip { padding: 0 6px 0 3px; gap: 2px; }
+.ch-tip { display: none; }

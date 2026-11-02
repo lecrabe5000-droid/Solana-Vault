@@ -15,7 +15,7 @@ const session = { get: (k) => chrome.storage.session.get(k), set: (o) => chrome.
 const short = (a) => (a ? `${String(a).slice(0, 4)}…${String(a).slice(-4)}` : "");
 const now = () => Math.floor(Date.now() / 1000);
 
-const S = { screen: "loading", net: "sol", theme: "dark", autolock: 15, panel: null, prices: {}, bal: null, vault: undefined, busy: false, hide: false, range: "7", series: {}, nums: { face: "sans", weight: "500", cents: "dim" }, tab: "tokens" };
+const S = { screen: "loading", net: "sol", theme: "dark", autolock: 15, panel: null, prices: {}, bal: null, vault: undefined, busy: false, hide: false, range: "7", series: {}, nums: { face: "serif", weight: "500", cents: "dim" }, tab: "tokens" };
 const NUM_FACES = [["display", "Display"], ["sans", "Sans"], ["serif", "Serif"], ["mono", "Mono"]];
 const NUM_WEIGHTS = [["400", "Light"], ["500", "Regular"], ["600", "Bold"]];
 const NUM_CENTS = [["dim", "Dimmed"], ["full", "Full"], ["hide", "Hidden"]];
@@ -121,6 +121,7 @@ async function touch() {
 
 async function home() {
   S.screen = "home"; await eng(); S.activity = await readActivity().catch(() => []); render();
+  loadAll();
   refresh();
   loadPrices();
 }
@@ -144,16 +145,20 @@ async function loadPrices() {
   loadSeries();
 }
 
-/** Price history for the chart, one fetch per coin and range, kept for five minutes. */
+/** Price history for the chart, one fetch per coin and range, kept for five minutes. Fetches every coin you hold. */
 async function loadSeries() {
-  const cg = NETS[S.net].cg, k = `${cg}:${S.range}`, hit = S.series[k];
+  const cgs = [...new Set([NETS[S.net].cg, ...Object.keys(worth().coins)])];
+  await Promise.all(cgs.map(loadSeriesFor));
+}
+async function loadSeriesFor(cg) {
+  const k = `${cg}:${S.range}`, hit = S.series[k];
   if (hit && Date.now() - hit.at < 300_000) return;
   let pts = null;
   if (S.mock) {
     const n = 80, now = Date.now(), span = Number(S.range) * 86400_000; let v = 160, seed = Number(S.range) * 7 + cg.length;
     const rnd = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
     pts = Array.from({ length: n }, (_, i) => { v *= 1 + (rnd() - 0.47) * 0.035; return [now - span + (span * i) / (n - 1), v]; });
-    pts[n - 1][1] = S.prices[cg]?.usd || v;
+    const last = S.prices[cg]?.usd || v, f = last / pts[n - 1][1]; pts = pts.map(([t, x]) => [t, x * f]);
   } else {
     try {
       const r = await fetch(`https://api.coingecko.com/api/v3/coins/${cg}/market_chart?vs_currency=usd&days=${S.range}`);
@@ -161,6 +166,30 @@ async function loadSeries() {
     } catch (_) {}
   }
   if (pts?.length > 2) { S.series[k] = { at: Date.now(), pts }; S.drawChart = true; if (S.screen === "home" && !S.scrubbing) render(); }
+}
+
+/** Net worth across every network: what each holds in chequing and savings, priced. The current network's own
+ *  reading is the freshest, so it wins over the background sweep. */
+function worth() {
+  const rows = (S.all || []).filter((r) => r.ok && r.k !== S.net);
+  if (S.bal) rows.push({ k: S.net, b: S.bal, v: S.vault, ok: true });
+  const items = [], coins = {}; let usdc = 0, chq = 0, sav = 0, leaving = 0, vaults = 0;
+  for (const r of rows) {
+    const N = NETS[r.k], px = S.prices[N.cg]?.usd, natC = r.b.native || 0, natS = r.v?.main?.balance || 0, uC = r.b.usdc || 0, uS = r.v?.usdc?.balance || 0;
+    if (r.v) vaults++;
+    leaving += (r.v?.main?.withdrawals?.length || 0) + (r.v?.usdc?.withdrawals?.length || 0);
+    if (natC + natS > 0) {
+      coins[N.cg] = (coins[N.cg] || 0) + (natC + natS) / BASE;
+      const c = px != null ? (natC / BASE) * px : 0, v = px != null ? (natS / BASE) * px : 0; chq += c; sav += v;
+      items.push({ k: r.k, a: "native", coin: r.k, cg: N.cg, unit: N.unit, name: COIN_NAME[N.unit] || N.unit, net: N.name, chq: natC / BASE, sav: natS / BASE, usd: px != null ? c + v : null, dec: N.unit === "SOL" ? 4 : 5 });
+    }
+    if (uC + uS > 0) {
+      usdc += (uC + uS) / USDC_BASE; chq += uC / USDC_BASE; sav += uS / USDC_BASE;
+      items.push({ k: r.k, a: "usdc", coin: "usdc", cg: "usdc", unit: "USDC", name: "USD Coin", net: N.name, chq: uC / USDC_BASE, sav: uS / USDC_BASE, usd: (uC + uS) / USDC_BASE, dec: 2 });
+    }
+  }
+  items.sort((x, y) => (y.usd || 0) - (x.usd || 0));
+  return { items, coins, usdc, chq, sav, total: chq + sav, leaving, vaults, ready: rows.length > 0, all: !!S.all };
 }
 
 // ------------------------------------------------------------------ screens
@@ -210,8 +239,8 @@ function bindChart(root) {
     pin.style.left = `${(p[0] / W) * 100}%`; pin.style.top = `${p[1]}px`;
     tip.textContent = fmtT(c.times[i]); tip.style.left = `${Math.max(14, Math.min(86, (p[0] / W) * 100))}%`;
     if (big && !S.hide) big.innerHTML = fig(money(c.vals[i]));
-    const ch = ((c.vals[i] - c.vals[0]) / (c.vals[0] || 1)) * 100;
-    const cur = root.querySelector("[data-chg]"); if (cur) { cur.className = `chg ${ch >= 0 ? "up" : "dn"}`; cur.innerHTML = `${ch >= 0 ? "▲" : "▼"} ${Math.abs(ch).toFixed(2)}%<small>${fmtT(c.times[i])}</small>`; }
+    const dd = c.vals[i] - c.vals[0], ch = (dd / (c.vals[0] || 1)) * 100;
+    const cur = root.querySelector("[data-chg]"); if (cur) cur.outerHTML = deltaHTML(dd, ch, fmtT(c.times[i]), c.coinOnly);
   };
   const leave = () => { S.scrubbing = false; el.classList.remove("scrub"); if (big && keep.big != null) big.innerHTML = keep.big; const cur = root.querySelector("[data-chg]"); if (cur && keep.chg) cur.outerHTML = keep.chg; };
   svg.addEventListener("pointermove", move); svg.addEventListener("pointerdown", move); svg.addEventListener("pointerleave", leave);
@@ -327,72 +356,85 @@ function totals() {
 }
 
 function homeView() {
-  const N = NETS[S.net], e = ENG, t = totals(), loading = !S.bal;
-  const all = t.chq + t.sav;
-  const priced = S.prices[N.cg]?.usd != null, nat = t.b.native + t.vn;
-  const pct = priced ? (all ? Math.round((t.sav / all) * 100) : 0) : nat ? Math.round((t.vn / nat) * 100) : 0;
-  const ch = S.prices[N.cg]?.usd_24h_change;
+  const N = NETS[S.net], e = ENG, w = worth(), loading = !w.ready;
+  const pct = w.total ? Math.round((w.sav / w.total) * 100) : 0;
   const addr = e?.address || "";
-  const leaving = [...(S.vault?.main?.withdrawals || []), ...(S.vault?.usdc?.withdrawals || [])];
   return `<div class="home">
     <header class="top">
-      <button class="acct" data-act="copy-addr" title="Copy address">${avatar(addr)}<span><b>Account 1</b><small>${short(addr)} ${I.copy}</small></span></button>
+      <button class="acct" data-act="copy-addr" title="Copy your ${N.name} address"><span class="acct-ic">${LOGO}</span><span class="acct-n">Account 1</span><span class="acct-a">${short(addr)}${I.copy}</span></button>
       <div class="top-r">
-        <button class="netchip" data-act="nets">${netCoin()}<span>${N.name}</span>${I.chev}</button>
+        <button class="netchip" data-act="nets" title="${N.name} ${N.net}: the network for Send, Receive, Protect and Withdraw" aria-label="Network: ${N.name}">${netCoin()}${I.chev}</button>
         <button class="ib" data-act="settings" aria-label="Settings">${I.gear}</button>
       </div>
     </header>
     ${S.err ? `<div class="banner">${esc(S.err)}</div>` : ""}
     <section class="hero"><svg class="hero-g" viewBox="0 0 360 230" preserveAspectRatio="xMidYMin slice" aria-hidden="true">${Array.from({ length: 30 }, (_, i) => `<ellipse cx="${180 + Math.sin(i / 2.6) * 6}" cy="${-10 + Math.cos(i / 2.6) * 4}" rx="${40 + i * 9}" ry="${22 + i * 6.2}"/>`).join("")}</svg>
-      <div class="hero-l"><span class="lbl">${N.name} balance</span>
-        <button class="eye" data-act="hide" aria-label="${S.hide ? "Show" : "Hide"} balances">${S.hide ? I.eyeOff : I.eye}</button>
-        <button class="allnets" data-act="panel" data-p="all">All networks ${I.arrow}</button></div>
-      <div class="big ${loading ? "sk" : ""}">${loading ? "&nbsp;" : mask(fig(money(all)))}</div>
-      <div class="hero-sub">${chip(t, ch)}<span class="split"><i style="--p:${pct}%"></i></span><span class="pct">${pct}% protected</span></div>
-      ${chartView(t)}
+      <div class="hero-l"><span class="lbl">Net worth</span><button class="eye" data-act="hide" aria-label="${S.hide ? "Show" : "Hide"} balances">${S.hide ? I.eyeOff : I.eye}</button></div>
+      <div class="big ${loading ? "sk" : ""}">${loading ? "&nbsp;" : mask(fig(money(w.total)))}</div>
+      <div class="hero-sub">${chip()}</div>
+      ${chartView()}
     </section>
     <section class="accts">
       <button class="acard chq" data-act="panel" data-p="assets" data-tilt><i class="sheen"></i>
         <span class="ac-k">Chequing</span>
-        <b class="ac-v ${loading ? "sk" : ""}">${loading ? "&nbsp;" : mask(fig(money(t.chq)))}</b>
+        <b class="ac-v ${loading ? "sk" : ""}">${loading ? "&nbsp;" : mask(fig(money(w.chq)))}</b>
         <span class="ac-s"><i class="dot live"></i>Spend instantly</span>
       </button>
       <button class="acard sav" data-act="panel" data-p="vault" data-tilt><i class="sheen"></i>
         <svg class="mv-g" viewBox="0 0 200 140" preserveAspectRatio="xMidYMid slice">${Array.from({ length: 18 }, (_, i) => `<circle cx="${170 + Math.cos(i / 2.2) * 8}" cy="${20 + Math.sin(i / 2.2) * 8}" r="${10 + i * 8}"/>`).join("")}</svg>
         <span class="ac-k">${I.lock}Savings</span>
-        <b class="ac-v ${S.vault === undefined ? "sk" : ""}">${S.vault === undefined ? "&nbsp;" : mask(fig(money(t.sav)))}</b>
-        <span class="ac-s">${leaving.length ? `<i class="dot warn"></i>${leaving.length} leaving` : S.vault ? `<i class="dot"></i>${delay(S.vault.main.withdrawDelay)} delay` : `<i class="dot off"></i>Not set up`}</span>
+        <b class="ac-v ${loading ? "sk" : ""}">${loading ? "&nbsp;" : mask(fig(money(w.sav)))}</b>
+        <span class="ac-s">${w.leaving ? `<i class="dot warn"></i>${w.leaving} leaving` : w.vaults ? `<i class="dot"></i>${pct}% of net worth` : `<i class="dot off"></i>Not set up`}</span>
       </button>
     </section>
     <nav class="acts">
       ${[["send", "Send", I.send], ["receive", "Receive", I.recv], ["protect", "Protect", I.protect], ["withdraw", "Withdraw", I.out]].map(([p, l, ic]) => `<button data-act="panel" data-p="${p}"><span>${ic}</span>${l}</button>`).join("")}
     </nav>
     <div class="tabs" role="tablist"><button role="tab" data-act="tab" data-t="tokens" aria-selected="${S.tab === "tokens"}">Tokens</button><button role="tab" data-act="tab" data-t="activity" aria-selected="${S.tab === "activity"}">Activity</button><i class="tab-ind" style="--i:${S.tab === "activity" ? 1 : 0}"></i></div>
-    ${S.tab === "activity" ? activityList() : `<section class="list">${assetRow("native", t.b.native, t.vn)}${N.usdc ? assetRow("usdc", t.b.usdc, t.vu) : ""}</section>`}
-    <footer class="foot">${N.name} ${N.net} · testnet beta</footer>
+    ${S.tab === "activity" ? activityList() : tokenList(w)}
+    <footer class="foot">${w.all ? "Every network" : "Reading every network…"} · testnet beta</footer>
   </div>`;
 }
 
-/** The change chip: over the chart's range when there is a chart, else the last 24 hours. */
-function chip(t, ch24) {
-  const c = chartData(t), ch = c ? ((c.vals[c.vals.length - 1] - c.vals[0]) / (c.vals[0] || 1)) * 100 : ch24;
-  if (ch == null || !Number.isFinite(ch)) return "";
-  const lbl = { 1: "24h", 7: "7d", 30: "30d", 365: "1y" }[S.range];
-  return `<span class="chg ${ch >= 0 ? "up" : "dn"}" data-chg>${ch >= 0 ? "▲" : "▼"} ${Math.abs(ch).toFixed(2)}%<small>${c ? lbl : "24h"}</small></span>`;
+/** Every coin you hold on every network, biggest first. Tapping one opens Send on its network. */
+function tokenList(w) {
+  if (!w.ready) return `<section class="list">${[1, 2, 3].map(() => `<div class="arow"><span class="coin sk"></span><span class="ar-t"><b class="sk">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</b><small class="sk">&nbsp;&nbsp;&nbsp;&nbsp;</small></span></div>`).join("")}</section>`;
+  if (!w.items.length) return `<section class="list"><div class="empty">${I.recv}<b>No coins yet</b><span>Use Receive to get free test coins on any network.</span></div></section>`;
+  const n = (v, d) => v.toLocaleString("en-US", { maximumFractionDigits: d });
+  return `<section class="list">${w.items.map((i) => {
+    const p = i.a === "usdc" ? { usd: 1 } : S.prices[i.cg], ch = i.a === "usdc" ? null : p?.usd_24h_change;
+    return `<button class="arow" data-act="row-send" data-n="${i.k}" data-a="${i.a}"><span class="cstack">${coin(i.coin)}${i.coin !== i.k ? `<span class="cmini">${coin(i.k)}</span>` : ""}</span>
+      <span class="ar-t"><b>${i.name}</b><small>${i.a === "usdc" ? i.net : p?.usd != null ? money(p.usd) : i.net}${ch != null ? ` <span class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</span>` : ""}</small></span>
+      ${spark(i.cg)}<span class="ar-r"><b>${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}${i.sav ? ` <span class="sv">${I.lock}${mask(n(i.sav, i.dec))}</span>` : ""}</small></span></button>`;
+  }).join("")}</section>`;
 }
 
-/** Portfolio value over the range: today's holdings priced along the coin's history (USDC counted at $1).
- *  With no coin held, it's the coin's own price. */
-function chartData(t) {
-  const N = NETS[S.net], hit = S.series[`${N.cg}:${S.range}`];
-  if (!hit) return null;
-  const coins = (t.b.native + t.vn) / BASE, usd = (t.b.usdc + t.vu) / USDC_BASE;
-  const vals = hit.pts.map(([, p]) => (coins ? coins * p + usd : p));
-  return { times: hit.pts.map(([x]) => x), vals, coinOnly: !coins };
+/** The change over the chart's range, as plain text: "+$122.17 (4.48%) · 1W". */
+function chip() {
+  const c = chartData(); if (!c) return `<span class="delta" data-chg></span>`;
+  const d = c.vals[c.vals.length - 1] - c.vals[0], ch = (d / (c.vals[0] || 1)) * 100;
+  if (!Number.isFinite(ch)) return "";
+  return deltaHTML(d, ch, { 1: "1D", 7: "1W", 30: "1M", 365: "1Y" }[S.range], c.coinOnly);
+}
+function deltaHTML(d, ch, label, pctOnly) {
+  const up = d >= 0, sign = up ? "+" : "−";
+  return `<span class="delta ${up ? "up" : "dn"}" data-chg>${pctOnly ? `${sign}${Math.abs(ch).toFixed(2)}%` : `${sign}${mask(money(Math.abs(d)))} <span class="dp">(${Math.abs(ch).toFixed(2)}%)</span>`}<span class="dl">${label}</span></span>`;
 }
 
-function chartView(t) {
-  const c = chartData(t), W = 328, H = 78;
+/** Net worth over the range: today's holdings on every network priced along each coin's history (USDC at $1).
+ *  Holding nothing yet, it shows the current network's coin price. */
+function chartData() {
+  const w = worth(), cgs = Object.keys(w.coins), M = 80;
+  const list = (cgs.length ? cgs : [NETS[S.net].cg]).map((cg) => [cg, S.series[`${cg}:${S.range}`]]);
+  if (list.some(([, h]) => !h)) return null;
+  const at = (pts, i) => pts[Math.min(pts.length - 1, Math.round((i / (M - 1)) * (pts.length - 1)))];
+  const base = list[0][1].pts, times = Array.from({ length: M }, (_, i) => at(base, i)[0]);
+  const vals = times.map((_, i) => (cgs.length ? w.usdc + list.reduce((s, [cg, h]) => s + w.coins[cg] * at(h.pts, i)[1], 0) : at(base, i)[1]));
+  return { times, vals, coinOnly: !cgs.length && !w.usdc };
+}
+
+function chartView() {
+  const c = chartData(), W = 328, H = 78;
   const ranges = `<div class="ranges">${[["1", "1D"], ["7", "1W"], ["30", "1M"], ["365", "1Y"]].map(([d, l]) => `<button data-act="range" data-d="${d}" aria-pressed="${S.range === d}">${l}</button>`).join("")}</div>`;
   if (!c) return `<div class="chart empty-c"><div class="ch-sk"></div>${ranges}</div>`;
   const lo = Math.min(...c.vals), hi = Math.max(...c.vals), span = hi - lo || 1;
@@ -429,8 +471,10 @@ function assetRow(a, chq, sav) {
 }
 
 /** A small price line for a token row: the coin over the chart's range; USDC stays flat at $1. */
-function spark(a) {
-  const hit = S.series[`${NETS[S.net].cg}:${S.range}`], W = 54, H = 22;
+function spark(cg) {
+  const a = cg === "usdc" || cg === "native" ? (cg === "usdc" ? "usdc" : "native") : "x";
+  if (cg === "native") cg = NETS[S.net].cg;
+  const hit = S.series[`${cg}:${S.range}`], W = 54, H = 22;
   const vals = a === "usdc" ? [1, 1] : hit ? hit.pts.filter((_, i, l) => i % Math.max(1, Math.floor(l.length / 28)) === 0 || i === l.length - 1).map(([, v]) => v) : null;
   if (!vals) return `<span class="spark"></span>`;
   const lo = Math.min(...vals), hi = Math.max(...vals), sp = hi - lo || 1, up = vals[vals.length - 1] >= vals[0];
@@ -449,7 +493,10 @@ async function loadAll() {
       return { k, b, v, ok: true };
     } catch (_) { return { k, ok: false }; }
   }));
+  S.all = rows;
   if (S.panel?.p === "all") { S.panel.rows = rows; renderPanel(); }
+  if (S.screen === "home" && !S.scrubbing) render();
+  loadSeries();
 }
 
 function allView() {
@@ -696,7 +743,7 @@ async function logActivity(e) { const k = actKey(), list = await readActivity();
 
 async function txRun(fn, after, log) {
   const P = S.panel; P.step = "sending"; renderPanel();
-  try { const sig = await fn(); P.sig = typeof sig === "string" ? sig : null; await after?.(); if (log) await logActivity({ ...log, sig: P.sig }); P.step = "done"; await refresh(); S.activity = await readActivity(); }
+  try { const sig = await fn(); P.sig = typeof sig === "string" ? sig : null; await after?.(); if (log) await logActivity({ ...log, sig: P.sig }); P.step = "done"; await refresh(); S.activity = await readActivity(); loadAll(); }
   catch (e) { console.warn(e); P.step = "form"; toast(errText(e), "err"); }
   renderPanel();
 }
@@ -756,6 +803,7 @@ const actions = {
   "cancel-w": async (el) => { try { el.disabled = true; await (await eng()).cancel(el.dataset.a, Number(el.dataset.id)); await logActivity({ t: "cancel", a: el.dataset.a }); S.activity = await readActivity(); toast("Cancelled. It stays in savings.", "win"); await refresh(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
   execute: async (el) => { try { el.disabled = true; await (await eng()).execute(el.dataset.a, Number(el.dataset.id), el.dataset.d); await logActivity({ t: "release", a: el.dataset.a }); S.activity = await readActivity(); toast("Released to chequing", "win"); await refresh(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
   net: async (el) => { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; S.drawChart = true; closePanel(); await eng(); S.activity = await readActivity(); refresh(); loadSeries(); },
+  "row-send": async (el) => { if (el.dataset.n !== S.net) { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; await eng(); S.activity = await readActivity(); await refresh(); } openPanel("send", { a: el.dataset.a }); const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); },
   "net-go": async (el) => { if (el.dataset.n !== S.net) await actions.net(el); else closePanel(); },
   tab: async (el) => { S.tab = el.dataset.t; if (S.tab === "activity") S.activity = await readActivity(); render(); },
   range: async (el) => { S.range = el.dataset.d; await local.set({ range: S.range }); S.drawChart = true; render(); loadSeries(); },
