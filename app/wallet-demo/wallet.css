@@ -670,3 +670,23 @@ body { font-family: var(--font); letter-spacing: 0; font-feature-settings: "tnum
 .phead { font-weight: 500; letter-spacing: .06em; }
 .flow h2, .done h2, .cv h2 { font: 400 26px/1.15 "Caslon", Georgia, serif; letter-spacing: 0; }
 .onb-copy h1, .lock h1 { font: 400 30px/1.1 "Caslon", Georgia, serif; letter-spacing: 0; background: none; -webkit-background-clip: border-box; background-clip: border-box; color: var(--ink); }
+
+/* chart: one smooth line in the signature colour, a soft wash beneath, no dots; scrubbing shows a hairline */
+.chart svg { height: 84px; }
+.ch-line { stroke-width: 2.2; }
+.ch-dot, .ch-pin { display: none !important; }
+.ch-x { stroke: var(--line-2); stroke-dasharray: none; }
+:root[data-theme="dark"] .chart .cf0 { stop-opacity: .3; }
+:root[data-theme="dark"] .chart .ch-line { filter: drop-shadow(0 6px 14px rgba(110, 120, 255, .35)); }
+.chart.draw .ch-line { animation-duration: 1.4s; }
+
+/* addresses */
+.adr-hero { display: grid; justify-items: center; gap: 6px; padding: 8px 0 6px; text-align: center; }
+.adr-hero b { font: 400 24px "Caslon", Georgia, serif; }
+.acct-ic.lg { width: 52px; height: 52px; border-radius: 16px; } .acct-ic.lg .logo { width: 26px; height: 26px; }
+.adr { display: flex; align-items: center; gap: 12px; padding: 8px 6px 8px 8px; }
+.adr + .adr { border-top: 1px solid var(--line); }
+.adr .coin { width: 32px; height: 32px; }
+.adr-t { flex: 1; display: grid; min-width: 0; } .adr-t b { font-weight: 500; font-size: 14.5px; } .adr-t small { color: var(--muted); font-size: 12px; }
+.adr .ib { color: var(--muted); } .adr .ib:hover { color: var(--ink); }
+.acct-a svg { width: 11px; height: 11px; stroke-width: 2.2; }

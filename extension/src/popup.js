@@ -36,6 +36,7 @@ const I = {
   chev: '<svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></svg>',
   arrow: '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>',
   copy: '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
+  qr: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2M18 14h2M14 18v2M18 18h2v2"/></svg>',
   check: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
   eye: '<svg viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>',
   eyeOff: '<svg viewBox="0 0 24 24"><path d="M4 4l16 16M9.9 5.8A9.8 9.8 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-3 3.7M6.3 7.6A16.6 16.6 0 0 0 2.5 12S6 18.5 12 18.5c1.6 0 3-.4 4.2-1"/></svg>',
@@ -361,7 +362,7 @@ function homeView() {
   const addr = e?.address || "";
   return `<div class="home">
     <header class="top">
-      <button class="acct" data-act="copy-addr" title="Copy your ${N.name} address"><span class="acct-ic">${LOGO}</span><span class="acct-n">Account 1</span><span class="acct-a">${short(addr)}${I.copy}</span></button>
+      <button class="acct" data-act="panel" data-p="addrs" title="Your addresses"><span class="acct-ic">${LOGO}</span><span class="acct-n">Account 1</span><span class="acct-a">${short(addr)}${I.chev}</span></button>
       <div class="top-r">
         <button class="netchip" data-act="nets" title="${N.name} ${N.net}: the network for Send, Receive, Protect and Withdraw" aria-label="Network: ${N.name}">${netCoin()}${I.chev}</button>
         <button class="ib" data-act="settings" aria-label="Settings">${I.gear}</button>
@@ -438,7 +439,10 @@ function chartView() {
   const ranges = `<div class="ranges">${[["1", "1D"], ["7", "1W"], ["30", "1M"], ["365", "1Y"]].map(([d, l]) => `<button data-act="range" data-d="${d}" aria-pressed="${S.range === d}">${l}</button>`).join("")}</div>`;
   if (!c) return `<div class="chart empty-c"><div class="ch-sk"></div>${ranges}</div>`;
   const lo = Math.min(...c.vals), hi = Math.max(...c.vals), span = hi - lo || 1;
-  const xy = c.vals.map((v, i) => [(i / (c.vals.length - 1)) * W, 6 + (1 - (v - lo) / span) * (H - 14)]);
+  // A gentle moving average so the line reads as a trend, not noise.
+  const sm = c.vals.map((_, i) => { const a = Math.max(0, i - 2), b = Math.min(c.vals.length - 1, i + 2); let t = 0; for (let j = a; j <= b; j++) t += c.vals[j]; return t / (b - a + 1); });
+  sm[0] = c.vals[0]; sm[sm.length - 1] = c.vals[c.vals.length - 1];
+  const xy = sm.map((v, i) => [(i / (sm.length - 1)) * W, 8 + (1 - (v - lo) / span) * (H - 16)]);
   // A smooth line through the points (Catmull-Rom as cubic Béziers).
   let d = `M${xy[0][0].toFixed(1)},${xy[0][1].toFixed(1)}`;
   for (let i = 0; i < xy.length - 1; i++) {
@@ -455,7 +459,6 @@ function chartView() {
       <path class="ch-line" d="${d}" pathLength="1"/>
       <line class="ch-x" x1="0" x2="0" y1="0" y2="${H}"/>
     </svg>
-    <i class="ch-dot" style="left:${((last[0] / W) * 100).toFixed(2)}%;top:${last[1].toFixed(1)}px"></i>
     <i class="ch-pin"></i><span class="ch-tip"></span>
     ${ranges}
   </div>`;
@@ -551,7 +554,7 @@ function closePanel() { const el = $("#panel"); el.classList.remove("in"); docum
 function renderPanel(enter = false) {
   const el = $("#panel"), P = S.panel;
   if (!P) return;
-  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, nets: netsView, reveal: revealView, numbers: numbersView, all: allView })[P.p]();
+  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, nets: netsView, reveal: revealView, numbers: numbersView, all: allView, addrs: addrsView })[P.p]();
   el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}">${body}</div>`;
   P.fresh = false;
   if (enter) requestAnimationFrame(() => { el.classList.add("in"); document.body.classList.add("stacked"); });
@@ -615,6 +618,18 @@ function doneView(title, text, extra = "") {
   return `<div class="done"><div class="done-mark"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="29"/><path d="M20 33l8 8 16-17"/></svg></div><h2>${title}</h2><p>${text}</p>
     ${S.panel.sig ? `<a class="link" href="${NETS[S.net].explorer("tx", S.panel.sig)}" target="_blank">View on the explorer ${I.ext}</a>` : ""}${extra}
     <div class="pfoot"><button class="btn primary xl" data-act="close">Done</button></div></div>`;
+}
+
+/** Every address this account has, network by network, like MetaMask's account view. */
+function addrsView() {
+  const sol = ACCT.sol.publicKey.toBase58(), evm = ACCT.evm.address;
+  const row = (k, a) => `<div class="adr">${coin(k)}<span class="adr-t"><b>${NETS[k].name}</b><small class="mono">${short(a)}</small></span>
+    <button class="ib sm" data-act="copy" data-v="${esc(a)}" aria-label="Copy ${NETS[k].name} address">${I.copy}</button><button class="ib sm" data-act="qr-for" data-n="${k}" aria-label="Show QR code">${I.qr}</button></div>`;
+  return `${phead("Account 1")}
+    <div class="adr-hero"><span class="acct-ic lg">${LOGO}</span><b>Account 1</b><span class="sub">One recovery phrase, an address on every network</span></div>
+    <div class="list-h"><b>Solana</b></div><section class="list">${row("sol", sol)}</section>
+    <div class="list-h"><b>Ethereum and its networks</b><span>same address on each</span></div>
+    <section class="list">${Object.keys(NETS).filter((k) => k !== "sol").map((k) => row(k, evm)).join("")}</section>`;
 }
 
 function receiveView() {
@@ -774,6 +789,8 @@ const actions = {
   pick: (el) => { const q = S.quiz.find((x) => !x.ok), w = S.phrase.split(" ")[q.i]; if (el.dataset.w === w) { q.ok = true; S.quizErr = false; } else S.quizErr = true; render(); },
   "finish-create": async () => { S.busy = true; render(); await saveWallet(S.phrase, S.pw); S.busy = false; S.phrase = S.pw = null; home(); },
   forgot: () => { if (confirm("Without the password, the only way back in is your recovery phrase. Remove this wallet from the browser and import it again?")) forget(); },
+  copy: async (el) => { await navigator.clipboard.writeText(el.dataset.v); toast("Address copied", "win"); },
+  "qr-for": async (el) => { if (el.dataset.n !== S.net) { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; await eng(); refresh(); } S.panel = { p: "receive", step: "form", asset: "native", amount: "", to: "" }; renderPanel(); },
   "copy-addr": async () => { await navigator.clipboard.writeText(ENG.address); toast("Address copied", "win"); },
   hide: async () => { S.hide = !S.hide; await local.set({ hide: S.hide }); render(); if (S.panel) renderPanel(); },
   panel: async (el) => {
