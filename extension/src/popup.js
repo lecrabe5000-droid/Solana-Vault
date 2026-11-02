@@ -60,12 +60,13 @@ const SOLP = "M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62
 let gid = 0;
 const COIN = {
   sol: () => { const id = "sg" + ++gid; return `<svg viewBox="0 0 398 312"><defs><linearGradient id="${id}" x1="360.9" y1="-37.5" x2="141.2" y2="383.3" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#00FFA3"/><stop offset="1" stop-color="#DC1FFF"/></linearGradient></defs><path d="${SOLP}" fill="url(#${id})"/></svg>`; },
-  eth: () => '<svg viewBox="0 0 32 32"><path d="M16 4l7 11.6-7 4.2-7-4.2z" fill="#fff" opacity=".95"/><path d="M16 21.2l7-4.2-7 10-7-10z" fill="#fff" opacity=".7"/></svg>',
-  base: () => '<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="9" fill="#fff"/><path d="M7.4 15h12.4" stroke="#2151f5" stroke-width="2.6"/></svg>',
-  arb: () => '<svg viewBox="0 0 32 32"><path d="M16 6.5l8.2 4.75v9.5L16 25.5l-8.2-4.75v-9.5z" fill="none" stroke="#9dccff" stroke-width="2"/><path d="M13.2 20.5l4.2-9.5 4 9.5" fill="none" stroke="#fff" stroke-width="2"/></svg>',
-  op: () => '<svg viewBox="0 0 32 32"><text x="16" y="20.5" text-anchor="middle" font-family="Arial,sans-serif" font-weight="800" font-size="11.5" fill="#fff">OP</text></svg>',
-  pol: () => '<svg viewBox="0 0 32 32"><path d="M10 12.5l4-2.3 4 2.3v4.6l-4 2.3-4-2.3zM14 17.1v4.6l4 2.3 4-2.3v-4.6l-4-2.3" fill="none" stroke="#fff" stroke-width="1.9" stroke-linejoin="round"/></svg>',
-  usdc: () => '<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="9.5" fill="none" stroke="#fff" stroke-width="1.8"/><text x="16" y="20.3" text-anchor="middle" font-family="Arial,sans-serif" font-weight="800" font-size="12" fill="#fff">$</text></svg>',
+  // Each network's own mark on its own colour, drawn to match the official logos.
+  eth: () => '<svg viewBox="0 0 32 32"><path d="M16 4.5v8.6l7.3 3.3z" fill="#fff" fill-opacity=".6"/><path d="M16 4.5L8.7 16.4l7.3-3.3z" fill="#fff"/><path d="M16 21.9v5.6l7.3-10.1z" fill="#fff" fill-opacity=".6"/><path d="M16 27.5v-5.6l-7.3-4.5z" fill="#fff"/><path d="M16 20.6l7.3-4.2-7.3-3.3z" fill="#fff" fill-opacity=".2"/><path d="M8.7 16.4l7.3 4.2v-7.5z" fill="#fff" fill-opacity=".6"/></svg>',
+  base: () => '<svg viewBox="0 0 32 32"><path d="M15.98 26C21.5 26 26 21.52 26 16S21.5 6 15.98 6C10.75 6 6.45 10.02 6 15.14h13.25v1.72H6C6.45 21.98 10.75 26 15.98 26z" fill="#fff"/></svg>',
+  arb: () => '<svg viewBox="0 0 32 32"><path d="M16 5.2l9.4 5.4v10.8L16 26.8l-9.4-5.4V10.6z" fill="none" stroke="#9dcced" stroke-width="1.4"/><path d="M17.6 12.2l4.4 7.7-1.9 1.1-4.1-7.2zM14.4 12.2l1.6 2.8-3.3 5.9-1.9-1.1z" fill="#28a0f0"/><path d="M13.3 10.9h2.6l-6 10.4-1.6-.9zM16.1 10.9h2.6l5 8.7-1.6.9z" fill="#fff"/></svg>',
+  op: () => '<svg viewBox="0 0 32 32"><text x="15.6" y="20.4" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-style="italic" font-size="11" letter-spacing="-.3" fill="#fff">OP</text></svg>',
+  pol: () => '<svg viewBox="0 0 32 32"><path d="M20.4 12.6l-3-1.75a.9.9 0 0 0-.9 0l-3 1.75v3.4l-2.6 1.5-2.6-1.5v-3l2.6-1.5 1.5.86v-1.7L10.9 9.6a.9.9 0 0 0-.9 0l-3 1.75a.9.9 0 0 0-.45.78v3.5c0 .32.17.62.45.78l3 1.75c.28.16.62.16.9 0l3-1.75v-3.4l2.6-1.5 2.6 1.5v3l-2.6 1.5-1.5-.86v1.7l1.5.87c.28.16.62.16.9 0l3-1.75a.9.9 0 0 0 .45-.78v-3.5a.9.9 0 0 0-.45-.78z" fill="#fff" transform="translate(2.4 2.1)"/></svg>',
+  usdc: () => '<svg viewBox="0 0 32 32"><path d="M12.6 7.6a9.2 9.2 0 0 0 0 16.8M19.4 7.6a9.2 9.2 0 0 1 0 16.8" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/><path d="M18.6 13.6c-.2-1.3-1.2-2-2.6-2-1.6 0-2.6.8-2.6 2s1 1.7 2.6 2.1c1.7.4 2.8.9 2.8 2.3 0 1.3-1.2 2.2-2.8 2.2-1.5 0-2.6-.7-2.8-2.1M16 10.2v1.4M16 20.2v1.6" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>',
 };
 const coin = (k, cls = "") => `<span class="coin c-${k} ${cls}" aria-hidden="true">${(COIN[k] || COIN.eth)()}</span>`;
 const netCoin = (n = S.net) => coin(n);
@@ -245,7 +246,7 @@ function worth() {
     if (natC + natS > 0) {
       coins[N.cg] = (coins[N.cg] || 0) + (natC + natS) / BASE;
       const c = px != null ? (natC / BASE) * px : 0, v = px != null ? (natS / BASE) * px : 0; chq += c; sav += v;
-      items.push({ k: r.k, a: "native", coin: r.k, cg: N.cg, unit: N.unit, name: COIN_NAME[N.unit] || N.unit, net: N.name, chq: natC / BASE, sav: natS / BASE, usd: px != null ? c + v : null, dec: N.unit === "SOL" ? 4 : 5 });
+      items.push({ k: r.k, a: "native", coin: N.unit === "ETH" ? "eth" : r.k, cg: N.cg, unit: N.unit, name: COIN_NAME[N.unit] || N.unit, net: N.name, chq: natC / BASE, sav: natS / BASE, usd: px != null ? c + v : null, dec: N.unit === "SOL" ? 4 : 5 });
     }
     if (uC + uS > 0) {
       usdc += (uC + uS) / USDC_BASE; chq += uC / USDC_BASE; sav += uS / USDC_BASE;
@@ -487,7 +488,7 @@ function tokenList(w) {
     const t = g.reduce((s2, i) => ({ usd: s2.usd + (i.usd || 0), amt: s2.amt + i.chq + i.sav, sav: s2.sav + i.sav }), { usd: 0, amt: 0, sav: 0 }), f = g[0], open = S.open?.[f.unit];
     return `<button class="arow grp" data-act="grp" data-u="${f.unit}"><span class="cstack">${coin(f.a === "usdc" ? "usdc" : f.unit === "ETH" ? "eth" : f.coin)}</span>
       <span class="ar-t"><b>${f.name}</b><small>${g.length} networks ${I.chev}</small></span>${spark(f.cg)}
-      <span class="ar-r"><b>${mask(money(t.usd))}</b><small>${mask(n(t.amt, f.dec))} ${f.unit}${t.sav ? ` <span class="sv">${I.lock}${mask(n(t.sav, f.dec))}</span>` : ""}</small></span></button>${open ? g.map((i) => row(i, true)).join("") : ""}`;
+      <span class="ar-r"><b>${mask(money(t.usd))}</b><small>${mask(n(t.amt, f.dec))} ${f.unit}${t.sav ? ` <span class="sv">${I.lock}${mask(n(t.sav, f.dec))}</span>` : ""}</small></span></button>${open ? g.map((i) => `<button class="arow sub" data-act="row-send" data-n="${i.k}" data-a="${i.a}">${coin(i.k)}<span class="ar-t"><b>${NETS[i.k].name}</b><small>${NETS[i.k].net}</small></span><span class="ar-r"><b>${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}</small></span></button>`).join("") : ""}`;
   });
   return `<section class="list">${hidden ? `<div class="hid-note">${hidden} small balance${hidden > 1 ? "s" : ""} hidden</div>` : ""}${out.join("")}</section>`;
 }
