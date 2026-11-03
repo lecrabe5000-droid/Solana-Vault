@@ -9,6 +9,7 @@ import { NETS, BASE, USDC_BASE, engine } from "./chains.js";
 import { makeApprovals } from "./approve.js";
 import { mountVault3d } from "./vault3d.js";
 import { bioEnable, bioUnlock, bioName, bioPossible } from "./bio.js";
+import { sealKeys, openKeys, parseKey, keysFor, COLORS } from "./accounts.js";
 
 const VERSION = chrome.runtime.getManifest().version;
 const $ = (s, r = document) => r.querySelector(s);
@@ -28,6 +29,15 @@ function applyNums() { const r = document.documentElement; r.dataset.numFace = S
 // ------------------------------------------------------------------ icons and coins
 
 const I = {
+  pen: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>',
+  plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  key: '<svg viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/></svg>',
+  search: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>',
+  img: '<svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="M4 17l5-4.5 4 3.5 3-2.5 4 3.5"/></svg>',
+  card: '<svg viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3 10h18M7 15h4"/></svg>',
+  ban: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/></svg>',
+  snow: '<svg viewBox="0 0 24 24"><path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9M9.5 4.5L12 7l2.5-2.5M9.5 19.5L12 17l2.5 2.5"/></svg>',
+  globe: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.6 3.6 5.4 3.6 8.5s-1.1 5.9-3.6 8.5c-2.5-2.6-3.6-5.4-3.6-8.5S9.5 6.1 12 3.5z"/></svg>',
   send: '<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
   link: '<svg viewBox="0 0 24 24"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/></svg>',
   swap: '<svg viewBox="0 0 24 24"><path d="M7 4v14M3.5 14.5L7 18l3.5-3.5M17 20V6M13.5 9.5L17 6l3.5 3.5"/></svg>',
@@ -90,12 +100,28 @@ const mask = (s) => (S.hide ? "••••" : s);
 
 // ------------------------------------------------------------------ state
 
-let ENG = null, ACCT = null;
-function useAccount(phrase) {
-  ACCT = deriveAccount(phrase, { web3, ethers });
+let ENG = null, ACCT = null, PHRASE = null;
+const DEF_ACCTS = [{ id: "hd0", kind: "hd", i: 0, name: "Account 1", c: 0 }];
+/** The networks the current account can use: all of them, or one family for an imported private key. */
+const netKeys = () => Object.keys(NETS).filter((k) => !ACCT?.only || NETS[k].fam === ACCT.only);
+const curAcct = () => (S.accts || DEF_ACCTS).find((a) => a.id === S.sel) || (S.accts || DEF_ACCTS)[0];
+async function useAccount(phrase) {
+  PHRASE = normalize(phrase);
+  const st = await local.get(["accts", "acctSel", "keysBox"]);
+  S.accts = st.accts?.length ? st.accts : DEF_ACCTS; S.sel = st.acctSel || S.accts[0].id;
+  let imported = {}; try { imported = await openKeys(st.keysBox, PHRASE); } catch (_) {}
+  try { ACCT = keysFor(curAcct(), PHRASE, imported, { web3, ethers }); }
+  catch (_) { S.sel = S.accts[0].id; ACCT = keysFor(S.accts[0], PHRASE, imported, { web3, ethers }); }
   ENG = null;
+  if (ACCT.only && NETS[S.net].fam !== ACCT.only) S.net = netKeys()[0];
   // Public addresses only, so websites you connected can see your address while the wallet is locked.
-  local.set({ pub: { sol: ACCT.sol.publicKey.toBase58(), evm: ACCT.evm.address } });
+  await local.set({ pub: { sol: ACCT.sol?.publicKey.toBase58() || null, evm: ACCT.evm?.address || null } });
+}
+async function switchAccount(id) {
+  S.sel = id; await local.set({ acctSel: id });
+  await useAccount(PHRASE);
+  Object.assign(S, { bal: null, vault: undefined, all: null, series: {}, drawChart: true });
+  closePanel(); await home();
 }
 async function eng() {
   if (!ENG || ENG.N.key !== S.net) {
@@ -124,7 +150,7 @@ async function boot() {
   document.documentElement.dataset.theme = S.theme;
   if (!st.box) { if (AP.id) { S.req = { gone: true, nowallet: true }; return go("approve"); } return go("welcome"); }
   const ses = await session.get(["phrase", "until"]);
-  if (ses.phrase && ses.until > Date.now()) { useAccount(ses.phrase); await touch(); return AP.id ? startApproval() : home(); }
+  if (ses.phrase && ses.until > Date.now()) { await useAccount(ses.phrase); await touch(); return AP.id ? startApproval() : home(); }
   await session.clear();
   if (S.bio) { S.bioBusy = "scan"; go("unlock"); return actions["bio-unlock"](); }
   go("unlock");
@@ -432,7 +458,7 @@ function homeView() {
   const addr = e?.address || "";
   return `<div class="home">
     <header class="top">
-      <button class="acct" data-act="panel" data-p="addrs" title="Your addresses"><span class="acct-ic">${LOGO}</span><span class="acct-n">Account 1</span><span class="acct-a">${short(addr)}${I.chev}</span></button>
+      <button class="acct" data-act="panel" data-p="accts" title="Your accounts">${acctIc(curAcct())}<span class="acct-n">${esc(curAcct().name)}</span><span class="acct-a">${short(addr)}${I.chev}</span></button>
       <div class="top-r">
         <button class="ib" data-act="settings" aria-label="Settings">${I.gear}</button>
       </div>
@@ -461,8 +487,8 @@ function homeView() {
     <nav class="acts">
       ${[["send", "Send", I.send], ["receive", "Receive", I.recv], ["swap", "Swap", I.swap], ["protect", "Protect", I.protect], ["withdraw", "Withdraw", I.out]].map(([p, l, ic]) => `<button data-act="panel" data-p="${p}"><span>${ic}</span>${l}</button>`).join("")}
     </nav>
-    <div class="tabs" role="tablist"><button role="tab" data-act="tab" data-t="tokens" aria-selected="${S.tab === "tokens"}">Tokens</button><button role="tab" data-act="tab" data-t="activity" aria-selected="${S.tab === "activity"}">Activity</button><i class="tab-ind" style="--i:${S.tab === "activity" ? 1 : 0}"></i></div>
-    ${S.tab === "activity" ? activityList() : tokenList(w)}
+    <div class="tabs t3" role="tablist">${[["tokens", "Tokens"], ["nfts", "Collectibles"], ["activity", "Activity"]].map(([t, l]) => `<button role="tab" data-act="tab" data-t="${t}" aria-selected="${S.tab === t}">${l}</button>`).join("")}<i class="tab-ind" style="--i:${{ tokens: 0, nfts: 1, activity: 2 }[S.tab] || 0}"></i></div>
+    ${S.tab === "activity" ? activityList() : S.tab === "nfts" ? nftGrid() : tokenList(w)}
     <footer class="foot">${w.all ? "Every network" : "Reading every network…"} · testnet beta</footer>
   </div>`;
 }
@@ -470,7 +496,7 @@ function homeView() {
 /** Every coin you hold on every network, biggest first. Tapping one opens Send on its network. */
 function tokenList(w) {
   if (!w.ready) return `<section class="list">${[1, 2, 3].map(() => `<div class="arow"><span class="coin sk"></span><span class="ar-t"><b class="sk">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</b><small class="sk">&nbsp;&nbsp;&nbsp;&nbsp;</small></span></div>`).join("")}</section>`;
-  if (!w.items.length) return `<section class="list"><div class="empty">${I.recv}<b>No coins yet</b><span>Use Receive to get free test coins on any network.</span></div></section>`;
+  if (!w.items.length && !(S.extra || []).length) return `<section class="list"><div class="empty art">${emptyArt("coins")}<b>Your wallet is empty</b><span>Get free test coins to try Ecrin. They're not worth anything.</span><button class="btn sm primary" data-act="panel" data-p="receive">Get test coins</button></div></section>`;
   const n = (v, d) => v.toLocaleString("en-US", { maximumFractionDigits: d });
   let items = S.hideSmall ? w.items.filter((i) => !(i.usd != null && i.usd < 1)) : w.items;
   if (S.order === "name") items = [...items].sort((x, y) => x.name.localeCompare(y.name));
@@ -489,7 +515,8 @@ function tokenList(w) {
       <span class="ar-t"><b>${f.name}</b><small>${g.length} networks ${I.chev}</small></span>${spark(f.cg)}
       <span class="ar-r"><b>${mask(money(t.usd))}</b><small>${mask(n(t.amt, f.dec))} ${f.unit}${t.sav ? ` <span class="sv">${I.lock}${mask(n(t.sav, f.dec))}</span>` : ""}</small></span></button>${open ? g.map((i) => `<button class="arow sub" data-act="row-send" data-n="${i.k}" data-a="${i.a}">${coin(i.k)}<span class="ar-t"><b>${NETS[i.k].name}</b><small>${NETS[i.k].net}</small></span><span class="ar-r"><b>${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}</small></span></button>`).join("") : ""}`;
   });
-  return `<section class="list">${hidden ? `<div class="hid-note">${hidden} small balance${hidden > 1 ? "s" : ""} hidden</div>` : ""}${out.join("")}</section>`;
+  return `<section class="list">${hidden ? `<div class="hid-note">${hidden} small balance${hidden > 1 ? "s" : ""} hidden</div>` : ""}${out.join("")}${extraRows()}</section>
+    ${netKeys().some((k) => NETS[k].fam === "evm") ? `<button class="add-tok" data-act="panel" data-p="addTok">${I.plus}Add a token</button>` : ""}`;
 }
 
 /** The change over the chart's range, as plain text: "+$122.17 (4.48%) · 1W". */
@@ -579,7 +606,7 @@ const ACT = { send: ["Sent", I.send], protect: ["Moved to Safe", I.protect], wit
 /** Every network at once: reads chequing and savings on each, prices them, and adds it all up. */
 async function loadAll() {
   const { dev } = await local.get("dev");
-  const rows = await Promise.all(Object.keys(NETS).map(async (k) => {
+  const rows = await Promise.all(netKeys().map(async (k) => {
     try {
       const e = k === S.net && ENG ? ENG : engine({ web3, ethers, acct: ACCT, net: k, dev: dev || {} });
       const [b, v] = await Promise.all([e.balances(), e.vault().catch(() => null)]);
@@ -587,10 +614,111 @@ async function loadAll() {
     } catch (_) { return { k, ok: false }; }
   }));
   S.all = rows;
+  loadExtras(dev);
   if (S.panel?.p === "all") { S.panel.rows = rows; renderPanel(); }
   if (S.panel?.p === "vault" || S.panel?.p === "rules") renderPanel();
   if (S.screen === "home" && !S.scrubbing) render();
   loadSeries();
+}
+
+// ------------------------------------------------------------------ every other token, spam hiding, collectibles
+
+// Names that scam airdrops use to lure you to a site. Tokens like this are hidden until you choose to show them.
+const SPAM_RE = /(https?:|www\.|\.(com|io|xyz|net|org|app|site|online|top|fun|vip|gift|info|live|claims?)\b|claim|visit|airdrop|reward|bonus|free\s|voucher|\$\d|✅|🎁)/i;
+const isSpam = (t) => SPAM_RE.test(`${t.name || ""} ${t.symbol || ""}`);
+const tokHidden = (t) => (S.tokPref?.[t.mint] === "hide") || (S.tokPref?.[t.mint] !== "show" && isSpam(t));
+const tokAmt = (t) => Number(BigInt(t.raw)) / 10 ** t.dec;
+const tokName = (t) => t.name || t.symbol || `Token ${short(t.mint)}`;
+const ipfs = (u) => String(u || "").replace(/^ipfs:\/\//, "https://ipfs.io/ipfs/").replace(/^ar:\/\//, "https://arweave.net/");
+const safeImg = (u) => (/^https:\/\/[^\s"'<>]+$/.test(u) ? u : "");
+async function loadExtras(dev) {
+  const pr = await local.get(["tokPref", "tokList", "nftMeta"]); S.tokPref = pr.tokPref || {}; S.tokList = pr.tokList || {};
+  const meta = pr.nftMeta || {};
+  const lists = await Promise.all(netKeys().map(async (k) => {
+    try {
+      const e = k === S.net && ENG ? ENG : engine({ web3, ethers, acct: ACCT, net: k, dev: dev || {} });
+      if (!e.listTokens) return [];
+      return (await e.listTokens(NETS[k].fam === "evm" ? S.tokList[k] || [] : undefined)).map((t) => ({ ...t, k }));
+    } catch (_) { return []; }
+  }));
+  S.extra = lists.flat().filter((t) => BigInt(t.raw || 0) > 0n);
+  // Pictures for collectibles (and token logos): read each item's public metadata file once, never for hidden spam.
+  const need = S.extra.filter((t) => t.uri && !meta[t.mint] && !tokHidden(t)).slice(0, 24);
+  await Promise.all(need.map(async (t) => {
+    try {
+      const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 6000);
+      const j = await (await fetch(ipfs(t.uri), { signal: ctl.signal, credentials: "omit", referrerPolicy: "no-referrer" })).json(); clearTimeout(tm);
+      meta[t.mint] = { img: safeImg(ipfs(j.image)), desc: String(j.description || "").slice(0, 400), col: String(j.collection?.name || j.symbol || "").slice(0, 40) };
+    } catch (_) { meta[t.mint] = { img: "" }; }
+  }));
+  if (need.length) await local.set({ nftMeta: meta });
+  S.nftMeta = meta;
+  if (S.screen === "home" && !S.scrubbing) render();
+  if (S.panel?.p === "xtok" || S.panel?.p === "nft") renderPanel();
+}
+/** Calm line drawings for empty screens, in the same thin-laser style as the Safe. */
+function emptyArt(kind) {
+  const dia = (x, y, r) => `<path d="M${x - r} ${y - r * 0.35}L${x - r * 0.55} ${y - r}H${x + r * 0.55}L${x + r} ${y - r * 0.35}L${x} ${y + r}Z M${x - r} ${y - r * 0.35}H${x + r} M${x - r * 0.55} ${y - r}L${x - r * 0.25} ${y - r * 0.35}L${x} ${y + r}L${x + r * 0.25} ${y - r * 0.35}L${x + r * 0.55} ${y - r}"/>`;
+  const rays = (x, y, n, r0, r1) => Array.from({ length: n }, (_, i) => { const a = (i / n) * Math.PI * 2; return `<path class="ray" d="M${(x + Math.cos(a) * r0).toFixed(1)} ${(y + Math.sin(a) * r0).toFixed(1)}L${(x + Math.cos(a) * r1).toFixed(1)} ${(y + Math.sin(a) * r1).toFixed(1)}"/>`; }).join("");
+  const body = {
+    nft: `<rect x="34" y="18" width="52" height="52" rx="8"/><rect x="42" y="26" width="52" height="52" rx="8" class="soft"/>${dia(60, 44, 11)}`,
+    act: `<path d="M30 60h60M30 46h44M30 32h52" class="soft"/>${dia(92, 34, 9)}`,
+    coins: `<ellipse cx="60" cy="58" rx="26" ry="7" class="soft"/><ellipse cx="60" cy="50" rx="26" ry="7" class="soft"/>${dia(60, 30, 13)}${rays(60, 30, 12, 18, 24)}`,
+    safe: `<rect x="32" y="20" width="56" height="52" rx="9"/><circle cx="60" cy="46" r="13" class="soft"/>${dia(60, 46, 7)}`,
+  }[kind] || "";
+  return `<svg class="eart" viewBox="0 0 120 90" aria-hidden="true">${body}</svg>`;
+}
+function letterIc(t) {
+  const m = S.nftMeta?.[t.mint]?.img, ch = esc((t.symbol || t.name || "?").replace(/[^\p{L}\p{N}]/gu, "").charAt(0).toUpperCase() || "?");
+  const hue = [...t.mint].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
+  return m ? `<span class="coin img"><img src="${esc(m)}" alt="" loading="lazy" referrerpolicy="no-referrer"/></span>` : `<span class="coin letter" style="--h:${hue}">${ch}</span>`;
+}
+function extraRows() {
+  const list = (S.extra || []).filter((t) => !t.nft), shown = list.filter((t) => !tokHidden(t)), hid = list.length - shown.length;
+  const n = (v) => v.toLocaleString("en-US", { maximumFractionDigits: v < 1 ? 6 : 2 });
+  const row = (t) => `<button class="arow${tokHidden(t) ? " muted" : ""}" data-act="xtok" data-m="${esc(t.mint)}" data-n="${t.k}"><span class="cstack">${letterIc(t)}<span class="cmini">${coin(t.k)}</span></span>
+    <span class="ar-t"><b>${esc(tokName(t))}</b><small>${NETS[t.k].name}${isSpam(t) ? ` · <span class="dn">Likely spam</span>` : ""}</small></span>
+    <span class="ar-r"><b>${mask(n(tokAmt(t)))}</b><small>${esc((t.symbol || "").slice(0, 10))}</small></span></button>`;
+  return shown.map(row).join("") + (hid ? `<button class="hid-note btnish" data-act="tog-hidden">${I.eyeOff}${hid} hidden token${hid > 1 ? "s" : ""} · ${S.showHid ? "Hide them" : "Show"}</button>${S.showHid ? list.filter(tokHidden).map(row).join("") : ""}` : "");
+}
+function nftGrid() {
+  const all = (S.extra || []).filter((t) => t.nft), list = all.filter((t) => !tokHidden(t)), hid = all.length - list.length;
+  if (!S.extra) return `<section class="nfts">${[1, 2, 3, 4].map(() => `<div class="nft sk"></div>`).join("")}</section>`;
+  if (!list.length) return `<section class="list"><div class="empty art">${emptyArt("nft")}<b>No collectibles yet</b><span>NFTs you own on Solana show up here.${hid ? ` ${hid} hidden as likely spam.` : ""}</span></div></section>`;
+  return `<section class="nfts">${list.map((t) => { const m = S.nftMeta?.[t.mint] || {}; return `<button class="nft" data-act="nft" data-m="${esc(t.mint)}">${m.img ? `<img src="${esc(m.img)}" alt="" loading="lazy" referrerpolicy="no-referrer"/>` : `<span class="nft-ph">${I.img}</span>`}<span class="nft-n">${esc(tokName(t))}</span></button>`; }).join("")}</section>
+    ${hid ? `<p class="fine pad">${hid} collectible${hid > 1 ? "s" : ""} hidden as likely spam.</p>` : ""}`;
+}
+function xtokView() {
+  const P = S.panel, t = (S.extra || []).find((x) => x.mint === P.m && x.k === P.n);
+  if (!t) return `${phead("Token")}<p class="fine pad">This token isn't in this account anymore.</p>`;
+  const N = NETS[t.k], m = S.nftMeta?.[t.mint] || {}, hidden = tokHidden(t);
+  if (P.step === "sending") return `${phead("Sending")}<div class="sending"><i class="spin"></i><p>Sending ${esc(tokName(t))}…</p></div>`;
+  if (P.step === "done") return doneView("Sent", `${esc(P.amount)} ${esc(t.symbol || tokName(t))} is on its way.`);
+  if (P.step === "review") return `${phead("Review")}
+    <div class="rv-amt">${letterIc(t)}<b>${esc(P.amount)} <small>${esc(t.symbol || "")}</small></b><span>${esc(tokName(t))}</span></div>
+    <div class="tk-info"><div><span>From</span><b>${esc(curAcct().name)}</b></div><div><span>To</span><b class="mono wrap">${esc(P.to)}</b></div><div><span>Network</span><b>${N.name} ${N.net}</b></div><div><span>Network fee</span><b>${esc(N.fam === "sol" ? "≈ 0.000005 SOL" : "a little " + N.unit + " for gas")}</b></div></div>
+    ${P.fresh ? `<div class="note warn">${I.shield}<span>You've never sent to this address from Ecrin. Check the first and last characters against where you copied it.</span></div>` : ""}
+    <div class="pfoot">${hold("Hold to send")}<button class="btn ghost" data-act="x-back">Back</button></div>`;
+  return `${phead(t.nft ? "Collectible" : esc(t.symbol || "Token"))}
+    ${t.nft ? `<div class="nft-big">${m.img ? `<img src="${esc(m.img)}" alt="" referrerpolicy="no-referrer"/>` : `<span class="nft-ph">${I.img}</span>`}</div>` : `<div class="tk-top">${letterIc(t)}<span><b>${esc(tokName(t))}</b><small>${N.name}</small></span></div>
+    <div class="tk-bal"><b>${mask(tokAmt(t).toLocaleString("en-US", { maximumFractionDigits: 6 }))} ${esc(t.symbol || "")}</b><small>No market price on test networks</small></div>`}
+    ${t.nft ? `<h3 class="nft-t">${esc(tokName(t))}</h3>${m.col ? `<p class="fine">${esc(m.col)}</p>` : ""}${m.desc ? `<p class="tk-about">${esc(m.desc)}</p>` : ""}` : ""}
+    ${isSpam(t) ? `<div class="note warn">${I.warn}<span>This looks like a scam airdrop: its name points you to a website. Don't visit it or try to sell it there, it's how drainers get you.</span></div>` : ""}
+    ${hidden && !isSpam(t) ? "" : ""}
+    ${!t.nft && !isSpam(t) ? `<div class="xsend"><label class="fld"><span>Send to</span><input data-xto placeholder="${N.fam === "sol" ? "Solana" : "0x…"} address" value="${esc(P.to || "")}" autocomplete="off" spellcheck="false"/></label>
+      <label class="fld"><span>Amount</span><input data-xamt inputmode="decimal" placeholder="0" value="${esc(P.amount || "")}"/></label>
+      <button class="btn primary" data-act="xsend">${I.send}Review and send</button></div>` : ""}
+    <div class="tk-info"><div><span>Network</span><b>${N.name} ${N.net}</b></div><div><span>Token address</span><b class="mono">${short(t.mint)} <button class="ib sm" data-act="copy" data-v="${esc(t.mint)}" aria-label="Copy">${I.copy}</button></b></div></div>
+    <div class="acc-acts"><a class="btn" href="${N.explorer(N.fam === "sol" ? "address" : "token", t.mint)}" target="_blank">${I.ext}Explorer</a>
+      <button class="btn" data-act="tok-pref" data-m="${esc(t.mint)}">${hidden ? `${I.eye}Show in list` : `${I.eyeOff}Hide`}</button></div>`;
+}
+function addTokView() {
+  const P = S.panel, evm = netKeys().filter((k) => NETS[k].fam === "evm");
+  return `${phead("Add a token")}<div class="pad">
+    <p class="fine">Ethereum-style networks don't list every token an address holds. Paste a token's contract address to follow it.</p>
+    <label class="fld"><span>Network</span><select data-tnet>${evm.map((k) => `<option value="${k}" ${k === (P.net || S.net) ? "selected" : ""}>${NETS[k].name}</option>`).join("")}</select></label>
+    <label class="fld"><span>Token contract</span><input data-taddr placeholder="0x…" autocomplete="off" spellcheck="false"/></label>
+    <div class="pfoot"><button class="btn primary xl" data-act="tok-add" ${P.busy ? "disabled" : ""}>${P.busy ? `<i class="spin"></i>` : ""}Add token</button></div></div>`;
 }
 
 function allView() {
@@ -624,7 +752,7 @@ function allView() {
 
 function activityList() {
   const list = S.activity || [];
-  if (!list.length) return `<section class="list"><div class="empty">${I.clock}<b>No activity yet</b><button class="btn sm" data-act="panel" data-p="receive" style="margin:8px auto 0">Receive your first coins</button><span>Sends, Safe moves and withdrawals show up here.</span></div></section>`;
+  if (!list.length) return `<section class="list"><div class="empty art">${emptyArt("act")}<b>Nothing here yet</b><span>Sends, receives, Safe moves and website approvals show up here.</span><button class="btn sm primary" data-act="panel" data-p="receive">Receive your first coins</button></div></section>`;
   const when = (ms) => new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   return `<section class="list">${list.map((e) => {
     const [title, ic] = ACT[e.t] || ["Transaction", I.arrow], out = e.t === "send";
@@ -645,7 +773,7 @@ function closePanel() { const el = $("#panel"); el.classList.remove("in"); docum
 function renderPanel(enter = false) {
   const el = $("#panel"), P = S.panel;
   if (!P) return;
-  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, addrs: addrsView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
+  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
   el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}">${body}</div>`;
   P.fresh = false;
   if (enter) requestAnimationFrame(() => { el.classList.add("in"); document.body.classList.add("stacked"); });
@@ -719,14 +847,49 @@ function doneView(title, text, extra = "") {
 
 /** Every address this account has, network by network, like MetaMask's account view. */
 function addrsView() {
-  const sol = ACCT.sol.publicKey.toBase58(), evm = ACCT.evm.address;
+  const sol = ACCT.sol?.publicKey.toBase58(), evm = ACCT.evm?.address, A0 = curAcct();
   const row = (k, a) => `<div class="adr">${coin(k)}<span class="adr-t"><b>${NETS[k].name}</b><small class="mono">${short(a)}</small></span>
     <button class="ib sm" data-act="copy" data-v="${esc(a)}" aria-label="Copy ${NETS[k].name} address">${I.copy}</button><button class="ib sm" data-act="qr-for" data-n="${k}" aria-label="Show QR code">${I.qr}</button></div>`;
-  return `${phead("Account 1")}
-    <div class="adr-hero"><span class="acct-ic lg">${LOGO}</span><b>Account 1</b><span class="sub">One recovery phrase, an address on every network</span></div>
-    <div class="list-h"><b>Solana</b></div><section class="list">${row("sol", sol)}</section>
-    <div class="list-h"><b>Ethereum and its networks</b><span>same address on each</span></div>
-    <section class="list">${Object.keys(NETS).filter((k) => k !== "sol").map((k) => row(k, evm)).join("")}</section>`;
+  return `${phead(esc(A0.name))}
+    <div class="adr-hero">${acctIc(A0, "lg")}<b>${esc(A0.name)}</b><span class="sub">${A0.kind === "key" ? "Imported private key" : "From your recovery phrase"}</span></div>
+    ${sol ? `<div class="list-h"><b>Solana</b></div><section class="list">${row("sol", sol)}</section>` : ""}
+    ${evm ? `<div class="list-h"><b>Ethereum and its networks</b><span>same address on each</span></div>
+    <section class="list">${Object.keys(NETS).filter((k) => k !== "sol").map((k) => row(k, evm)).join("")}</section>` : ""}`;
+}
+
+/** A round account mark in the account's colour, with its first letter. */
+function acctIc(a, cls = "") {
+  const col = COLORS[(a?.c ?? 0) % COLORS.length], letter = esc((a?.name || "A").trim().charAt(0).toUpperCase());
+  return `<span class="acct-ic av ${cls}" style="--ac:${col}">${letter}</span>`;
+}
+const acctAddr = (a) => a.kind === "key" ? a.pub : a.id === S.sel ? (ACCT.sol?.publicKey.toBase58() || ACCT.evm?.address) : deriveAccount(PHRASE, { web3, ethers }, a.i).sol.publicKey.toBase58();
+
+/** Every account in this wallet. Tap one to switch; add another from the phrase, or import a private key. */
+function acctsView() {
+  const P = S.panel, list = S.accts || DEF_ACCTS;
+  return `${phead("Accounts")}
+    <section class="list accts-l">${list.map((a) => `<div class="arow acc-row${a.id === S.sel ? " on" : ""}">
+      <button class="acc-main" data-act="acct-switch" data-id="${a.id}">${acctIc(a)}<span class="ar-t"><b>${esc(a.name)}</b><small class="mono">${short(acctAddr(a))}${a.kind === "key" ? ` · <span class="tagk">${a.fam === "sol" ? "Solana key" : "Ethereum key"}</span>` : ""}</small></span>${a.id === S.sel ? `<span class="acc-ok">${I.check}</span>` : ""}</button>
+      <button class="ib sm" data-act="acct-edit" data-id="${a.id}" aria-label="Rename ${esc(a.name)}">${I.pen}</button></div>
+      ${P.edit === a.id ? `<div class="acc-edit"><input data-acct-name value="${esc(a.name)}" maxlength="24" aria-label="Account name"/><button class="btn sm primary" data-act="acct-save" data-id="${a.id}">Save</button>
+        ${a.id !== "hd0" ? `<button class="btn sm ghost danger" data-act="acct-remove" data-id="${a.id}">${a.kind === "key" ? "Remove" : "Hide"}</button>` : ""}</div>` : ""}`).join("")}</section>
+    <div class="acc-acts">
+      <button class="btn" data-act="acct-add">${I.plus}Add account</button>
+      <button class="btn" data-act="panel" data-p="acctNew">${I.key}Import key</button>
+    </div>
+    <button class="srow" data-act="panel" data-p="addrs"><span>${I.qr}Addresses of ${esc(curAcct().name)}</span><span class="sv">${I.arrow}</span></button>
+    <p class="fine pad">Accounts you add come from your recovery phrase, so your backup covers them. Imported keys are not in your recovery phrase: keep their own backup.</p>`;
+}
+
+function acctNewView() {
+  return `${phead("Import private key")}
+    <div class="pad">
+      <p class="fine">Paste a private key from another wallet. Solana keys come from Phantom or Solflare (Settings → Show private key). Ethereum keys are 64 characters.</p>
+      <label class="fld"><span>Private key</span><textarea data-pk rows="3" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Paste the key"></textarea></label>
+      <label class="fld"><span>Name</span><input data-pkname maxlength="24" placeholder="Imported ${(S.accts || []).filter((a) => a.kind === "key").length + 1}"/></label>
+      <div class="note warn">${I.shield}<span>Never paste a private key a website or a person asked you for. Ecrin keeps it encrypted on this device only.</span></div>
+      <div class="pfoot"><button class="btn primary xl" data-act="acct-import">Import</button></div>
+    </div>`;
 }
 
 function receiveView() {
@@ -788,7 +951,7 @@ function vaultView() {
   const isMine = (d) => mine.includes(String(d)) || mine.includes(String(d).toLowerCase());
   const t = now() + (S.clockOff || 0), px = (k) => S.prices[NETS[k].cg]?.usd;
   const live = rows.filter((r) => r.ok).map((r) => (r.k === S.net && S.vault !== undefined ? { ...r, v: S.vault } : r));
-  const open = live.filter((r) => r.v), closed = Object.values(NETS).filter((N) => (N.fam === "sol" || N.contract) && !open.some((r) => r.k === N.key));
+  const open = live.filter((r) => r.v), closed = Object.values(NETS).filter((N) => netKeys().includes(N.key) && (N.fam === "sol" || N.contract) && !open.some((r) => r.k === N.key));
   const usdOf = (r) => ((r.v.main.balance / BASE) * (px(r.k) || 0)) + ((r.v.usdc?.balance || 0) / USDC_BASE);
   const total = open.reduce((x, r) => x + usdOf(r), 0);
   const section = (r) => {
@@ -890,7 +1053,72 @@ async function useNet(n) {
   await eng(); S.activity = await readActivity(); await refresh(); loadSeries();
 }
 
+async function saveAccts() { await local.set({ accts: S.accts }); }
 const actions = {
+  xtok: (el) => openPanel("xtok", { m: el.dataset.m, n: el.dataset.n }),
+  nft: (el) => { const t = (S.extra || []).find((x) => x.mint === el.dataset.m); if (t) openPanel("nft", { m: t.mint, n: t.k }); },
+  "tog-hidden": () => { S.showHid = !S.showHid; render(); },
+  "tok-pref": async (el) => {
+    const t = (S.extra || []).find((x) => x.mint === el.dataset.m); if (!t) return;
+    S.tokPref = { ...S.tokPref, [t.mint]: tokHidden(t) ? "show" : "hide" }; await local.set({ tokPref: S.tokPref });
+    toast(tokHidden(t) ? "Hidden from your list" : "Shown in your list"); renderPanel(); render();
+  },
+  "tok-add": async () => {
+    const k = $("[data-tnet]")?.value, addr = ($("[data-taddr]")?.value || "").trim();
+    if (!ethers.isAddress(addr)) return toast("That isn't a token contract address.", "err");
+    S.panel.busy = true; S.panel.net = k; renderPanel();
+    try {
+      const { dev } = await local.get("dev"); const e = engine({ web3, ethers, acct: ACCT, net: k, dev: dev || {} });
+      const info = await e.tokenInfo(addr);
+      const list = S.tokList[k] || []; if (list.some((t) => t.mint === info.mint)) throw new Error("You already follow this token.");
+      S.tokList = { ...S.tokList, [k]: [...list, info] }; await local.set({ tokList: S.tokList });
+      toast(`${info.symbol} added`); closePanel(); loadExtras(dev);
+    } catch (e) { S.panel.busy = false; renderPanel(); toast(/already/.test(e.message) ? e.message : "Couldn't read a token at that address on this network.", "err"); }
+  },
+  xsend: async () => {
+    const P = S.panel, t = (S.extra || []).find((x) => x.mint === P.m && x.k === P.n);
+    P.to = ($("[data-xto]")?.value || "").trim(); P.amount = ($("[data-xamt]")?.value || "").trim().replace(",", ".");
+    const { dev } = await local.get("dev"); const e = engine({ web3, ethers, acct: ACCT, net: t.k, dev: dev || {} });
+    if (!e.isAddress(P.to)) return toast(`That isn't a ${NETS[t.k].name} address.`, "err");
+    const v = Number(P.amount); if (!(v > 0)) return toast("Enter an amount.", "err");
+    const [w, f = ""] = P.amount.split("."); if (f.length > t.dec) return toast(`This token has ${t.dec} decimals at most.`, "err");
+    const raw = BigInt(w || "0") * 10n ** BigInt(t.dec) + BigInt((f + "0".repeat(t.dec)).slice(0, t.dec) || "0");
+    if (raw > BigInt(t.raw)) return toast("You don't have that much.", "err");
+    P.raw = String(raw); P.fresh = !(await knownDest(P.to)); P.step = "review"; renderPanel();
+  },
+  "x-back": () => { S.panel.step = "form"; renderPanel(); },
+  "acct-switch": (el) => el.dataset.id === S.sel ? closePanel() : switchAccount(el.dataset.id),
+  "acct-edit": (el) => { S.panel.edit = S.panel.edit === el.dataset.id ? null : el.dataset.id; renderPanel(); setTimeout(() => $("[data-acct-name]")?.select(), 30); },
+  "acct-save": async (el) => {
+    const v = ($("[data-acct-name]")?.value || "").trim().slice(0, 24); if (!v) return toast("Give the account a name.", "err");
+    S.accts = (S.accts || DEF_ACCTS).map((a) => (a.id === el.dataset.id ? { ...a, name: v } : a)); await saveAccts(); S.panel.edit = null; renderPanel(); render();
+  },
+  "acct-remove": async (el) => {
+    const a = S.accts.find((x) => x.id === el.dataset.id); if (!a) return;
+    if (a.kind === "key" && !confirm(`Remove ${a.name}? Its coins stay on the blockchain, but you'll need its private key to get them back.`)) return;
+    S.accts = S.accts.filter((x) => x.id !== a.id); await saveAccts();
+    if (a.kind === "key") { const st = await local.get("keysBox"); const m = await openKeys(st.keysBox, PHRASE).catch(() => ({})); delete m[a.id]; await local.set({ keysBox: await sealKeys(m, PHRASE) }); }
+    if (a.id === S.sel) return switchAccount(S.accts[0].id);
+    S.panel.edit = null; renderPanel();
+  },
+  "acct-add": async () => {
+    const used = (S.accts || DEF_ACCTS).filter((a) => a.kind === "hd").map((a) => a.i), i = Math.max(...used) + 1;
+    if (i > 49) return toast("That's the most accounts one phrase can hold here.", "err");
+    const n = (S.accts || DEF_ACCTS).length;
+    S.accts = [...(S.accts || DEF_ACCTS), { id: "hd" + i, kind: "hd", i, name: `Account ${i + 1}`, c: n % COLORS.length }];
+    await saveAccts(); toast(`Account ${i + 1} added`); switchAccount("hd" + i);
+  },
+  "acct-import": async () => {
+    const raw = $("[data-pk]")?.value || "", name = ($("[data-pkname]")?.value || "").trim().slice(0, 24);
+    let k; try { k = parseKey(raw, { web3, ethers }); } catch (e) { return toast(e.message, "err"); }
+    const list = S.accts || DEF_ACCTS;
+    if (list.some((a) => a.pub === k.pub) || [ACCT.sol?.publicKey.toBase58(), ACCT.evm?.address].includes(k.pub)) return toast("This account is already in Ecrin Wallet.", "err");
+    const id = "k" + Date.now().toString(36);
+    const st = await local.get("keysBox"); const m = await openKeys(st.keysBox, PHRASE).catch(() => ({})); m[id] = k.secret;
+    await local.set({ keysBox: await sealKeys(m, PHRASE) });
+    S.accts = [...list, { id, kind: "key", fam: k.fam, pub: k.pub, name: name || `Imported ${list.filter((a) => a.kind === "key").length + 1}`, c: list.length % COLORS.length }];
+    await saveAccts(); $("[data-pk]").value = ""; toast("Account imported"); switchAccount(id);
+  },
   "rule-open": (el) => { S.panel.edit = el.dataset.k; renderPanel(); },
   "rule-back": () => { S.panel.edit = null; renderPanel(); },
   "rule-set": async (el) => {
@@ -942,7 +1170,7 @@ const actions = {
     if (S.busy || !S.bio || S.bioRun) return;
     S.bioRun = true; S.bioBusy = "scan"; render();
     try {
-      const phrase = await bioUnlock(S.bio); await session.set({ phrase }); useAccount(phrase); await touch();
+      const phrase = await bioUnlock(S.bio); await session.set({ phrase }); await useAccount(phrase); await touch();
       S.bioBusy = "ok"; render(); await new Promise((r) => setTimeout(r, 650)); S.bioBusy = null; S.bioRun = false; home();
     } catch (e) { S.bioBusy = null; S.bioRun = false; render(); if (e?.name !== "NotAllowedError") toast(e?.message || `${bioName()} didn't work. Use your password.`, "err"); }
   },
@@ -1044,7 +1272,7 @@ async function forget() { await chrome.storage.local.clear(); await session.clea
 async function saveWallet(phrase, pw) {
   await local.set({ box: await seal(phrase, pw) });
   await session.set({ phrase: normalize(phrase) });
-  useAccount(phrase); await touch();
+  await useAccount(phrase); await touch();
 }
 
 // The send confirmation needs a press and hold: a stray click can't send money.
@@ -1062,7 +1290,17 @@ function bindHolds(root) {
   });
 }
 
+async function xSendNow() {
+  const P = S.panel, t = (S.extra || []).find((x) => x.mint === P.m && x.k === P.n);
+  if (S.upd?.must) return toast("A security update is required before you can send. Update Ecrin Wallet first.", "err");
+  const { dev } = await local.get("dev"); const e = engine({ web3, ethers, acct: ACCT, net: t.k, dev: dev || {} });
+  P.step = "sending"; renderPanel();
+  try { const sig = await e.sendToken(t, P.to, BigInt(P.raw)); P.sig = typeof sig === "string" ? sig : null; await rememberDest(P.to); P.step = "done"; loadExtras(dev); }
+  catch (err) { console.warn(err); P.step = "review"; toast(errText(err), "err"); }
+  renderPanel();
+}
 async function confirmSend() {
+  if (S.panel?.p === "xtok") return xSendNow();
   const P = S.panel, units = parseAmt(P.amount, P.asset), to = P.to.trim();
   P.sent = units;
   await txRun(async () => (await eng()).send(P.asset, to, units), () => rememberDest(to), { t: "send", a: P.asset, n: units, to });
@@ -1111,7 +1349,7 @@ document.addEventListener("submit", async (e) => {
   }
   if (kind === "unlock") {
     S.busy = true; render();
-    try { const { box } = await local.get("box"); const phrase = await open(box, d.pw); await session.set({ phrase }); useAccount(phrase); await touch(); S.busy = false; AP.id ? startApproval() : home(); }
+    try { const { box } = await local.get("box"); const phrase = await open(box, d.pw); await session.set({ phrase }); await useAccount(phrase); await touch(); S.busy = false; AP.id ? startApproval() : home(); }
     catch (_) { S.busy = false; render(); const x = $("[data-err]"); if (x) x.textContent = "Wrong password"; $("#root form")?.classList.add("shake"); }
     return;
   }
@@ -1324,7 +1562,7 @@ function fromRow() {
 function pickView() {
   const P = S.panel, w = worth(), need = P.back === "withdraw" ? "sav" : P.back === "receive" ? null : "chq";
   let list = need ? w.items.filter((i) => i[need] > 0) : [];
-  if (!need) list = Object.values(NETS).flatMap((N) => [{ k: N.key, a: "native", unit: N.unit, name: COIN_NAME[N.unit] || N.unit, net: N.name, coin: N.key }, ...(N.usdc ? [{ k: N.key, a: "usdc", unit: "USDC", name: "USD Coin", net: N.name, coin: "usdc" }] : [])]);
+  if (!need) list = netKeys().map((k) => NETS[k]).flatMap((N) => [{ k: N.key, a: "native", unit: N.unit, name: COIN_NAME[N.unit] || N.unit, net: N.name, coin: N.key }, ...(N.usdc ? [{ k: N.key, a: "usdc", unit: "USDC", name: "USD Coin", net: N.name, coin: "usdc" }] : [])]);
   const n = (v, d) => v.toLocaleString("en-US", { maximumFractionDigits: d });
   return `${phead({ send: "Send which coin?", protect: "Protect which coin?", withdraw: "Withdraw which coin?", receive: "Receive which coin?" }[P.back] || "Choose a coin")}
     <section class="list">${list.length ? list.map((i) => `<button class="arow" data-act="pick-go" data-n="${i.k}" data-a="${i.a}" data-p="${P.back}"><span class="cstack">${coin(i.coin)}${i.coin !== i.k ? `<span class="cmini">${coin(i.k)}</span>` : ""}</span>

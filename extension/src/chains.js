@@ -16,6 +16,15 @@ export const BASE = 1e9, USDC_BASE = 1e6;
 
 const meta = (pubkey, isSigner, isWritable) => ({ pubkey, isSigner, isWritable });
 
+/** Metaplex token metadata account: key, update authority, mint, then name, symbol and uri as borsh strings. */
+function readMeta(d) {
+  try {
+    let o = 65; const dv = new DataView(d.buffer, d.byteOffset, d.byteLength);
+    const str = () => { const n = dv.getUint32(o, true); o += 4; if (n > 400) throw 0; const v = new TextDecoder().decode(d.slice(o, o + n)); o += n; return v.replace(/\0/g, "").trim(); };
+    return { name: str(), symbol: str(), uri: str() };
+  } catch (_) { return {}; }
+}
+
 /** The wallet on one network. `acct` comes from keyring.deriveAccount; `dev` overrides RPC and program for local tests. */
 export function engine({ web3, ethers, acct, net, dev = {} }) {
   const N = NETS[net];
@@ -28,6 +37,7 @@ function solEngine({ web3, acct, N, dev }) {
   const client = createClient({ web3, connection: conn, programId });
   const me = acct.sol.publicKey, kp = acct.sol;
   const mint = new web3.PublicKey(mintAddr), tok = client.token(mint);
+  const TOKEN22 = new web3.PublicKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"), MPL = new web3.PublicKey("metaqbxxUerdq28cj1RAAXmS3jR5o5uKWQ1kXYp2yMR");
   const TOKEN = new web3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), ATA = new web3.PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
   const createAta = (payer, who) => new web3.TransactionInstruction({ programId: ATA, data: Uint8Array.of(1), keys: [meta(payer, true, true), meta(client.ata(who, mint), false, true), meta(who, false, false), meta(mint, false, false), meta(web3.SystemProgram.programId, false, false), meta(TOKEN, false, false)] });
 
@@ -65,6 +75,37 @@ function solEngine({ web3, acct, N, dev }) {
       // transferChecked (12): amount u64, decimals u8; the receiver's token account is created first if missing.
       const data = new Uint8Array(10); data[0] = 12; new DataView(data.buffer).setBigUint64(1, BigInt(amount), true); data[9] = 6;
       return run(createAta(me, dest), new web3.TransactionInstruction({ programId: TOKEN, data, keys: [meta(client.ata(me, mint), false, true), meta(mint, false, false), meta(client.ata(dest, mint), false, true), meta(me, true, false)] }));
+    },
+    /** Every other token this address holds (both token programs), with on-chain names where they exist. */
+    async listTokens() {
+      const progs = [TOKEN, TOKEN22];
+      const lists = await Promise.all(progs.map((pid) => conn.getParsedTokenAccountsByOwner(me, { programId: pid }, "confirmed").then((r) => r.value.map((a) => ({ a, pid }))).catch(() => [])));
+      const out = [];
+      for (const { a, pid } of lists.flat()) {
+        const i = a.account.data?.parsed?.info; if (!i || i.mint === mintAddr) continue;
+        const raw = BigInt(i.tokenAmount.amount); if (raw === 0n) continue;
+        out.push({ mint: i.mint, raw: String(raw), dec: i.tokenAmount.decimals, prog: pid.toBase58(), nft: i.tokenAmount.decimals === 0 && raw === 1n });
+      }
+      // Metaplex metadata: name, symbol, link to the picture.
+      const pdas = out.map((t) => web3.PublicKey.findProgramAddressSync([new TextEncoder().encode("metadata"), MPL.toBytes(), new web3.PublicKey(t.mint).toBytes()], MPL)[0]);
+      for (let i = 0; i < pdas.length; i += 100) {
+        const infos = await conn.getMultipleAccountsInfo(pdas.slice(i, i + 100)).catch(() => []);
+        infos.forEach((acc, j) => { if (acc) Object.assign(out[i + j], readMeta(acc.data)); });
+      }
+      // Token-2022 keeps its name inside the token itself (metadata extension).
+      const t22 = out.filter((t) => !t.name && t.prog === TOKEN22.toBase58());
+      for (let i = 0; i < t22.length; i += 100) {
+        const r = await conn.getMultipleParsedAccounts(t22.slice(i, i + 100).map((t) => new web3.PublicKey(t.mint))).catch(() => null);
+        r?.value?.forEach((acc, j) => { const md = acc?.data?.parsed?.info?.extensions?.find((x) => x.extension === "tokenMetadata")?.state; if (md) Object.assign(t22[i + j], { name: String(md.name || "").slice(0, 60), symbol: String(md.symbol || "").slice(0, 16), uri: String(md.uri || "") }); });
+      }
+      return out;
+    },
+    async sendToken(t, to, raw) {
+      const dest = key(to), m = new web3.PublicKey(t.mint), pid = new web3.PublicKey(t.prog);
+      const ata = (o) => web3.PublicKey.findProgramAddressSync([o.toBytes(), pid.toBytes(), m.toBytes()], ATA)[0];
+      const create = new web3.TransactionInstruction({ programId: ATA, data: Uint8Array.of(1), keys: [meta(me, true, true), meta(ata(dest), false, true), meta(dest, false, false), meta(m, false, false), meta(web3.SystemProgram.programId, false, false), meta(pid, false, false)] });
+      const data = new Uint8Array(10); data[0] = 12; new DataView(data.buffer).setBigUint64(1, BigInt(raw), true); data[9] = t.dec;
+      return run(create, new web3.TransactionInstruction({ programId: pid, data, keys: [meta(ata(me), false, true), meta(m, false, false), meta(ata(dest), false, true), meta(me, true, false)] }));
     },
     createVault: (kind) => run(client.build.initialize(me, { kind })),
     async protect(asset, amount) {
@@ -119,6 +160,21 @@ function evmEngine({ ethers, acct, N, dev }) {
       if (asset === "native") return done(await wallet.sendTransaction({ to: ethers.getAddress(to), value: BigInt(amount) * GWEI }));
       return done(await usdc.transfer(ethers.getAddress(to), BigInt(amount)));
     },
+    /** ERC-20 tokens you added by address (Ethereum has no standard way to list every token an address holds). */
+    async listTokens(list = []) {
+      return (await Promise.all(list.map(async (t) => {
+        try {
+          const c = new ethers.Contract(t.mint, ["function balanceOf(address) view returns (uint256)"], provider);
+          return { ...t, raw: String(await c.balanceOf(wallet.address)) };
+        } catch (_) { return { ...t, raw: "0", err: true }; }
+      })));
+    },
+    async tokenInfo(addr) {
+      const c = new ethers.Contract(ethers.getAddress(addr), ["function symbol() view returns (string)", "function name() view returns (string)", "function decimals() view returns (uint8)"], provider);
+      const [symbol, name, dec] = await Promise.all([c.symbol(), c.name().catch(() => ""), c.decimals()]);
+      return { mint: ethers.getAddress(addr), symbol: String(symbol).slice(0, 12), name: String(name || symbol).slice(0, 40), dec: Number(dec) };
+    },
+    sendToken: async (t, to, raw) => done(await new ethers.Contract(t.mint, ["function transfer(address,uint256) returns (bool)"], wallet).transfer(ethers.getAddress(to), BigInt(raw))),
     createVault: (kind) => client.ops.create({ kind }),
     protect: (asset, amount) => (asset === "native" ? client.ops.deposit(amount) : vt.ops.deposit(amount)),
     request: (asset, dest, amount) => (asset === "native" ? client.ops.requestWithdrawal(dest, amount) : vt.ops.requestWithdrawal(dest, amount)),

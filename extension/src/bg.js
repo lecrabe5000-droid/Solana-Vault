@@ -224,3 +224,15 @@ chrome.alarms.onAlarm.addListener(async (a) => {
   }));
   await chrome.storage.local.set({ seenBal: next });
 });
+
+// You switched accounts in the wallet: connected sites see the new address straight away (or none, when the new
+// account has no address of that kind, e.g. an imported Solana key on an Ethereum site).
+chrome.storage.onChanged.addListener(async (ch, area) => {
+  if (area !== "local" || !ch.pub) return;
+  const was = ch.pub.oldValue || {}, now = ch.pub.newValue || {};
+  const sites = await getSites();
+  for (const [origin, s] of Object.entries(sites)) {
+    if (s.evm && was.evm !== now.evm) broadcast(origin, "evm", "accountsChanged", now.evm ? [now.evm] : []);
+    if (s.sol && was.sol !== now.sol) broadcast(origin, "sol", "accounts", now.sol ? [now.sol] : []);
+  }
+});
