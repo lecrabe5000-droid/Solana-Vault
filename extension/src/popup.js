@@ -12,6 +12,7 @@ import { bioEnable, bioUnlock, bioName, bioPossible } from "./bio.js";
 import { sealKeys, openKeys, parseKey, keysFor, COLORS } from "./accounts.js";
 import { translate, LANGS } from "./i18n.js";
 import { toTron } from "./tron.js";
+import { LOGOS } from "./logos.js";
 
 const VERSION = chrome.runtime.getManifest().version;
 const $ = (s, r = document) => r.querySelector(s);
@@ -70,20 +71,7 @@ const I = {
 const LOGO = '<svg viewBox="0 0 32 32" class="logo"><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="currentColor"/></svg>';
 const SOLP = "M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1zM64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1zM333.1 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H6.5c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1z";
 let gid = 0;
-const COIN = {
-  sol: () => { const id = "sg" + ++gid; return `<svg viewBox="0 0 398 312"><defs><linearGradient id="${id}" x1="360.9" y1="-37.5" x2="141.2" y2="383.3" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#00FFA3"/><stop offset="1" stop-color="#DC1FFF"/></linearGradient></defs><path d="${SOLP}" fill="url(#${id})"/></svg>`; },
-  // Each network's own mark on its own colour, drawn to match the official logos.
-  eth: () => '<svg viewBox="0 0 32 32"><path d="M16 4.5v8.6l7.3 3.3z" fill="#fff" fill-opacity=".6"/><path d="M16 4.5L8.7 16.4l7.3-3.3z" fill="#fff"/><path d="M16 21.9v5.6l7.3-10.1z" fill="#fff" fill-opacity=".6"/><path d="M16 27.5v-5.6l-7.3-4.5z" fill="#fff"/><path d="M16 20.6l7.3-4.2-7.3-3.3z" fill="#fff" fill-opacity=".2"/><path d="M8.7 16.4l7.3 4.2v-7.5z" fill="#fff" fill-opacity=".6"/></svg>',
-  base: () => '<svg viewBox="0 0 32 32"><path d="M15.98 26C21.5 26 26 21.52 26 16S21.5 6 15.98 6C10.75 6 6.45 10.02 6 15.14h13.25v1.72H6C6.45 21.98 10.75 26 15.98 26z" fill="#fff"/></svg>',
-  arb: () => '<svg viewBox="0 0 32 32"><path d="M16 5.2l9.4 5.4v10.8L16 26.8l-9.4-5.4V10.6z" fill="none" stroke="#9dcced" stroke-width="1.4"/><path d="M17.6 12.2l4.4 7.7-1.9 1.1-4.1-7.2zM14.4 12.2l1.6 2.8-3.3 5.9-1.9-1.1z" fill="#28a0f0"/><path d="M13.3 10.9h2.6l-6 10.4-1.6-.9zM16.1 10.9h2.6l5 8.7-1.6.9z" fill="#fff"/></svg>',
-  op: () => '<svg viewBox="0 0 32 32"><text x="15.6" y="20.4" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-style="italic" font-size="11" letter-spacing="-.3" fill="#fff">OP</text></svg>',
-  pol: () => '<svg viewBox="0 0 32 32"><path d="M20.4 12.6l-3-1.75a.9.9 0 0 0-.9 0l-3 1.75v3.4l-2.6 1.5-2.6-1.5v-3l2.6-1.5 1.5.86v-1.7L10.9 9.6a.9.9 0 0 0-.9 0l-3 1.75a.9.9 0 0 0-.45.78v3.5c0 .32.17.62.45.78l3 1.75c.28.16.62.16.9 0l3-1.75v-3.4l2.6-1.5 2.6 1.5v3l-2.6 1.5-1.5-.86v1.7l1.5.87c.28.16.62.16.9 0l3-1.75a.9.9 0 0 0 .45-.78v-3.5a.9.9 0 0 0-.45-.78z" fill="#fff" transform="translate(2.4 2.1)"/></svg>',
-  tron: () => '<svg viewBox="0 0 32 32"><path fill="none" stroke="#fff" stroke-width="1.6" stroke-linejoin="round" d="M6.5 7.5l18 3.8-11.3 14.2zM6.5 7.5l6.7 18M24.5 11.3l-11.3 3.2-6.7-7"/></svg>',
-  bnb: () => '<svg viewBox="0 0 32 32"><path fill="#fff" d="M16 6.6l3.1 3.1-5.5 5.5-3.1-3.1zM20.9 11.5l3.1 3.1-8 8-8-8 3.1-3.1 4.9 4.9zM6.6 13.6l2.4 2.4-2.4 2.4-2.4-2.4zM25.4 13.6l2.4 2.4-2.4 2.4-2.4-2.4zM16 13.6l2.4 2.4-2.4 2.4-2.4-2.4z"/></svg>',
-  avax: () => '<svg viewBox="0 0 32 32"><path fill="#fff" d="M20.1 21.6h3.8c.9 0 1.3-.9.9-1.6l-1.9-3.3c-.4-.8-1.5-.8-1.9 0l-1.9 3.3c-.4.7.1 1.6 1 1.6zM15 8.1c.4-.8 1.6-.8 2 0l1.5 2.6c.2.4.2.8 0 1.2l-5.2 9c-.2.4-.6.7-1.1.7H8.1c-.9 0-1.4-.9-.9-1.6z"/></svg>',
-  usdc: () => '<svg viewBox="0 0 32 32"><path d="M12.2 8.4a8.8 8.8 0 0 0 0 15.2M19.8 8.4a8.8 8.8 0 0 1 0 15.2" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><text x="16" y="20.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="12.5" fill="#fff">$</text></svg>',
-};
-const coin = (k, cls = "") => `<span class="coin c-${k} ${cls}" aria-hidden="true">${(COIN[k] || COIN.eth)()}</span>`;
+const coin = (k, cls = "") => `<span class="coin logo c-${k} ${cls}" aria-hidden="true">${LOGOS[k] || LOGOS.eth}</span>`;
 const netCoin = (n = S.net) => coin(n);
 const assetCoin = (a) => (a === "usdc" ? coin("usdc") : netCoin());
 function avatar(addr) {
@@ -224,7 +212,7 @@ async function loadPrices() {
  *  shows at once next time (even offline) while a fresh one loads. Every source is tried before giving up. */
 async function loadSeries() {
   if (!S.seriesLoaded) { S.seriesLoaded = true; try { const st = await local.get("series"); for (const [k, v] of Object.entries(st.series || {})) if (!S.series[k]) S.series[k] = v; } catch (_) {} }
-  const cgs = [...new Set([NETS[S.net].cg, ...Object.keys(worth().coins)])];
+  const cgs = [...new Set([NETS[S.net].cg, ...Object.keys(worth().coins), ...MARKET.map(([cg]) => cg)])];
   const ok = await Promise.all(cgs.map(loadSeriesFor));
   if (ok.includes(false)) { clearTimeout(S.seriesRetry); S.seriesRetry = setTimeout(loadSeries, 20_000); }
 }
@@ -308,6 +296,7 @@ function render() {
   depth(root);
   bindChart(root);
   if (S.screen === "welcome") mountVault3d(root);
+  if (S.screen === "home") { reveal(root); scrollWatch(); S.prevPx = Object.fromEntries(Object.entries(S.prices).map(([k, v]) => [k, v?.usd])); }
   // The home arrives in a cascade once per unlock.
   if (S.screen === "home" && !S.entered && S.bal) { S.entered = true; root.querySelector(".home")?.classList.add("enter"); }
   // The total counts up the first time it shows, so the balance arrives rather than appears.
@@ -321,6 +310,25 @@ function render() {
 }
 
 /** Number roll-up: from 0 to the shown dollar total in 0.9 s, easing out. */
+// Rows glide in the first time they scroll into view (once per session, so refreshes don't replay it).
+function reveal(root) {
+  S.rv ||= new Set();
+  const sc = $("#root"), io = new IntersectionObserver((es) => es.forEach((e) => { if (!e.isIntersecting) return; e.target.classList.add("in"); S.rv.add(e.target.dataset.rk); io.unobserve(e.target); }), { root: sc, rootMargin: "0px 0px -6% 0px" });
+  let n = 0;
+  root.querySelectorAll(".home .tab-body .arow, .home .sscore, .home .add-tok, .home .list-h, .home .acts button").forEach((el) => {
+    const k = [el.className.split(" ")[0], el.dataset.act, el.dataset.u, el.dataset.n, el.dataset.m, el.dataset.p, el.closest(".mkt") ? "m" : ""].join(":") + (el.classList.contains("list-h") ? el.textContent.slice(0, 12) : "");
+    el.dataset.rk = k; if (S.rv.has(k)) return;
+    el.classList.add("rv"); el.style.setProperty("--d", `${Math.min(n++, 8) * 45}ms`); io.observe(el);
+  });
+}
+// When the big total scrolls away, the header shows it instead.
+function scrollWatch() {
+  const sc = $("#root"); if (sc._sw) return; sc._sw = true;
+  sc.addEventListener("scroll", () => { const h = document.querySelector(".home .hero"); sc.classList.toggle("scrolled", !!h && sc.scrollTop > h.offsetTop + h.offsetHeight * 0.5); }, { passive: true });
+}
+// Prices refresh every 30 seconds while the home screen is open.
+setInterval(() => { if (S.screen === "home" && !document.hidden && ACCT) loadPrices(); }, 30_000);
+
 function countUp(el, from = 0) {
   const to = Number(el.textContent.replace(/[^\d.]/g, "")); if (!to && !from) return;
   const t0 = performance.now();
@@ -492,7 +500,7 @@ function homeView() {
   const addr = e?.address || "";
   return `<div class="home">
     <header class="top">
-      <button class="acct" data-act="panel" data-p="accts" title="Your accounts">${acctIc(curAcct())}<span class="acct-n">${esc(curAcct().name)}</span><span class="acct-a">${short(addr)}${I.chev}</span></button>
+      <button class="acct" data-act="panel" data-p="accts" title="Your accounts">${acctIc(curAcct())}<span class="acct-n">${esc(curAcct().name)}</span><span class="top-total">${loading ? "" : mask(money(w.total))}</span><span class="acct-a">${short(addr)}${I.chev}</span></button>
       <div class="top-r">
         <button class="ib" data-act="settings" aria-label="Settings">${I.gear}</button>
       </div>
@@ -540,7 +548,7 @@ function tokenList(w) {
   const row = (i, sub) => {
     const p = i.a === "usdc" ? { usd: 1 } : S.prices[i.cg], ch = i.a === "usdc" ? null : p?.usd_24h_change;
     return `<button class="arow" data-act="tok" data-u="${i.unit}" data-n="${i.k}"><span class="cstack">${coin(i.coin)}${i.coin !== i.k ? `<span class="cmini">${coin(i.k)}</span>` : ""}</span>
-      <span class="ar-t"><b>${i.name}</b><small>${i.a === "usdc" ? i.net : p?.usd != null ? money(p.usd) : i.net}${ch != null ? ` <span class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</span>` : ""}</small></span>
+      <span class="ar-t"><b>${i.name}</b><small>${i.a === "usdc" ? i.net : p?.usd != null ? `<span class="px${S.prevPx?.[i.cg] != null && S.prevPx[i.cg] !== p.usd ? (p.usd > S.prevPx[i.cg] ? " flash-up" : " flash-dn") : ""}">${money(p.usd)}</span>` : i.net}${ch != null ? ` <span class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</span>` : ""}</small></span>
       ${spark(i.cg)}<span class="ar-r"><b>${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}${i.sav ? ` <span class="sv">${I.lock}${mask(n(i.sav, i.dec))}</span>` : ""}</small></span></button>`.replace('class="arow"', `class="arow${sub ? " sub" : ""}"`);
   };
   const out = Object.values(groups).map((g) => {
@@ -551,7 +559,19 @@ function tokenList(w) {
       <span class="ar-r"><b>${mask(money(t.usd))}</b><small>${mask(n(t.amt, f.dec))} ${f.unit}${t.sav ? ` <span class="sv">${I.lock}${mask(n(t.sav, f.dec))}</span>` : ""}</small></span></button>${open ? g.map((i) => `<button class="arow sub" data-act="row-send" data-n="${i.k}" data-a="${i.a}">${coin(i.k)}<span class="ar-t"><b>${NETS[i.k].name}</b><small>${NETS[i.k].net}</small></span><span class="ar-r"><b>${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}</small></span></button>`).join("") : ""}`;
   });
   return `<section class="list">${hidden ? `<div class="hid-note">${hidden} small balance${hidden > 1 ? "s" : ""} hidden</div>` : ""}${out.join("")}${extraRows()}</section>
-    ${netKeys().some((k) => NETS[k].fam === "evm") ? `<button class="add-tok" data-act="panel" data-p="addTok">${I.plus}Add a token</button>` : ""}`;
+    ${netKeys().some((k) => NETS[k].fam === "evm") ? `<button class="add-tok" data-act="panel" data-p="addTok">${I.plus}Add a token</button>` : ""}
+    ${marketList()}`;
+}
+
+// Live prices for every coin Ecrin supports, held or not: something is always moving on the home screen.
+const MARKET = [["solana", "SOL", "sol", "Solana"], ["ethereum", "ETH", "eth", "Ethereum"], ["binancecoin", "BNB", "bnb", "BNB"], ["tron", "TRX", "tron", "TRON"], ["avalanche-2", "AVAX", "avax", "Avalanche"], ["polygon-ecosystem-token", "POL", "pol", "Polygon"]];
+function marketList() {
+  const rows = MARKET.filter(([cg]) => S.prices[cg]?.usd != null);
+  if (!rows.length) return "";
+  return `<div class="list-h mkt-h"><b>Market</b><span><i class="live-dot"></i>Live</span></div>
+    <section class="list mkt">${rows.map(([cg, unit, logo, name]) => { const p = S.prices[cg], ch = p.usd_24h_change, was = S.prevPx?.[cg], fl = was != null && was !== p.usd ? (p.usd > was ? " flash-up" : " flash-dn") : "";
+      return `<button class="arow" data-act="tok" data-u="${unit}">${coin(logo)}<span class="ar-t"><b>${name}</b><small>${unit}</small></span>${spark(cg)}
+        <span class="ar-r"><b class="px${fl}">${money(p.usd)}</b><small class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch ?? 0).toFixed(2)}%</small></span></button>`; }).join("")}</section>`;
 }
 
 /** The change over the chart's range, as plain text: "+$122.17 (4.48%) · 1W". */
@@ -705,6 +725,7 @@ function emptyArt(kind) {
   return `<svg class="eart" viewBox="0 0 120 90" aria-hidden="true">${body}</svg>`;
 }
 function letterIc(t) {
+  const known = { USDT: "usdt", USDC: "usdc" }[String(t.symbol || "").toUpperCase()]; if (known) return coin(known);
   const m = S.nftMeta?.[t.mint]?.img, ch = esc((t.symbol || t.name || "?").replace(/[^\p{L}\p{N}]/gu, "").charAt(0).toUpperCase() || "?");
   const hue = [...t.mint].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
   return m ? `<span class="coin img"><img src="${esc(m)}" alt="" loading="lazy" referrerpolicy="no-referrer"/></span>` : `<span class="coin letter" style="--h:${hue}">${ch}</span>`;
@@ -1091,7 +1112,7 @@ function acctNewView() {
 
 function receiveView() {
   const e = ENG, N = NETS[S.net];
-  const q = qrcode(0, "M"); q.addData(e.address); q.make();
+  const q = qrcode(0, "H"); q.addData(e.address); q.make(); // high error correction: the logo in the middle can't break it
   return `${phead("Receive")}${fromRow()}
     <div class="recv">
       <div class="qr">${q.createSvgTag({ cellSize: 5, margin: 0, scalable: true })}<span class="qr-c">${netCoin()}</span></div>

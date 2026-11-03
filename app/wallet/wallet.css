@@ -1197,6 +1197,30 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 /* address: one continuous string */
 .ad-a { display: block !important; word-break: break-all; font-size: 13px !important; letter-spacing: 0 !important; line-height: 1.55 !important; color: var(--muted); }
 .ad-a b { color: var(--ink); font-weight: 500; }
+/* official logos fill their circle */
+.coin.logo { overflow: hidden; background: none !important; box-shadow: none; }
+.coin.logo svg { width: 100% !important; height: 100% !important; display: block; }
+.coin.c-sol { box-shadow: inset 0 0 0 1px rgba(255,255,255,.14) !important; }
+/* life while scrolling */
+.rv { opacity: 0; transform: translateY(12px); }
+.rv.in { opacity: 1; transform: none; transition: opacity .55s var(--ease) var(--d, 0ms), transform .55s var(--ease) var(--d, 0ms); }
+.arow { transition: background .2s, transform .15s; } .arow:active, .acts button:active, .acard:active, .sscore:active { transform: scale(.98); }
+.top-total { margin-left: 8px; font: 600 13.5px var(--num); letter-spacing: var(--num-ls); color: var(--ink); opacity: 0; transform: translateY(6px); transition: opacity .25s, transform .25s; white-space: nowrap; }
+#root.scrolled .top-total { opacity: 1; transform: none; } #root.scrolled .acct-a { display: none; }
+#root.scrolled .top { box-shadow: 0 1px 0 var(--line); }
+.mkt-h span { display: inline-flex; align-items: center; gap: 6px; }
+.live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--eb); box-shadow: 0 0 0 0 color-mix(in srgb, var(--eb) 60%, transparent); animation: live 2s ease-out infinite; }
+@keyframes live { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--eb) 55%, transparent); } 100% { box-shadow: 0 0 0 7px transparent; } }
+.mkt small.up { color: var(--eb); } :root[data-theme="dark"] .mkt small.up { color: #7f98ff; } .mkt small.dn { color: var(--muted); }
+.px { border-radius: 4px; transition: color .4s; } .px.flash-up { animation: fl-up 1.2s ease; } .px.flash-dn { animation: fl-dn 1.2s ease; }
+@keyframes fl-up { 0% { color: #fff; background: color-mix(in srgb, var(--eb) 45%, transparent); } 100% { background: transparent; } }
+@keyframes fl-dn { 0% { background: color-mix(in srgb, #e5484d 35%, transparent); } 100% { background: transparent; } }
+.ch-dot { animation: live 2.4s ease-out infinite; }
+.rv .spark path { stroke-dasharray: 160; stroke-dashoffset: 160; }
+.rv.in .spark path { animation: ea-draw 1.1s var(--ease) calc(var(--d, 0ms) + .2s) forwards; }
+@media (prefers-reduced-motion: reduce) { .rv { opacity: 1; transform: none; } .spark path { animation: none; stroke-dashoffset: 0; } .live-dot, .ch-dot { animation: none; } }
+/* QR: the logo sits in a white ring sized for high error correction */
+.qr-c { padding: 5px !important; box-shadow: 0 0 0 3px #fff; } .qr-c .coin { width: 40px !important; height: 40px !important; }
 
 .device { padding: 0 !important; }
 #root, #panel { top: env(safe-area-inset-top, 0px); }

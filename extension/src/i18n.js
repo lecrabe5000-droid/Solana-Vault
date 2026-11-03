@@ -7,7 +7,7 @@ const FR = {
   "Send": "Envoyer", "Receive": "Recevoir", "Swap": "Échanger", "Protect": "Protéger", "Withdraw": "Retirer", "Buy": "Acheter",
   "Tokens": "Jetons", "Collectibles": "Collection", "Activity": "Activité", "Safety score": "Score de sécurité",
   "Every network · testnet beta": "Tous les réseaux · bêta testnet", "Reading every network… · testnet beta": "Lecture des réseaux… · bêta testnet",
-  "Add a token": "Ajouter un jeton", "Your wallet is empty": "Votre wallet est vide", "Get test coins": "Obtenir des jetons de test",
+  "Add a token": "Ajouter un jeton", "Market": "Marché", "Live": "En direct", "Your wallet is empty": "Votre wallet est vide", "Get test coins": "Obtenir des jetons de test",
   "Get free test coins to try Ecrin. They're not worth anything.": "Obtenez des jetons de test gratuits pour essayer Ecrin. Ils n'ont aucune valeur.",
   "Nothing here yet": "Rien pour l'instant", "Receive your first coins": "Recevez vos premiers jetons",
   "Sends, receives, Safe moves and website approvals show up here.": "Envois, réceptions, mouvements du Safe et autorisations de sites apparaissent ici.",

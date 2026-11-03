@@ -610,3 +610,20 @@ td:first-child { color: var(--ink); font-weight: 600; width: 44%; }
 .wl-how code { padding: 1px 6px; border-radius: 6px; background: var(--panel-2); color: var(--ink); font-size: 12.5px; }
 #wallet .wl-form { margin-top: 34px; }
 @media (max-width: 560px) { .wl-form input { flex: none; width: 100%; height: 52px; } }
+/* ---- motion layer (site-fx.js) ---- */
+.coin.real { background: none !important; overflow: hidden; } .coin.real::after { display: none !important; } .coin.real svg { width: 100%; height: 100%; display: block; }
+.net-cloud.band { display: block !important; overflow: hidden; mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+.net-track { display: flex; gap: 12px; width: max-content; animation: band 38s linear infinite; padding: 6px 0; }
+.net-cloud.band:hover .net-track { animation-play-state: paused; }
+.net-track .net { flex: none; }
+@keyframes band { to { transform: translateX(-50%); } }
+.lit { position: relative; } .lit::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 0;
+  background: radial-gradient(260px circle at var(--mx) var(--my), rgba(125, 151, 255, .14), transparent 65%); }
+.assets-mock, .play, .faq details, [class*="-card"] { transition: transform .35s cubic-bezier(.2, .7, .2, 1), box-shadow .35s; }
+@media (hover: hover) { .assets-mock:hover, .play:hover { transform: translateY(-3px); box-shadow: 0 30px 60px -30px rgba(20, 30, 90, .45); } }
+.site-v3d { width: min(320px, 72vw); aspect-ratio: 1; margin: 0 auto 8px; } .site-v3d canvas { width: 100%; height: 100%; display: block; }
+.hero-card { transform-origin: 50% 0; will-change: transform; } .ribbons { will-change: transform; }
+.big-head h2 .mk { animation: mk-glint 5s ease-in-out infinite; }
+@keyframes mk-glint { 0%, 80%, 100% { filter: none; } 88% { filter: brightness(1.5) drop-shadow(0 0 10px rgba(91, 124, 255, .6)); } }
+@media (prefers-reduced-motion: reduce) { .net-track, .big-head h2 .mk { animation: none !important; } .hero-card, .ribbons { transform: none !important; } }
+.chains .net-cloud.band { grid-column: 1 / -1; width: 100%; max-width: none; } .chains:has(.band) { row-gap: 28px; }

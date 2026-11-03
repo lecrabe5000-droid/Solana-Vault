@@ -18,6 +18,8 @@ if (process.argv.includes("--watch")) { const c = await context(opts); await c.w
 else {
   await build(opts);
   // The page scripts: plain IIFEs (content scripts can't be modules), no shims, tiny.
+  // The website's motion layer (logos, 3D Safe), from the same code as the wallet.
+  await build({ entryPoints: { "site-fx": "src/site-fx.js" }, bundle: true, format: "iife", outdir: "../app", minify: true, target: "es2020", legalComments: "none", logLevel: "warning" });
   await build({ entryPoints: { inpage: "src/inpage.js", content: "src/content.js" }, bundle: true, format: "iife", outdir: out, minify: true, target: "chrome116", legalComments: "none", logLevel: "warning" });
   console.log("built", fs.readdirSync(out).join(" "));
 }
