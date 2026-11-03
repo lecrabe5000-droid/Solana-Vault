@@ -10,6 +10,7 @@ import { makeApprovals } from "./approve.js";
 import { mountVault3d } from "./vault3d.js";
 import { bioEnable, bioUnlock, bioName, bioPossible } from "./bio.js";
 import { sealKeys, openKeys, parseKey, keysFor, COLORS } from "./accounts.js";
+import { translate, LANGS } from "./i18n.js";
 
 const VERSION = chrome.runtime.getManifest().version;
 const $ = (s, r = document) => r.querySelector(s);
@@ -133,7 +134,8 @@ async function eng() {
 
 async function boot() {
   const pr = await local.get(["book", "hideSmall", "order", "recvNotify", "guard", "alertsOn"]); Object.assign(S, { book: pr.book || {}, hideSmall: !!pr.hideSmall, order: pr.order || "value", recvNotify: pr.recvNotify, guard: { auto: 0, daily: 0, cool: 0, coolOver: 500, ...(pr.guard || {}) }, alertsOn: !!pr.alertsOn });
-  const st = await local.get(["box", "net", "theme", "autolock", "hide", "nums", "range", "dev", "prices", "bio"]);
+  const st = await local.get(["box", "net", "theme", "autolock", "hide", "nums", "range", "dev", "prices", "bio", "lang"]);
+  S.lang = st.lang || (/^fr/i.test(navigator.language || "") ? "fr" : "en"); document.documentElement.lang = S.lang;
   S.bio = globalThis.ECRIN_WEB && st.bio ? st.bio : null;
   // The phone app opens on the spinning Ecrin mark for a moment.
   if (globalThis.ECRIN_WEB) await new Promise((r) => setTimeout(r, Math.max(0, 1300 - performance.now())));
@@ -295,6 +297,7 @@ function render() {
   const root = $("#root");
   root.dataset.screen = S.screen;
   root.innerHTML = ({ loading: () => `<div class="splash"><span class="spin-tile">${LOGO}</span></div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
+  translate(root, S.lang);
   const f = root.querySelector("[autofocus]"); if (f) f.focus();
   bindHolds(root);
   depth(root);
@@ -861,7 +864,7 @@ function activityList() {
   if (!list.length) return `<section class="list"><div class="empty art">${emptyArt("act")}<b>Nothing here yet</b><span>Sends, receives, Safe moves and website approvals show up here.</span><button class="btn sm primary" data-act="panel" data-p="receive">Receive your first coins</button></div></section>`;
   return `<label class="act-q">${I.search}<input data-actq placeholder="Search names, addresses, sites" value="${esc(S.actQ || "")}" autocomplete="off" spellcheck="false"/></label><section class="list" id="actl">${actRows()}</section>`;
 }
-function paintActivity() { const el = $("#actl"); if (el) el.innerHTML = actRows(); else if (S.screen === "home" && !S.panel) render(); }
+function paintActivity() { const el = $("#actl"); if (el) { el.innerHTML = actRows(); translate(el, S.lang); } else if (S.screen === "home" && !S.panel) render(); }
 
 function delay(s) { return s >= 86400 && s % 86400 === 0 ? `${s / 86400} day${s / 86400 > 1 ? "s" : ""}` : `${Math.round(s / 3600)} h`; }
 function dur(s) { if (s <= 0) return "ready"; const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60); return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`; }
@@ -875,7 +878,7 @@ function renderPanel(enter = false) {
   const el = $("#panel"), P = S.panel;
   if (!P) return;
   const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
-  el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}">${body}</div>`;
+  el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}">${body}</div>`; translate(el, S.lang);
   P.fresh = false;
   if (enter) requestAnimationFrame(() => { el.classList.add("in"); document.body.classList.add("stacked"); });
   bindHolds(el); depth(el); mountVault3d(el); bindTokChart(el);
@@ -1172,6 +1175,7 @@ function settingsView() {
   return `${phead("Settings")}
     <div class="sets">
       <div class="srow"><span>${I.clock}Auto-lock</span><span class="seg">${[0, 1, 5, 15, 60].map((m) => `<button data-act="autolock" data-v="${m}" aria-pressed="${S.autolock === m}">${m === 0 ? "Always" : m < 60 ? m + "m" : "1h"}</button>`).join("")}</span></div>
+      <div class="srow"><span>${I.globe}Language</span><span class="seg">${LANGS.map(([k, l]) => `<button data-act="lang" data-v="${k}" aria-pressed="${S.lang === k}">${l}</button>`).join("")}</span></div>
       <div class="srow"><span>${S.theme === "dark" ? I.moon : I.sun}Appearance</span><span class="seg">${["light", "dark"].map((t) => `<button data-act="theme" data-v="${t}" aria-pressed="${S.theme === t}">${t === "light" ? "Light" : "Dark"}</button>`).join("")}</span></div>
       <button class="srow" data-act="panel" data-p="numbers"><span><b class="nf-ico">1.2</b>Numbers</span><span class="sv">${NUM_FACES.find(([k]) => k === S.nums.face)[1]} ${I.arrow}</span></button>
       ${globalThis.ECRIN_WEB || globalThis.ECRIN_DEMO ? "" : `<button class="srow" data-act="panel" data-p="sites"><span>${I.link}Connected sites</span><span class="sv">${I.arrow}</span></button>`}
@@ -1237,6 +1241,7 @@ async function useNet(n) {
 
 async function saveAccts() { await local.set({ accts: S.accts }); }
 const actions = {
+  lang: async (el) => { S.lang = el.dataset.v; document.documentElement.lang = S.lang; await local.set({ lang: S.lang }); render(); renderPanel(); },
   "tour-next": () => { S.tour = (S.tour || 0) + 1; if (S.tour >= TOUR.length) local.set({ toured: true }); render(); },
   "tour-skip": () => { S.tour = TOUR.length; local.set({ toured: true }); render(); },
   guard: async (el) => {
@@ -1553,7 +1558,7 @@ document.addEventListener("input", (e) => {
     sync(); return;
     function sync() { const ta = document.querySelector('textarea[name="phrase"]'); if (ta) ta.value = [...document.querySelectorAll("[data-w]")].map((b) => b.value.trim().toLowerCase()).filter(Boolean).join(" "); }
   }
-  if (t.matches("[data-actq]")) { S.actQ = t.value; const el = $("#actl"); if (el) el.innerHTML = actRows(); return; }
+  if (t.matches("[data-actq]")) { S.actQ = t.value; const el = $("#actl"); if (el) { el.innerHTML = actRows(); translate(el, S.lang); } return; }
   if (t.matches("[data-amount]")) {
     const v = t.value.replace(/[^\d.,]/g, "").replace(",", "."), parts = v.split(".");
     S.panel.amount = parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : v; S.panel.pct = null;
