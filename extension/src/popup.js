@@ -11,6 +11,7 @@ import { mountVault3d } from "./vault3d.js";
 import { bioEnable, bioUnlock, bioName, bioPossible } from "./bio.js";
 import { sealKeys, openKeys, parseKey, keysFor, COLORS } from "./accounts.js";
 import { translate, LANGS } from "./i18n.js";
+import { toTron } from "./tron.js";
 
 const VERSION = chrome.runtime.getManifest().version;
 const $ = (s, r = document) => r.querySelector(s);
@@ -77,6 +78,7 @@ const COIN = {
   arb: () => '<svg viewBox="0 0 32 32"><path d="M16 5.2l9.4 5.4v10.8L16 26.8l-9.4-5.4V10.6z" fill="none" stroke="#9dcced" stroke-width="1.4"/><path d="M17.6 12.2l4.4 7.7-1.9 1.1-4.1-7.2zM14.4 12.2l1.6 2.8-3.3 5.9-1.9-1.1z" fill="#28a0f0"/><path d="M13.3 10.9h2.6l-6 10.4-1.6-.9zM16.1 10.9h2.6l5 8.7-1.6.9z" fill="#fff"/></svg>',
   op: () => '<svg viewBox="0 0 32 32"><text x="15.6" y="20.4" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-style="italic" font-size="11" letter-spacing="-.3" fill="#fff">OP</text></svg>',
   pol: () => '<svg viewBox="0 0 32 32"><path d="M20.4 12.6l-3-1.75a.9.9 0 0 0-.9 0l-3 1.75v3.4l-2.6 1.5-2.6-1.5v-3l2.6-1.5 1.5.86v-1.7L10.9 9.6a.9.9 0 0 0-.9 0l-3 1.75a.9.9 0 0 0-.45.78v3.5c0 .32.17.62.45.78l3 1.75c.28.16.62.16.9 0l3-1.75v-3.4l2.6-1.5 2.6 1.5v3l-2.6 1.5-1.5-.86v1.7l1.5.87c.28.16.62.16.9 0l3-1.75a.9.9 0 0 0 .45-.78v-3.5a.9.9 0 0 0-.45-.78z" fill="#fff" transform="translate(2.4 2.1)"/></svg>',
+  tron: () => '<svg viewBox="0 0 32 32"><path fill="none" stroke="#fff" stroke-width="1.6" stroke-linejoin="round" d="M6.5 7.5l18 3.8-11.3 14.2zM6.5 7.5l6.7 18M24.5 11.3l-11.3 3.2-6.7-7"/></svg>',
   bnb: () => '<svg viewBox="0 0 32 32"><path fill="#fff" d="M16 6.6l3.1 3.1-5.5 5.5-3.1-3.1zM20.9 11.5l3.1 3.1-8 8-8-8 3.1-3.1 4.9 4.9zM6.6 13.6l2.4 2.4-2.4 2.4-2.4-2.4zM25.4 13.6l2.4 2.4-2.4 2.4-2.4-2.4zM16 13.6l2.4 2.4-2.4 2.4-2.4-2.4z"/></svg>',
   avax: () => '<svg viewBox="0 0 32 32"><path fill="#fff" d="M20.1 21.6h3.8c.9 0 1.3-.9.9-1.6l-1.9-3.3c-.4-.8-1.5-.8-1.9 0l-1.9 3.3c-.4.7.1 1.6 1 1.6zM15 8.1c.4-.8 1.6-.8 2 0l1.5 2.6c.2.4.2.8 0 1.2l-5.2 9c-.2.4-.6.7-1.1.7H8.1c-.9 0-1.4-.9-.9-1.6z"/></svg>',
   usdc: () => '<svg viewBox="0 0 32 32"><path d="M12.2 8.4a8.8 8.8 0 0 0 0 15.2M19.8 8.4a8.8 8.8 0 0 1 0 15.2" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><text x="16" y="20.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="12.5" fill="#fff">$</text></svg>',
@@ -190,7 +192,8 @@ async function refresh() {
 }
 
 // Prices come from CoinGecko first, then Binance, then Coinbase: if one is down or rate-limits us, the next answers.
-const SYM = { solana: "SOL", ethereum: "ETH", "polygon-ecosystem-token": "POL", binancecoin: "BNB", "avalanche-2": "AVAX" };
+const SYM = { solana: "SOL", ethereum: "ETH", "polygon-ecosystem-token": "POL", binancecoin: "BNB", "avalanche-2": "AVAX", tron: "TRX" };
+const addrHint = (N) => (N.fam === "sol" ? "Solana address" : N.fam === "tron" ? "Tron address (T…)" : "0x… address");
 const getJSON = async (url) => { const r = await fetch(url, { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return r.json(); };
 
 async function spotPrices() {
@@ -206,7 +209,7 @@ async function spotPrices() {
 }
 
 async function loadPrices() {
-  if (S.mock) { S.prices = { solana: { usd: 172.4, usd_24h_change: 2.31 }, binancecoin: { usd: 612.5, usd_24h_change: 0.6 }, "avalanche-2": { usd: 28.4, usd_24h_change: -1.4 }, ethereum: { usd: 3410, usd_24h_change: -0.84 }, "polygon-ecosystem-token": { usd: 0.42, usd_24h_change: 1.2 } }; if (S.screen === "home") render(); return loadSeries(); }
+  if (S.mock) { S.prices = { solana: { usd: 172.4, usd_24h_change: 2.31 }, binancecoin: { usd: 612.5, usd_24h_change: 0.6 }, "avalanche-2": { usd: 28.4, usd_24h_change: -1.4 }, tron: { usd: 0.24, usd_24h_change: 0.9 }, ethereum: { usd: 3410, usd_24h_change: -0.84 }, "polygon-ecosystem-token": { usd: 0.42, usd_24h_change: 1.2 } }; if (S.screen === "home") render(); return loadSeries(); }
   const p = await spotPrices().catch(() => null);
   if (p) { S.prices = { ...S.prices, ...p }; local.set({ prices: { at: Date.now(), p: S.prices } }); if (S.screen === "home") render(); }
   await loadSeries();
@@ -613,7 +616,7 @@ function chartView() {
   </div>`;
 }
 
-const COIN_NAME = { SOL: "Solana", ETH: "Ether", POL: "Polygon", BNB: "BNB", AVAX: "Avalanche", USDC: "USD Coin" };
+const COIN_NAME = { SOL: "Solana", ETH: "Ether", POL: "Polygon", BNB: "BNB", AVAX: "Avalanche", TRX: "TRON", USDC: "USD Coin" };
 function assetRow(a, chq, sav) {
   const x = A(a), u = usdOf(chq + sav, a), p = a === "usdc" ? { usd: 1, usd_24h_change: 0 } : S.prices[NETS[S.net].cg];
   const ch = p?.usd_24h_change;
@@ -738,11 +741,11 @@ function xtokView() {
     ${t.nft ? `<h3 class="nft-t">${esc(tokName(t))}</h3>${m.col ? `<p class="fine">${esc(m.col)}</p>` : ""}${m.desc ? `<p class="tk-about">${esc(m.desc)}</p>` : ""}` : ""}
     ${isSpam(t) ? `<div class="note warn">${I.warn}<span>This looks like a scam airdrop: its name points you to a website. Don't visit it or try to sell it there, it's how drainers get you.</span></div>` : ""}
     ${hidden && !isSpam(t) ? "" : ""}
-    ${!t.nft && !isSpam(t) ? `<div class="xsend"><label class="fld"><span>Send to</span><input data-xto placeholder="${N.fam === "sol" ? "Solana" : "0x…"} address" value="${esc(P.to || "")}" autocomplete="off" spellcheck="false"/></label>
+    ${!t.nft && !isSpam(t) ? `<div class="xsend"><label class="fld"><span>Send to</span><input data-xto placeholder="${addrHint(N)}" value="${esc(P.to || "")}" autocomplete="off" spellcheck="false"/></label>
       <label class="fld"><span>Amount</span><input data-xamt inputmode="decimal" placeholder="0" value="${esc(P.amount || "")}"/></label>
       <button class="btn primary" data-act="xsend">${I.send}Review and send</button></div>` : ""}
     <div class="tk-info"><div><span>Network</span><b>${N.name} ${N.net}</b></div><div><span>Token address</span><b class="mono">${short(t.mint)} <button class="ib sm" data-act="copy" data-v="${esc(t.mint)}" aria-label="Copy">${I.copy}</button></b></div></div>
-    <div class="acc-acts"><a class="btn" href="${N.explorer(N.fam === "sol" ? "address" : "token", t.mint)}" target="_blank">${I.ext}Explorer</a>
+    <div class="acc-acts"><a class="btn" href="${N.explorer(N.fam === "evm" || N.fam === "tron" ? "token" : "address", t.mint)}" target="_blank">${I.ext}Explorer</a>
       <button class="btn" data-act="tok-pref" data-m="${esc(t.mint)}">${hidden ? `${I.eye}Show in list` : `${I.eyeOff}Hide`}</button></div>`;
 }
 /** Who can move your tokens without asking again, and a Revoke button for each. */
@@ -802,7 +805,7 @@ function allView() {
   // By coin: SOL, ETH (all Ethereum-style networks together), POL, USDC.
   const byCoin = {};
   for (const i of items) { const c = (byCoin[i.unit] ||= { unit: i.unit, coin: i.unit === "USDC" ? "usdc" : i.unit === "ETH" ? "eth" : i.coin, usd: 0, amt: 0, dec: i.dec }); c.usd += i.usd || 0; c.amt += i.chq + i.sav; }
-  const coins = Object.values(byCoin).sort((a, b) => b.usd - a.usd), COL = { SOL: "#9945ff", ETH: "#7d97ff", POL: "#a26bff", BNB: "#f0b90b", AVAX: "#e84142", USDC: "#2775ca" };
+  const coins = Object.values(byCoin).sort((a, b) => b.usd - a.usd), COL = { SOL: "#9945ff", ETH: "#7d97ff", POL: "#a26bff", BNB: "#f0b90b", AVAX: "#e84142", TRX: "#ff060a", USDC: "#2775ca" };
   const n = (v, d) => v.toLocaleString("en-US", { maximumFractionDigits: d });
   return `${phead("All assets")}
     <div class="all-total"><span class="lbl">Across every network</span><div class="big">${mask(fig(money(total)))}</div>
@@ -822,7 +825,7 @@ const nameFor = (k, a) => (a && S.book?.[NETS[k]?.fam]?.[a]) || null;
 const who = (k, a) => esc(nameFor(k, a) || short(a));
 /** Activity from every network of this account, newest first, plus coins received (read from the chain) and website approvals. */
 async function loadActivity() {
-  const keys = netKeys(), addrOf = (k) => (NETS[k].fam === "sol" ? ACCT.sol?.publicKey.toBase58() : ACCT.evm?.address);
+  const keys = netKeys(), addrOf = (k) => (NETS[k].fam === "sol" ? ACCT.sol?.publicKey.toBase58() : NETS[k].fam === "tron" ? (ACCT.tron ? toTron(ACCT.tron.address) : null) : ACCT.evm?.address);
   const st = await local.get([...keys.map((k) => `act:${k}:${addrOf(k)}`), "apLog"]);
   let list = keys.flatMap((k) => (st[`act:${k}:${addrOf(k)}`] || []).map((e) => ({ ...e, k })));
   const mine = new Set(keys.map(addrOf).filter(Boolean));
@@ -931,7 +934,7 @@ function sendView() {
   return `${phead("Send")}
     ${fromRow()}${assetPick()}
     ${amountBlock(sendMax(), "Wallet")}
-    <label class="fld to"><span>To</span><div class="in-btn"><input data-to placeholder="${NETS[S.net].fam === "sol" ? "Solana address" : "0x… address"}" value="${esc(P.to)}" spellcheck="false" autocomplete="off"/><button type="button" class="ib sm" data-act="paste" aria-label="Paste">${I.paste}</button></div></label>
+    <label class="fld to"><span>To</span><div class="in-btn"><input data-to placeholder="${addrHint(NETS[S.net])}" value="${esc(P.to)}" spellcheck="false" autocomplete="off"/><button type="button" class="ib sm" data-act="paste" aria-label="Paste">${I.paste}</button></div></label>
     ${P.to && !e.isAddress(P.to) ? `<p class="err">That isn't a ${NETS[S.net].name} address.</p>` : ""}
     ${bookName(P.to.trim()) ? `<p class="book-to">${I.check}Sending to <b>${esc(bookName(P.to.trim()))}</b></p>` : ""}
     ${bookList().length ? `<div class="book">${bookList().map(([a, n]) => `<button class="${P.to.trim() === a ? "on" : ""}" data-act="book-pick" data-a="${esc(a)}"><i>${esc(n.slice(0, 1).toUpperCase())}</i>${esc(n)}</button>`).join("")}</div>` : ""}
@@ -1037,8 +1040,9 @@ function addrsView() {
   return `${phead(esc(A0.name))}
     <div class="adr-hero">${acctIc(A0, "lg")}<b>${esc(A0.name)}</b><span class="sub">${A0.kind === "key" ? "Imported private key" : "From your recovery phrase"}</span></div>
     ${sol ? `<div class="list-h"><b>Solana</b></div><section class="list">${row("sol", sol)}</section>` : ""}
+    ${ACCT.tron && !ACCT.only ? `<div class="list-h"><b>Tron</b></div><section class="list">${row("tron", toTron(ACCT.tron.address))}</section>` : ""}
     ${evm ? `<div class="list-h"><b>Ethereum and its networks</b><span>same address on each</span></div>
-    <section class="list">${Object.keys(NETS).filter((k) => k !== "sol").map((k) => row(k, evm)).join("")}</section>` : ""}`;
+    <section class="list">${Object.keys(NETS).filter((k) => NETS[k].fam === "evm").map((k) => row(k, evm)).join("")}</section>` : ""}`;
 }
 
 /** A round account mark in the account's colour, with its first letter. */
@@ -1085,7 +1089,7 @@ function receiveView() {
       <p class="recv-n">Your ${N.name} address</p>
       ${navigator.share ? `<button class="btn sm share" data-act="share-addr">${I.send}Share address</button>` : ""}
       <button class="addr" data-act="copy-addr"><span class="mono">${esc(e.address)}</span>${I.copy}</button>
-      <p class="fine">Only send ${N.name} ${N.net} coins${N.usdc ? " or USDC" : ""} to this address. ${N.fam === "evm" ? "The same address works on every Ethereum-style network." : ""}</p>
+      <p class="fine">Only send ${N.name} ${N.net} coins${N.usdc ? " or USDC" : ""} to this address. ${N.fam === "tron" ? "Tron addresses start with T. Test USDT on Nile shows with your tokens." : ""}${N.fam === "evm" ? "The same address works on every Ethereum-style network." : ""}</p>
       <a class="link" href="${N.faucet}" target="_blank">Get free test ${N.unit} ${I.ext}</a>
       <button class="btn sm buy-b" data-act="panel" data-p="buy">${I.card}Buy with a card</button>
     </div>`;

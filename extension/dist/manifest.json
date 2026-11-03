@@ -38,7 +38,8 @@
     "https://api.binance.com/*",
     "https://api.exchange.coinbase.com/*",
     "https://raw.githubusercontent.com/*",
-    "https://ecrinprotocol.app/*"
+    "https://ecrinprotocol.app/*",
+    "https://nile.trongrid.io/*"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; base-uri 'none'; frame-ancestors 'none'"

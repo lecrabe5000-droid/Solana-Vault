@@ -81,7 +81,7 @@ body.stacked #root { transform: scale(.94) translateY(8px); filter: brightness(.
 .coin { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: #2a2d36; }
 .coin svg { width: 58%; height: 58%; }
 .c-sol { background: #0b0b0e; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); } .c-sol svg { width: 54%; }
-.c-eth { background: #627eea; } .c-base { background: #0052ff; } .c-arb { background: #213147; } .c-op { background: #ff0420; } .c-pol { background: #6c00f6; } .c-bnb { background: #f0b90b; } .c-avax { background: #e84142; } .c-bnb svg, .c-avax svg { width: 66%; height: 66%; } .c-usdc { background: #2775ca; } .c-eth svg, .c-base svg, .c-arb svg, .c-pol svg, .c-usdc svg { width: 70%; height: 70%; } .c-op svg { width: 76%; height: 76%; }
+.c-eth { background: #627eea; } .c-base { background: #0052ff; } .c-arb { background: #213147; } .c-op { background: #ff0420; } .c-pol { background: #6c00f6; } .c-tron { background: #ff060a; } .c-tron svg { width: 64%; height: 64%; } .c-bnb { background: #f0b90b; } .c-avax { background: #e84142; } .c-bnb svg, .c-avax svg { width: 66%; height: 66%; } .c-usdc { background: #2775ca; } .c-eth svg, .c-base svg, .c-arb svg, .c-pol svg, .c-usdc svg { width: 70%; height: 70%; } .c-op svg { width: 76%; height: 76%; }
 .coin.lg { width: 48px; height: 48px; }
 .cstack { position: relative; display: inline-grid; } .cmini { position: absolute; right: -3px; bottom: -3px; } .cmini .coin { width: 16px; height: 16px; box-shadow: 0 0 0 2px var(--bg); }
 .ava { display: block; width: 30px; height: 30px; border-radius: 50%; }

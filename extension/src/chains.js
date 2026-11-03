@@ -7,9 +7,11 @@ import { explainError } from "../../app/chain.js";
 import { CONFIG } from "../../app/config.js";
 import { SOL_USDC } from "../../app/config-tokens.js";
 import { EVM_NETS } from "../../app/config-evm.js";
+import { TRON, tronEngine } from "./tron.js";
 
 export const NETS = {
   sol: { key: "sol", fam: "sol", name: "Solana", net: "Devnet", unit: "SOL", cg: "solana", explorer: (k, id) => `https://explorer.solana.com/${k}/${id}?cluster=devnet`, usdc: SOL_USDC.devnet, contract: CONFIG.programId, rpc: CONFIG.rpc, faucet: "https://faucet.solana.com" },
+  tron: TRON,
   ...Object.fromEntries(Object.values(EVM_NETS).map((E) => [E.key, { key: E.key, fam: "evm", name: E.name, net: E.net, unit: E.unit, cg: E.cg, explorer: (k, id) => `${E.explorer}/${k}/${id}`, usdc: E.usdc, contract: E.address, rpc: E.rpc, faucet: E.faucet, E, tokens: E.v >= 2 }])),
 };
 export const BASE = 1e9, USDC_BASE = 1e6;
@@ -28,6 +30,7 @@ function readMeta(d) {
 /** The wallet on one network. `acct` comes from keyring.deriveAccount; `dev` overrides RPC and program for local tests. */
 export function engine({ web3, ethers, acct, net, dev = {} }) {
   const N = NETS[net];
+  if (N.fam === "tron") return tronEngine({ ethers, acct, dev });
   return N.fam === "sol" ? solEngine({ web3, acct, N, dev }) : evmEngine({ ethers, acct, N, dev });
 }
 

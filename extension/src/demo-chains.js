@@ -3,6 +3,7 @@
 import * as web3 from "@solana/web3.js";
 import { ethers } from "ethers";
 import { NETS, BASE, USDC_BASE } from "./chains.js";
+import { toTron, fromTron } from "./tron.js";
 export { NETS, BASE, USDC_BASE };
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -11,7 +12,7 @@ const now = () => Math.floor(Date.now() / 1000);
 
 export function engine({ acct, net }) {
   const N = NETS[net], sol = N.fam === "sol";
-  const address = sol ? acct.sol.publicKey.toBase58() : acct.evm.address;
+  const address = sol ? acct.sol.publicKey.toBase58() : N.fam === "tron" ? toTron(acct.tron.address) : acct.evm.address;
   const B = (books[net] ||= { native: sol ? 24.5 * BASE : 1.8 * BASE, usdc: 1250 * USDC_BASE, vault: null, id: 1 });
   const side = (a) => (a === "usdc" ? B.vault.usdc : B.vault.main);
   const free = (t) => t.balance - t.withdrawals.reduce((s, w) => s + w.amount, 0);
@@ -19,7 +20,7 @@ export function engine({ acct, net }) {
   const act = async (fn) => { await wait(700 + Math.random() * 600); fn(); return null; };
   return {
     N, address, explain: (e) => ({ message: e.message }),
-    isAddress: (s) => { try { if (sol) new web3.PublicKey(String(s).trim()); else ethers.getAddress(String(s).trim()); return true; } catch (_) { return false; } },
+    isAddress: (s) => { if (N.fam === "tron") return !!fromTron(s); try { if (sol) new web3.PublicKey(String(s).trim()); else ethers.getAddress(String(s).trim()); return true; } catch (_) { return false; } },
     balances: async () => ({ native: B.native, usdc: B.usdc }),
     vault: async () => view(),
     reserve: (a) => (a === "native" ? (sol ? 10_000 : 30_000) : 0),

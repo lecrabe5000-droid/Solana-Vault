@@ -35,7 +35,9 @@ export function deriveAccount(phrase, { web3, ethers }, index = 0) {
   const seed = mnemonicToSeedSync(normalize(phrase));
   const sol = web3.Keypair.fromSeed(slip10(seed, `m/44'/501'/${index}'/0'`));
   const evm = ethers.HDNodeWallet.fromPhrase(normalize(phrase), undefined, `m/44'/60'/0'/0/${index}`);
-  return { sol, evm };
+  // Tron: its own path (TronLink's), so its address is not the Ethereum one.
+  const tron = ethers.HDNodeWallet.fromPhrase(normalize(phrase), undefined, `m/44'/195'/0'/0/${index}`);
+  return { sol, evm, tron };
 }
 
 const b64 = (u8) => btoa(String.fromCharCode(...u8));
