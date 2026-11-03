@@ -26,7 +26,10 @@ SAFE: your Ecrin vault. Anything leaving it waits a delay you choose (24 hours o
 • Send with a clear review of exactly what leaves, a warning before sending to a new address, and press-and-hold to confirm.
 • Before you approve anything a website asks, Ecrin shows exactly what would leave your wallet and flags risky requests in red.
 • Phishing protection: known scam sites are blocked before they can ask for anything.
-• A token page with a live chart for every coin, an address book, and light or dark mode.
+• Safety tools: a daily spending limit, a cooling-off pause before big sends, protect-automatically, a one-tap freeze and a safety score with next steps.
+• See and revoke the permissions sites have over your tokens.
+• Several accounts, private key import, every token you hold with scam airdrops hidden, and a collectibles gallery.
+• A token page with a live chart for every coin, full activity history with search, an address book, and light or dark mode.
 • Your recovery phrase is encrypted on your computer and never leaves it. No account, no tracking, no ads.
 
 TESTNET BETA: Ecrin Wallet currently runs on test networks with test coins only. It has not been audited yet. Don't use real funds.
@@ -40,11 +43,11 @@ Website: https://ecrinprotocol.app
 **Store icon:** 128×128, already in the package (`icons/128.png`). The dashboard may ask for it again: use `extension/icons/128.png`.
 
 **Screenshots (1280×800, in this order):**
-1. `screenshot-1-home.png`
-2. `screenshot-2-safe.png`
-3. `screenshot-3-send.png`
-4. `screenshot-4-review.png`
-5. `screenshot-5-addresses.png`
+1. `screenshot-1-home.png`: your Wallet and your Safe, with the safety score
+2. `screenshot-2-safe.png`: the 3D Safe
+3. `screenshot-3-approve.png`: what leaves before you sign a website's request
+4. `screenshot-4-phish.png`: a scam site blocked
+5. `screenshot-5-safety.png`: limits, protect automatically and one-tap freeze
 
 **Small promo tile (440×280):** `promo-small-440x280.png`
 
