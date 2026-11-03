@@ -7,13 +7,68 @@
   "scope": "/wallet/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#000000",
+  "background_color": "#0f1016",
   "theme_color": "#000000",
-  "categories": ["finance", "security"],
+  "categories": [
+    "finance",
+    "security"
+  ],
   "icons": [
-    { "src": "/icon2-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icon2-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/icon2-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
-    { "src": "/icon2-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/icon2-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon2-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/wallet/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/wallet/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Send",
+      "url": "/wallet/?go=send",
+      "icons": [
+        {
+          "src": "/icon2-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Receive",
+      "url": "/wallet/?go=receive",
+      "icons": [
+        {
+          "src": "/icon2-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Freeze my Safe",
+      "url": "/wallet/?go=safety",
+      "icons": [
+        {
+          "src": "/icon2-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
   ]
 }

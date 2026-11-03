@@ -170,6 +170,9 @@ async function home() {
   loadAll();
   refresh();
   loadPrices();
+  // Phone app shortcuts (long-press the icon): Send, Receive, Freeze.
+  const go = !S.wentTo && new URLSearchParams(location.search).get("go"); S.wentTo = true;
+  if (go && ["send", "receive", "safety"].includes(go)) setTimeout(() => openPanel(go), 400);
 }
 
 async function refresh() {
@@ -871,7 +874,7 @@ function closePanel() { const el = $("#panel"); el.classList.remove("in"); docum
 function renderPanel(enter = false) {
   const el = $("#panel"), P = S.panel;
   if (!P) return;
-  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
+  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
   el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}">${body}</div>`;
   P.fresh = false;
   if (enter) requestAnimationFrame(() => { el.classList.add("in"); document.body.classList.add("stacked"); });
@@ -1079,6 +1082,7 @@ function receiveView() {
       <button class="addr" data-act="copy-addr"><span class="mono">${esc(e.address)}</span>${I.copy}</button>
       <p class="fine">Only send ${N.name} ${N.net} coins${N.usdc ? " or USDC" : ""} to this address. ${N.fam === "evm" ? "The same address works on every Ethereum-style network." : ""}</p>
       <a class="link" href="${N.faucet}" target="_blank">Get free test ${N.unit} ${I.ext}</a>
+      <button class="btn sm buy-b" data-act="panel" data-p="buy">${I.card}Buy with a card</button>
     </div>`;
 }
 
@@ -1670,6 +1674,20 @@ function sitesView() {
 // Swaps go through Jupiter, Solana's main swap service, with Ecrin's referral fee, via ecrinprotocol.app/api/swap
 // (the relay keeps the Jupiter key secret). They open with mainnet: on test networks Jupiter has no markets, so the
 // screen shows an estimate from current prices and the button says "Coming soon".
+// Buying with a card goes through a licensed partner (they handle payment and identity checks, Ecrin never sees
+// card details). It turns on when a partner key is set for mainnet; until then the screen says so.
+const ONRAMP = { provider: "Transak", key: "", url: (key, addr, net, coin) => `https://global.transak.com/?apiKey=${encodeURIComponent(key)}&walletAddress=${encodeURIComponent(addr)}&network=${net}&cryptoCurrencyCode=${coin}&disableWalletAddressForm=true` };
+function buyView() {
+  const N = NETS[S.net], addr = ENG?.address || "";
+  if (ONRAMP.key) return `${phead("Buy")}${fromRow()}<div class="cv"><div class="cv-art">${I.card}</div><h2>Buy ${N.unit} with a card</h2><p class="sub">You'll pay on ${ONRAMP.provider}'s secure page. The coins arrive straight in your Wallet at ${short(addr)}.</p>
+    <a class="btn primary xl" href="${ONRAMP.url(ONRAMP.key, addr, N.fam === "sol" ? "solana" : N.key === "eth" ? "ethereum" : N.key, N.unit)}" target="_blank">Continue to ${ONRAMP.provider} ${I.ext}</a></div>`;
+  return `${phead("Buy")}
+    <div class="soon-row"><span class="soon">Coming soon · opens with mainnet</span></div>
+    <div class="cv"><div class="cv-art">${I.card}</div><h2>Buy crypto with a card</h2>
+      <p class="sub">Soon you'll buy SOL, ETH and USDC with a card or Apple Pay, through a licensed partner. The coins land straight in your Wallet, and you can protect them in your Safe right away.</p>
+      <div class="note">${I.shield}<span>Ecrin never sees your card details: the partner handles payment and identity checks.</span></div>
+      <a class="btn xl" href="${N.faucet}" target="_blank">Get free test ${N.unit} for now ${I.ext}</a></div>`;
+}
 const SWAP = { live: false, feeBps: 50, api: "https://ecrinprotocol.app/api/swap" };
 const STAKE_APY = 0.065, STAKE_APY_TEXT = "6–7%";
 
@@ -1833,7 +1851,7 @@ function tokenView() {
     <div class="tk-ch ${dd >= 0 ? "up" : "dn"}" data-tkch>${P.u === "USDC" ? "Stays close to $1" : v ? `${dd >= 0 ? "+" : "−"}${money(Math.abs(dd))} (${Math.abs(pc).toFixed(2)}%) <span>${rl}</span>` : "&nbsp;"}</div>
     ${chart}${ranges}
     <nav class="acts tk-acts">${[["send", "Send", I.send], ["receive", "Receive", I.recv], ["swap", "Swap", I.swap], ["protect", "Protect", I.protect]].map(([p2, l, ic]) => `<button data-act="tok-do" data-p="${p2}"><span>${ic}</span>${l}</button>`).join("")}</nav>
-    <div class="tk-bal"><span class="lbl">Your balance</span><b>${mask(money(tot.usd))}</b><small>${mask(n(tot.amt, dec))} ${esc(P.u)}</small>
+    <div class="tk-bal"><span class="lbl">Your balance</span><b>${mask(money(tot.usd))}</b><small>${mask(n(tot.amt, dec))} ${esc(P.u)}${(() => { const c = pr.usd_24h_change; if (c == null || !tot.usd || P.u === "USDC") return ""; const pl = tot.usd - tot.usd / (1 + c / 100); return ` · <span class="${pl >= 0 ? "up" : "dn"}">${pl >= 0 ? "+" : "−"}${mask(money(Math.abs(pl)))} today</span>`; })()}</small>
       ${tot.amt ? `<div class="tk-split"><i style="width:${100 - savPct}%"></i><i class="s" style="width:${savPct}%"></i></div><div class="tk-leg"><span><i></i>Wallet ${mask(n(tot.chq, dec))}</span><span><i class="s"></i>${I.lock}Safe ${mask(n(tot.sav, dec))}</span></div>` : ""}</div>
     ${list.length > 1 ? `<div class="list-h"><b>By network</b><span></span></div><section class="list">${list.map((i) => `<div class="arow">${coin(i.k)}<span class="ar-t"><b>${NETS[i.k].name}</b><small>${i.sav ? `${I.lock}${mask(n(i.sav, i.dec))} in Safe` : "Wallet"}</small></span><span class="ar-r"><b>${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}</small></span></div>`).join("")}</section>` : ""}
     <div class="list-h"><b>Info</b><span></span></div>

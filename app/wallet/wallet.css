@@ -1161,6 +1161,9 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 :root[data-theme="light"] .nft { background: #f3f4f7; }
 :root[data-theme="light"] .acc-row.on { background: #eef1ff; }
 :root[data-theme="light"] .coin.letter { background: hsl(var(--h) 55% 52%); }
+.buy-b { display: inline-flex; align-items: center; gap: 6px; margin: 10px auto 0; } .buy-b svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.cv .note { text-align: left; margin: 12px 0; } .cv a.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; }
+.tk-bal small .up { color: var(--eb); } :root[data-theme="dark"] .tk-bal small .up { color: #7f98ff; } .tk-bal small .dn { color: var(--muted); }
 
 .device { padding: 0 !important; }
 #root, #panel { top: env(safe-area-inset-top, 0px); }
