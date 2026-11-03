@@ -357,7 +357,7 @@ function bindChart(root) {
     const cur = root.querySelector("[data-chg]"); if (cur) cur.outerHTML = deltaHTML(dd, ch, fmtT(c.times[i]), c.coinOnly);
   };
   const leave = () => { S.scrubbing = false; el.classList.remove("scrub"); if (big && keep.big != null) big.innerHTML = keep.big; const cur = root.querySelector("[data-chg]"); if (cur && keep.chg) cur.outerHTML = keep.chg; };
-  svg.addEventListener("pointermove", move); svg.addEventListener("pointerdown", move); svg.addEventListener("pointerleave", leave);
+  svg.addEventListener("pointermove", move); svg.addEventListener("pointerdown", move); ["pointerleave", "pointerup", "pointercancel"].forEach((ev) => svg.addEventListener(ev, leave));
 }
 
 /** Cards that catch the light: they lean toward the pointer and a sheen follows it. */
@@ -1832,11 +1832,27 @@ function noticeIncoming(bal) {
   }
 }
 
-// Phone app: pull down to refresh, and a light tap of the vibration motor on important buttons (Android).
+// Phone app: pull down to refresh (the Ecrin mark follows your finger, then spins until everything is fresh),
+// and a light tap of the vibration motor on important buttons (Android).
 if (globalThis.ECRIN_WEB) {
-  let y0 = null;
-  document.addEventListener("touchstart", (e) => { const r = $("#root"); y0 = S.screen === "home" && !S.panel && r.scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive: true });
-  document.addEventListener("touchend", (e) => { if (y0 != null && e.changedTouches[0].clientY - y0 > 90) { toast("Refreshing…"); refresh(); loadAll(); loadPrices(); } y0 = null; }, { passive: true });
+  let y0 = null, d = 0, busy = false;
+  const ptr = document.createElement("div"); ptr.className = "ptr"; ptr.innerHTML = `<span class="ptr-ic">${LOGO}</span>`; document.body.append(ptr);
+  const set = (v) => { ptr.style.setProperty("--p", v); ptr.classList.toggle("ready", v >= 1); };
+  document.addEventListener("touchstart", (e) => { const r = $("#root"); y0 = !busy && S.screen === "home" && !S.panel && r.scrollTop <= 0 && !e.target.closest("[data-chart]") ? e.touches[0].clientY : null; d = 0; }, { passive: true });
+  document.addEventListener("touchmove", (e) => {
+    if (y0 == null) return; d = Math.max(0, e.touches[0].clientY - y0);
+    const p = Math.min(1.25, d / 110); ptr.classList.add("pull"); set(p);
+    if (p >= 1 && !ptr._tick) { ptr._tick = true; navigator.vibrate?.(6); } if (p < 1) ptr._tick = false;
+  }, { passive: true });
+  document.addEventListener("touchend", async () => {
+    if (y0 == null) return; y0 = null;
+    if (d >= 110) {
+      busy = true; ptr.classList.add("spin"); set(1);
+      S.histAt = 0; await Promise.allSettled([refresh(), loadAll(), loadPrices(), loadActivity()]);
+      await new Promise((r) => setTimeout(r, 350)); busy = false; ptr.classList.remove("spin");
+    }
+    ptr.classList.remove("pull"); set(0); ptr._tick = false;
+  }, { passive: true });
   document.addEventListener("click", (e) => { if (e.target.closest(".btn.primary, .acts button, [data-act='ap-ok']")) navigator.vibrate?.(8); }, true);
 }
 

@@ -1224,6 +1224,22 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 .qr-c { position: absolute; } .qr-b { position: absolute; right: -2px; bottom: -2px; border-radius: 50%; box-shadow: 0 0 0 2px #fff; line-height: 0; } .qr-b .coin { width: 16px !important; height: 16px !important; }
 .from .cstack { flex: none; position: relative; } .from .cstack .cmini { position: absolute; }
 .from > .cstack { display: inline-block; width: 30px; height: 30px; } .from > .cstack .cmini { right: -3px; bottom: -3px; }
+/* chart: just a small dot riding the line while you slide */
+.ch-tip, :root[data-theme] .ch-tip { display: none !important; }
+.ch-x { display: none; }
+.ch-pin { width: 9px !important; height: 9px !important; margin: -4.5px 0 0 -4.5px !important; background: var(--eb) !important; box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px color-mix(in srgb, var(--eb) 22%, transparent); opacity: 0; transition: opacity .15s; }
+:root[data-theme="dark"] .ch-pin { background: #6f8cff !important; }
+.scrub .ch-pin { opacity: 1; }
+/* pull to refresh (phone app) */
+.ptr { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 8px); z-index: 40; display: grid; place-items: center; width: 38px; height: 38px; margin-left: -19px; border-radius: 50%; background: var(--s1); box-shadow: 0 0 0 1px var(--line-2), 0 10px 24px -10px rgba(0,0,0,.5); color: var(--eb);
+  opacity: 0; transform: translateY(calc(var(--p, 0) * 64px - 40px)) rotate(calc(var(--p, 0) * 300deg)) scale(calc(.6 + var(--p, 0) * .4)); pointer-events: none; transition: opacity .2s; }
+.ptr.pull, .ptr.spin { opacity: 1; } .ptr:not(.pull):not(.spin) { transition: opacity .2s, transform .35s cubic-bezier(.2,.7,.2,1); }
+.ptr .ptr-ic { display: grid; } .ptr .logo { width: 20px; height: 20px; }
+.ptr.ready .ptr-ic { color: var(--eb); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--eb) 50%, transparent)); }
+.ptr.spin .ptr-ic { animation: ptr-spin .8s linear infinite; }
+@keyframes ptr-spin { to { transform: rotate(360deg); } }
+:root[data-theme="dark"] .ptr { color: #6f8cff; }
+:root[data-theme] .chart .ch-pin { display: block !important; }
 
 .device { padding: 0 !important; }
 #root, #panel { top: env(safe-area-inset-top, 0px); }
