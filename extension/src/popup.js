@@ -132,7 +132,7 @@ async function eng() {
 }
 
 async function boot() {
-  const pr = await local.get(["book", "hideSmall", "order", "recvNotify"]); Object.assign(S, { book: pr.book || {}, hideSmall: !!pr.hideSmall, order: pr.order || "value", recvNotify: pr.recvNotify });
+  const pr = await local.get(["book", "hideSmall", "order", "recvNotify", "guard", "alertsOn"]); Object.assign(S, { book: pr.book || {}, hideSmall: !!pr.hideSmall, order: pr.order || "value", recvNotify: pr.recvNotify, guard: { auto: 0, daily: 0, cool: 0, coolOver: 500, ...(pr.guard || {}) }, alertsOn: !!pr.alertsOn });
   const st = await local.get(["box", "net", "theme", "autolock", "hide", "nums", "range", "dev", "prices", "bio"]);
   S.bio = globalThis.ECRIN_WEB && st.bio ? st.bio : null;
   // The phone app opens on the spinning Ecrin mark for a moment.
@@ -165,7 +165,7 @@ async function touch() {
 }
 
 async function home() {
-  checkUpdate(); loadBackup();
+  checkUpdate(); loadBackup(); applyPendingLimit();
   S.screen = "home"; await eng(); S.histAt = 0; S.hist = []; render(); loadActivity();
   loadAll();
   refresh();
@@ -176,7 +176,7 @@ async function refresh() {
   try {
     const e = await eng();
     const [bal, vault] = await Promise.all([e.balances(), e.vault().catch((err) => (console.warn(err), null))]);
-    noticeIncoming(bal); S.bal = bal; S.vault = vault; S.err = null;
+    noticeIncoming(bal); S.bal = bal; S.vault = vault; S.err = null; autoProtect(bal);
   } catch (err) { console.warn(err); S.err = `Can't reach ${NETS[S.net].name} right now. Retrying…`; setTimeout(refresh, 6000); }
   if (S.screen === "home") render();
   if (S.panel) renderPanel();
@@ -484,6 +484,7 @@ function homeView() {
         <span class="ac-s">${w.leaving ? `<i class="dot warn"></i>${w.leavingText || w.leaving} leaving` : w.vaults ? `<i class="dot"></i>${pct}% of net worth` : `<i class="dot off"></i>Not set up`}</span>
       </button>
     </section>
+    ${safetyCard()}
     <nav class="acts">
       ${[["send", "Send", I.send], ["receive", "Receive", I.recv], ["swap", "Swap", I.swap], ["protect", "Protect", I.protect], ["withdraw", "Withdraw", I.out]].map(([p, l, ic]) => `<button data-act="panel" data-p="${p}"><span>${ic}</span>${l}</button>`).join("")}
     </nav>
@@ -847,7 +848,7 @@ function closePanel() { const el = $("#panel"); el.classList.remove("in"); docum
 function renderPanel(enter = false) {
   const el = $("#panel"), P = S.panel;
   if (!P) return;
-  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, perms: permsView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
+  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
   el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}">${body}</div>`;
   P.fresh = false;
   if (enter) requestAnimationFrame(() => { el.classList.add("in"); document.body.classList.add("stacked"); });
@@ -892,7 +893,8 @@ function sendView() {
         </dl>
         ${self ? `<p class="warn-n">That's your own address.</p>` : P.fresh ? `<p class="warn-n">${I.shield}<span>You've never sent to this address from Ecrin. Check the first and last characters against where you copied it.</span></p>` : ""}
       </div>
-      <div class="pfoot">${hold(P.step === "sending" ? "Sending…" : "Hold to send", P.step === "sending")}</div>`;
+      ${P.coolUntil > Date.now() ? `<div class="cool"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17"/><circle class="cl-p" cx="20" cy="20" r="17" style="stroke-dashoffset:${(106.8 * (P.coolUntil - Date.now())) / (S.guard.cool * 1000)}"/></svg><span><b data-cool>${Math.ceil((P.coolUntil - Date.now()) / 1000)}s</b><small>Cooling-off pause for big sends. Take a breath: is this really who you think it is?</small></span></div>` : ""}
+      <div class="pfoot">${P.coolUntil > Date.now() ? `<button class="hold" disabled><span class="hold-t">${I.clock}Wait for the pause</span></button>` : hold(P.step === "sending" ? "Sending…" : "Hold to send", P.step === "sending")}</div>`;
   }
   const valid = units > 0 && units <= sendMax() && e.isAddress(P.to);
   return `${phead("Send")}
@@ -903,6 +905,83 @@ function sendView() {
     ${bookName(P.to.trim()) ? `<p class="book-to">${I.check}Sending to <b>${esc(bookName(P.to.trim()))}</b></p>` : ""}
     ${bookList().length ? `<div class="book">${bookList().map(([a, n]) => `<button class="${P.to.trim() === a ? "on" : ""}" data-act="book-pick" data-a="${esc(a)}"><i>${esc(n.slice(0, 1).toUpperCase())}</i>${esc(n)}</button>`).join("")}</div>` : ""}
     <div class="pfoot"><button class="btn primary xl" data-act="review" ${valid ? "" : "disabled"}>Review</button></div>`;
+}
+
+// ------------------------------------------------------------------ guard rails on the Wallet side (this device)
+
+const todayKey = () => new Date().toISOString().slice(0, 10);
+/** Daily spending limit across every network, in dollars. Raising it waits 24 hours; lowering is instant. */
+async function limitCheck(usd) {
+  const G = S.guard; if (!G.daily || usd == null) return null;
+  const { spent = {} } = await local.get("spent"), used = spent[todayKey()] || 0;
+  if (used + usd > G.daily) return `That's over your daily spending limit (${money(G.daily)}, ${money(Math.max(0, G.daily - used))} left today). Change it in Settings → Safety.`;
+  return null;
+}
+async function countSpend(usd) { if (usd == null) return; const { spent = {} } = await local.get("spent"), k = todayKey(); await local.set({ spent: { [k]: (spent[k] || 0) + usd } }); }
+function coolTick() {
+  const P = S.panel; if (!P || !P.coolUntil) return;
+  if (Date.now() >= P.coolUntil) return renderPanel();
+  const el = $("[data-cool]"); if (el) el.textContent = Math.ceil((P.coolUntil - Date.now()) / 1000) + "s";
+  const c = $(".cl-p"); if (c) c.style.strokeDashoffset = (106.8 * (P.coolUntil - Date.now())) / (S.guard.cool * 1000);
+  requestAnimationFrame(coolTick);
+}
+async function saveGuard() { await local.set({ guard: S.guard }); }
+async function applyPendingLimit() {
+  const G = S.guard; if (G.pend && G.pend.at <= Date.now()) { G.daily = G.pend.v; delete G.pend; await saveGuard(); }
+}
+
+/** Protect automatically: part of every payment that arrives goes straight into the Safe on that network. */
+async function autoProtect(bal) {
+  const G = S.guard, key = `${S.net}:${ENG?.address}`, { autoSeen = {} } = await local.get("autoSeen");
+  const was = autoSeen[key]; autoSeen[key] = bal.native; await local.set({ autoSeen });
+  if (!G.auto || was == null || !(bal.native > was) || !S.vault || Date.now() - (S.lastTx || 0) < 90_000 || S.autoBusy) return;
+  const amount = Math.floor(((bal.native - was) * G.auto) / 100);
+  const fee = NETS[S.net].fam === "sol" ? 3_000_000 : 0, minimum = NETS[S.net].fam === "sol" ? 1_000_000 : 1_000;
+  if (amount < minimum || amount + fee > bal.native) return;
+  S.autoBusy = true;
+  try { S.lastTx = Date.now(); await ENG.protect("native", amount); S.lastTx = Date.now(); await logActivity({ t: "auto", a: "native", n: amount }); autoSeen[key] = bal.native - amount; await local.set({ autoSeen }); toast(`${amt(amount, "native")} ${NETS[S.net].unit} protected automatically`, "win"); refresh(); loadAll(); }
+  catch (e) { console.warn(e); } finally { S.autoBusy = false; }
+}
+
+/** How protected you are, 0–100, and what would raise it. */
+function safety() {
+  const w = worth(), G = S.guard, vaults = (S.all || []).filter((r) => r.v).length;
+  const share = w.total ? w.sav / w.total : 0, perms = (S.delegs || []).length;
+  const items = [
+    { ok: !S.backup || S.backup.done, pts: 25, t: "Recovery phrase checked", tip: "Check your 12 words are written down", act: "panel", p: "backup" },
+    { ok: vaults > 0, pts: 20, t: "Safe set up", tip: "Set up your Safe", act: "panel", p: "vault" },
+    { ok: share >= 0.5, pts: 15, t: "Most of your money is in the Safe", tip: `Move more into your Safe (${Math.round(share * 100)}% now)`, act: "panel", p: "protect" },
+    { ok: S.alertsOn, pts: 10, t: "Safe alerts on", tip: "Turn on Telegram or email alerts", act: "panel", p: "rules" },
+    { ok: S.autolock > 0 && S.autolock <= 15, pts: 10, t: "Auto-lock in 15 minutes or less", tip: "Lock the wallet sooner", act: "settings" },
+    { ok: perms === 0, pts: 10, t: "No open token permissions", tip: `Revoke ${perms} token permission${perms > 1 ? "s" : ""}`, act: "perms" },
+    { ok: !!(G.daily || G.cool), pts: 10, t: "Spending limit or cooling-off on", tip: "Add a spending limit", act: "panel", p: "safety" },
+  ];
+  return { score: items.reduce((s2, i) => s2 + (i.ok ? i.pts : 0), 0), items };
+}
+function safetyCard() {
+  if (!S.all) return "";
+  const { score, items } = safety(), next = items.find((i) => !i.ok);
+  return `<button class="sscore" data-act="panel" data-p="safety"><span class="ss-ring" style="--v:${score}"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.5"/><circle class="ss-p" cx="18" cy="18" r="15.5"/></svg><b>${score}</b></span>
+    <span class="ss-t"><b>Safety score</b><small>${next ? esc(next.tip) : "You're well protected"}</small></span>${I.arrow}</button>`;
+}
+function safetyView() {
+  const { score, items } = safety(), G = S.guard;
+  const lim = [0, 100, 250, 500, 1000, 5000], cool = [[0, "Off"], [60, "1 min"], [300, "5 min"], [900, "15 min"]], auto = [0, 10, 25, 50];
+  return `${phead("Safety")}
+    <div class="ss-hero"><span class="ss-ring lg" style="--v:${score}"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.5"/><circle class="ss-p" cx="18" cy="18" r="15.5"/></svg><b>${score}</b></span>
+      <span><b>${score >= 85 ? "Well protected" : score >= 55 ? "Getting there" : "At risk"}</b><small>Each step makes a drainer's job harder.</small></span></div>
+    <section class="list">${items.map((i) => `<${i.ok ? "div" : `button data-act="${i.act}"${i.p ? ` data-p="${i.p}"` : ""}`} class="arow ss-i ${i.ok ? "ok" : ""}"><span class="ss-c">${i.ok ? I.check : ""}</span><span class="ar-t"><b>${esc(i.ok ? i.t : i.tip)}</b></span><span class="ss-pts">+${i.pts}</span></${i.ok ? "div" : "button"}>`).join("")}</section>
+    <button class="freeze-btn" data-act="freeze-now">${I.snow}<span><b>Freeze my Safe now</b><small>Nothing leaves your Safe on any network for 24 hours. Use it the moment something feels wrong.</small></span></button>
+    <div class="list-h"><b>Protect automatically</b><span>${G.auto ? `${G.auto}% of each payment` : "Off"}</span></div>
+    <p class="fine">When coins arrive in your Wallet, this share goes straight into your Safe on that network (while Ecrin is open).</p>
+    <span class="seg wide">${auto.map((v) => `<button data-act="guard" data-k="auto" data-v="${v}" aria-pressed="${G.auto === v}">${v ? v + "%" : "Off"}</button>`).join("")}</span>
+    <div class="list-h"><b>Daily spending limit</b><span>${G.daily ? money(G.daily) : "None"}</span></div>
+    <p class="fine">Sends from your Wallet stop at this amount per day, on every network. Lowering it is instant; raising it waits 24 hours, so a scammer rushing you can't lift it.${G.pend ? ` <b>Changing to ${G.pend.v ? money(G.pend.v) : "no limit"} on ${new Date(G.pend.at).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" })}.</b>` : ""}</p>
+    <span class="seg wide">${lim.map((v) => `<button data-act="guard" data-k="daily" data-v="${v}" aria-pressed="${G.daily === v}">${v ? "$" + (v >= 1000 ? v / 1000 + "k" : v) : "None"}</button>`).join("")}</span>
+    <div class="list-h"><b>Cooling-off pause</b><span>${G.cool ? `over ${money(G.coolOver)}` : "Off"}</span></div>
+    <p class="fine">A short wait before any send over ${money(G.coolOver)}. Scams work by rushing you; the pause gives you time to notice.</p>
+    <span class="seg wide">${cool.map(([v, l]) => `<button data-act="guard" data-k="cool" data-v="${v}" aria-pressed="${G.cool === v}">${l}</button>`).join("")}</span>
+    <p class="fine pad">The limit and the pause protect this device. Your Safe's own rules protect your money even from someone who has your recovery phrase.</p>`;
 }
 
 function hold(label, busy) {
@@ -1073,6 +1152,7 @@ function settingsView() {
       <button class="srow" data-act="tog" data-k="recvNotify"><span>${I.recv}Notify when I receive coins</span><span class="sv">${S.recvNotify === false ? "Off" : "On"}</span></button>
       <button class="srow" data-act="tog" data-k="hideSmall"><span>${I.eyeOff}Hide balances under $1</span><span class="sv">${S.hideSmall ? "On" : "Off"}</span></button>
       <button class="srow" data-act="tog" data-k="order"><span>${I.arrow}Order coins by</span><span class="sv">${S.order === "name" ? "Name" : "Value"}</span></button>
+      <button class="srow" data-act="panel" data-p="safety"><span>${I.shield}Safety: limits, auto-protect, freeze</span><span class="sv">${I.arrow}</span></button>
       <button class="srow" data-act="perms"><span>${I.ban}Token permissions</span><span class="sv">${I.arrow}</span></button>
       <button class="srow" data-act="panel" data-p="reveal"><span>${I.eye}Show recovery phrase</span><span class="sv">${I.arrow}</span></button>
       <a class="srow" href="https://ecrinprotocol.app/app" target="_blank"><span>${I.shield}Vault rules and alerts</span><span class="sv">${I.ext}</span></a>
@@ -1130,6 +1210,21 @@ async function useNet(n) {
 
 async function saveAccts() { await local.set({ accts: S.accts }); }
 const actions = {
+  guard: async (el) => {
+    const G = S.guard, k = el.dataset.k, v = Number(el.dataset.v);
+    if (k === "daily" && G.daily && (v === 0 || v > G.daily)) { G.pend = { v, at: Date.now() + 86400_000 }; toast("Raising the limit takes 24 hours. Lowering is instant.", "win"); }
+    else { G[k] = v; if (k === "daily") delete G.pend; }
+    await saveGuard(); renderPanel(); render();
+  },
+  "freeze-now": async (el) => {
+    const open = (S.all || []).filter((r) => r.v);
+    if (!open.length) return toast("Set up your Safe first: there's nothing to freeze yet.", "err");
+    if (!confirm("Freeze your Safe on every network for 24 hours? Nothing can leave, including withdrawals already waiting. A freeze can't be ended early.")) return;
+    el.disabled = true; el.classList.add("busy");
+    try { await applyEverywhere([["all", { kind: "SetLockedUntil", value: now() + 86400 + 120 }]]); await logActivity({ t: "freeze" }); toast("Frozen for 24 hours on every network", "win"); loadAll(); }
+    catch (e) { toast(errText(e), "err"); }
+    el.disabled = false; el.classList.remove("busy");
+  },
   revoke: async (el) => {
     const P = S.panel, { dev } = await local.get("dev");
     const item = el.dataset.f === "sol" ? P.sol.find((t) => t.acct === el.dataset.acct) : P.evm[Number(el.dataset.i)];
@@ -1225,8 +1320,8 @@ const actions = {
   },
   "rc-apply": async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).applyChange(Number(el.dataset.id)); toast("Rule applied", "win"); } catch (e) { toast(errText(e), "err"); } await loadAll(); },
   "rc-cancel": async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).cancelChange(Number(el.dataset.id)); toast("Change cancelled", "win"); } catch (e) { toast(errText(e), "err"); } await loadAll(); },
-  "al-tg": async () => { try { const r = await alertCall("/api/alerts/start", {}); if (!r.url) throw new Error(r.error || "Alerts aren't available right now."); window.open(r.url, "_blank"); toast("Telegram opened: tap Start in the chat.", "win"); } catch (e) { toast(e.message, "err"); } },
-  "al-mail": async () => { const email = ($("#panel [data-mail]")?.value || "").trim(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast("Enter your email address", "err"); try { const r = await alertCall("/api/alerts/email", { email }); if (r.error) throw new Error(r.error); toast(r.already ? "Email alerts are already on." : "Check your inbox to confirm.", "win"); } catch (e) { toast(e.message, "err"); } },
+  "al-tg": async () => { try { const r = await alertCall("/api/alerts/start", {}); if (!r.url) throw new Error(r.error || "Alerts aren't available right now."); window.open(r.url, "_blank"); S.alertsOn = true; local.set({ alertsOn: true }); toast("Telegram opened: tap Start in the chat.", "win"); } catch (e) { toast(e.message, "err"); } },
+  "al-mail": async () => { const email = ($("#panel [data-mail]")?.value || "").trim(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast("Enter your email address", "err"); try { const r = await alertCall("/api/alerts/email", { email }); if (r.error) throw new Error(r.error); S.alertsOn = true; local.set({ alertsOn: true }); toast(r.already ? "Email alerts are already on." : "Check your inbox to confirm.", "win"); } catch (e) { toast(e.message, "err"); } },
   tok: (el) => { const u = el.dataset.u, cg = u === "USDC" ? null : { SOL: "solana", ETH: "ethereum", POL: "polygon-ecosystem-token" }[u]; openPanel("tok", { u, cg, n: el.dataset.n }); if (cg) loadSeriesFor(cg).then(() => S.panel?.p === "tok" && renderPanel()); },
   "tok-do": async (el) => { const P = S.panel, w = worth(), list = w.items.filter((i) => i.unit === P.u), p = el.dataset.p;
     const best = list.filter((i) => (p === "withdraw" ? i.sav : i.chq) > 0).sort((x, y) => (y.usd || 0) - (x.usd || 0))[0] || list[0];
@@ -1337,7 +1432,13 @@ const actions = {
     renderPanel();
   },
   paste: async () => { try { S.panel.to = (await navigator.clipboard.readText()).trim(); renderPanel(); } catch (_) { toast("Couldn't read the clipboard", "err"); } },
-  review: async () => { S.panel.fresh = !(await knownDest(S.panel.to.trim())); S.panel.step = "review"; S.panel.anim = true; renderPanel(); },
+  review: async () => {
+    const P = S.panel, usd = usdOf(parseAmt(P.amount, P.asset), P.asset);
+    const lim = await limitCheck(usd); if (lim) return toast(lim, "err");
+    P.fresh = !(await knownDest(P.to.trim())); P.step = "review"; P.anim = true;
+    const G = S.guard; P.coolUntil = G.cool && usd != null && usd >= G.coolOver ? Date.now() + G.cool * 1000 : 0;
+    renderPanel(); if (P.coolUntil) coolTick();
+  },
   kind: (el) => { S.panel.kind = el.dataset.k; renderPanel(); },
   "create-vault": async () => {
     const P = S.panel, back = P.p;
@@ -1401,7 +1502,8 @@ async function confirmSend() {
   if (S.panel?.p === "xtok") return xSendNow();
   const P = S.panel, units = parseAmt(P.amount, P.asset), to = P.to.trim();
   P.sent = units;
-  await txRun(async () => (await eng()).send(P.asset, to, units), () => rememberDest(to), { t: "send", a: P.asset, n: units, to });
+  const lim = await limitCheck(usdOf(units, P.asset)); if (lim) { P.step = "form"; renderPanel(); return toast(lim, "err"); }
+  await txRun(async () => (await eng()).send(P.asset, to, units), async () => { await rememberDest(to); await countSpend(usdOf(units, P.asset)); }, { t: "send", a: P.asset, n: units, to });
 }
 
 document.addEventListener("click", (e) => {
