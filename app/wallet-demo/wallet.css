@@ -1169,3 +1169,5 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 :root:lang(fr) .acc-acts .btn { font-size: 12.5px; }
 /* phrase boxes: the word input sits flat inside its box (other input styles were drawing a second box on top) */
 :root[data-theme] .words label input { flex: 1; width: 100%; min-width: 0; height: auto !important; margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; outline: none !important; }
+/* breathing room between the tabs and what's under them */
+.tab-body { padding-top: 14px; } .tab-body > .list:first-child, .tab-body > .act-q:first-child, .tab-body > .nfts:first-child { margin-top: 0; }

@@ -11,7 +11,7 @@ for (const d of ["icons", "fonts"]) fs.cpSync(d, `${out}/${d}`, { recursive: tru
 const opts = {
   entryPoints: { popup: "src/popup.js", bg: "src/bg.js" },
   bundle: true, format: "esm", outdir: out, minify: true, target: "chrome116", platform: "browser",
-  define: { global: "globalThis", "process.env.NODE_ENV": '"production"' },
+  define: { global: "globalThis", "process.env.NODE_ENV": '"production"', __ECRIN_VERSION__: JSON.stringify(JSON.parse(fs.readFileSync("manifest.json", "utf8")).version) },
   inject: ["src/shims.js"], legalComments: "linked", logLevel: "warning",
 };
 if (process.argv.includes("--watch")) { const c = await context(opts); await c.watch(); console.log("watching…"); }

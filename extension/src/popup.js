@@ -133,7 +133,7 @@ async function eng() {
 }
 
 async function boot() {
-  const pr = await local.get(["book", "hideSmall", "order", "recvNotify", "guard", "alertsOn"]); Object.assign(S, { book: pr.book || {}, hideSmall: !!pr.hideSmall, order: pr.order || "value", recvNotify: pr.recvNotify, guard: { auto: 0, daily: 0, cool: 0, coolOver: 500, ...(pr.guard || {}) }, alertsOn: !!pr.alertsOn });
+  const pr = await local.get(["book", "hideSmall", "order", "recvNotify", "guard", "alertsOn", "showNfts"]); S.showNfts = !!pr.showNfts; Object.assign(S, { book: pr.book || {}, hideSmall: !!pr.hideSmall, order: pr.order || "value", recvNotify: pr.recvNotify, guard: { auto: 0, daily: 0, cool: 0, coolOver: 500, ...(pr.guard || {}) }, alertsOn: !!pr.alertsOn });
   const st = await local.get(["box", "net", "theme", "autolock", "hide", "nums", "range", "dev", "prices", "bio", "lang"]);
   S.lang = st.lang || (/^fr/i.test(navigator.language || "") ? "fr" : "en"); document.documentElement.lang = S.lang;
   S.bio = globalThis.ECRIN_WEB && st.bio ? st.bio : null;
@@ -517,8 +517,8 @@ function homeView() {
     <nav class="acts">
       ${[["send", "Send", I.send], ["receive", "Receive", I.recv], ["swap", "Swap", I.swap], ["protect", "Protect", I.protect], ["withdraw", "Withdraw", I.out]].map(([p, l, ic]) => `<button data-act="panel" data-p="${p}"><span>${ic}</span>${l}</button>`).join("")}
     </nav>
-    <div class="tabs t3" role="tablist">${[["tokens", "Tokens"], ["nfts", "Collectibles"], ["activity", "Activity"]].map(([t, l]) => `<button role="tab" data-act="tab" data-t="${t}" aria-selected="${S.tab === t}">${l}</button>`).join("")}<i class="tab-ind" style="--i:${{ tokens: 0, nfts: 1, activity: 2 }[S.tab] || 0}"></i></div>
-    ${S.tab === "activity" ? activityList() : S.tab === "nfts" ? nftGrid() : tokenList(w)}
+    <div class="tabs ${S.showNfts ? "t3" : ""}" role="tablist">${[["tokens", "Tokens"], ...(S.showNfts ? [["nfts", "Collectibles"]] : []), ["activity", "Activity"]].map(([t, l]) => `<button role="tab" data-act="tab" data-t="${t}" aria-selected="${S.tab === t}">${l}</button>`).join("")}<i class="tab-ind" style="--i:${{ tokens: 0, nfts: 1, activity: S.showNfts ? 2 : 1 }[S.tab] || 0}"></i></div>
+    <div class="tab-body">${S.tab === "activity" ? activityList() : S.tab === "nfts" && S.showNfts ? nftGrid() : tokenList(w)}</div>
     <footer class="foot">${w.all ? "Every network" : "Reading every network…"} · testnet beta</footer>
   </div>`;
 }
@@ -1181,6 +1181,7 @@ function settingsView() {
       ${globalThis.ECRIN_WEB || globalThis.ECRIN_DEMO ? "" : `<button class="srow" data-act="panel" data-p="sites"><span>${I.link}Connected sites</span><span class="sv">${I.arrow}</span></button>`}
       ${globalThis.ECRIN_WEB && bioPossible() ? `<button class="srow" data-act="bio-toggle"><span>${I.face}${bioName() === "Face ID" ? "Face ID" : "Biometric unlock"}</span><span class="sv">${S.bio ? "On" : "Off"} ${I.arrow}</span></button>` : ""}
       <button class="srow" data-act="tog" data-k="recvNotify"><span>${I.recv}Notify when I receive coins</span><span class="sv">${S.recvNotify === false ? "Off" : "On"}</span></button>
+      <button class="srow" data-act="tog" data-k="showNfts"><span>${I.img}Show collectibles (NFTs)</span><span class="sv">${S.showNfts ? "On" : "Off"}</span></button>
       <button class="srow" data-act="tog" data-k="hideSmall"><span>${I.eyeOff}Hide balances under $1</span><span class="sv">${S.hideSmall ? "On" : "Off"}</span></button>
       <button class="srow" data-act="tog" data-k="order"><span>${I.arrow}Order coins by</span><span class="sv">${S.order === "name" ? "Name" : "Value"}</span></button>
       <button class="srow" data-act="panel" data-p="safety"><span>${I.shield}Safety: limits, auto-protect, freeze</span><span class="sv">${I.arrow}</span></button>
@@ -1373,6 +1374,7 @@ const actions = {
     if (k === "order") S.order = S.order === "name" ? "value" : "name";
     else if (k === "recvNotify") { S.recvNotify = S.recvNotify === false; if (S.recvNotify && globalThis.ECRIN_WEB && window.Notification && Notification.permission === "default") await Notification.requestPermission().catch(() => {}); }
     else S[k] = !S[k];
+    if (k === "showNfts" && !S.showNfts && S.tab === "nfts") S.tab = "tokens";
     await local.set({ [k]: S[k] }); renderPanel(); render();
   },
   "upd-go": () => { if (globalThis.ECRIN_WEB) location.reload(); else window.open("https://ecrinprotocol.app/#wallet", "_blank"); },

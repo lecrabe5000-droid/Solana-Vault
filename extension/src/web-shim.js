@@ -20,7 +20,7 @@ globalThis.chrome = {
     session: { get: async (k) => pick(mem, k), set: async (o) => { mem = { ...mem, ...o }; }, clear: async () => { mem = {}; }, setAccessLevel: () => {} },
   },
   runtime: {
-    getManifest: () => ({ version: "0.2.0 · phone beta" }),
+    getManifest: () => ({ version: __ECRIN_VERSION__ }),
     sendMessage: async (m) => {
       if (m?.type === "autolock" && m.until) { clearTimeout(timer); timer = setTimeout(lockNow, Math.max(0, m.until - Date.now())); }
       if (m?.type === "lock") lockNow();
