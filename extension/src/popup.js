@@ -166,7 +166,7 @@ async function touch() {
 
 async function home() {
   checkUpdate(); loadBackup();
-  S.screen = "home"; await eng(); S.activity = await readActivity().catch(() => []); render();
+  S.screen = "home"; await eng(); S.histAt = 0; S.hist = []; render(); loadActivity();
   loadAll();
   refresh();
   loadPrices();
@@ -641,7 +641,8 @@ async function loadExtras(dev) {
       return (await e.listTokens(NETS[k].fam === "evm" ? S.tokList[k] || [] : undefined)).map((t) => ({ ...t, k }));
     } catch (_) { return []; }
   }));
-  S.extra = lists.flat().filter((t) => BigInt(t.raw || 0) > 0n);
+  S.delegs = lists.flat().filter((t) => t.delegate);
+  S.extra = lists.flat().filter((t) => !t.usdc && BigInt(t.raw || 0) > 0n);
   // Pictures for collectibles (and token logos): read each item's public metadata file once, never for hidden spam.
   const need = S.extra.filter((t) => t.uri && !meta[t.mint] && !tokHidden(t)).slice(0, 24);
   await Promise.all(need.map(async (t) => {
@@ -712,6 +713,40 @@ function xtokView() {
     <div class="acc-acts"><a class="btn" href="${N.explorer(N.fam === "sol" ? "address" : "token", t.mint)}" target="_blank">${I.ext}Explorer</a>
       <button class="btn" data-act="tok-pref" data-m="${esc(t.mint)}">${hidden ? `${I.eye}Show in list` : `${I.eyeOff}Hide`}</button></div>`;
 }
+/** Who can move your tokens without asking again, and a Revoke button for each. */
+async function loadPerms() {
+  const P = S.panel; if (!P || P.p !== "perms") return;
+  const { apLog = [], dev } = await local.get(["apLog", "dev"]);
+  const mineE = ACCT.evm?.address, seen = new Set(), evm = [];
+  for (const e of apLog) {
+    if (!e.permit?.spender || !e.permit?.token || e.from !== mineE || e.kind !== "tx") continue;
+    const id = `${e.k}:${e.permit.token}:${e.permit.spender}`.toLowerCase(); if (seen.has(id)) continue; seen.add(id);
+    evm.push({ ...e.permit, k: e.k, origin: e.origin });
+  }
+  const live = await Promise.all(evm.filter((x) => NETS[x.k]).map(async (x) => {
+    try { const e = engine({ web3, ethers, acct: ACCT, net: x.k, dev: dev || {} }); const left = await e.allowance(x.token, x.spender); return left > 0n ? { ...x, left: String(left) } : null; } catch (_) { return null; }
+  }));
+  P.evm = live.filter(Boolean); P.sol = S.delegs || []; P.ready = true;
+  P.permits = apLog.filter((e) => e.kind === "typed" && e.permit && e.from === mineE).length;
+  renderPanel();
+}
+function permsView() {
+  const P = S.panel;
+  if (!P.ready) return `${phead("Permissions")}<div class="ap-load"><div class="sk"></div><div class="sk"></div><small>Checking every network…</small></div>`;
+  const big = (v) => BigInt(v) > 10n ** 30n;
+  const sol = P.sol.map((t) => `<div class="arow perm"><span class="cstack">${letterIc(t)}<span class="cmini">${coin(t.k)}</span></span>
+      <span class="ar-t"><b>${esc(t.usdc ? "USDC" : tokName(t))}</b><small>${short(t.delegate)} can move ${Number(BigInt(t.delegated)) / 10 ** t.dec} without asking</small></span>
+      <button class="btn sm danger" data-act="revoke" data-f="sol" data-acct="${esc(t.acct)}">Revoke</button></div>`);
+  const evm = P.evm.map((x, i) => `<div class="arow perm"><span class="cstack"><span class="coin letter" style="--h:210">${I.ban}</span><span class="cmini">${coin(x.k)}</span></span>
+      <span class="ar-t"><b>${esc(host(x.origin))}</b><small>${short(x.spender)} can take ${big(x.left) ? "ALL" : "some"} of token ${short(x.token)}</small></span>
+      <button class="btn sm danger" data-act="revoke" data-f="evm" data-i="${i}">Revoke</button></div>`);
+  const all = [...sol, ...evm];
+  return `${phead("Permissions")}
+    <p class="fine">Sites you used may still be allowed to move your tokens without asking again. Drainers rely on old permissions you forgot about. Revoke any you don't need.</p>
+    <section class="list">${all.length ? all.join("") : `<div class="empty art">${emptyArt("safe")}<b>No open permissions</b><span>Nobody can move your tokens without asking you first.</span></div>`}</section>
+    ${P.permits ? `<p class="fine pad">You also signed ${P.permits} permit${P.permits > 1 ? "s" : ""} (off-chain signatures). They expire on their own and can't be listed here.</p>` : ""}`;
+}
+
 function addTokView() {
   const P = S.panel, evm = netKeys().filter((k) => NETS[k].fam === "evm");
   return `${phead("Add a token")}<div class="pad">
@@ -750,17 +785,56 @@ function allView() {
     ${rows.some((r) => !r.ok) ? `<p class="fine pad">Couldn't reach ${rows.filter((r) => !r.ok).map((r) => NETS[r.k].name).join(", ")} right now.</p>` : ""}`;
 }
 
+const host = (o) => { try { return new URL(o).hostname.replace(/^www\./, ""); } catch (_) { return String(o || "a website"); } };
+const nameFor = (k, a) => (a && S.book?.[NETS[k]?.fam]?.[a]) || null;
+const who = (k, a) => esc(nameFor(k, a) || short(a));
+/** Activity from every network of this account, newest first, plus coins received (read from the chain) and website approvals. */
+async function loadActivity() {
+  const keys = netKeys(), addrOf = (k) => (NETS[k].fam === "sol" ? ACCT.sol?.publicKey.toBase58() : ACCT.evm?.address);
+  const st = await local.get([...keys.map((k) => `act:${k}:${addrOf(k)}`), "apLog"]);
+  let list = keys.flatMap((k) => (st[`act:${k}:${addrOf(k)}`] || []).map((e) => ({ ...e, k })));
+  const mine = new Set(keys.map(addrOf).filter(Boolean));
+  list.push(...(st.apLog || []).filter((e) => mine.has(e.from)));
+  const merge = () => { const seen = new Set(list.map((x) => x.sig).filter(Boolean)); S.activity = [...list, ...(S.hist || []).filter((x) => !seen.has(x.sig))].sort((x, y) => y.at - x.at); if (S.tab === "activity") paintActivity(); };
+  merge();
+  if (S.histAt && Date.now() - S.histAt < 30_000) return; S.histAt = Date.now();
+  if (!keys.includes("sol")) return;
+  try {
+    const { dev } = await local.get("dev"); const e = S.net === "sol" && ENG ? ENG : engine({ web3, ethers, acct: ACCT, net: "sol", dev: dev || {} });
+    S.hist = ((await e.history?.()) || []).map((x) => ({ ...x, k: "sol" })); merge();
+  } catch (_) {}
+}
+const ACT_LBL = {
+  send: (e) => [`Sent to ${who(e.k, e.to)}`, I.send, "out"], tsend: (e) => [e.to ? `Sent ${esc(e.sym || "tokens")} to ${who(e.k, e.to)}` : `Sent ${esc(e.sym || "tokens")}`, I.send, "out"],
+  recv: (e) => [e.from ? `Received from ${who(e.k, e.from)}` : "Received", I.recv, "in"], protect: () => ["Moved to Safe", I.protect, ""],
+  withdraw: () => ["Withdrawal started", I.clock, ""], release: () => ["Released to Wallet", I.recv, "in"], cancel: () => ["Withdrawal cancelled", I.shield, ""],
+  vault: () => ["Safe opened", I.lock, ""], swap: (e) => [`Swapped ${esc(e.from || "")} for ${esc(e.to || "")}`, I.swap, ""], revoke: (e) => [e.site ? `Removed ${esc(host(e.site))}'s permission` : "Removed a token permission", I.ban, ""],
+  freeze: () => ["Safe frozen", I.snow, ""], auto: () => ["Protected automatically", I.protect, ""],
+  ap: (e) => [{ connect: `Connected to ${host(e.origin)}`, sign: `Signed a message on ${host(e.origin)}`, solmsg: `Signed a message on ${host(e.origin)}`, typed: `${e.permit ? "Approved spending on" : "Signed for"} ${host(e.origin)}`, tx: `${e.permit ? "Approved spending on" : "Approved a transaction on"} ${host(e.origin)}`, soltx: `Approved a transaction on ${host(e.origin)}`, delegate: "Gave a token permission" }[e.kind] || `Approved on ${host(e.origin)}`, e.permit ? I.warn : I.link, e.permit ? "warn" : ""],
+};
+function actRows() {
+  const q = (S.actQ || "").trim().toLowerCase(), all = S.activity || [];
+  const when = (ms) => (ms ? new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "");
+  const rows = all.map((e) => { const [title, ic, cls] = (ACT_LBL[e.t] || (() => ["Transaction", I.arrow, ""]))(e); return { e, title, ic, cls }; })
+    .filter((r) => !q || `${r.title} ${r.e.to || ""} ${r.e.from || ""} ${r.e.origin || ""} ${NETS[r.e.k]?.name || ""}`.toLowerCase().includes(q));
+  if (!rows.length) return `<div class="empty">${I.search}<b>Nothing matches “${esc(q)}”</b><span>Try a name, an address or a site.</span></div>`;
+  let day = "";
+  return rows.slice(0, 120).map(({ e, title, ic, cls }) => {
+    const d = e.at ? new Date(e.at).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }) : "Earlier", head = d !== day ? `<div class="act-day">${(day = d)}</div>` : "";
+    const N = NETS[e.k] || NETS.sol, unit = e.sym || (e.a === "usdc" ? "USDC" : N.unit), val = e.n ? (e.a === "usdc" ? e.n / USDC_BASE : e.t === "tsend" ? e.n : e.n / BASE) : null;
+    const sign = cls === "out" ? "−" : cls === "in" ? "+" : "";
+    const tag = e.sig && e.k ? `a href="${N.explorer("tx", e.sig)}" target="_blank"` : "div";
+    return `${head}<${tag} class="arow act-row ${e.t} ${cls}"><span class="act-ico">${ic}${e.k ? `<span class="cmini">${coin(e.k)}</span>` : ""}</span>
+      <span class="ar-t"><b>${title}</b><small>${when(e.at)}${e.k ? ` · ${N.name}` : ""}</small></span>
+      ${val != null ? `<span class="ar-r"><b class="${cls === "out" ? "neg" : cls === "in" ? "pos" : ""}">${sign}${mask(val.toLocaleString("en-US", { maximumFractionDigits: 6 }))} ${esc(unit)}</b></span>` : ""}</${tag.split(" ")[0]}>`;
+  }).join("");
+}
 function activityList() {
   const list = S.activity || [];
   if (!list.length) return `<section class="list"><div class="empty art">${emptyArt("act")}<b>Nothing here yet</b><span>Sends, receives, Safe moves and website approvals show up here.</span><button class="btn sm primary" data-act="panel" data-p="receive">Receive your first coins</button></div></section>`;
-  const when = (ms) => new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-  return `<section class="list">${list.map((e) => {
-    const [title, ic] = ACT[e.t] || ["Transaction", I.arrow], out = e.t === "send";
-    return `<${e.sig ? `a href="${NETS[S.net].explorer("tx", e.sig)}" target="_blank"` : "div"} class="arow act-row ${e.t}"><span class="act-ico">${ic}</span>
-      <span class="ar-t"><b>${title}</b><small>${when(e.at)}${e.to ? ` · to ${short(e.to)}` : ""}</small></span>
-      ${e.n ? `<span class="ar-r"><b class="${out ? "neg" : ""}">${out ? "−" : ""}${amt(e.n, e.a)} ${A(e.a).unit}</b></span>` : ""}</${e.sig ? "a" : "div"}>`;
-  }).join("")}</section>`;
+  return `<label class="act-q">${I.search}<input data-actq placeholder="Search names, addresses, sites" value="${esc(S.actQ || "")}" autocomplete="off" spellcheck="false"/></label><section class="list" id="actl">${actRows()}</section>`;
 }
+function paintActivity() { const el = $("#actl"); if (el) el.innerHTML = actRows(); else if (S.screen === "home" && !S.panel) render(); }
 
 function delay(s) { return s >= 86400 && s % 86400 === 0 ? `${s / 86400} day${s / 86400 > 1 ? "s" : ""}` : `${Math.round(s / 3600)} h`; }
 function dur(s) { if (s <= 0) return "ready"; const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60); return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`; }
@@ -773,7 +847,7 @@ function closePanel() { const el = $("#panel"); el.classList.remove("in"); docum
 function renderPanel(enter = false) {
   const el = $("#panel"), P = S.panel;
   if (!P) return;
-  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
+  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, perms: permsView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
   el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}">${body}</div>`;
   P.fresh = false;
   if (enter) requestAnimationFrame(() => { el.classList.add("in"); document.body.classList.add("stacked"); });
@@ -999,6 +1073,7 @@ function settingsView() {
       <button class="srow" data-act="tog" data-k="recvNotify"><span>${I.recv}Notify when I receive coins</span><span class="sv">${S.recvNotify === false ? "Off" : "On"}</span></button>
       <button class="srow" data-act="tog" data-k="hideSmall"><span>${I.eyeOff}Hide balances under $1</span><span class="sv">${S.hideSmall ? "On" : "Off"}</span></button>
       <button class="srow" data-act="tog" data-k="order"><span>${I.arrow}Order coins by</span><span class="sv">${S.order === "name" ? "Name" : "Value"}</span></button>
+      <button class="srow" data-act="perms"><span>${I.ban}Token permissions</span><span class="sv">${I.arrow}</span></button>
       <button class="srow" data-act="panel" data-p="reveal"><span>${I.eye}Show recovery phrase</span><span class="sv">${I.arrow}</span></button>
       <a class="srow" href="https://ecrinprotocol.app/app" target="_blank"><span>${I.shield}Vault rules and alerts</span><span class="sv">${I.ext}</span></a>
       <button class="srow" data-act="lock"><span>${I.lock}Lock now</span><span></span></button>
@@ -1034,12 +1109,12 @@ const errText = (e) => {
 
 const actKey = () => `act:${S.net}:${ENG?.address || ""}`;
 async function readActivity() { const k = actKey(), o = await local.get(k); return o[k] || []; }
-async function logActivity(e) { const k = actKey(), list = await readActivity(); await local.set({ [k]: [{ at: Date.now(), ...e }, ...list].slice(0, 40) }); }
+async function logActivity(e) { const k = actKey(), list = await readActivity(); await local.set({ [k]: [{ at: Date.now(), ...e }, ...list].slice(0, 60) }); }
 
 async function txRun(fn, after, log) {
   if (S.upd?.must) return toast("A security update is required before you can send. Update Ecrin Wallet first.", "err");
   const P = S.panel; P.step = "sending"; renderPanel();
-  try { S.lastTx = Date.now(); const sig = await fn(); S.lastTx = Date.now(); P.sig = typeof sig === "string" ? sig : null; await after?.(); if (log) await logActivity({ ...log, sig: P.sig }); P.step = "done"; await refresh(); S.activity = await readActivity(); loadAll(); }
+  try { S.lastTx = Date.now(); const sig = await fn(); S.lastTx = Date.now(); P.sig = typeof sig === "string" ? sig : null; await after?.(); if (log) await logActivity({ ...log, sig: P.sig }); P.step = "done"; await refresh(); loadActivity(); loadAll(); }
   catch (e) { console.warn(e); P.step = "form"; toast(errText(e), "err"); }
   renderPanel();
 }
@@ -1050,11 +1125,24 @@ async function rememberDest(to) { const { sent = {} } = await local.get("sent");
 async function useNet(n) {
   if (!n || n === S.net) return;
   S.net = n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; S.drawChart = true;
-  await eng(); S.activity = await readActivity(); await refresh(); loadSeries();
+  await eng(); loadActivity(); await refresh(); loadSeries();
 }
 
 async function saveAccts() { await local.set({ accts: S.accts }); }
 const actions = {
+  revoke: async (el) => {
+    const P = S.panel, { dev } = await local.get("dev");
+    const item = el.dataset.f === "sol" ? P.sol.find((t) => t.acct === el.dataset.acct) : P.evm[Number(el.dataset.i)];
+    if (!item) return;
+    el.disabled = true; el.innerHTML = `<i class="spin"></i>`;
+    try {
+      const e = engine({ web3, ethers, acct: ACCT, net: item.k, dev: dev || {} });
+      const sig = await e.revoke(item);
+      const k = `act:${item.k}:${e.address}`, o = await local.get(k); await local.set({ [k]: [{ at: Date.now(), t: "revoke", site: item.origin || "", sig: typeof sig === "string" ? sig : null }, ...(o[k] || [])].slice(0, 60) });
+      toast("Permission removed", "win"); await loadExtras(dev); P.ready = false; renderPanel(); loadPerms();
+    } catch (err) { el.disabled = false; el.textContent = "Revoke"; toast(errText(err), "err"); }
+  },
+  perms: () => { openPanel("perms"); loadPerms(); },
   xtok: (el) => openPanel("xtok", { m: el.dataset.m, n: el.dataset.n }),
   nft: (el) => { const t = (S.extra || []).find((x) => x.mint === el.dataset.m); if (t) openPanel("nft", { m: t.mint, n: t.k }); },
   "tog-hidden": () => { S.showHid = !S.showHid; render(); },
@@ -1185,7 +1273,14 @@ const actions = {
     const R = S.req; if (!R || R.busy) return;
     if (S.upd?.must) { R.err = "A security update is required before you can sign. Update Ecrin Wallet first."; return render(); }
     R.busy = true; render();
-    try { const result = await APX.sign(R); await chrome.runtime.sendMessage({ type: "approval-done", id: R.id, ok: true, result }); window.close(); }
+    try {
+      const result = await APX.sign(R);
+      // Keep a record: it shows in Activity, and spending permissions show on the Permissions page to revoke later.
+      const from = R.fam === "sol" ? ACCT.sol?.publicKey.toBase58() : ACCT.evm?.address, { apLog = [] } = await local.get("apLog");
+      const permit = R.pv?.permit ? { spender: R.pv.permit.spender, token: R.pv.permit.token, chainId: R.chainId } : null;
+      await local.set({ apLog: [{ t: "ap", at: Date.now(), origin: R.origin, kind: R.kind, fam: R.fam, from, permit, sig: typeof result === "string" && R.kind === "tx" ? result : null, k: R.fam === "sol" ? "sol" : Object.values(NETS).find((x) => x.E?.chainId === Number(R.chainId))?.key }, ...apLog].slice(0, 200) });
+      await chrome.runtime.sendMessage({ type: "approval-done", id: R.id, ok: true, result }); window.close();
+    }
     catch (e) { R.busy = false; R.err = e?.shortMessage || e?.message || String(e); render(); }
   },
   "ap-no": async () => { await chrome.runtime.sendMessage({ type: "approval-done", id: S.req?.id, ok: false }).catch(() => {}); window.close(); },
@@ -1253,12 +1348,12 @@ const actions = {
   "do-protect": () => { const P = S.panel, units = parseAmt(P.amount, P.asset); P.sent = units; txRun(async () => (await eng()).protect(P.asset, units), null, { t: "protect", a: P.asset, n: units }); },
   "do-withdraw": () => { const P = S.panel, units = parseAmt(P.amount, P.asset); P.sent = units; txRun(async () => (await eng()).request(P.asset, ENG.address, units), null, { t: "withdraw", a: P.asset, n: units }); },
   "safe-go": async (el) => { el.disabled = true; await useNet(el.dataset.n); S.panel = null; openPanel(el.dataset.p); if (el.dataset.p === "protect") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); } },
-  "cancel-w": async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).cancel(el.dataset.a, Number(el.dataset.id)); await logActivity({ t: "cancel", a: el.dataset.a }); S.activity = await readActivity(); toast("Cancelled. It stays in your Safe.", "win"); await refresh(); loadAll(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
-  execute: async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).execute(el.dataset.a, Number(el.dataset.id), el.dataset.d); await logActivity({ t: "release", a: el.dataset.a }); S.activity = await readActivity(); toast("Released to Wallet", "win"); await refresh(); loadAll(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
-  net: async (el) => { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; S.drawChart = true; closePanel(); await eng(); S.activity = await readActivity(); refresh(); loadSeries(); },
-  "row-send": async (el) => { if (el.dataset.n !== S.net) { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; await eng(); S.activity = await readActivity(); await refresh(); } openPanel("send", { a: el.dataset.a }); const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); },
+  "cancel-w": async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).cancel(el.dataset.a, Number(el.dataset.id)); await logActivity({ t: "cancel", a: el.dataset.a }); loadActivity(); toast("Cancelled. It stays in your Safe.", "win"); await refresh(); loadAll(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
+  execute: async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).execute(el.dataset.a, Number(el.dataset.id), el.dataset.d); await logActivity({ t: "release", a: el.dataset.a }); loadActivity(); toast("Released to Wallet", "win"); await refresh(); loadAll(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
+  net: async (el) => { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; S.drawChart = true; closePanel(); await eng(); loadActivity(); refresh(); loadSeries(); },
+  "row-send": async (el) => { if (el.dataset.n !== S.net) { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; await eng(); loadActivity(); await refresh(); } openPanel("send", { a: el.dataset.a }); const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); },
   "net-go": async (el) => { if (el.dataset.n !== S.net) await actions.net(el); else closePanel(); },
-  tab: async (el) => { S.tab = el.dataset.t; if (S.tab === "activity") S.activity = await readActivity(); render(); },
+  tab: async (el) => { S.tab = el.dataset.t; render(); if (S.tab === "activity") loadActivity(); },
   range: async (el) => { S.range = el.dataset.d; await local.set({ range: S.range }); S.drawChart = true; render(); if (S.panel?.p === "tok") { renderPanel(); loadSeriesFor(S.panel.cg).then(() => S.panel?.p === "tok" && renderPanel()); } else loadSeries(); },
   num: async (el) => { S.nums[el.dataset.k] = el.dataset.v; applyNums(); await local.set({ nums: S.nums }); renderPanel(); render(); },
   autolock: async (el) => { S.autolock = Number(el.dataset.v); await local.set({ autolock: S.autolock }); await touch(); renderPanel(); },
@@ -1295,7 +1390,10 @@ async function xSendNow() {
   if (S.upd?.must) return toast("A security update is required before you can send. Update Ecrin Wallet first.", "err");
   const { dev } = await local.get("dev"); const e = engine({ web3, ethers, acct: ACCT, net: t.k, dev: dev || {} });
   P.step = "sending"; renderPanel();
-  try { const sig = await e.sendToken(t, P.to, BigInt(P.raw)); P.sig = typeof sig === "string" ? sig : null; await rememberDest(P.to); P.step = "done"; loadExtras(dev); }
+  try {
+    const sig = await e.sendToken(t, P.to, BigInt(P.raw)); P.sig = typeof sig === "string" ? sig : null; await rememberDest(P.to); P.step = "done"; loadExtras(dev);
+    const k = `act:${t.k}:${e.address}`, o = await local.get(k); await local.set({ [k]: [{ at: Date.now(), t: "tsend", to: P.to, n: Number(P.amount), sym: t.symbol || tokName(t), sig: P.sig }, ...(o[k] || [])].slice(0, 60) });
+  }
   catch (err) { console.warn(err); P.step = "review"; toast(errText(err), "err"); }
   renderPanel();
 }
@@ -1324,6 +1422,7 @@ document.addEventListener("input", (e) => {
     sync(); return;
     function sync() { const ta = document.querySelector('textarea[name="phrase"]'); if (ta) ta.value = [...document.querySelectorAll("[data-w]")].map((b) => b.value.trim().toLowerCase()).filter(Boolean).join(" "); }
   }
+  if (t.matches("[data-actq]")) { S.actQ = t.value; const el = $("#actl"); if (el) el.innerHTML = actRows(); return; }
   if (t.matches("[data-amount]")) {
     const v = t.value.replace(/[^\d.,]/g, "").replace(",", "."), parts = v.split(".");
     S.panel.amount = parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : v; S.panel.pct = null;
@@ -1534,6 +1633,7 @@ function noticeIncoming(bal) {
     if (!(now > was)) continue;
     const text = `Received ${amt(now - was, a)} ${A(a).unit} on ${NETS[S.net].name}`;
     recvFx(`+${amt(now - was, a)} ${A(a).unit}`);
+    if (NETS[S.net].fam === "evm") logActivity({ t: "recv", a, n: now - was }).then(loadActivity);
     if (document.hidden && window.Notification?.permission === "granted") try { new Notification("Ecrin Wallet", { body: text, icon: "/icon2-192.png" }); } catch (_) {}
   }
 }

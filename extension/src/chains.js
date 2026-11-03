@@ -82,9 +82,10 @@ function solEngine({ web3, acct, N, dev }) {
       const lists = await Promise.all(progs.map((pid) => conn.getParsedTokenAccountsByOwner(me, { programId: pid }, "confirmed").then((r) => r.value.map((a) => ({ a, pid }))).catch(() => [])));
       const out = [];
       for (const { a, pid } of lists.flat()) {
-        const i = a.account.data?.parsed?.info; if (!i || i.mint === mintAddr) continue;
-        const raw = BigInt(i.tokenAmount.amount); if (raw === 0n) continue;
-        out.push({ mint: i.mint, raw: String(raw), dec: i.tokenAmount.decimals, prog: pid.toBase58(), nft: i.tokenAmount.decimals === 0 && raw === 1n });
+        const i = a.account.data?.parsed?.info; if (!i) continue;
+        const raw = BigInt(i.tokenAmount.amount), deleg = i.delegate && BigInt(i.delegatedAmount?.amount || 0) > 0n ? { delegate: i.delegate, delegated: i.delegatedAmount.amount } : null;
+        if (i.mint === mintAddr ? !deleg : raw === 0n && !deleg) continue;
+        out.push({ mint: i.mint, acct: a.pubkey.toBase58(), raw: String(raw), dec: i.tokenAmount.decimals, prog: pid.toBase58(), nft: i.tokenAmount.decimals === 0 && raw === 1n, usdc: i.mint === mintAddr, ...(deleg || {}) });
       }
       // Metaplex metadata: name, symbol, link to the picture.
       const pdas = out.map((t) => web3.PublicKey.findProgramAddressSync([new TextEncoder().encode("metadata"), MPL.toBytes(), new web3.PublicKey(t.mint).toBytes()], MPL)[0]);
@@ -98,6 +99,28 @@ function solEngine({ web3, acct, N, dev }) {
         const r = await conn.getMultipleParsedAccounts(t22.slice(i, i + 100).map((t) => new web3.PublicKey(t.mint))).catch(() => null);
         r?.value?.forEach((acc, j) => { const md = acc?.data?.parsed?.info?.extensions?.find((x) => x.extension === "tokenMetadata")?.state; if (md) Object.assign(t22[i + j], { name: String(md.name || "").slice(0, 60), symbol: String(md.symbol || "").slice(0, 16), uri: String(md.uri || "") }); });
       }
+      return out;
+    },
+    /** Takes back a permission you gave someone to move your tokens (SPL "Revoke"). */
+    revoke: (t) => run(new web3.TransactionInstruction({ programId: new web3.PublicKey(t.prog), data: Uint8Array.of(5), keys: [meta(new web3.PublicKey(t.acct), false, true), meta(me, true, false)] })),
+    /** Recent coins that arrived, read from the chain: who sent them, how much, when. */
+    async history(limit = 15) {
+      const sigs = await conn.getSignaturesForAddress(me, { limit }, "confirmed");
+      const txs = await conn.getParsedTransactions(sigs.map((x) => x.signature), { maxSupportedTransactionVersion: 0, commitment: "confirmed" }).catch(() => []);
+      const mine = me.toBase58(), ata = client.ata(me, mint).toBase58(), out = [];
+      txs.forEach((tx, i) => {
+        if (!tx || tx.meta?.err) return;
+        const at = (sigs[i].blockTime || 0) * 1000, sig = sigs[i].signature;
+        for (const ix of tx.transaction.message.instructions) {
+          const p = ix.parsed; if (!p?.info) continue;
+          if (ix.program === "system" && p.type === "transfer" && p.info.destination === mine && p.info.source !== mine) out.push({ t: "recv", a: "native", n: p.info.lamports, from: p.info.source, at, sig });
+          if (ix.program === "system" && p.type === "transfer" && p.info.source === mine && p.info.destination !== mine) out.push({ t: "send", a: "native", n: p.info.lamports, to: p.info.destination, at, sig });
+          if (ix.program === "spl-token" && /transfer/.test(p.type) && p.info.destination === ata) out.push({ t: "recv", a: "usdc", n: Number(p.info.tokenAmount?.amount ?? p.info.amount), from: p.info.authority || p.info.source, at, sig });
+          else if (/^spl-token/.test(ix.program) && /transfer/.test(p.type) && p.info.authority === mine && p.info.tokenAmount) out.push({ t: "tsend", n: Number(p.info.tokenAmount.uiAmountString), sym: p.info.mint === mintAddr ? "USDC" : "tokens", at, sig });
+          if (/^spl-token/.test(ix.program) && p.type === "revoke" && p.info.owner === mine) out.push({ t: "revoke", at, sig });
+          if (/^spl-token/.test(ix.program) && /^approve/.test(p.type) && p.info.owner === mine) out.push({ t: "ap", kind: "delegate", at, sig, permit: true });
+        }
+      });
       return out;
     },
     async sendToken(t, to, raw) {
@@ -174,6 +197,9 @@ function evmEngine({ ethers, acct, N, dev }) {
       const [symbol, name, dec] = await Promise.all([c.symbol(), c.name().catch(() => ""), c.decimals()]);
       return { mint: ethers.getAddress(addr), symbol: String(symbol).slice(0, 12), name: String(name || symbol).slice(0, 40), dec: Number(dec) };
     },
+    /** How much `spender` may still take of `token` (an ERC-20 allowance). */
+    allowance: async (token, spender) => BigInt(await new ethers.Contract(token, ["function allowance(address,address) view returns (uint256)"], provider).allowance(wallet.address, spender)),
+    revoke: async (t) => done(await new ethers.Contract(t.token, ["function approve(address,uint256) returns (bool)"], wallet).approve(t.spender, 0n)),
     sendToken: async (t, to, raw) => done(await new ethers.Contract(t.mint, ["function transfer(address,uint256) returns (bool)"], wallet).transfer(ethers.getAddress(to), BigInt(raw))),
     createVault: (kind) => client.ops.create({ kind }),
     protect: (asset, amount) => (asset === "native" ? client.ops.deposit(amount) : vt.ops.deposit(amount)),
