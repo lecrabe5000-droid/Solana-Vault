@@ -74,6 +74,8 @@ let gid = 0;
 const coin = (k, cls = "") => `<span class="coin logo c-${k} ${cls}" aria-hidden="true">${LOGOS[k] || LOGOS.eth}</span>`;
 const netCoin = (n = S.net) => coin(n);
 const assetCoin = (a) => (a === "usdc" ? coin("usdc") : netCoin());
+/** The coin itself (USDC, or ETH on every Ethereum network), with the network as a small badge when they differ. */
+const coinOn = (a, n = S.net) => { const m = a === "usdc" ? "usdc" : NETS[n].unit === "ETH" ? "eth" : n; return m === n ? coin(n) : `<span class="cstack">${coin(m)}<span class="cmini">${coin(n)}</span></span>`; };
 function avatar(addr) {
   let h = 0; for (const c of String(addr)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   const a = h % 360, b = (a + 70 + (h >> 9) % 80) % 360;
@@ -1115,7 +1117,7 @@ function receiveView() {
   const q = qrcode(0, "H"); q.addData(e.address); q.make(); // high error correction: the logo in the middle can't break it
   return `${phead("Receive")}${fromRow()}
     <div class="recv">
-      <div class="qr">${q.createSvgTag({ cellSize: 5, margin: 0, scalable: true })}<span class="qr-c">${netCoin()}</span></div>
+      <div class="qr">${q.createSvgTag({ cellSize: 5, margin: 0, scalable: true })}<span class="qr-c">${(() => { const m = S.panel?.asset === "usdc" ? "usdc" : N.unit === "ETH" ? "eth" : S.net; return coin(m) + (m !== S.net ? `<span class="qr-b">${coin(S.net)}</span>` : ""); })()}</span></div>
       <p class="recv-n">Your ${N.name} address</p>
       ${navigator.share ? `<button class="btn sm share" data-act="share-addr">${I.send}Share address</button>` : ""}
       <button class="addr" data-act="copy-addr"><span class="mono">${esc(e.address)}</span>${I.copy}</button>
@@ -1849,7 +1851,7 @@ function recvFx(label) {
 /* ------------------------------------------------------------------ coin first: pick a coin, Ecrin picks the network */
 function fromRow() {
   const P = S.panel, N = NETS[S.net], a = P.asset || "native";
-  return `<button class="from" data-act="pick-coin">${assetCoin(a)}<span><b>${a === "usdc" ? "USDC" : N.unit}</b><small>on ${N.name}</small></span>${I.chev}</button>`;
+  return `<button class="from" data-act="pick-coin">${coinOn(a)}<span><b>${a === "usdc" ? "USDC" : N.unit}</b><small>on ${N.name}</small></span>${I.chev}</button>`;
 }
 function pickView() {
   const P = S.panel, w = worth(), need = P.back === "withdraw" ? "sav" : P.back === "receive" ? null : "chq";
