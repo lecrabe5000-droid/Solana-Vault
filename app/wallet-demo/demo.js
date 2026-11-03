@@ -2260,7 +2260,7 @@ zoo`.split(`
     ${m.panel.sig?`<a class="link" href="${he[m.net].explorer("tx",m.panel.sig)}" target="_blank">View on the explorer ${X.ext}</a>`:""}${t}
     <div class="pfoot"><button class="btn primary xl" data-act="close">Done</button></div></div>`:`<div class="done"><div class="done-mark"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="29"/><path d="M20 33l8 8 16-17"/></svg></div><h2>${r}</h2><p>${e}</p>
     ${m.panel.sig?`<a class="link" href="${he[m.net].explorer("tx",m.panel.sig)}" target="_blank">View on the explorer ${X.ext}</a>`:""}${t}
-    <div class="pfoot"><button class="btn primary xl" data-act="close">Done</button></div></div>`}function nC(){let r=Me.sol?.publicKey.toBase58(),e=Me.evm?.address,t=Me.tron&&!Me.only?ef(Me.tron.address):null,n=Ru(),s=a=>{let c=a.match(/.{1,4}/g);return c.map((u,f)=>`<i class="${f===0||f===c.length-1?"hl":""}">${ue(u)}</i>`).join("")},o=(a,c,u,f,d)=>`<article class="ad-card">
+    <div class="pfoot"><button class="btn primary xl" data-act="close">Done</button></div></div>`}function nC(){let r=Me.sol?.publicKey.toBase58(),e=Me.evm?.address,t=Me.tron&&!Me.only?ef(Me.tron.address):null,n=Ru(),s=a=>`<b>${ue(a.slice(0,4))}</b>${ue(a.slice(4,-4))}<b>${ue(a.slice(-4))}</b>`,o=(a,c,u,f,d)=>`<article class="ad-card">
       <header class="ad-h">${Ze(a)}<span><b>${u}</b><small>${f}</small></span><button class="ib sm" data-act="qr-for" data-n="${a}" aria-label="Show QR code">${X.qr}</button></header>
       <div class="ad-a mono" data-notr>${s(c)}</div>
       ${d?`<div class="ad-nets">${d.map(h=>`<span title="${ue(he[h].name)}">${Ze(h)}<small>${ue(he[h].name)}</small></span>`).join("")}</div>`:""}

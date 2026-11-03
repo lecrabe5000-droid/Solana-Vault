@@ -1194,3 +1194,6 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 :root[data-theme="light"] .ad-copy { background: #f1f2f5; } :root[data-theme="light"] .ad-copy.ok { background: var(--eb); }
 :root[data-theme] .ad-hero .acct-ic.av { font-size: 22px; }
 .ad-nets .coin svg { width: 62%; height: 62%; }
+/* address: one continuous string */
+.ad-a { display: block !important; word-break: break-all; font-size: 13px !important; letter-spacing: 0 !important; line-height: 1.55 !important; color: var(--muted); }
+.ad-a b { color: var(--ink); font-weight: 500; }

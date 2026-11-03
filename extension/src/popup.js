@@ -1035,8 +1035,8 @@ function doneView(title, text, extra = "") {
 /** Every address this account has, network by network, like MetaMask's account view. */
 function addrsView() {
   const sol = ACCT.sol?.publicKey.toBase58(), evm = ACCT.evm?.address, tron = ACCT.tron && !ACCT.only ? toTron(ACCT.tron.address) : null, A0 = curAcct();
-  // The full address in groups of four; the first and last groups stand out, since those are what people check.
-  const groups = (a) => { const g = a.match(/.{1,4}/g); return g.map((x, i) => `<i class="${i === 0 || i === g.length - 1 ? "hl" : ""}">${esc(x)}</i>`).join(""); };
+  // The full address in one piece; the first and last four characters stand out, since those are what people check.
+  const groups = (a) => `<b>${esc(a.slice(0, 4))}</b>${esc(a.slice(4, -4))}<b>${esc(a.slice(-4))}</b>`;
   const card = (k, a, title, note, nets) => `<article class="ad-card">
       <header class="ad-h">${coin(k)}<span><b>${title}</b><small>${note}</small></span><button class="ib sm" data-act="qr-for" data-n="${k}" aria-label="Show QR code">${I.qr}</button></header>
       <div class="ad-a mono" data-notr>${groups(a)}</div>
