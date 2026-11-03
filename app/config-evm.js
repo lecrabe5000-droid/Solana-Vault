@@ -8,7 +8,7 @@ const NETWORKS = {
     hardhat: "sepolia", name: "Ethereum", net: "Sepolia", chainId: 11155111, unit: "ETH", cg: "ethereum",
     rpc: "https://ethereum-sepolia-rpc.publicnode.com", explorer: "https://sepolia.etherscan.io",
     usdc: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
-    faucet: "https://cloud.google.com/application/web3/faucet/ethereum/sepolia", faucetName: "the Google Cloud Sepolia faucet",
+    faucet: "https://sepolia-faucet.pk910.de", faucetName: "the pk910 Sepolia faucet (no balance needed)",
   },
   base: {
     hardhat: "baseSepolia", name: "Base", net: "Sepolia", chainId: 84532, unit: "ETH", cg: "ethereum",
