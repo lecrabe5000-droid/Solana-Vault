@@ -62,12 +62,34 @@ export function makeApprovals({ web3, ethers, getAcct, getDev }) {
       }
       else out.notes.push(`Calls a contract (function ${sel}). Ecrin can't read what it does, so only approve if you trust this site.`);
     } catch (e) { out.notes.push("Ecrin couldn't read this transaction in full."); }
+    // Run it for real on a copy of the chain (eth_simulateV1): the coins and tokens that would actually move,
+    // whatever the contract is. Nodes without it fall back to the reading above.
+    try {
+      const sim = await provider.send("eth_simulateV1", [{ blockStateCalls: [{ calls: [{ from: me, ...(tx.to ? { to: tx.to } : {}), data, value: "0x" + value.toString(16) }] }], traceTransfers: true, validation: false }, "latest"]);
+      const call = sim?.[0]?.calls?.[0];
+      if (call) {
+        const T = ethers.id("Transfer(address,address,uint256)"), NATIVE = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", meL = me.toLowerCase(), leaves = [], gets = [];
+        const who = (t) => "0x" + t.slice(26).toLowerCase();
+        for (const lg of call.logs || []) {
+          if (lg.topics?.[0] !== T) continue;
+          const from = who(lg.topics[1]), to = who(lg.topics[2]);
+          if (from !== meL && to !== meL) continue;
+          let item;
+          if (lg.topics.length === 4) item = { amt: "1", unit: `item #${BigInt(lg.topics[3]).toString().slice(0, 8)} (${short(lg.address)})` };
+          else if (lg.address.toLowerCase() === NATIVE) item = { amt: units(BigInt(lg.data), 18), unit: N.unit };
+          else { const m = await tokenMeta(provider, lg.address); item = { amt: amountText(BigInt(lg.data), m), unit: m.symbol }; }
+          if (from === meL) leaves.push({ ...item, to: ethers.getAddress(to) }); else gets.push(item);
+        }
+        out.leaves = leaves; out.gets = gets; out.simulated = true;
+        if (call.status === "0x0") out.fail = "Ecrin ran this transaction on a copy of the chain and it fails. Approving it would only waste the fee.";
+      }
+    } catch (_) {}
     // Would it work, and what does the network charge?
     try {
       const gas = tx.gas || tx.gasLimit ? BigInt(tx.gas || tx.gasLimit) : await provider.estimateGas({ from: me, to: tx.to || undefined, data, value });
       const f = await provider.getFeeData(), price = f.maxFeePerGas || f.gasPrice || 0n;
       out.fee = `up to ${units(gas * price, 18, 6)} ${N.unit}`;
-    } catch (e) { out.fail = shortErr(e); }
+    } catch (e) { out.fail = out.fail || shortErr(e); }
     return out;
   }
 

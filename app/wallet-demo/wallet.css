@@ -1134,3 +1134,5 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 .cool { display: flex; align-items: center; gap: 12px; margin: 10px 0 0; padding: 12px; border-radius: 14px; background: var(--s1); box-shadow: 0 0 0 1px var(--line); }
 .cool svg { width: 40px; height: 40px; flex: none; transform: rotate(-90deg); fill: none; stroke-width: 2.5; } .cool circle { stroke: var(--line-2); } .cool .cl-p { stroke: var(--eb); stroke-dasharray: 106.8; stroke-linecap: round; }
 .cool span { display: grid; } .cool b { font: 600 15px var(--font); } .cool small { color: var(--muted); font-size: 12px; line-height: 1.4; }
+.ap-sim { display: inline-flex; align-items: center; gap: 4px; float: right; color: var(--eb); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
+.ap-sim svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2.6; } :root[data-theme="dark"] .ap-sim { color: #7f98ff; }

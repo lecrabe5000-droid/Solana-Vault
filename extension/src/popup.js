@@ -1606,7 +1606,7 @@ function approveView() {
   else if (kind === "typed") body = `<div class="ap-lbl">${esc(pv.title)}</div><div class="ap-card ap-fields">${(pv.fields || []).map(([k, v]) => `<div><span>${esc(k)}</span><b>${esc(v.length > 46 ? short(v) : v)}</b></div>`).join("")}</div>`;
   else {
     const lv = pv.leaves || [], gt = pv.gets || [];
-    body = `<div class="ap-lbl">What leaves your wallet</div><div class="ap-card">${lv.length ? lv.map((x) => row("−", x)).join("") : `<div class="ap-r none">Nothing${pv.fail ? " that Ecrin could see" : ""}</div>`}</div>
+    body = `<div class="ap-lbl">What leaves your wallet${pv.simulated || kind === "soltx" ? `<span class="ap-sim">${I.check}Simulated</span>` : ""}</div><div class="ap-card">${lv.length ? lv.map((x) => row("−", x)).join("") : `<div class="ap-r none">Nothing${pv.fail ? " that Ecrin could see" : ""}</div>`}</div>
       ${gt.length ? `<div class="ap-lbl">What you receive</div><div class="ap-card">${gt.map((x) => row("+", x)).join("")}</div>` : ""}
       <div class="ap-kv">${pv.to ? `<div><span>To</span><b>${esc(short(pv.to))}</b></div>` : ""}<div><span>Network fee</span><b>${esc(pv.fee || "—")}</b></div></div>`;
   }
