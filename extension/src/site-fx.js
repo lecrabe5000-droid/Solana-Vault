@@ -9,13 +9,13 @@ const NAME = { sol: "sol", eth: "eth", base: "base", arb: "arb", op: "op", pol: 
 // 1. Official logos in every coin dot.
 document.querySelectorAll("i.coin").forEach((el) => { const k = [...el.classList].find((c) => NAME[c]); if (k && LOGOS[k]) { el.innerHTML = LOGOS[k]; el.classList.add("real"); } });
 
-// 2. The network cloud becomes a slow, endless band of logos.
+// 2. The network cloud also lists the newer networks (it stays still).
 const cloud = document.querySelector(".net-cloud");
 if (cloud) {
   const have = new Set([...cloud.querySelectorAll("i.coin")].map((i) => [...i.classList].find((c) => NAME[c])));
   const extra = [["bnb", "BNB Chain"], ["avax", "Avalanche"], ["tron", "Tron"], ["usdt", "USDT"]].filter(([k]) => !have.has(k));
   for (const [k, n] of extra) cloud.insertAdjacentHTML("beforeend", `<span class="net"><i class="coin ${k} real">${LOGOS[k]}</i>${n}</span>`);
-  if (!still) { const track = document.createElement("div"); track.className = "net-track"; track.append(...cloud.childNodes); track.insertAdjacentHTML("beforeend", track.innerHTML); cloud.append(track); cloud.classList.add("band"); }
+
 }
 
 // 3. Cards catch a soft light under the pointer and lift a little.
