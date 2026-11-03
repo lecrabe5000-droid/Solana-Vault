@@ -1240,6 +1240,13 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 @keyframes ptr-spin { to { transform: rotate(360deg); } }
 :root[data-theme="dark"] .ptr { color: #6f8cff; }
 :root[data-theme] .chart .ch-pin { display: block !important; }
+/* no motion on the home screen: rows, prices and charts just appear */
+.rv, .rv.in { opacity: 1 !important; transform: none !important; transition: none !important; }
+.spark path, .rv .spark path, .rv.in .spark path { animation: none !important; stroke-dasharray: none !important; stroke-dashoffset: 0 !important; }
+.px.flash-up, .px.flash-dn { animation: none !important; }
+.live-dot, .ch-dot { animation: none !important; }
+.arow:active, .acts button:active, .acard:active, .sscore:active { transform: none !important; }
+.top-total { transition: none !important; transform: none !important; }
 
 .device { padding: 0 !important; }
 #root, #panel { top: env(safe-area-inset-top, 0px); }

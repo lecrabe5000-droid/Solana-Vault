@@ -298,7 +298,7 @@ function render() {
   depth(root);
   bindChart(root);
   if (S.screen === "welcome") mountVault3d(root);
-  if (S.screen === "home") { reveal(root); scrollWatch(); S.prevPx = Object.fromEntries(Object.entries(S.prices).map(([k, v]) => [k, v?.usd])); }
+  if (S.screen === "home") { scrollWatch(); S.prevPx = Object.fromEntries(Object.entries(S.prices).map(([k, v]) => [k, v?.usd])); }
   // The home arrives in a cascade once per unlock.
   if (S.screen === "home" && !S.entered && S.bal) { S.entered = true; root.querySelector(".home")?.classList.add("enter"); }
   // The total counts up the first time it shows, so the balance arrives rather than appears.
