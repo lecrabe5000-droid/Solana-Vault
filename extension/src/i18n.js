@@ -60,7 +60,7 @@ const FR = {
   "Accounts you add come from your recovery phrase, so your backup covers them. Imported keys are not in your recovery phrase: keep their own backup.": "Les comptes ajoutés viennent de votre phrase de récupération : votre sauvegarde les couvre. Les clés importées n'y sont pas : gardez-en une sauvegarde à part.",
   "Imported private key": "Clé privée importée", "From your recovery phrase": "Depuis votre phrase de récupération", "Ethereum and its networks": "Ethereum et ses réseaux", "same address on each": "même adresse partout",
   "Your Solana address": "Votre adresse Solana", "Share address": "Partager l'adresse", "Buy with a card": "Acheter par carte", "Name this address (optional)": "Nommer cette adresse (facultatif)",
-  "All assets": "Tous les actifs", "Across every network": "Sur tous les réseaux", "Show": "Afficher", "Copy": "Copier", "Face ID": "Face ID", "Biometric unlock": "Déverrouillage biométrique",
+  "All assets": "Tous les actifs", "Across every network": "Sur tous les réseaux", "Show": "Afficher", "Copy": "Copier", "Copy address": "Copier l'adresse", "Addresses": "Adresses", "Ethereum-style networks": "Réseaux de type Ethereum", "SOL, USDC and Solana tokens": "SOL, USDC et jetons Solana", "TRX and USDT": "TRX et USDT", "Only send coins to the matching network. Coins sent to the right address on the wrong network may be lost.": "N'envoyez des jetons que sur le bon réseau. Des jetons envoyés à la bonne adresse sur le mauvais réseau peuvent être perdus.", "Face ID": "Face ID", "Biometric unlock": "Déverrouillage biométrique",
 };
 // Phrases with numbers or names: [pattern, replacement].
 const FR_RE = [
@@ -72,7 +72,7 @@ const FR_RE = [
   [/^(\d+) hidden tokens? · Show$/, "$1 jeton(s) masqué(s) · Afficher"], [/^(\d+) hidden tokens? · Hide them$/, "$1 jeton(s) masqué(s) · Masquer"],
   [/^Move more into your Safe \((\d+)% now\)$/, "Mettez plus dans votre Safe ($1 % aujourd'hui)"], [/^Revoke (\d+) token permissions?$/, "Révoquez $1 autorisation(s)"],
   [/^(\d+)% of net worth$/, "$1 % de la valeur totale"], [/^(\d+)% of each payment$/, "$1 % de chaque paiement"], [/^Addresses of (.+)$/, "Adresses de $1"],
-  [/^Get free test (\w+)$/, "Obtenir des $1 de test"], [/^(.+) leaving$/, "$1 en sortie"], [/^Account (\d+)$/, "Compte $1"], [/^Addresses of Account (\d+)$/, "Adresses du Compte $1"], [/^on (\w+)$/, "sur $1"], [/^(\d+) networks?$/, "$1 réseau(x)"],
+  [/^Get free test (\w+)$/, "Obtenir des $1 de test"], [/^(.+) leaving$/, "$1 en sortie"], [/^Account (\d+)$/, "Compte $1"], [/^One address for all (\d+)$/, "Une adresse pour les $1"], [/^Addresses of Account (\d+)$/, "Adresses du Compte $1"], [/^on (\w+)$/, "sur $1"], [/^(\d+) networks?$/, "$1 réseau(x)"],
 ];
 export const LANGS = [["en", "English"], ["fr", "Français"]];
 export function translate(root, lang) {

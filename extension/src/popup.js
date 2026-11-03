@@ -1034,15 +1034,24 @@ function doneView(title, text, extra = "") {
 
 /** Every address this account has, network by network, like MetaMask's account view. */
 function addrsView() {
-  const sol = ACCT.sol?.publicKey.toBase58(), evm = ACCT.evm?.address, A0 = curAcct();
-  const row = (k, a) => `<div class="adr">${coin(k)}<span class="adr-t"><b>${NETS[k].name}</b><small class="mono">${short(a)}</small></span>
-    <button class="ib sm" data-act="copy" data-v="${esc(a)}" aria-label="Copy ${NETS[k].name} address">${I.copy}</button><button class="ib sm" data-act="qr-for" data-n="${k}" aria-label="Show QR code">${I.qr}</button></div>`;
-  return `${phead(esc(A0.name))}
-    <div class="adr-hero">${acctIc(A0, "lg")}<b>${esc(A0.name)}</b><span class="sub">${A0.kind === "key" ? "Imported private key" : "From your recovery phrase"}</span></div>
-    ${sol ? `<div class="list-h"><b>Solana</b></div><section class="list">${row("sol", sol)}</section>` : ""}
-    ${ACCT.tron && !ACCT.only ? `<div class="list-h"><b>Tron</b></div><section class="list">${row("tron", toTron(ACCT.tron.address))}</section>` : ""}
-    ${evm ? `<div class="list-h"><b>Ethereum and its networks</b><span>same address on each</span></div>
-    <section class="list">${Object.keys(NETS).filter((k) => NETS[k].fam === "evm").map((k) => row(k, evm)).join("")}</section>` : ""}`;
+  const sol = ACCT.sol?.publicKey.toBase58(), evm = ACCT.evm?.address, tron = ACCT.tron && !ACCT.only ? toTron(ACCT.tron.address) : null, A0 = curAcct();
+  // The full address in groups of four; the first and last groups stand out, since those are what people check.
+  const groups = (a) => { const g = a.match(/.{1,4}/g); return g.map((x, i) => `<i class="${i === 0 || i === g.length - 1 ? "hl" : ""}">${esc(x)}</i>`).join(""); };
+  const card = (k, a, title, note, nets) => `<article class="ad-card">
+      <header class="ad-h">${coin(k)}<span><b>${title}</b><small>${note}</small></span><button class="ib sm" data-act="qr-for" data-n="${k}" aria-label="Show QR code">${I.qr}</button></header>
+      <div class="ad-a mono" data-notr>${groups(a)}</div>
+      ${nets ? `<div class="ad-nets">${nets.map((n) => `<span title="${esc(NETS[n].name)}">${coin(n)}<small>${esc(NETS[n].name)}</small></span>`).join("")}</div>` : ""}
+      <button class="ad-copy" data-act="copy" data-v="${esc(a)}">${I.copy}<span>Copy address</span></button>
+    </article>`;
+  const evmNets = Object.keys(NETS).filter((k) => NETS[k].fam === "evm");
+  return `${phead("Addresses")}
+    <div class="ad-hero">${acctIc(A0, "lg")}<span><b>${esc(A0.name)}</b><small>${A0.kind === "key" ? "Imported private key" : "From your recovery phrase"}</small></span></div>
+    <div class="ad-list">
+      ${sol ? card("sol", sol, "Solana", "SOL, USDC and Solana tokens") : ""}
+      ${evm ? card("eth", evm, "Ethereum-style networks", `One address for all ${evmNets.length}`, evmNets) : ""}
+      ${tron ? card("tron", tron, "Tron", "TRX and USDT") : ""}
+    </div>
+    <p class="fine pad">Only send coins to the matching network. Coins sent to the right address on the wrong network may be lost.</p>`;
 }
 
 /** A round account mark in the account's colour, with its first letter. */
@@ -1446,7 +1455,11 @@ const actions = {
   pick: (el) => { const q = S.quiz.find((x) => !x.ok), w = S.phrase.split(" ")[q.i]; if (el.dataset.w === w) { q.ok = true; S.quizErr = false; } else S.quizErr = true; render(); },
   "finish-create": async () => { S.busy = true; render(); await saveWallet(S.phrase, S.pw); await local.set({ backup: { at: Date.now(), done: false } }); S.busy = false; S.phrase = S.pw = null; home(); },
   forgot: () => { if (confirm("Without the password, the only way back in is your recovery phrase. Remove this wallet from the browser and import it again?")) forget(); },
-  copy: async (el) => { await navigator.clipboard.writeText(el.dataset.v); toast("Address copied", "win"); },
+  copy: async (el) => {
+    await navigator.clipboard.writeText(el.dataset.v);
+    if (el.classList.contains("ad-copy")) { const t = el.querySelector("span"); el.classList.add("ok"); t.textContent = S.lang === "fr" ? "Copiée" : "Copied"; clearTimeout(el._t); el._t = setTimeout(() => { el.classList.remove("ok"); t.textContent = S.lang === "fr" ? "Copier l'adresse" : "Copy address"; }, 1600); navigator.vibrate?.(8); }
+    else toast("Address copied", "win");
+  },
   "qr-for": async (el) => { if (el.dataset.n !== S.net) { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; await eng(); refresh(); } S.panel = { p: "receive", step: "form", asset: "native", amount: "", to: "" }; renderPanel(); },
   "copy-addr": async () => { await navigator.clipboard.writeText(ENG.address); toast("Address copied", "win"); },
   hide: async () => { S.hide = !S.hide; await local.set({ hide: S.hide }); render(); if (S.panel) renderPanel(); },

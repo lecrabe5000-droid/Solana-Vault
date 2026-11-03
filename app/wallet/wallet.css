@@ -1171,6 +1171,29 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 :root[data-theme] .words label input { flex: 1; width: 100%; min-width: 0; height: auto !important; margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; outline: none !important; }
 /* breathing room between the tabs and what's under them */
 .tab-body { padding-top: 14px; } .tab-body > .list:first-child, .tab-body > .act-q:first-child, .tab-body > .nfts:first-child { margin-top: 0; }
+/* addresses: one card per address */
+.ad-hero { display: flex; align-items: center; gap: 14px; margin: 2px 2px 16px; }
+.ad-hero .acct-ic.lg { width: 52px; height: 52px; border-radius: 16px; font-size: 22px; }
+.ad-hero span { display: grid; } .ad-hero b { font: 600 19px var(--font); letter-spacing: -.01em; } .ad-hero small { color: var(--muted); font-size: 12.5px; }
+.ad-list { display: grid; gap: 12px; }
+.ad-card { padding: 14px; border-radius: 18px; background: var(--s1); box-shadow: 0 0 0 1px var(--line); }
+:root[data-theme="light"] .ad-card { background: #fff; }
+.ad-h { display: flex; align-items: center; gap: 12px; } .ad-h .coin { width: 34px; height: 34px; flex: none; }
+.ad-h > span { flex: 1; display: grid; min-width: 0; line-height: 1.3; } .ad-h b { font: 600 14.5px var(--font); } .ad-h small { color: var(--muted); font-size: 12px; }
+.ad-h .ib { color: var(--muted); } .ad-h .ib:hover { color: var(--ink); }
+.ad-a { display: flex; flex-wrap: wrap; gap: 4px 7px; margin: 14px 0 12px; padding: 12px; border-radius: 12px; background: var(--bg); box-shadow: inset 0 0 0 1px var(--line); font-size: 13.5px; line-height: 1.5; letter-spacing: .02em; user-select: all; }
+:root[data-theme="light"] .ad-a { background: #f6f7f9; }
+.ad-a i { font-style: normal; color: var(--muted); } .ad-a i.hl { color: var(--ink); font-weight: 600; }
+.ad-nets { display: flex; flex-wrap: wrap; gap: 6px; margin: -2px 0 12px; }
+.ad-nets > span { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px 0 3px; border-radius: 999px; background: var(--s2); color: var(--muted); font-size: 11.5px; }
+:root[data-theme="light"] .ad-nets > span { background: #f1f2f5; }
+.ad-nets .coin { width: 18px; height: 18px; } .ad-nets small { font-size: 11.5px; }
+.ad-copy { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; height: 40px; border: 0; border-radius: 12px; background: var(--s2); color: var(--ink); font: 500 13.5px var(--font); cursor: pointer; transition: background .2s, color .2s; }
+.ad-copy:hover { background: var(--s3); } .ad-copy svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.ad-copy.ok { background: var(--eb); color: #fff; }
+:root[data-theme="light"] .ad-copy { background: #f1f2f5; } :root[data-theme="light"] .ad-copy.ok { background: var(--eb); }
+:root[data-theme] .ad-hero .acct-ic.av { font-size: 22px; }
+.ad-nets .coin svg { width: 62%; height: 62%; }
 
 .device { padding: 0 !important; }
 #root, #panel { top: env(safe-area-inset-top, 0px); }
