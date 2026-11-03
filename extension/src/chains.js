@@ -153,10 +153,10 @@ function evmEngine({ ethers, acct, N, dev }) {
   const provider = new ethers.JsonRpcProvider(E.rpc, E.chainId, { staticNetwork: true });
   const wallet = acct.evm.connect(provider);
   const client = E.address ? createEvmClient({ ethers, EVM: E, readProvider: provider, getSigner: async () => wallet }) : null;
-  const usdc = new ethers.Contract(E.usdc, ["function balanceOf(address) view returns (uint256)", "function transfer(address,uint256) returns (bool)"], wallet);
+  const usdc = E.usdc && new ethers.Contract(E.usdc, ["function balanceOf(address) view returns (uint256)", "function transfer(address,uint256) returns (bool)"], wallet);
   const GWEI = 1_000_000_000n;
   const done = async (t) => { const r = await t.wait(); if (!r || r.status !== 1) throw new Error("The transaction failed on-chain."); return t.hash; };
-  const vt = client ? client.token(E.usdc) : null;
+  const vt = client && E.usdc ? client.token(E.usdc) : null;
   async function gasUnits(limit) {
     const f = await provider.getFeeData();
     const price = f.maxFeePerGas || f.gasPrice || 0n;
@@ -168,14 +168,14 @@ function evmEngine({ ethers, acct, N, dev }) {
     isAddress: (s) => { try { ethers.getAddress(String(s).trim()); return true; } catch (_) { return false; } },
     explain: (e) => explainEvmError(e, client?.iface), hasVaults: !!client, tokens: N.tokens,
     async balances() {
-      const [w, u] = await Promise.all([provider.getBalance(wallet.address), usdc.balanceOf(wallet.address).catch(() => 0n)]);
+      const [w, u] = await Promise.all([provider.getBalance(wallet.address), (usdc ? usdc.balanceOf(wallet.address).catch(() => 0n) : 0n)]);
       return { native: Number(w / GWEI), usdc: Number(u) };
     },
     async vault() {
       if (!client) return null;
       const v = await client.fetchVault(wallet.address);
       if (!v) return null;
-      return { main: v, usdc: N.tokens ? await vt.fetch(wallet.address).catch(() => null) : null };
+      return { main: v, usdc: N.tokens && vt ? await vt.fetch(wallet.address).catch(() => null) : null };
     },
     reserve: async (asset) => (asset === "native" ? gasUnits(21_000) : 0),
     feeText: () => "a little " + N.unit + " for gas",

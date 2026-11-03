@@ -34,6 +34,19 @@ const NETWORKS = {
     usdc: "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582",
     faucet: "https://faucet.polygon.technology", faucetName: "the Polygon faucet",
   },
+  // Circle has no official test USDC on BNB Chain, so that network shows BNB only.
+  bnb: {
+    hardhat: "bscTestnet", name: "BNB Chain", net: "Testnet", chainId: 97, unit: "BNB", cg: "binancecoin",
+    rpc: "https://bsc-testnet-rpc.publicnode.com", explorer: "https://testnet.bscscan.com",
+    usdc: null,
+    faucet: "https://www.bnbchain.org/en/testnet-faucet", faucetName: "the BNB Chain faucet",
+  },
+  avax: {
+    hardhat: "avalancheFuji", name: "Avalanche", net: "Fuji", chainId: 43113, unit: "AVAX", cg: "avalanche-2",
+    rpc: "https://avalanche-fuji-c-chain-rpc.publicnode.com", explorer: "https://testnet.snowtrace.io",
+    usdc: "0x5425890298aed601595a70AB815c96711a31Bc65",
+    faucet: "https://core.app/tools/testnet-faucet/?subnet=c&token=c", faucetName: "the Avalanche faucet",
+  },
 };
 
 /** Each network with its deployment: address (null until deployed), fromBlock, and v (2 = holds tokens too). */

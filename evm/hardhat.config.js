@@ -41,5 +41,7 @@ module.exports = {
     arbitrumSepolia: { url: rpc("arbitrumSepolia", "https://sepolia-rollup.arbitrum.io/rpc"), chainId: 421614, accounts },
     optimismSepolia: { url: rpc("optimismSepolia", "https://sepolia.optimism.io"), chainId: 11155420, accounts },
     polygonAmoy: { url: rpc("polygonAmoy", "https://polygon-amoy-bor-rpc.publicnode.com"), chainId: 80002, accounts },
+    bscTestnet: { url: rpc("bscTestnet", "https://bsc-testnet-rpc.publicnode.com"), chainId: 97, accounts },
+    avalancheFuji: { url: rpc("avalancheFuji", "https://avalanche-fuji-c-chain-rpc.publicnode.com"), chainId: 43113, accounts },
   },
 };

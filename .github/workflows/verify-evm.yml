@@ -10,7 +10,7 @@ on:
         description: Network
         type: choice
         default: sepolia
-        options: [sepolia, baseSepolia, arbitrumSepolia, optimismSepolia, polygonAmoy]
+        options: [sepolia, baseSepolia, arbitrumSepolia, optimismSepolia, polygonAmoy, bscTestnet, avalancheFuji]
 
 jobs:
   verify:

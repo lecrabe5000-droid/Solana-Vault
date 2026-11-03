@@ -77,6 +77,8 @@ const COIN = {
   arb: () => '<svg viewBox="0 0 32 32"><path d="M16 5.2l9.4 5.4v10.8L16 26.8l-9.4-5.4V10.6z" fill="none" stroke="#9dcced" stroke-width="1.4"/><path d="M17.6 12.2l4.4 7.7-1.9 1.1-4.1-7.2zM14.4 12.2l1.6 2.8-3.3 5.9-1.9-1.1z" fill="#28a0f0"/><path d="M13.3 10.9h2.6l-6 10.4-1.6-.9zM16.1 10.9h2.6l5 8.7-1.6.9z" fill="#fff"/></svg>',
   op: () => '<svg viewBox="0 0 32 32"><text x="15.6" y="20.4" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-style="italic" font-size="11" letter-spacing="-.3" fill="#fff">OP</text></svg>',
   pol: () => '<svg viewBox="0 0 32 32"><path d="M20.4 12.6l-3-1.75a.9.9 0 0 0-.9 0l-3 1.75v3.4l-2.6 1.5-2.6-1.5v-3l2.6-1.5 1.5.86v-1.7L10.9 9.6a.9.9 0 0 0-.9 0l-3 1.75a.9.9 0 0 0-.45.78v3.5c0 .32.17.62.45.78l3 1.75c.28.16.62.16.9 0l3-1.75v-3.4l2.6-1.5 2.6 1.5v3l-2.6 1.5-1.5-.86v1.7l1.5.87c.28.16.62.16.9 0l3-1.75a.9.9 0 0 0 .45-.78v-3.5a.9.9 0 0 0-.45-.78z" fill="#fff" transform="translate(2.4 2.1)"/></svg>',
+  bnb: () => '<svg viewBox="0 0 32 32"><path fill="#fff" d="M16 6.6l3.1 3.1-5.5 5.5-3.1-3.1zM20.9 11.5l3.1 3.1-8 8-8-8 3.1-3.1 4.9 4.9zM6.6 13.6l2.4 2.4-2.4 2.4-2.4-2.4zM25.4 13.6l2.4 2.4-2.4 2.4-2.4-2.4zM16 13.6l2.4 2.4-2.4 2.4-2.4-2.4z"/></svg>',
+  avax: () => '<svg viewBox="0 0 32 32"><path fill="#fff" d="M20.1 21.6h3.8c.9 0 1.3-.9.9-1.6l-1.9-3.3c-.4-.8-1.5-.8-1.9 0l-1.9 3.3c-.4.7.1 1.6 1 1.6zM15 8.1c.4-.8 1.6-.8 2 0l1.5 2.6c.2.4.2.8 0 1.2l-5.2 9c-.2.4-.6.7-1.1.7H8.1c-.9 0-1.4-.9-.9-1.6z"/></svg>',
   usdc: () => '<svg viewBox="0 0 32 32"><path d="M12.2 8.4a8.8 8.8 0 0 0 0 15.2M19.8 8.4a8.8 8.8 0 0 1 0 15.2" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><text x="16" y="20.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="12.5" fill="#fff">$</text></svg>',
 };
 const coin = (k, cls = "") => `<span class="coin c-${k} ${cls}" aria-hidden="true">${(COIN[k] || COIN.eth)()}</span>`;
@@ -188,11 +190,11 @@ async function refresh() {
 }
 
 // Prices come from CoinGecko first, then Binance, then Coinbase: if one is down or rate-limits us, the next answers.
-const SYM = { solana: "SOL", ethereum: "ETH", "polygon-ecosystem-token": "POL" };
+const SYM = { solana: "SOL", ethereum: "ETH", "polygon-ecosystem-token": "POL", binancecoin: "BNB", "avalanche-2": "AVAX" };
 const getJSON = async (url) => { const r = await fetch(url, { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return r.json(); };
 
 async function spotPrices() {
-  try { const j = await getJSON("https://api.coingecko.com/api/v3/simple/price?ids=solana,ethereum,polygon-ecosystem-token&vs_currencies=usd&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true"); if (j?.solana?.usd) return j; } catch (_) {}
+  try { const j = await getJSON("https://api.coingecko.com/api/v3/simple/price?ids=${Object.keys(SYM).join(",")}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true"); if (j?.solana?.usd) return j; } catch (_) {}
   try {
     const j = await getJSON(`https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(Object.values(SYM).map((x) => x + "USDT")))}`);
     const out = {}; for (const [cg, x] of Object.entries(SYM)) { const t = j.find((r) => r.symbol === x + "USDT"); if (t) out[cg] = { usd: Number(t.lastPrice), usd_24h_change: Number(t.priceChangePercent) }; }
@@ -204,7 +206,7 @@ async function spotPrices() {
 }
 
 async function loadPrices() {
-  if (S.mock) { S.prices = { solana: { usd: 172.4, usd_24h_change: 2.31 }, ethereum: { usd: 3410, usd_24h_change: -0.84 }, "polygon-ecosystem-token": { usd: 0.42, usd_24h_change: 1.2 } }; if (S.screen === "home") render(); return loadSeries(); }
+  if (S.mock) { S.prices = { solana: { usd: 172.4, usd_24h_change: 2.31 }, binancecoin: { usd: 612.5, usd_24h_change: 0.6 }, "avalanche-2": { usd: 28.4, usd_24h_change: -1.4 }, ethereum: { usd: 3410, usd_24h_change: -0.84 }, "polygon-ecosystem-token": { usd: 0.42, usd_24h_change: 1.2 } }; if (S.screen === "home") render(); return loadSeries(); }
   const p = await spotPrices().catch(() => null);
   if (p) { S.prices = { ...S.prices, ...p }; local.set({ prices: { at: Date.now(), p: S.prices } }); if (S.screen === "home") render(); }
   await loadSeries();
@@ -611,7 +613,7 @@ function chartView() {
   </div>`;
 }
 
-const COIN_NAME = { SOL: "Solana", ETH: "Ether", POL: "Polygon", USDC: "USD Coin" };
+const COIN_NAME = { SOL: "Solana", ETH: "Ether", POL: "Polygon", BNB: "BNB", AVAX: "Avalanche", USDC: "USD Coin" };
 function assetRow(a, chq, sav) {
   const x = A(a), u = usdOf(chq + sav, a), p = a === "usdc" ? { usd: 1, usd_24h_change: 0 } : S.prices[NETS[S.net].cg];
   const ch = p?.usd_24h_change;
@@ -800,7 +802,7 @@ function allView() {
   // By coin: SOL, ETH (all Ethereum-style networks together), POL, USDC.
   const byCoin = {};
   for (const i of items) { const c = (byCoin[i.unit] ||= { unit: i.unit, coin: i.unit === "USDC" ? "usdc" : i.unit === "ETH" ? "eth" : i.coin, usd: 0, amt: 0, dec: i.dec }); c.usd += i.usd || 0; c.amt += i.chq + i.sav; }
-  const coins = Object.values(byCoin).sort((a, b) => b.usd - a.usd), COL = { SOL: "#9945ff", ETH: "#7d97ff", POL: "#a26bff", USDC: "#2775ca" };
+  const coins = Object.values(byCoin).sort((a, b) => b.usd - a.usd), COL = { SOL: "#9945ff", ETH: "#7d97ff", POL: "#a26bff", BNB: "#f0b90b", AVAX: "#e84142", USDC: "#2775ca" };
   const n = (v, d) => v.toLocaleString("en-US", { maximumFractionDigits: d });
   return `${phead("All assets")}
     <div class="all-total"><span class="lbl">Across every network</span><div class="big">${mask(fig(money(total)))}</div>
