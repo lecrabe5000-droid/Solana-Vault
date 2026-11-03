@@ -148,7 +148,7 @@ async function boot() {
   try { chrome.runtime.connect?.({ name: "popup" }); } catch (_) {}
   S.hide = !!st.hide;
   document.documentElement.dataset.theme = S.theme;
-  if (!st.box) { if (AP.id) { S.req = { gone: true, nowallet: true }; return go("approve"); } return go("welcome"); }
+  if (!st.box) { if (AP.id) { S.req = { gone: true, nowallet: true }; return go("approve"); } if (!(await local.get("toured")).toured && !globalThis.ECRIN_DEMO) S.tour = 0; return go("welcome"); }
   const ses = await session.get(["phrase", "until"]);
   if (ses.phrase && ses.until > Date.now()) { await useAccount(ses.phrase); await touch(); return AP.id ? startApproval() : home(); }
   await session.clear();
@@ -296,6 +296,7 @@ function render() {
   bindHolds(root);
   depth(root);
   bindChart(root);
+  if (S.screen === "welcome") mountVault3d(root);
   // The home arrives in a cascade once per unlock.
   if (S.screen === "home" && !S.entered && S.bal) { S.entered = true; root.querySelector(".home")?.classList.add("enter"); }
   // The total counts up the first time it shows, so the balance arrives rather than appears.
@@ -350,7 +351,29 @@ function depth(scope) {
   });
 }
 
+const TOUR = [
+  { h: "Two places for your money", p: "Your <b>Wallet</b> is for spending, like any crypto wallet. Your <b>Safe</b> is a vault only you control, on every network.", art: "safe" },
+  { h: "Nothing leaves the Safe in a hurry", p: "Anything leaving your Safe waits a delay you choose, and you can cancel it the whole time. Even someone with your recovery phrase can't rush it.", art: "clock" },
+  { h: "Scams, caught before you sign", p: "Ecrin blocks known scam sites, flags look-alikes, and shows exactly what would leave your wallet before you approve anything.", art: "shield" },
+];
+function tourArt(k) {
+  if (k === "safe") return `<div class="tour-3d"><canvas data-vault3d aria-hidden="true"></canvas></div>`;
+  const ring = Array.from({ length: 36 }, (_, i) => { const a = (i / 36) * Math.PI * 2, r0 = 52, r1 = i % 3 ? 58 : 64; return `<path d="M${(80 + Math.cos(a) * r0).toFixed(1)} ${(80 + Math.sin(a) * r0).toFixed(1)}L${(80 + Math.cos(a) * r1).toFixed(1)} ${(80 + Math.sin(a) * r1).toFixed(1)}" style="--i:${i}"/>`; }).join("");
+  if (k === "clock") return `<svg class="tour-art" viewBox="0 0 160 160"><g class="t-ring">${ring}</g><circle cx="80" cy="80" r="44" class="soft"/><path class="t-hand" d="M80 80V48"/><path class="t-hand2" d="M80 80h22"/><circle cx="80" cy="80" r="2.5" class="dot"/></svg>`;
+  return `<svg class="tour-art" viewBox="0 0 160 160"><g class="t-ring">${ring}</g><path class="t-sh" d="M80 34l34 12v26c0 24-15 40-34 50-19-10-34-26-34-50V46z"/><path class="t-ck" d="M64 80l11 11 22-24"/></svg>`;
+}
+function tourView() {
+  const i = S.tour || 0, t = TOUR[i], last = i === TOUR.length - 1;
+  return `<div class="onb tour">
+    <div class="tour-top"><span class="mv-mark">${LOGO}<b>ECRIN</b></span><button class="link" data-act="tour-skip">Skip</button></div>
+    <div class="onb-art" data-i="${i}">${tourArt(t.art)}</div>
+    <div class="onb-copy"><h1>${t.h}</h1><p>${t.p}</p></div>
+    <div class="tour-dots">${TOUR.map((_, j) => `<i class="${j === i ? "on" : ""}"></i>`).join("")}</div>
+    <div class="onb-acts"><button class="btn primary xl" data-act="tour-next">${last ? "Get started" : "Next"}</button></div>
+  </div>`;
+}
 function welcome() {
+  if (S.tour != null && S.tour < TOUR.length) return tourView();
   return `<div class="onb">
     <div class="onb-art">${miniVault()}</div>
     <div class="onb-copy"><h1>Ecrin Wallet</h1><p>A wallet for spending.<br/>A safe nobody can rush.</p></div>
@@ -1210,6 +1233,8 @@ async function useNet(n) {
 
 async function saveAccts() { await local.set({ accts: S.accts }); }
 const actions = {
+  "tour-next": () => { S.tour = (S.tour || 0) + 1; if (S.tour >= TOUR.length) local.set({ toured: true }); render(); },
+  "tour-skip": () => { S.tour = TOUR.length; local.set({ toured: true }); render(); },
   guard: async (el) => {
     const G = S.guard, k = el.dataset.k, v = Number(el.dataset.v);
     if (k === "daily" && G.daily && (v === 0 || v > G.daily)) { G.pend = { v, at: Date.now() + 86400_000 }; toast("Raising the limit takes 24 hours. Lowering is instant.", "win"); }

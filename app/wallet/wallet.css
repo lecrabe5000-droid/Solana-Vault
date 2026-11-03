@@ -1136,6 +1136,31 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 .cool span { display: grid; } .cool b { font: 600 15px var(--font); } .cool small { color: var(--muted); font-size: 12px; line-height: 1.4; }
 .ap-sim { display: inline-flex; align-items: center; gap: 4px; float: right; color: var(--eb); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
 .ap-sim svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2.6; } :root[data-theme="dark"] .ap-sim { color: #7f98ff; }
+/* first-run tour */
+.tour-top { display: flex; justify-content: space-between; align-items: center; } .tour-top .mv-mark { color: var(--ink); }
+.tour-top .link { color: var(--muted); font-size: 13px; background: none; border: 0; cursor: pointer; }
+.tour .onb-art { animation: rise .5s var(--ease) both; }
+.tour-3d { width: 100%; max-width: 280px; aspect-ratio: 1; } .tour-3d canvas { width: 100%; height: 100%; display: block; }
+.tour-art { width: 190px; height: 190px; fill: none; stroke: var(--eb); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+:root[data-theme="dark"] .tour-art { stroke: #6f8cff; }
+.tour-art .soft { opacity: .35; } .tour-art .dot { fill: var(--eb); stroke: none; }
+.t-ring path { opacity: 0; animation: t-tick .5s calc(var(--i) * 25ms) ease forwards; }
+@keyframes t-tick { to { opacity: .7; } }
+.t-hand { transform-origin: 80px 80px; animation: t-spin 6s linear infinite; } .t-hand2 { opacity: .6; }
+@keyframes t-spin { to { transform: rotate(360deg); } }
+.t-sh, .t-ck { stroke-dasharray: 260; stroke-dashoffset: 260; animation: ea-draw 1.4s var(--ease) .3s forwards; } .t-ck { animation-delay: 1s; stroke-width: 2; }
+.tour .onb-copy p { max-width: 290px; margin: 10px auto 0; line-height: 1.5; } .tour .onb-copy p b { color: var(--ink); font-weight: 600; }
+.tour-dots { display: flex; justify-content: center; gap: 6px; margin: 0 0 18px; }
+.tour-dots i { width: 6px; height: 6px; border-radius: 3px; background: var(--line-2); transition: width .3s var(--ease), background .3s; } .tour-dots i.on { width: 18px; background: var(--eb); }
+@media (prefers-reduced-motion: reduce) { .t-hand { animation: none; } .t-ring path, .t-sh, .t-ck { animation: none; opacity: .7; stroke-dashoffset: 0; } }
+.tour .onb-copy h1 { font-size: 22px; line-height: 1.2; }
+/* light theme pass */
+:root[data-theme="light"] .mv-foot { color: #5f6270; }
+:root[data-theme="light"] .sscore, :root[data-theme="light"] .tk-info, :root[data-theme="light"] .tk-bal, :root[data-theme="light"] .act-q, :root[data-theme="light"] .cool { background: #fff; }
+:root[data-theme="light"] .freeze-btn { background: #eef7ff; }
+:root[data-theme="light"] .nft { background: #f3f4f7; }
+:root[data-theme="light"] .acc-row.on { background: #eef1ff; }
+:root[data-theme="light"] .coin.letter { background: hsl(var(--h) 55% 52%); }
 
 .device { padding: 0 !important; }
 #root, #panel { top: env(safe-area-inset-top, 0px); }
