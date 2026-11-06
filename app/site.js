@@ -229,7 +229,10 @@
   }));
   document.querySelectorAll(".rail").forEach((r) => { r.classList.add("rv-rail"); els.push(r); [...r.querySelectorAll(".rail-track > *")].forEach((c, k) => c.style.setProperty("--k", Math.min(k, 6))); });
   if ("IntersectionObserver" in window) {
-    const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { rootMargin: "0px 0px -6% 0px" });
+    // Backstop: anything already above the screen is shown, even if a fast flick skipped it entirely.
+    let rvT = 0; addEventListener("scroll", () => { if (rvT) return; rvT = requestAnimationFrame(() => { rvT = 0; for (const e of document.querySelectorAll(".rv:not(.in)")) if (e.getBoundingClientRect().top < innerHeight * 0.9) e.classList.add("in"); }); }, { passive: true });
+    // Also shown once you have scrolled past it, so a fast flick never leaves a section blank above you.
+    const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting || e.boundingClientRect.top < 0) { e.target.classList.add("in"); io.unobserve(e.target); } }), { rootMargin: "0px 0px -6% 0px" });
     els.forEach((el) => io.observe(el));
   } else els.forEach((el) => el.classList.add("in"));
 

@@ -683,3 +683,23 @@ td:first-child { color: var(--ink); font-weight: 600; width: 44%; }
 .ribbons, .hero-card { scale: none !important; translate: none !important; transform: none !important; will-change: auto !important; }
 .btn.mag, .pl-btn.mag { translate: none !important; }
 .play::after { display: none !important; }
+/* the comparison table on phones: each action on its own line, its four answers in a row under one header */
+@media (max-width: 560px) {
+  .who { min-width: 0; font-size: 13px; }
+  .who, .who thead, .who tbody { display: block; }
+  .who tr { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: 6px; padding: 12px 12px 10px; border-bottom: 1px solid var(--line); }
+  .who tbody tr:last-child { border-bottom: 0; }
+  .who th, .who td { padding: 2px 0; border: 0 !important; width: auto !important; background: none !important; }
+  .who thead th { white-space: normal; font-size: 11.5px; line-height: 1.25; color: var(--muted); }
+  .who thead th:first-child { display: none; }
+  .who td:first-child { grid-column: 1 / -1; padding-bottom: 8px; font-size: 14px; }
+  .who tr.hl { background: color-mix(in srgb, var(--blue) 5%, transparent); }
+  .who small { font-size: 11px; line-height: 1.35; }
+  .who .yes, .who .no { padding: 2px 8px; font-size: 11.5px; }
+}
+@media (max-width: 560px) {
+  .who thead { display: none; }
+  .who td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 5px; color: var(--muted); font-size: 10.5px; font-weight: 600; line-height: 1.2; }
+}
+/* phone menu: covers the page from the very top (under the header), so no sliver of the hero peeks through */
+@media (max-width: 900px) { html.menu-open .mmenu:not([hidden]) { inset: 0; padding-top: calc(66px + 22px); } html.menu-open .nav { z-index: 31; } }
