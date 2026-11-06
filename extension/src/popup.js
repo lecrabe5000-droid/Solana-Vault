@@ -321,8 +321,7 @@ function render() {
     for (const [key, sel] of Object.entries(ROLL_SEL)) {
       const el = root.querySelector(sel); if (!el) continue;
       const txt = el.textContent;
-      if (S.rollPrev[key] !== txt) { roll(key, el, S.rollPrev[key] ?? txt.replace(/\d/g, "0")); S.rollPrev[key] = txt; }
-      else if (S.rolls?.[key]) { dressRoll(key, el); rollTick(); }
+      S.rollPrev[key] = txt; // amounts simply show: no rolling (it flickered on iPhone)
     }
   }
 }
