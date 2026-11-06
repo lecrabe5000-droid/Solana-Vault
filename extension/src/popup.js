@@ -1352,13 +1352,29 @@ function moveView() {
   if (P.step === "done") return isIn ? doneView("Protected", `${amt(P.sent, a)} ${A(a).unit} is in your Safe. Anything leaving it waits ${delay(main.withdrawDelay)}.`) : doneView("Withdrawal started", `${amt(P.sent, a)} ${A(a).unit} reaches your Wallet in ${delay(main.withdrawDelay)}. You can cancel it until then.`);
   const lim = a === "usdc" ? v.usdc?.dailyLimit : main.dailyLimit, overLim = !isIn && lim && units > lim;
   const valid = units > 0 && units <= max && !overLim;
+  // Rail + keypad: where the money goes, how much, what each side holds after, then slide to confirm.
+  const bal = isIn ? (S.bal?.[a] || 0) : (tv?.balance || 0), other = isIn ? (tv?.balance || 0) : (S.bal?.[a] || 0), u = A(a).unit;
+  const f = max ? Math.min(1, units / max) : 0, usd = usdOf(units, a);
+  const arrive = new Date(Math.max(Date.now() + main.withdrawDelay * 1000, (main.lockedUntil || 0) * 1000));
+  const when = arrive.toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  const side = (k, name, b, after, ic) => `<div class="rt rt-${k}"><span class="rt-ic">${ic}</span><span class="rt-n">${name}</span><b>${mask(amt(Math.max(0, after), a))}</b><small>${units && valid ? `was ${mask(amt(b, a))}` : u}</small></div>`;
+  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "del"], pad = !!globalThis.ECRIN_WEB; // phone: our keypad; desktop: type
   return `${phead(isIn ? "Protect" : "Withdraw")}
-    <div class="flowline ${isIn ? "in" : "out"}"><span>${isIn ? "Wallet" : "Safe"}</span><i></i><span>${isIn ? "Safe" : "Wallet"}</span></div>
-    ${fromRow()}${assetPick()}
-    ${amountBlock(max, isIn ? "Wallet" : "Safe, free to leave")}
-    ${overLim ? `<p class="err">Over your daily limit of ${amt(lim, a)} ${A(a).unit}. Split it into smaller withdrawals.</p>` : ""}
-    <p class="note">${isIn ? `${I.lock}<span>Once inside, anything leaving waits <b>${delay(main.withdrawDelay)}</b>, and you can cancel it the whole time. Not even someone with your recovery phrase can rush it.</span>` : `${I.clock}<span>Arrives in your Wallet in <b>${delay(main.withdrawDelay)}</b>${main.lockedUntil && now() < main.lockedUntil ? " and not before the lock ends" : ""}. You can cancel it any time before.</span>`}</p>
-    <div class="pfoot">${P.step === "sending" ? hold(isIn ? "Protecting…" : "Starting…", true) : `<button class="btn primary xl" data-act="${isIn ? "do-protect" : "do-withdraw"}" ${valid ? "" : "disabled"}>${isIn ? "Move to Safe" : "Start withdrawal"}</button>`}</div>`;
+  <div class="mv2 ${isIn ? "in" : "out"}">
+    <div class="rail" style="--f:${f.toFixed(3)}">
+      ${side("from", isIn ? "Wallet" : "Safe", bal, bal - (valid ? units : 0), isIn ? I.card : I.lock)}
+      <div class="rl"><i class="rl-t"></i><i class="rl-f"></i><i class="rl-d"></i></div>
+      ${side("to", isIn ? "Safe" : "Wallet", other, other + (valid ? units : 0), isIn ? I.lock : I.card)}
+    </div>
+    <div class="mv-src">${fromRow()}</div>
+    <div class="mv-amt${units > max || overLim ? " over" : ""}">${pad ? `<b>${esc(P.amount || "0")}</b>` : `<input data-amount inputmode="decimal" placeholder="0" value="${esc(P.amount)}" autocomplete="off" autofocus style="width:${Math.max(1, (P.amount || "0").length) + 0.6}ch"/>`}<span>${u}</span></div>
+    <div class="mv-sub">${units > max ? `<span class="bad">More than ${isIn ? "your Wallet has" : "can leave right now"}</span>` : overLim ? `<span class="bad">Over your daily limit of ${amt(lim, a)} ${u}</span>` : usd != null && units ? money(usd) : `${amt(max, a)} ${u} available`}</div>
+    <div class="mv-pcts">${[25, 50, 100].map((v) => `<button data-act="pct" data-v="${v}" class="${P.pct === v ? "on" : ""}">${v === 100 ? "Max" : v + "%"}</button>`).join("")}</div>
+    <p class="mv-note">${isIn ? `${I.lock}<span>Anything leaving waits <b>${delay(main.withdrawDelay)}</b>, and you can cancel it.</span>` : `${I.clock}<span>Arrives <b>${when}</b> · cancel any time before</span>`}</p>
+    ${pad ? `<div class="kp">${keys.map((k) => `<button data-act="key" data-k="${k}" aria-label="${k === "del" ? "Delete" : k}">${k === "del" ? `<svg viewBox="0 0 24 24"><path d="M9 6h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5-6z"/><path d="M12.5 10l4 4M16.5 10l-4 4"/></svg>` : k}</button>`).join("")}</div>` : ""}
+    <div class="pfoot mv-foot">${P.step === "sending" ? hold(isIn ? "Protecting…" : "Starting…", true) : `<div class="slide${valid ? "" : " off"}" data-slide="${isIn ? "do-protect" : "do-withdraw"}"><span class="sl-t">${isIn ? "Slide to lock in your Safe" : "Slide to start withdrawal"}</span><i class="sl-k">${isIn ? I.lock : I.out}</i></div>
+      <button class="sr-only" data-act="${isIn ? "do-protect" : "do-withdraw"}" ${valid ? "" : "disabled"}>${isIn ? "Move to Safe" : "Start withdrawal"}</button>`}</div>
+  </div>`;
 }
 function sendMaxProtect() { const a = S.panel.asset; return a === "native" ? Math.max(0, (S.bal?.native || 0) - (S.panel.reserve || 0) - (NETS[S.net].fam === "sol" ? 3_000_000 : 0)) : S.bal?.usdc || 0; }
 
@@ -1808,6 +1824,13 @@ const actions = {
   settings: () => openPanel("settings"),
   close: () => closePanel(),
   asset: async (el) => { const P = S.panel; P.asset = el.dataset.a; P.amount = ""; P.pct = null; P.reserve = await (await eng()).reserve(P.asset); renderPanel(); },
+  key: (el) => {
+    const P = S.panel, k = el.dataset.k, x = A(P.asset); let v = P.amount || "";
+    if (k === "del") v = v.slice(0, -1);
+    else if (k === ".") { if (!v.includes(".")) v = (v || "0") + "."; }
+    else { const d = v.split(".")[1]; if (d != null && d.length >= Math.min(x.dec, 6)) return; v = v === "0" ? k : v + k; if (v.replace(".", "").length > 12) return; }
+    P.amount = v; P.pct = null; navigator.vibrate?.(4); renderPanel();
+  },
   pct: (el) => {
     const P = S.panel, p = Number(el.dataset.v), a = P.asset;
     const max = P.p === "send" || P.p === "swap" ? sendMax() : P.p === "protect" ? sendMaxProtect() : (a === "usdc" ? S.vault?.usdc?.available : S.vault?.main?.available) || 0;
@@ -1918,6 +1941,19 @@ document.addEventListener("input", (e) => {
   } else if (t.matches("[data-to]")) { S.panel.to = t.value; const pos = t.selectionStart; renderPanel(); const n = $("#panel [data-to]"); n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} }
   else if (t.matches("[data-tick]")) { S.wrote = t.checked; render(); }
   else if (t.name === "pw" && t.closest("form")?.querySelector("[data-meter]")) { const m = t.closest("form").querySelector("[data-meter]"); m.dataset.s = strength(t.value); }
+});
+
+document.addEventListener("pointerdown", (e) => {
+  const k = e.target.closest(".slide:not(.off) .sl-k"); if (!k) return;
+  const sl = k.parentElement, act = sl.dataset.slide, max = sl.clientWidth - k.offsetWidth - 8, x0 = e.clientX; let dx = 0;
+  e.preventDefault(); k.setPointerCapture(e.pointerId); sl.classList.add("drag");
+  const move = (ev) => { dx = Math.max(0, Math.min(max, ev.clientX - x0)); k.style.transform = `translateX(${dx}px)`; sl.style.setProperty("--p", (dx / max).toFixed(3)); };
+  const up = () => {
+    k.removeEventListener("pointermove", move); k.removeEventListener("pointerup", up); k.removeEventListener("pointercancel", up); sl.classList.remove("drag");
+    if (dx >= max * 0.9) { k.style.transform = `translateX(${max}px)`; sl.classList.add("done"); navigator.vibrate?.(12); setTimeout(() => actions[act](), 160); }
+    else { k.style.transform = ""; sl.style.setProperty("--p", 0); if (dx < 6) { sl.classList.remove("nudge"); void sl.offsetWidth; sl.classList.add("nudge"); } }
+  };
+  k.addEventListener("pointermove", move); k.addEventListener("pointerup", up); k.addEventListener("pointercancel", up);
 });
 
 document.addEventListener("submit", async (e) => {
