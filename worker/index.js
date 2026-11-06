@@ -23,7 +23,15 @@ export default {
     if (url.pathname === "/api/swap" || url.pathname === "/api/swap/status") return handleSwap(request, env);
     const route = { "/api/alerts/start": "/start", "/api/alerts/status": "/status", "/api/alerts/email": "/email", "/api/alerts/confirm": "/confirm", "/api/alerts/unsub": "/unsub", "/api/telegram": "/telegram", "/api/waitlist": "/waitlist", "/api/waitlist/confirm": "/wconfirm", "/api/stats": "/stats", "/api/push/key": "/pushkey", "/api/push/subscribe": "/pushsub", "/api/push/unsubscribe": "/pushunsub" }[url.pathname];
     if (route) return hub(env).fetch(new Request("https://hub" + route + url.search, request));
-    return env.ASSETS.fetch(request);
+    // Pages, scripts and styles change with every deploy: browsers and Cloudflare must check for a newer copy each
+    // time (a quick 304 when nothing changed). Fonts and images can stay cached.
+    const res = await env.ASSETS.fetch(request);
+    if (!/\.(woff2?|png|jpg|jpeg|webp|svg|ico|zip)$/i.test(url.pathname)) {
+      const out = new Response(res.body, res);
+      out.headers.set("Cache-Control", "no-cache");
+      return out;
+    }
+    return res;
   },
 
   async scheduled(_event, env, ctx) {
