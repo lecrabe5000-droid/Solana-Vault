@@ -194,7 +194,7 @@ h3 { font-weight: 700; letter-spacing: -.01em; }
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 40px auto 0; list-style: none; counter-reset: s; }
 .steps li { counter-increment: s; padding-top: 18px; border-top: 1px solid var(--line-2); font-size: 15px; }
 .steps li::before { content: counter(s, decimal-leading-zero); display: block; margin-bottom: 10px; color: var(--blue); font: 500 13px var(--num); }
-.steps b { color: var(--ink); }
+.onchain .steps b { color: var(--ink); }
 
 /* coins and networks */
 .chains { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: center; }
@@ -628,9 +628,9 @@ td:first-child { color: var(--ink); font-weight: 600; width: 44%; }
 @media (prefers-reduced-motion: reduce) { .net-track, .big-head h2 .mk { animation: none !important; } .hero-card, .ribbons { transform: none !important; } }
 .chains .net-cloud.band { grid-column: 1 / -1; width: 100%; max-width: none; } .chains:has(.band) { row-gap: 28px; }
 /* how it works on-chain */
-.steps { counter-reset: st; display: grid; gap: 12px; margin: 0 0 18px; padding: 0; list-style: none; }
-.steps li { counter-increment: st; position: relative; padding: 18px 18px 18px 60px; border: 1px solid var(--line); border-radius: 20px; background: var(--panel); }
-.steps li::before { content: counter(st); position: absolute; left: 18px; top: 17px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--blue); color: #fff; font-weight: 700; font-size: 14px; }
+.onchain .steps { counter-reset: st; display: grid; gap: 12px; margin: 0 0 18px; padding: 0; list-style: none; }
+.onchain .steps li { counter-increment: st; position: relative; padding: 18px 18px 18px 60px; border: 1px solid var(--line); border-radius: 20px; background: var(--panel); }
+.onchain .steps li::before { content: counter(st); position: absolute; left: 18px; top: 17px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--blue); color: #fff; font-weight: 700; font-size: 14px; }
 .steps b { color: var(--ink); }
 .note-s { padding: 16px 18px; border-radius: 16px; background: color-mix(in srgb, var(--blue) 7%, var(--panel)); border: 1px solid color-mix(in srgb, var(--blue) 25%, transparent); font-size: 15px; }
 .who-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 20px; background: var(--panel); }
