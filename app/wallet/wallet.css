@@ -1975,6 +1975,18 @@ button.sf-tile { cursor: pointer; } button.sf-tile:active { transform: scale(.97
 :root[data-theme="light"] #tabbar { background: rgba(255, 255, 255, .82) !important; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .06), 0 16px 34px -14px rgba(20, 30, 90, .35) !important; }
 :root[data-theme="light"] #tabbar button:not(.on) { color: rgba(11, 13, 22, .5) !important; }
 #tabbar button.on::after { bottom: -4px; left: 22%; right: 22%; }
+/* ---- 0.4.9: actions as pills (icon + label) ---- */
+.home .acts { display: flex !important; gap: 8px; max-width: none !important; margin: 0 0 22px !important; }
+.home .acts button { flex: 1; display: flex !important; align-items: center; justify-content: center; gap: 7px; height: 48px; padding: 0 12px; border: 0; border-radius: 24px; cursor: pointer;
+  color: var(--ink) !important; font: 600 14.5px var(--font) !important; letter-spacing: 0;
+  background: rgba(140, 160, 255, .05); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), inset 0 0 0 1px var(--line-2); transition: transform .18s cubic-bezier(.2, .8, .2, 1.4), background .2s; }
+.home .acts button span, .home .acts button:first-child span, .home .acts button:not(:first-child) span { display: contents !important; width: auto; height: auto; background: none !important; box-shadow: none !important; }
+.home .acts svg { width: 17px !important; height: 17px !important; stroke-width: 2 !important; color: var(--muted); filter: none !important; }
+.home .acts button:active { transform: scale(.95); }
+.home .acts button[data-p="protect"] { background: linear-gradient(160deg, #6d86ff, #3c5cff 55%, #2a46e0); color: #fff !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 10px 24px -12px rgba(60, 92, 255, .9); }
+.home .acts button[data-p="protect"] svg { color: #fff; }
+:root[data-theme="light"] .home .acts button:not([data-p="protect"]) { background: #fff; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .08); }
+.home .acts { gap: 8px !important; column-gap: 8px !important; }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
