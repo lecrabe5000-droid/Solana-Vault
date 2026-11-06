@@ -1728,3 +1728,8 @@ button.sf-tile { cursor: pointer; } button.sf-tile:active { transform: scale(.97
 .splash.boot { position: relative; overflow: hidden; isolation: isolate; } .splash.boot .aura { height: 100%; -webkit-mask-image: none; mask-image: none; }
 .sf-aura { top: -170px; height: 760px; }
 #root[data-screen="loading"] { background: radial-gradient(60% 40% at 50% 30%, rgba(47, 91, 255, .35), transparent 75%), radial-gradient(50% 35% at 5% 10%, rgba(122, 77, 255, .3), transparent 75%), var(--bg); }
+/* the glow keeps one clock across re-renders (--at = time since the app opened) */
+.aura .a1 { animation-delay: var(--at, 0ms); } .aura .a2 { animation-delay: var(--at, 0ms); }
+.aura .a3 { animation-delay: calc(var(--at, 0ms) - 6s); } .aura .a4 { animation-delay: calc(var(--at, 0ms) - 11s); }
+.sf-aura i { animation-delay: var(--at, 0ms) !important; }
+.lz-leg .lp-bar { animation: none; } .lz-leg .lp.grow .lp-bar { animation: lp-grow 1s cubic-bezier(.3, .1, .1, 1) both .3s; }

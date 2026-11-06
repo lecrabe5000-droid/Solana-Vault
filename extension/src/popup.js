@@ -308,6 +308,8 @@ function syncTabbar() {
   tb.hidden = !show;
   tb.querySelectorAll("button").forEach((b) => { const on = b.dataset.tab === cur; b.classList.toggle("on", on); if (on) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
 }
+const AURA_T0 = performance.now();
+const auraT = () => `--at:${-Math.round(performance.now() - AURA_T0)}ms`;
 const TABBAR = `<nav id="tabbar" class="tabbar" aria-label="Main">
       <button class="on" data-tab="home" data-act="tb-home" aria-label="Wallet"><span>${I.card}</span></button>
       <button data-tab="swap" data-act="tb-go" data-p="swap" aria-label="Swap"><span>${I.swap}</span></button>
@@ -316,7 +318,7 @@ const TABBAR = `<nav id="tabbar" class="tabbar" aria-label="Main">
 function render() {
   const root = $("#root");
   root.dataset.screen = S.screen;
-  root.innerHTML = ({ loading: () => `<div class="splash boot"><div class="aura" aria-hidden="true"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div></div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
+  root.innerHTML = ({ loading: () => `<div class="splash boot"><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div></div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
   translate(root, S.lang);
   // The three floating buttons live outside #root, made once, so re-renders and panels never make them blink.
   let tb = document.getElementById("tabbar");
@@ -557,7 +559,7 @@ function unlock() {
   if (S.bioBusy) {
     // Face ID: the Ecrin lozenge scans while the phone checks, then closes into a full diamond with a check.
     const ok = S.bioBusy === "ok", R = (c, x, r, k) => `<rect class="${c}" x="${x}" y="${x}" width="${220 - 2 * x}" height="${220 - 2 * x}" rx="${r}" pathLength="100"${k ? ` style="${k}"` : ""}/>`;
-    return `<div class="bio-scr${ok ? " ok" : ""}"><div class="aura" aria-hidden="true"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
+    return `<div class="bio-scr${ok ? " ok" : ""}"><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
       <div class="bs-stage"><svg class="bs-lz" viewBox="0 0 220 220" aria-hidden="true"><defs><linearGradient id="bsg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b6c4ff"/><stop offset=".5" stop-color="#4b74ff"/><stop offset="1" stop-color="#00c8ff"/></linearGradient></defs>
         <g transform="rotate(45 110 110)">${R("bs-base", 38, 30)}${R("bs-a", 38, 30)}${R("bs-b", 51, 24)}${R("bs-full", 38, 30)}</g></svg>
         <span class="bs-scan"></span>
@@ -590,7 +592,7 @@ function homeView() {
   const N = NETS[S.net], e = ENG, w = worth(), loading = !w.ready;
   const pct = w.total ? Math.round((w.sav / w.total) * 100) : 0;
   const addr = e?.address || "";
-  return `<div class="home"><div class="aura" aria-hidden="true"><i class="a1"></i><i class="a2"></i><i class="a3"></i><i class="a4"></i></div>
+  return `<div class="home"><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i><i class="a4"></i></div>
     <header class="top">
       <button class="acct" data-act="panel" data-p="accts" title="Your accounts">${acctIc(curAcct())}<span class="acct-n">${esc(curAcct().name)}</span><span class="top-total">${loading ? "" : mask(money(w.total))}</span><span class="acct-a">${short(addr)}${I.chev}</span></button>
       <div class="top-r">
@@ -658,7 +660,7 @@ function lozLegend(w, loading) {
   if (loading || !w.total) return "";
   const sh = lozShares(w).slice(0, 4), safe = Math.round((w.sav / w.total) * 100);
   const LK = { SOL: "sol", ETH: "eth", USDC: "usdc", USDT: "usdt", BNB: "bnb", AVAX: "avax", TRX: "tron", POL: "pol" };
-  const pill = (cls, col, ic, name, pct) => `<span class="lp ${cls}" style="--pc:${col};--pf:${pct}%">${ic}<b>${name}</b><em>${pct}%</em><i class="lp-bar"></i></span>`;
+  const grow = S.lzT0 && performance.now() - S.lzT0 < 2300 ? " grow" : "", pill = (cls, col, ic, name, pct) => `<span class="lp ${cls}${grow}" style="--pc:${col};--pf:${pct}%">${ic}<b>${name}</b><em>${pct}%</em><i class="lp-bar"></i></span>`;
   return `<div class="lz-leg">${sh.map(({ u, f }) => pill("", COIN_COL[u] || "#9aa0b4", LK[u] ? coin(LK[u], "lp-c") : `<i class="lp-d"></i>`, u, Math.round(f * 100))).join("")}${pill("lz-s", "#5b7cff", `<span class="lp-lock">${I.lock}</span>`, "Safe", safe)}</div>`;
 }
 
@@ -1426,7 +1428,7 @@ function vaultView() {
   const nextLeft = next ? next.readyAt - t : 0, nextU = next ? (next.a === "usdc" ? "USDC" : NETS[next.r.k].unit) : "";
   return `${phead("Safe")}
   <div class="sf${intro}" style="--lt:${-Math.round(el)}ms">
-    <div class="sf-aura" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="sf-aura" aria-hidden="true" style="${auraT()}"><i></i><i></i><i></i></div>
     <section class="sf-hero lv-${lvl[0]}${next ? " alert" : ""}">
       <div class="sf-stage">${shield}
         <div class="sf-mid"><span class="sf-ic">${I.shield}</span><span class="lbl">Protected</span><b class="sf-tot${(() => { const n = money(total).length; return n > 12 ? " xs" : n > 9 ? " sm" : ""; })()}">${mask(fig(money(total)))}</b></div>
@@ -2074,7 +2076,7 @@ function swapView() {
   const chip = (x) => `<span class="sx-coin">${assetCoin(x)}<b>${A(x).unit}</b><small>${x === "usdc" ? "USD Coin" : N.name}</small></span>`;
   return `${phead("Swap")}
   <div class="sx">
-    <div class="sf-aura" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="sf-aura" aria-hidden="true" style="${auraT()}"><i></i><i></i><i></i></div>
     <div class="sx-soon"><i></i>Preview · swaps open with mainnet</div>
     <div class="sx-pair">
       <div class="sx-card${over ? " over" : ""}">
