@@ -1879,13 +1879,14 @@ button.sf-tile { cursor: pointer; } button.sf-tile:active { transform: scale(.97
 
 :root[data-theme] .lz-chg.plain .delta.up, :root[data-theme] .lz-chg.plain .delta.dn { background: none !important; box-shadow: none !important; padding: 0 !important; }
 .home .top .acct { flex: none; width: auto; gap: 10px; } .home .top .acct .acct-n { flex: none; }
+.scr-dbg { font-size: 10.5px; opacity: .6; word-break: break-word; }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
 #root, #panel { top: 0; bottom: 0; }
 .home .top, .phead { padding-top: env(safe-area-inset-top, 0px) !important; height: calc(56px + env(safe-area-inset-top, 0px)) !important; box-sizing: border-box; }
 .lock, .onb, .flow, .splash, .bio-scr, .cv { padding-top: env(safe-area-inset-top, 0px); }
-.device { bottom: calc(-1 * var(--gap, 0px)) !important; }
+.device { bottom: calc(-1 * var(--gap, 0px)) !important; min-height: 100lvh; }
 #tabbar { bottom: calc(max(6px, calc(env(safe-area-inset-bottom, 0px) - 8px)) - var(--gap, 0px)) !important; }
 .home, #panel .pane, .lock, .onb, .flow { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important; }
 .pfoot { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
