@@ -1724,3 +1724,7 @@ button.sf-tile { cursor: pointer; } button.sf-tile:active { transform: scale(.97
 .sx, .sf { padding-bottom: 96px; }
 .home { padding-bottom: 88px; }
 .sx, .sf { padding-bottom: 24px; }
+/* opening: just the Ecrin glow, no logo */
+.splash.boot { position: relative; overflow: hidden; isolation: isolate; } .splash.boot .aura { height: 100%; -webkit-mask-image: none; mask-image: none; }
+.sf-aura { top: -170px; height: 760px; }
+#root[data-screen="loading"] { background: radial-gradient(60% 40% at 50% 30%, rgba(47, 91, 255, .35), transparent 75%), radial-gradient(50% 35% at 5% 10%, rgba(122, 77, 255, .3), transparent 75%), var(--bg); }

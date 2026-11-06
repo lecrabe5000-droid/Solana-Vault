@@ -43,8 +43,12 @@ if (!process.argv.includes("--watch")) {
   // Phone-only: keep clear of the clock, the notch/Dynamic Island and the home bar; no zoom on text fields; no
   // grey tap flashes or rubber-band edges.
   css += `
-.device { padding: 0 !important; }
-#root, #panel { top: env(safe-area-inset-top, 0px); }
+.device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
+/* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
+#root, #panel { top: 0; bottom: 0; }
+.home .top, .phead { padding-top: env(safe-area-inset-top, 0px) !important; height: calc(56px + env(safe-area-inset-top, 0px)) !important; box-sizing: border-box; }
+.lock, .onb, .flow, .splash, .bio-scr, .cv { padding-top: env(safe-area-inset-top, 0px); }
+#tabbar { bottom: max(6px, calc(env(safe-area-inset-bottom, 0px) - 8px)) !important; }
 .home, #panel .pane, .lock, .onb, .flow { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important; }
 .pfoot { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
 .toast { bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important; }

@@ -316,7 +316,7 @@ const TABBAR = `<nav id="tabbar" class="tabbar" aria-label="Main">
 function render() {
   const root = $("#root");
   root.dataset.screen = S.screen;
-  root.innerHTML = ({ loading: () => `<div class="splash"><span class="spin-tile">${LOGO}</span></div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
+  root.innerHTML = ({ loading: () => `<div class="splash boot"><div class="aura" aria-hidden="true"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div></div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
   translate(root, S.lang);
   // The three floating buttons live outside #root, made once, so re-renders and panels never make them blink.
   let tb = document.getElementById("tabbar");

@@ -1724,9 +1724,17 @@ button.sf-tile { cursor: pointer; } button.sf-tile:active { transform: scale(.97
 .sx, .sf { padding-bottom: 96px; }
 .home { padding-bottom: 88px; }
 .sx, .sf { padding-bottom: 24px; }
+/* opening: just the Ecrin glow, no logo */
+.splash.boot { position: relative; overflow: hidden; isolation: isolate; } .splash.boot .aura { height: 100%; -webkit-mask-image: none; mask-image: none; }
+.sf-aura { top: -170px; height: 760px; }
+#root[data-screen="loading"] { background: radial-gradient(60% 40% at 50% 30%, rgba(47, 91, 255, .35), transparent 75%), radial-gradient(50% 35% at 5% 10%, rgba(122, 77, 255, .3), transparent 75%), var(--bg); }
 
-.device { padding: 0 !important; }
-#root, #panel { top: env(safe-area-inset-top, 0px); }
+.device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
+/* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
+#root, #panel { top: 0; bottom: 0; }
+.home .top, .phead { padding-top: env(safe-area-inset-top, 0px) !important; height: calc(56px + env(safe-area-inset-top, 0px)) !important; box-sizing: border-box; }
+.lock, .onb, .flow, .splash, .bio-scr, .cv { padding-top: env(safe-area-inset-top, 0px); }
+#tabbar { bottom: max(6px, calc(env(safe-area-inset-bottom, 0px) - 8px)) !important; }
 .home, #panel .pane, .lock, .onb, .flow { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important; }
 .pfoot { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
 .toast { bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important; }
