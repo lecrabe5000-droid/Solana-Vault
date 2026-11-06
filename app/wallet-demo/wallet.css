@@ -2162,3 +2162,9 @@ body.stacked #root, :root[data-theme] body.stacked #root { transform: translateX
 .wl-p svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; } .wl-p small { color: var(--muted); font-size: 12px; }
 .wl-p.safe { background: rgba(79, 111, 255, .12); box-shadow: inset 0 0 0 1px rgba(127, 149, 255, .4); } .wl-p.safe svg, .wl-p.safe b { color: var(--ecrin-soft, #7f95ff); }
 .onb-w { position: relative; isolation: isolate; }
+/* atmosphere sits in the upper and middle parts of the screen; the bottom stays the plain base colour */
+:root[data-theme="dark"] .aura::before, :root[data-theme="dark"] .sf-aura::before {
+  background:
+    radial-gradient(40% 28% at 76% 58%, rgba(36, 62, 230, .30), rgba(36, 62, 230, .10) 45%, transparent 72%),
+    radial-gradient(34% 26% at 20% 30%, rgba(52, 70, 200, .16), transparent 70%),
+    radial-gradient(46% 30% at 52% 4%, rgba(70, 100, 255, .16), transparent 72%) !important; }

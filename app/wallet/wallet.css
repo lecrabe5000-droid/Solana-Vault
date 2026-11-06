@@ -2162,6 +2162,12 @@ body.stacked #root, :root[data-theme] body.stacked #root { transform: translateX
 .wl-p svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; } .wl-p small { color: var(--muted); font-size: 12px; }
 .wl-p.safe { background: rgba(79, 111, 255, .12); box-shadow: inset 0 0 0 1px rgba(127, 149, 255, .4); } .wl-p.safe svg, .wl-p.safe b { color: var(--ecrin-soft, #7f95ff); }
 .onb-w { position: relative; isolation: isolate; }
+/* atmosphere sits in the upper and middle parts of the screen; the bottom stays the plain base colour */
+:root[data-theme="dark"] .aura::before, :root[data-theme="dark"] .sf-aura::before {
+  background:
+    radial-gradient(40% 28% at 76% 58%, rgba(36, 62, 230, .30), rgba(36, 62, 230, .10) 45%, transparent 72%),
+    radial-gradient(34% 26% at 20% 30%, rgba(52, 70, 200, .16), transparent 70%),
+    radial-gradient(46% 30% at 52% 4%, rgba(70, 100, 255, .16), transparent 72%) !important; }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
@@ -2169,10 +2175,11 @@ body.stacked #root, :root[data-theme] body.stacked #root { transform: translateX
 .home .top, .phead { padding-top: env(safe-area-inset-top, 0px) !important; height: calc(56px + env(safe-area-inset-top, 0px)) !important; box-sizing: border-box; }
 .lock, .onb, .flow, .splash, .bio-scr, .cv { padding-top: env(safe-area-inset-top, 0px); }
 #tabbar { bottom: max(6px, calc(env(safe-area-inset-bottom, 0px) - 8px)) !important; }
-/* Under iPhone's solid status bar (pure black), the app's top edge is that same black and the atmosphere fades in
-   below it, so the clock area and the app read as one surface. */
-:root[data-theme="dark"] body, :root[data-theme="dark"] .device, :root[data-theme="dark"] #root, :root[data-theme="dark"] #panel .pane { background: linear-gradient(#000 0, var(--bg) 140px) !important; }
-:root[data-theme="dark"] .aura, :root[data-theme="dark"] .sf-aura { -webkit-mask-image: linear-gradient(transparent 0, #000 150px) !important; mask-image: linear-gradient(transparent 0, #000 150px) !important; }
+/* The see-through status bar: the app draws behind the clock. Where iPhone stops drawing the app near the bottom,
+   it still paints the page's base colour, so the lowest part of every screen fades into that same colour. */
+html { background: #03040e !important; }
+:root[data-theme="dark"] body, :root[data-theme="dark"] .device, :root[data-theme="dark"] #root, :root[data-theme="dark"] #panel .pane { background: #03040e !important; }
+:root[data-theme="dark"] .aura, :root[data-theme="dark"] .sf-aura { -webkit-mask-image: linear-gradient(#000 62%, transparent 88%) !important; mask-image: linear-gradient(#000 62%, transparent 88%) !important; }
 .home, #panel .pane, .lock, .onb, .flow { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important; }
 .pfoot { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
 .toast { bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important; }
