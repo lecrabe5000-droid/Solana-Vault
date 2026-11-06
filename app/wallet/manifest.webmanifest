@@ -7,8 +7,8 @@
   "scope": "/wallet/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#06070d",
-  "theme_color": "#06070d",
+  "background_color": "#03040e",
+  "theme_color": "#03040e",
   "categories": [
     "finance",
     "security"
