@@ -1,19 +1,5 @@
 Bundled license information:
 
-ieee754/index.js:
-  /*! ieee754. BSD-3-Clause License. Feross Aboukhadijeh <https://feross.org/opensource> */
-
-buffer/index.js:
-  /*!
-   * The buffer module from node.js, for the browser.
-   *
-   * @author   Feross Aboukhadijeh <https://feross.org>
-   * @license  MIT
-   */
-
-safe-buffer/index.js:
-  /*! safe-buffer. MIT License. Feross Aboukhadijeh <https://feross.org/opensource> */
-
 @solana/buffer-layout/lib/Layout.js:
   /**
    * Support for translating between Uint8Array instances and JavaScript
@@ -124,17 +110,6 @@ safe-buffer/index.js:
    * @see {@link https://github.com/pabigot/buffer-layout|buffer-layout on GitHub}
    */
 
-@noble/hashes/esm/utils.js:
-@noble/hashes/esm/utils.js:
-  /*! noble-hashes - MIT License (c) 2022 Paul Miller (paulmillr.com) */
-
-@noble/curves/esm/utils.js:
-@noble/curves/esm/abstract/modular.js:
-@noble/curves/esm/abstract/curve.js:
-@noble/curves/esm/abstract/edwards.js:
-@noble/curves/esm/ed25519.js:
-@noble/curves/esm/abstract/weierstrass.js:
-@noble/curves/esm/_shortw_utils.js:
 @noble/curves/esm/secp256k1.js:
 @noble/curves/esm/abstract/utils.js:
 @noble/curves/esm/abstract/modular.js:
@@ -144,11 +119,11 @@ safe-buffer/index.js:
 @noble/curves/esm/secp256k1.js:
   /*! noble-curves - MIT License (c) 2022 Paul Miller (paulmillr.com) */
 
+@noble/hashes/esm/utils.js:
+  /*! noble-hashes - MIT License (c) 2022 Paul Miller (paulmillr.com) */
+
 aes-js/lib.esm/aes.js:
   /*! MIT License. Copyright 2015-2022 Richard Moore <me@ricmoo.com>. See LICENSE.txt. */
-
-@scure/base/lib/esm/index.js:
-  /*! scure-base - MIT License (c) 2022 Paul Miller (paulmillr.com) */
 
 @scure/bip39/esm/index.js:
   /*! scure-bip39 - MIT License (c) 2022 Patricio Palladino, Paul Miller (paulmillr.com) */

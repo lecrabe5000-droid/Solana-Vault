@@ -11,6 +11,8 @@ for (const d of ["icons", "fonts"]) fs.cpSync(d, `${out}/${d}`, { recursive: tru
 const opts = {
   entryPoints: { popup: "src/popup.js", bg: "src/bg.js" },
   bundle: true, format: "esm", outdir: out, minify: true, target: "chrome116", platform: "browser",
+  // Code that's only needed sometimes (WalletConnect, the QR scanner) lives in its own files and loads when used.
+  splitting: true, chunkNames: "chunks/[name]-[hash]",
   define: { global: "globalThis", "process.env.NODE_ENV": '"production"', __ECRIN_VERSION__: JSON.stringify(JSON.parse(fs.readFileSync("manifest.json", "utf8")).version) },
   inject: ["src/shims.js"], legalComments: "linked", logLevel: "warning",
 };
@@ -36,7 +38,7 @@ if (!process.argv.includes("--watch")) {
 // Ecrin Wallet for phones: the same popup, real networks, served at ecrinprotocol.app/wallet/ (add to home screen).
 if (!process.argv.includes("--watch")) {
   const D = "../app/wallet";
-  fs.mkdirSync(D, { recursive: true });
+  fs.mkdirSync(D, { recursive: true }); fs.rmSync(`${D}/chunks`, { recursive: true, force: true });
   await build({ ...opts, entryPoints: { wallet: "src/popup.js" }, outdir: D, inject: ["src/web-shim.js", "src/shims.js"] });
   let css = fs.readFileSync("popup.css", "utf8").replace(/url\("fonts\//g, 'url("/fonts/');
   css = css.replace("html, body { width: 360px; height: 600px; overflow: hidden; }", "html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--bg); } .device { position: relative; width: 100%; max-width: 480px; height: 100dvh; margin: 0 auto; overflow: hidden; transform: translateZ(0); background: var(--bg); color: var(--ink); font: 500 14px/1.45 var(--font); padding-top: env(safe-area-inset-top); box-sizing: border-box; }");
@@ -73,7 +75,7 @@ input, textarea, select { font-size: max(16px, 1em); }
 // Served at ecrinprotocol.app/wallet-demo/.
 if (!process.argv.includes("--watch")) {
   const D = "../app/wallet-demo";
-  fs.mkdirSync(D, { recursive: true });
+  fs.mkdirSync(D, { recursive: true }); fs.rmSync(`${D}/chunks`, { recursive: true, force: true });
   const demoChains = { name: "demo-chains", setup(b) { b.onResolve({ filter: /^\.\/chains\.js$/ }, (a) => (a.importer.endsWith("popup.js") ? { path: new URL("./src/demo-chains.js", import.meta.url).pathname } : undefined)); } };
   await build({ ...opts, entryPoints: { demo: "src/popup.js" }, outdir: D, inject: ["src/demo-shim.js", "src/shims.js"], plugins: [demoChains] });
   // The popup's stylesheet, scoped to a 360 × 600 device on the page, fonts from the site.

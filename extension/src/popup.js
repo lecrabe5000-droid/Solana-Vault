@@ -141,7 +141,7 @@ async function eng() {
 }
 
 async function boot() {
-  const pr = await local.get(["book", "hideSmall", "order", "recvNotify", "guard", "alertsOn", "showNfts", "goal", "cur"]); S.showNfts = !!pr.showNfts; S.goal = pr.goal || null; S.cur = pr.cur || "USD"; Object.assign(S, { book: pr.book || {}, hideSmall: !!pr.hideSmall, order: pr.order || "value", recvNotify: pr.recvNotify, guard: { auto: 0, daily: 0, cool: 0, coolOver: 500, ...(pr.guard || {}) }, alertsOn: !!pr.alertsOn });
+  const pr = await local.get(["book", "hideSmall", "order", "recvNotify", "guard", "alertsOn", "showNfts", "goal", "cur", "palerts"]); S.palerts = pr.palerts || {}; S.showNfts = !!pr.showNfts; S.goal = pr.goal || null; S.cur = pr.cur || "USD"; Object.assign(S, { book: pr.book || {}, hideSmall: !!pr.hideSmall, order: pr.order || "value", recvNotify: pr.recvNotify, guard: { auto: 0, daily: 0, cool: 0, coolOver: 500, ...(pr.guard || {}) }, alertsOn: !!pr.alertsOn });
   const st = await local.get(["box", "net", "theme", "autolock", "hide", "nums", "range", "dev", "prices", "bio", "lang"]);
   S.lang = st.lang || (/^fr/i.test(navigator.language || "") ? "fr" : "en"); document.documentElement.lang = S.lang;
   S.bio = globalThis.ECRIN_WEB && st.bio ? st.bio : null;
@@ -215,7 +215,7 @@ async function spotPrices() {
 async function loadPrices() {
   if (S.mock) { S.prices = { solana: { usd: 172.4, usd_24h_change: 2.31 }, binancecoin: { usd: 612.5, usd_24h_change: 0.6 }, "avalanche-2": { usd: 28.4, usd_24h_change: -1.4 }, tron: { usd: 0.24, usd_24h_change: 0.9 }, ethereum: { usd: 3410, usd_24h_change: -0.84 }, "polygon-ecosystem-token": { usd: 0.42, usd_24h_change: 1.2 } }; if (S.screen === "home") render(); return loadSeries(); }
   const p = await spotPrices().catch(() => null);
-  if (p) { S.prices = { ...S.prices, ...p }; local.set({ prices: { at: Date.now(), p: S.prices } }); if (S.screen === "home") render(); }
+  if (p) { S.prices = { ...S.prices, ...p }; local.set({ prices: { at: Date.now(), p: S.prices } }); if (S.screen === "home") render(); checkPriceAlerts(); }
   await loadSeries();
   // No spot price anywhere: use the last point of the history instead.
   let filled = false;
@@ -393,6 +393,7 @@ function render() {
   // The home arrives in a cascade once per unlock.
   if (S.screen === "home" && !S.entered && S.bal) { S.entered = true; root.querySelector(".home")?.classList.add("enter"); }
   if (S.screen === "home" && S.recvQ) setTimeout(playRecv, 600);
+  if (S.screen === "home" && !S.wcTried) { S.wcTried = true; wcResume(); }
   if (S.screen === "home" && S.fly) { const k = S.fly; S.fly = null; setTimeout(() => flyFx(k), 320); }
   // Balances roll into place like a fine mechanical counter: only the digits that changed move.
   if (!S.hide && !S.scrubbing) {
@@ -1179,7 +1180,7 @@ function renderPanel(enter = false) {
   queueMicrotask(syncTabbar);
   const el = $("#panel"), P = S.panel;
   if (!P) return;
-  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, report: reportHTML, txd: txdView, contacts: contactsView, pkey: pkeyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
+  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, report: reportHTML, txd: txdView, contacts: contactsView, pkey: pkeyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView, wc: wcView, payreq: payreqView, alerts: alertsView })[P.p]();
   if (enter || P.fresh) P.openedAt = performance.now();
   const since = P.openedAt ? performance.now() - P.openedAt : 9999;
   el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}${since < 1300 ? " trace" : ""}" style="--tt:${-Math.round(since)}ms">${body}</div>`; translate(el, S.lang);
@@ -1220,7 +1221,7 @@ function sendView() {
         <div class="rev-amt">${assetCoin(a, "lg")}<b>${fig(amt(units, a))}</b><span>${A(a).unit}</span><small>${usdOf(units, a) != null ? money(usdOf(units, a)) : ""}</small></div>
         <dl class="rev-l">
           <div><dt>From</dt><dd>Wallet · ${short(e.address)}</dd></div>
-          <div><dt>To</dt><dd class="mono">${esc(P.to.trim())}</dd></div>
+          <div><dt>To</dt><dd class="mono">${P.toName ? `<b class="to-name">${esc(P.toName)}</b>` : ""}${esc(P.to.trim())}</dd></div>
           <div><dt>Network</dt><dd>${NETS[S.net].name} ${NETS[S.net].net}</dd></div>
           <div><dt>Network fee</dt><dd>${NETS[S.net].fam === "evm" ? `<span class="seg fee-seg">${[["slow", "Slow"], ["normal", "Normal"], ["fast", "Fast"]].map(([k, l]) => `<button data-act="speed" data-v="${k}" aria-pressed="${(P.speed || "normal") === k}">${l}</button>`).join("")}</span>` : e.feeText()}</dd></div>
         </dl>
@@ -1229,12 +1230,15 @@ function sendView() {
       ${P.coolUntil > Date.now() ? `<div class="cool"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17"/><circle class="cl-p" cx="20" cy="20" r="17" style="stroke-dashoffset:${(106.8 * (P.coolUntil - Date.now())) / (S.guard.cool * 1000)}"/></svg><span><b data-cool>${Math.ceil((P.coolUntil - Date.now()) / 1000)}s</b><small>Cooling-off pause for big sends. Take a breath: is this really who you think it is?</small></span></div>` : ""}
       <div class="pfoot">${P.coolUntil > Date.now() ? `<button class="hold" disabled><span class="hold-t">${I.clock}Wait for the pause</span></button>` : hold(P.step === "sending" ? "Sending…" : "Hold to send", P.step === "sending")}</div>`;
   }
-  const valid = units > 0 && units <= sendMax() && e.isAddress(P.to);
+  const nm = P.named && P.named.name === P.to.trim() ? P.named : null, nmOk = !!(nm?.addr && e.isAddress(nm.addr));
+  const valid = units > 0 && units <= sendMax() && (e.isAddress(P.to) || nmOk);
   return `${phead("Send")}
+    ${P.payLabel ? `<p class="pay-for">${I.recv}<span>Payment request: <b>${esc(P.payLabel)}</b></span></p>` : ""}
     ${fromRow()}${assetPick()}
     ${amountBlock(sendMax(), "Wallet")}
+    ${feeNote(a)}
     <label class="fld to"><span>To</span><div class="in-btn"><input data-to placeholder="${addrHint(NETS[S.net])}" value="${esc(P.to)}" spellcheck="false" autocomplete="off"/><button type="button" class="ib sm" data-act="paste" aria-label="Paste">${I.paste}</button>${globalThis.ECRIN_WEB && navigator.mediaDevices?.getUserMedia ? `<button type="button" class="ib sm" data-act="scan" aria-label="Scan a QR code">${I.qr}</button>` : ""}</div></label>
-    ${P.to && !e.isAddress(P.to) ? `<p class="err">That isn't a ${NETS[S.net].name} address.</p>` : ""}
+    ${nm ? (nm.addr && !nmOk ? `<p class="err">${esc(nm.name)} is ${nm.fam === "sol" ? "a Solana" : "an Ethereum"} address. Switch to that network to send to it.</p>` : namedLine()) : P.to && !e.isAddress(P.to) ? `<p class="err">That isn't a ${NETS[S.net].name} address${NETS[S.net].fam === "sol" ? " or a .sol name" : NETS[S.net].fam === "evm" ? " or an .eth name" : ""}.</p>` : ""}
     ${bookName(P.to.trim()) ? `<p class="book-to">${I.check}Sending to <b>${esc(bookName(P.to.trim()))}</b></p>` : ""}
     ${bookList().length ? `<div class="book">${bookList().map(([a, n]) => `<button class="${P.to.trim() === a ? "on" : ""}" data-act="book-pick" data-a="${esc(a)}"><i>${esc(n.slice(0, 1).toUpperCase())}</i>${esc(n)}</button>`).join("")}</div>` : ""}
     <div class="pfoot"><button class="btn primary xl" data-act="review" ${valid ? "" : "disabled"}>Review</button></div>`;
@@ -1402,6 +1406,7 @@ function receiveView() {
       <button class="addr" data-act="copy-addr"><span class="mono">${esc(e.address)}</span>${I.copy}</button>
       <p class="fine">Only send ${N.name} ${N.net} coins${N.usdc ? " or USDC" : ""} to this address. ${N.fam === "tron" ? "Tron addresses start with T. Test USDT on Nile shows with your tokens." : ""}${N.fam === "evm" ? "The same address works on every Ethereum-style network." : ""}</p>
       <a class="link" href="${N.faucet}" target="_blank">Get free test ${N.unit} ${I.ext}</a>
+      <button class="btn sm buy-b" data-act="payreq">${I.recv}Request an amount</button>
       <button class="btn sm buy-b" data-act="panel" data-p="buy">${I.card}Buy with a card</button>
     </div>`;
 }
@@ -1432,6 +1437,7 @@ function moveView() {
     <div class="mv-src">${fromRow()}</div>
     <div class="mv-amt${units > max || overLim ? " over" : ""}">${pad ? `<b>${esc(P.amount || "0")}</b>` : `<input data-amount inputmode="decimal" placeholder="0" value="${esc(P.amount)}" autocomplete="off" autofocus style="width:${Math.max(1, (P.amount || "0").length) + 0.6}ch"/>`}<span>${u}</span></div>
     <div class="mv-sub">${units > max ? `<span class="bad">More than ${isIn ? "your Wallet has" : "can leave right now"}</span>` : overLim ? `<span class="bad">Over your daily limit of ${amt(lim, a)} ${u}</span>` : usd != null && units ? money(usd) : `${amt(max, a)} ${u} available`}</div>
+    ${feeNote(a)}
     <div class="mv-pcts">${[25, 50, 100].map((v) => `<button data-act="pct" data-v="${v}" class="${P.pct === v ? "on" : ""}">${v === 100 ? "Max" : v + "%"}</button>`).join("")}</div>
     <p class="mv-note">${isIn ? `${I.lock}<span>Anything leaving waits <b>${delay(main.withdrawDelay)}</b>, and you can cancel it.</span>` : `${I.clock}<span>Arrives <b>${when}</b> · cancel any time before</span>`}</p>
     ${pad ? `<div class="kp">${keys.map((k) => `<button data-act="key" data-k="${k}" aria-label="${k === "del" ? "Delete" : k}">${k === "del" ? `<svg viewBox="0 0 24 24"><path d="M9 6h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5-6z"/><path d="M12.5 10l4 4M16.5 10l-4 4"/></svg>` : k}</button>`).join("")}</div>` : ""}
@@ -1555,9 +1561,11 @@ function settingsView() {
       <div class="srow"><span>${I.clock}Auto-lock</span><span class="seg">${[0, 1, 5, 15, 60].map((m) => `<button data-act="autolock" data-v="${m}" aria-pressed="${S.autolock === m}">${m === 0 ? "Off" : m < 60 ? m + "m" : "1h"}</button>`).join("")}</span></div>
       ${row("perms", I.ban, "Token permissions")}
       ${globalThis.ECRIN_WEB || globalThis.ECRIN_DEMO ? "" : row("panel", I.link, "Connected sites", I.arrow, 'data-p="sites"')}
+      ${globalThis.ECRIN_WEB ? row("panel", I.link, "Connected apps (WalletConnect)", I.arrow, 'data-p="wc"') : ""}
       ${row("lock", I.lock, "Lock now", "")}`)}
     ${sec("Preferences", `
       ${row("panel", I.card, "Currency", `${S.cur || "USD"} ${I.arrow}`, 'data-p="currency"')}
+      ${row("panel", I.spark, "Price alerts", `${Object.values(S.palerts || {}).filter(Boolean).length || "Off"} ${I.arrow}`, 'data-p="alerts"')}
       <div class="srow"><span>${I.globe}Language</span><span class="seg">${LANGS.map(([k, l]) => `<button data-act="lang" data-v="${k}" aria-pressed="${S.lang === k}">${l}</button>`).join("")}</span></div>
       <div class="srow"><span>${S.theme === "dark" ? I.moon : I.sun}Appearance</span><span class="seg">${["light", "dark"].map((t) => `<button data-act="theme" data-v="${t}" aria-pressed="${S.theme === t}">${t === "light" ? "Light" : "Dark"}</button>`).join("")}</span></div>
       ${row("panel", '<b class="nf-ico">1.2</b>', "Numbers", `${NUM_FACES.find(([k]) => k === S.nums.face)[1]} ${I.arrow}`, 'data-p="numbers"')}`)}
@@ -1633,6 +1641,13 @@ const actions = {
   "tb-home": () => { if (S.panel) return closePanel(); $("#root").scrollTo({ top: 0, behavior: "smooth" }); },
   "tb-go": (el) => { if (S.panel?.p === el.dataset.p) return; if (S.panel) { S.panel = null; $("#panel").innerHTML = ""; } openPanel(el.dataset.p); },
   speed: (el) => { S.panel.speed = el.dataset.v; renderPanel(); },
+  palert: async (el) => { S.palerts = { ...(S.palerts || {}), [el.dataset.cg]: Number(el.dataset.v) }; await local.set({ palerts: S.palerts }); renderPanel(); checkPriceAlerts(); },
+  "palert-notify": async () => { try { await Notification.requestPermission(); } catch (_) {} renderPanel(); },
+  payreq: () => { const a = S.panel?.asset || "native"; S.panel = null; $("#panel").innerHTML = ""; openPanel("payreq", { a }); },
+  "copy-req": async () => { const P = S.panel; try { await navigator.clipboard.writeText(payLink(S.net, P.asset || "native", Number(P.amount) > 0 ? P.amount : "", P.label || "")); toast("Payment link copied", "win"); } catch (_) { toast("Couldn't copy", "err"); } },
+  "share-req": async () => { const P = S.panel; try { await navigator.share({ text: payLink(S.net, P.asset || "native", Number(P.amount) > 0 ? P.amount : "", P.label || "") }); } catch (_) {} },
+  "wc-paste": () => { const v = ($("#panel [data-wcuri]")?.value || "").trim(); if (!/^wc:/i.test(v)) return toast("Paste the WalletConnect link that starts with wc:", "err"); wcPair(v); },
+  "wc-off": async (el) => { const c = await wcClient(); await c.disconnect(el.dataset.t); S.panel.list = c.sessions(); renderPanel(); toast("Disconnected"); },
   scan: async () => {
     // Phone app: read an address from a QR code with the camera. Nothing leaves the phone.
     const ov = document.createElement("div"); ov.className = "scan-ov"; ov.innerHTML = `<video playsinline muted></video><div class="scan-box"></div><p>Point at a QR code</p><button class="btn">Cancel</button>`; document.body.append(ov);
@@ -1644,7 +1659,7 @@ const actions = {
       const { default: jsQR } = await import("jsqr"), c = document.createElement("canvas"), x = c.getContext("2d", { willReadFrequently: true });
       const tick = () => {
         if (v.videoWidth) { c.width = v.videoWidth; c.height = v.videoHeight; x.drawImage(v, 0, 0); const r = jsQR(x.getImageData(0, 0, c.width, c.height).data, c.width, c.height);
-          if (r?.data) { const a = r.data.replace(/^(solana|ethereum|tron):/i, "").split(/[?@]/)[0].trim(); stop(); S.panel.to = a; navigator.vibrate?.(10); renderPanel(); return; } }
+          if (r?.data) { stop(); navigator.vibrate?.(10); onScanned(r.data.trim()); return; } }
         raf = requestAnimationFrame(tick);
       };
       tick();
@@ -1828,6 +1843,7 @@ const actions = {
     const R = S.req; if (!R || R.busy) return;
     if (S.upd?.must) { R.err = "A security update is required before you can sign. Update Ecrin Wallet first."; return render(); }
     R.busy = true; render();
+    if (R.wc) { try { await wcOk(R); } catch (e) { R.busy = false; R.err = e?.shortMessage || e?.message || String(e); render(); } return; }
     try {
       const result = await APX.sign(R);
       // Keep a record: it shows in Activity, and spending permissions show on the Permissions page to revoke later.
@@ -1838,7 +1854,7 @@ const actions = {
     }
     catch (e) { R.busy = false; R.err = e?.shortMessage || e?.message || String(e); render(); }
   },
-  "ap-no": async () => { await chrome.runtime.sendMessage({ type: "approval-done", id: S.req?.id, ok: false }).catch(() => {}); window.close(); },
+  "ap-no": async () => { if (S.req?.wc) return wcNo(S.req); await chrome.runtime.sendMessage({ type: "approval-done", id: S.req?.id, ok: false }).catch(() => {}); window.close(); },
   "ap-risk": () => { S.req.risk = !S.req.risk; render(); },
   "site-off": async (el) => { await chrome.runtime.sendMessage({ type: "site-disconnect", origin: el.dataset.o }); toast("Disconnected", "win"); renderPanel(); loadSites(); },
   "lists-refresh": async (el) => { el.disabled = true; const r = await chrome.runtime.sendMessage({ type: "lists-refresh" }).catch(() => null); toast(r ? `Updated: ${r.count.toLocaleString("en-US")} scam sites` : "Couldn't download the lists right now", r ? "win" : "err"); loadSites(); },
@@ -1904,6 +1920,7 @@ const actions = {
   },
   paste: async () => { try { S.panel.to = (await navigator.clipboard.readText()).trim(); renderPanel(); } catch (_) { toast("Couldn't read the clipboard", "err"); } },
   review: async () => {
+    if (S.panel.named?.addr && S.panel.named.name === S.panel.to.trim()) { S.panel.toName = S.panel.named.name; S.panel.to = S.panel.named.addr; }
     const P = S.panel, usd = usdOf(parseAmt(P.amount, P.asset), P.asset);
     const lim = await limitCheck(usd); if (lim) return toast(lim, "err");
     P.fresh = !(await knownDest(P.to.trim())); P.step = "review"; P.anim = true;
@@ -2002,7 +2019,9 @@ document.addEventListener("input", (e) => {
     const v = t.value.replace(/[^\d.,]/g, "").replace(",", "."), parts = v.split(".");
     S.panel.amount = parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : v; S.panel.pct = null;
     const pos = t.selectionStart; renderPanel(); const n = $("#panel [data-amount]"); n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {}
-  } else if (t.matches("[data-to]")) { S.panel.to = t.value; const pos = t.selectionStart; renderPanel(); const n = $("#panel [data-to]"); n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} }
+  } else if (t.matches("[data-reqamt]") || t.matches("[data-reqlabel]")) { const k = t.matches("[data-reqamt]") ? "amount" : "label", sel = k === "amount" ? "[data-reqamt]" : "[data-reqlabel]"; S.panel[k] = k === "amount" ? t.value.replace(/[^\d.,]/g, "").replace(",", ".") : t.value; const pos = t.selectionStart; renderPanel(); const n = $("#panel " + sel); n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {}
+  } else if (t.matches("[data-to]") && (/^wc:/i.test(t.value.trim()) || parsePayLink(t.value))) { const v = t.value.trim(); t.value = ""; onScanned(v);
+  } else if (t.matches("[data-to]")) { lookupTo(t.value); S.panel.to = t.value; const pos = t.selectionStart; renderPanel(); const n = $("#panel [data-to]"); n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} }
   else if (t.matches("[data-tick]")) { S.wrote = t.checked; render(); }
   else if (t.name === "pw" && t.closest("form")?.querySelector("[data-meter]")) { const m = t.closest("form").querySelector("[data-meter]"); m.dataset.s = strength(t.value); }
 });
@@ -2066,6 +2085,188 @@ setInterval(() => {
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.panel) closePanel(); });
 
 boot();
+
+/* ------------------------------------------------------------------ what a scanned or pasted code is */
+// A WalletConnect code connects a site; a payment link fills Send; anything else is taken as an address.
+function onScanned(text) {
+  if (/^wc:/i.test(text)) return wcPair(text);
+  const pay = parsePayLink(text);
+  if (pay) return openPay(pay);
+  if (S.panel?.p === "send") { S.panel.to = text.replace(/^(solana|ethereum|tron):/i, "").split(/[?@]/)[0].trim(); renderPanel(); }
+}
+
+/* ------------------------------------------------------------------ never stuck without fees */
+// Sending a token (USDC, USDT) still costs a little of the network's own coin. If there isn't enough, say so before
+// the send fails, and show where to get it.
+function feeNeed(N, P) { return N.fam === "sol" ? 10_000 : N.fam === "tron" ? 15e9 : Math.max(50_000, (P?.reserve || 0) * 3); }
+function feeNote(a) {
+  const N = NETS[S.net], P = S.panel;
+  if (a === "native" || !S.bal || (S.bal.native || 0) >= feeNeed(N, P)) return "";
+  return `<div class="fee-n">${I.warn}<span>Sending ${A(a).unit} on ${N.name} costs a little <b>${N.unit}</b> for the network fee, and this Wallet has ${S.bal.native ? "too little" : "none"}. <a href="${N.faucet}" target="_blank">Get free test ${N.unit} ${I.ext}</a></span></div>`;
+}
+
+/* ------------------------------------------------------------------ price alerts */
+// A note when a coin you choose moves more than 5 or 10% in a day: once per coin, per direction, per day.
+const ALERT_COINS = [["solana", "SOL"], ["ethereum", "ETH"], ["binancecoin", "BNB"], ["avalanche-2", "AVAX"], ["tron", "TRX"], ["polygon-ecosystem-token", "POL"]];
+async function checkPriceAlerts() {
+  const al = S.palerts || {}; if (!Object.keys(al).length) return;
+  const { palertSeen = {} } = await local.get("palertSeen"), day = new Date().toISOString().slice(0, 10); let any = false;
+  for (const [cg, unit] of ALERT_COINS) {
+    const lim = al[cg], ch = S.prices[cg]?.usd_24h_change; if (!lim || ch == null || Math.abs(ch) < lim) continue;
+    const key = `${cg}:${ch > 0 ? "up" : "dn"}:${day}`; if (palertSeen[key]) continue;
+    palertSeen[key] = 1; any = true;
+    const text = `${unit} is ${ch > 0 ? "up" : "down"} ${Math.abs(ch).toFixed(1)}% today, now ${money(S.prices[cg].usd)}`;
+    toast(text); if (document.hidden && window.Notification?.permission === "granted") try { new Notification("Ecrin Wallet", { body: text, icon: "/icon2-192.png" }); } catch (_) {}
+  }
+  if (any) local.set({ palertSeen });
+}
+function alertsView() {
+  const al = S.palerts || {};
+  return `${phead("Price alerts")}<p class="sub pad">Get a note when a coin moves more than you choose in a day. Once per coin and direction each day.</p>
+    <div class="sets">${ALERT_COINS.map(([cg, unit]) => `<div class="srow"><span>${coin({ solana: "sol", ethereum: "eth", binancecoin: "bnb", "avalanche-2": "avax", tron: "tron", "polygon-ecosystem-token": "pol" }[cg], "al-c")}${unit}</span><span class="seg">${[0, 5, 10].map((v) => `<button data-act="palert" data-cg="${cg}" data-v="${v}" aria-pressed="${(al[cg] || 0) === v}">${v ? `±${v}%` : "Off"}</button>`).join("")}</span></div>`).join("")}</div>
+    ${window.Notification && Notification.permission !== "granted" ? `<button class="btn" data-act="palert-notify">${I.bell || I.check}Also notify me when the app is in the background</button>` : ""}`;
+}
+
+/* ------------------------------------------------------------------ names */
+// alex.sol (Solana Name Service) and vitalik.eth (ENS), looked up on mainnet where names live. The address it finds is
+// shown under the field before you send, so you always see where the money really goes.
+const NAME_RE = /^[a-z0-9-]+(\.[a-z0-9-]+)*\.(sol|eth)$/i;
+async function resolveName(name) {
+  name = name.toLowerCase();
+  if (name.endsWith(".sol")) {
+    const r = await fetch(`https://sns-sdk-proxy.bonfida.workers.dev/resolve/${encodeURIComponent(name.slice(0, -4))}`).then((x) => x.json());
+    if (r?.s === "ok" && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(r.result)) return { fam: "sol", addr: r.result };
+    return null;
+  }
+  const p = new ethers.JsonRpcProvider("https://ethereum-rpc.publicnode.com", 1, { staticNetwork: true });
+  const a = await p.resolveName(name); return a ? { fam: "evm", addr: a } : null;
+}
+function lookupTo(v) {
+  const P = S.panel; if (!P) return;
+  clearTimeout(S.nameT); P.named = null;
+  if (!NAME_RE.test(v.trim())) return;
+  P.named = { name: v.trim(), busy: true };
+  S.nameT = setTimeout(async () => {
+    const want = v.trim(); let r = null, fail = false;
+    try { r = await resolveName(want); } catch (_) { fail = true; }
+    if (S.panel !== P || P.named?.name !== want) return;
+    P.named = { name: want, addr: r?.addr, fam: r?.fam, fail, none: !r && !fail };
+    renderPanel(); const n = $("#panel [data-to]"); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); }
+  }, 450);
+}
+const namedLine = () => { const n = S.panel?.named; if (!n) return ""; return `<p class="name-r">${n.busy ? `Looking up ${esc(n.name)}…` : n.addr ? `${I.check}<span><b>${esc(n.name)}</b> is <span class="mono">${esc(short(n.addr))}</span></span>` : n.fail ? "Couldn't look this name up right now." : `No address found for ${esc(n.name)}.`}</p>`; };
+
+/* ------------------------------------------------------------------ payment links */
+// Solana Pay (solana:<to>?amount=&spl-token=&label=) and EIP-681 (ethereum:<to>@<chain>?value= or
+// ethereum:<token>@<chain>/transfer?address=<to>&uint256=<amount>). Reading one fills Send; Receive can make one.
+function parsePayLink(text) {
+  try {
+    const t = String(text).trim();
+    let m = t.match(/^solana:([1-9A-HJ-NP-Za-km-z]{32,44})(?:\?(.*))?$/i);
+    if (m) { const q = new URLSearchParams(m[2] || ""), mint = q.get("spl-token"); return { fam: "sol", k: "sol", to: m[1], amount: q.get("amount") || "", a: mint ? (mint === NETS.sol.usdc || mint === S.devMint ? "usdc" : "token") : "native", label: q.get("label") || q.get("message") || "" }; }
+    m = t.match(/^ethereum:(?:pay-)?(0x[0-9a-fA-F]{40})(?:@(\d+))?(\/transfer)?(?:\?(.*))?$/i);
+    if (m) {
+      const q = new URLSearchParams(m[4] || ""), chain = Number(m[2] || 1), N = Object.values(NETS).find((x) => x.fam === "evm" && Number(x.E?.chainId ?? x.chainId) === chain) || Object.values(NETS).find((x) => x.fam === "evm" && String(x.key) === String(netByChain(chain)));
+      if (m[3]) { const tok = m[1], to = q.get("address"), raw = q.get("uint256"); const isU = N && String(N.usdc || "").toLowerCase() === tok.toLowerCase(); return { fam: "evm", k: N?.key, chain, to, a: isU ? "usdc" : "token", amount: raw && isU ? String(Number(raw) / 1e6) : "" }; }
+      const v = q.get("value"); return { fam: "evm", k: N?.key, chain, to: m[1], a: "native", amount: v ? ethers.formatEther(BigInt(Math.round(Number(v)))) : "" };
+    }
+  } catch (_) {}
+  return null;
+}
+function netByChain(id) { const e = Object.values(NETS).find((x) => x.fam === "evm" && x.chainId === id); return e?.key; }
+async function openPay(pay) {
+  if (pay.fam === "evm" && !pay.k) return toast(`That payment is for a network Ecrin doesn't support yet (chain ${pay.chain}).`, "err");
+  if (pay.a === "token") return toast("That payment asks for a token Ecrin can't send from a link yet. Send it from the coin's page.", "err");
+  if (S.panel) { S.panel = null; $("#panel").innerHTML = ""; }
+  await useNet(pay.k);
+  openPanel("send", { a: pay.a, to: pay.to, amount: pay.amount || "", payLabel: pay.label });
+  const e = await eng(); S.panel.reserve = await e.reserve(pay.a); renderPanel();
+}
+/** The link for a request: Solana Pay on Solana, EIP-681 on EVM networks, a plain address on Tron. */
+function payLink(k, a, amount, label) {
+  const N = NETS[k], to = ENG.address, x = A(a);
+  if (N.fam === "sol") { const q = new URLSearchParams(); if (amount) q.set("amount", amount); if (a === "usdc") q.set("spl-token", N.usdc); if (label) q.set("label", label); const s = q.toString(); return `solana:${to}${s ? "?" + s : ""}`; }
+  if (N.fam === "evm") {
+    const chain = N.E?.chainId ?? N.chainId;
+    if (a === "usdc") return `ethereum:${N.usdc}@${chain}/transfer?address=${to}${amount ? `&uint256=${BigInt(Math.round(Number(amount) * 1e6))}` : ""}`;
+    return `ethereum:${to}@${chain}${amount ? `?value=${ethers.parseEther(String(amount)).toString()}` : ""}`;
+  }
+  return to;
+}
+function payreqView() {
+  const P = S.panel, N = NETS[S.net], a = P.asset || "native", amt0 = (P.amount || "").trim(), link = payLink(S.net, a, Number(amt0) > 0 ? amt0 : "", (P.label || "").trim());
+  const q = qrcode(0, "M"); q.addData(link); q.make();
+  return `${phead("Request a payment")}
+    <div class="recv preq">
+      ${fromRow()}
+      <div class="mv-amt"><input data-reqamt inputmode="decimal" placeholder="0" value="${esc(P.amount || "")}" autocomplete="off"/><span>${A(a).unit}</span></div>
+      <input class="preq-l" data-reqlabel placeholder="What it's for (optional)" value="${esc(P.label || "")}" maxlength="40"/>
+      <div class="qr">${q.createSvgTag({ cellSize: 5, margin: 0, scalable: true })}</div>
+      <p class="fine">${Number(amt0) > 0 ? `Scanning this asks for <b>${esc(amt0)} ${A(a).unit}</b> on ${N.name}, paid to you.` : `Scanning this pays you on ${N.name}. Add an amount to ask for an exact sum.`} Works with ${N.fam === "sol" ? "Solana Pay wallets" : N.fam === "evm" ? "Ethereum wallets" : "Tron wallets"}.</p>
+      <div class="vacts">${navigator.share ? `<button class="btn" data-act="share-req">${I.send}Share</button>` : ""}<button class="btn" data-act="copy-req">${I.copy}Copy link</button></div>
+    </div>`;
+}
+
+/* ------------------------------------------------------------------ WalletConnect (phone app) */
+let WC = null;
+const wcClient = () => (WC ||= import("./wc.js").then((m) => m.startWC({
+  solAddr: ACCT?.sol?.publicKey?.toBase58?.(), evmAddr: ACCT?.evm?.address,
+  onProposal: wcProposal, onRequest: wcRequest, onChange: () => { if (S.panel?.p === "wc") renderPanel(); },
+}).then((c) => ({ ...c, m }))).catch((e) => { WC = null; throw e; }));
+async function wcSite(meta, verify) {
+  let host = "unknown app", https = false;
+  try { const u = new URL(meta?.url || ""); host = u.hostname; https = u.protocol === "https:"; } catch (_) {}
+  const { check } = await import("./sitecheck.js"), c = await check(host).catch(() => ({})), { wcSeen = {} } = await local.get("wcSeen");
+  return { host, https, phish: c.phish || verify === "INVALID", like: c.like, first: !wcSeen[host], name: meta?.name };
+}
+async function wcPair(uri) {
+  if (!globalThis.ECRIN_WEB) return toast("Use the phone app to connect with WalletConnect.", "err");
+  toast("Connecting…");
+  try { const c = await wcClient(); await c.pair(uri); await local.set({ wcOn: true }); }
+  catch (e) { toast(/expired|already/i.test(e?.message) ? "That code has expired. Refresh it on the site and scan again." : "Couldn't connect. Check your connection and try a fresh code.", "err"); }
+}
+async function wcProposal(p) {
+  if (S.screen === "approve" && S.req) { try { (await wcClient()).reject(p); } catch (_) {} return; }
+  const site = await wcSite(p.meta, p.verify);
+  S.req = { wc: "proposal", p, kind: "connect", fam: p.ns?.solana ? "sol" : "evm", site, origin: p.meta?.url, err: p.ns ? null : "This app asks for networks Ecrin doesn't support during the beta (Solana Devnet and the EVM test networks only)." };
+  S.reqBack = S.screen; S.screen = "approve"; render();
+}
+async function wcRequest(r) {
+  const c = await wcClient();
+  // One request at a time: a second one while you're deciding on the first is refused, never swapped in under you.
+  if (S.screen === "approve" && S.req) return c.refuse(r, "Ecrin Wallet is showing another request. Try again in a moment.");
+  if (!ACCT) return c.refuse(r, "Ecrin Wallet is locked.");
+  let req; try { req = c.m.toRequest(r.method, r.params, r.chainId, ACCT?.evm?.address); } catch (e) { return c.refuse(r, e.message); }
+  const R = { ...req, wc: "request", r, site: await wcSite(r.meta, r.verify), origin: r.meta?.url };
+  S.req = R; S.reqBack = S.screen === "approve" ? "home" : S.screen; S.screen = "approve"; render();
+  try { R.pv = await APX.preview(R); } catch (e) { R.pv = { fail: `Ecrin couldn't check this request: ${e?.message || e}` }; }
+  if (S.req === R) render();
+}
+function wcDone(msg) { S.req = null; S.screen = S.reqBack && S.reqBack !== "approve" ? S.reqBack : "home"; render(); if (msg) toast(msg, "win"); }
+async function wcOk(R) {
+  const c = await wcClient();
+  if (R.wc === "proposal") { await c.approve(R.p); const { wcSeen = {} } = await local.get("wcSeen"); wcSeen[R.site.host] = Date.now(); await local.set({ wcSeen }); return wcDone(`Connected to ${R.site.name || R.site.host}`); }
+  const out = await APX.sign(R); await c.answer(R.r, c.m.toResult(R.r.method, out));
+  const from = R.fam === "sol" ? ACCT.sol?.publicKey.toBase58() : ACCT.evm?.address, { apLog = [] } = await local.get("apLog");
+  await local.set({ apLog: [{ t: "ap", at: Date.now(), origin: R.origin, kind: R.kind, fam: R.fam, from, via: "walletconnect" }, ...apLog].slice(0, 200) });
+  wcDone(R.kind === "tx" || (R.kind === "soltx" && R.send) ? "Approved" : "Signed");
+}
+async function wcNo(R) { try { const c = await wcClient(); if (R.wc === "proposal") await c.reject(R.p); else await c.refuse(R.r); } catch (_) {} wcDone(); }
+// Sessions you approved stay connected: start listening again whenever the wallet opens.
+async function wcResume() { if (!globalThis.ECRIN_WEB || WC || !ACCT) return; if ((await local.get("wcOn")).wcOn) wcClient().catch(() => {}); }
+function wcView() {
+  const P = S.panel, list = P.list || [];
+  if (!P.loaded) { P.loaded = true; wcClient().then((c) => { P.list = c.sessions(); renderPanel(); }).catch(() => { P.list = []; P.off = true; renderPanel(); }); }
+  return `${phead("Connected apps")}
+    <div class="wc">
+      <p class="sub">Connect Ecrin to any app or site that shows a <b>WalletConnect</b> QR code. Every request still shows you exactly what would leave your wallet before you approve.</p>
+      <button class="btn primary xl" data-act="scan">${I.qr}Scan a code</button>
+      <div class="wc-paste"><input data-wcuri placeholder="or paste a wc: link" autocomplete="off"/><button class="btn" data-act="wc-paste">Connect</button></div>
+      ${P.off ? `<p class="note">${I.warn}<span>Couldn't reach WalletConnect right now. Check your connection.</span></p>` : ""}
+      <div class="list-h"><b>Connected</b><span>${list.length || ""}</span></div>
+      ${list.length ? `<section class="list">${list.map((x) => `<div class="arow wc-s"><span class="coin tk">${esc((x.name || "?").slice(0, 1))}</span><span class="ar-t"><b>${esc(x.name || "App")}</b><small>${esc(String(x.url || "").replace(/^https?:\/\//, ""))}</small></span><button class="btn sm" data-act="wc-off" data-t="${esc(x.topic)}">Disconnect</button></div>`).join("")}</section>` : `<p class="fine pad">${P.list ? "No apps connected yet." : "Loading…"}</p>`}
+    </div>`;
+}
 
 /* ------------------------------------------------------------------ requests from websites */
 
@@ -2330,6 +2531,8 @@ function fromRow() {
 function pickView() {
   const P = S.panel, w = worth(), need = P.back === "withdraw" ? "sav" : P.back === "receive" ? null : "chq";
   let list = need ? w.items.filter((i) => i[need] > 0) : [];
+  // USDC on several networks shows as one row with the total; Ecrin uses the network that holds the most.
+  if (need) { const us = list.filter((i) => i.a === "usdc"); if (us.length > 1) { const best = [...us].sort((x, y) => y[need] - x[need])[0], tot = (k) => us.reduce((t, i) => t + (i[k] || 0), 0); list = [{ ...best, chq: tot("chq"), sav: tot("sav"), usd: tot("chq") + tot("sav"), net: `${us.length} networks · uses ${best.net}`, merged: best[need] }, ...list.filter((i) => i.a !== "usdc")]; } }
   if (!need) list = netKeys().map((k) => NETS[k]).flatMap((N) => [{ k: N.key, a: "native", unit: N.unit, name: COIN_NAME[N.unit] || N.unit, net: N.name, coin: N.key }, ...(N.usdc ? [{ k: N.key, a: "usdc", unit: "USDC", name: "USD Coin", net: N.name, coin: "usdc" }] : [])]);
   const n = (v, d) => v.toLocaleString("en-US", { maximumFractionDigits: d });
   return `${phead({ send: "Send which coin?", protect: "Protect which coin?", withdraw: "Withdraw which coin?", receive: "Receive which coin?" }[P.back] || "Choose a coin")}
