@@ -192,7 +192,7 @@
   document.querySelectorAll(".hero-copy h1, .big-head h2").forEach(splitWords);
 
   // Reveal on scroll, staggered within each group (headlines reveal by word, rails fan in).
-  const groups = [".hero-copy h1", ".big-head h2", ".big-head > :not(h2)", ".sec-head", ".steps li", ".net", ".assets-mock", ".tier", ".table-card", ".faq details", ".shortcuts h3", ".live", ".foot-card", ".compare tbody tr", ".cta-s .hero-cta"];
+  const groups = [".hero-copy h1", ".big-head h2", ".big-head > :not(h2)", ".sec-head", ".steps li", ".net", ".assets-mock", ".tier", ".table-card", ".faq details", ".shortcuts h3", ".live", ".foot-card", ".compare tbody tr", ".cta-s .hero-cta", ".ut-head > *", ".ut", ".ut-note"];
   const els = [];
   groups.forEach((sel) => document.querySelectorAll(sel).forEach((el) => {
     if (el.closest(".hero-copy") && !el.matches("h1")) return;
