@@ -548,11 +548,11 @@ function goalView() {
 /** The first thing you see: the Ecrin lozenge with an example balance, the coin rings spinning in, the Safe ring
  *  beating, and the two halves of Ecrin explained in two pills. */
 function welcomeArt() {
-  const seg = (cls, len, off) => `<rect class="lz-seg ${cls}" x="38" y="38" width="144" height="144" rx="30" pathLength="100" style="stroke-dasharray:${len} ${100 - len};stroke-dashoffset:${-off};--o:${-off}"/>`;
+  const seg = (cls, len, off, u) => `<rect class="lz-seg ${cls}" x="38" y="38" width="144" height="144" rx="30" pathLength="100" style="--cc:${COIN_COL[u]};stroke-dasharray:${len} ${100 - len};stroke-dashoffset:${-off};--o:${-off}"/>`;
   return `<div class="wl">
     <div class="lz-wrap wl-lz"><svg class="lz draw" style="--lt:0ms;--at:0ms" viewBox="0 0 220 220" aria-hidden="true"><defs>${litDefs(lit())}</defs>
       <g transform="rotate(45 110 110)"><rect class="lz-base" x="38" y="38" width="144" height="144" rx="30"/>
-      ${seg("r0", 51, 0)}${seg("r1", 27, 52)}${seg("r2", 19, 80)}
+      ${seg("r0", 51, 0, "SOL")}${seg("r1", 27, 52, "ETH")}${seg("r2", 19, 80, "USDC")}
       <rect class="lz-base in" x="51" y="51" width="118" height="118" rx="24"/>
       <rect class="lz-safe" x="51" y="51" width="118" height="118" rx="24" pathLength="100" style="stroke-dasharray:64 100"/>
       <rect class="lz-sheen" x="38" y="38" width="144" height="144" rx="30"/><rect class="lz-sheen in" x="51" y="51" width="118" height="118" rx="24"/></g></svg>
@@ -716,7 +716,10 @@ function homeView() {
 // ------------------------------------------------------------------ the Ecrin lozenge
 // Your money as the Ecrin diamond: the outer edge is split by coin (each coin's share, in its colour); the inner edge
 // fills with Ecrin blue as more of it sits in your Safe. Thin lines, drawn once when you open the wallet.
-const COIN_COL = { SOL: "#9945FF", ETH: "#7d97ff", USDC: "#2775CA", USDT: "#26A17B", BNB: "#F0B90B", AVAX: "#E84142", TRX: "#FF3B3F", POL: "#8247E5" };
+// One colour per coin, whatever network it sits on (USDC on Solana and on Base is one USDC). Picked from each coin's
+// own brand and kept apart from each other on the dark background.
+const COIN_COL = { SOL: "#14F1A0", ETH: "#8C9EFF", USDC: "#2F8CFF", USDT: "#26A17B", BNB: "#F3BA2F", AVAX: "#FF5A5F", TRX: "#FF2E63", POL: "#A66BFF" };
+const cdot = (u) => `<i class="cdot" style="--cc:${COIN_COL[u] || "#9aa0b4"}"></i>`;
 function lozShares(w) {
   const by = {}; for (const i of w.items) if (i.usd) by[i.unit] = (by[i.unit] || 0) + i.usd;
   const tot = Object.values(by).reduce((a, b) => a + b, 0);
@@ -758,14 +761,14 @@ function tokenList(w) {
   const row = (i, sub) => {
     const p = i.a === "usdc" ? { usd: 1 } : S.prices[i.cg], ch = i.a === "usdc" ? null : p?.usd_24h_change;
     return `<button class="arow" data-act="tok" data-u="${i.unit}" data-n="${i.k}"><span class="cstack">${coin(i.coin)}${i.coin !== i.k ? `<span class="cmini">${coin(i.k)}</span>` : ""}</span>
-      <span class="ar-t"><b>${i.name}</b><small>${i.a === "usdc" ? i.net : p?.usd != null ? `<span class="px${S.prevPx?.[i.cg] != null && S.prevPx[i.cg] !== p.usd ? (p.usd > S.prevPx[i.cg] ? " flash-up" : " flash-dn") : ""}">${money(p.usd)}</span>` : i.net}${ch != null ? ` <span class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</span>` : ""}</small></span>
+      <span class="ar-t"><b>${cdot(i.unit)}${i.name}</b><small>${i.a === "usdc" ? i.net : p?.usd != null ? `<span class="px${S.prevPx?.[i.cg] != null && S.prevPx[i.cg] !== p.usd ? (p.usd > S.prevPx[i.cg] ? " flash-up" : " flash-dn") : ""}">${money(p.usd)}</span>` : i.net}${ch != null ? ` <span class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</span>` : ""}</small></span>
       ${spark(i.cg)}<span class="ar-r"><b>${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}${i.sav ? ` <span class="sv">${I.lock}${mask(n(i.sav, i.dec))}</span>` : ""}</small></span></button>`.replace('class="arow"', `class="arow${sub ? " sub" : ""}"`);
   };
   const out = Object.values(groups).map((g) => {
     if (g.length === 1) return row(g[0]);
     const t = g.reduce((s2, i) => ({ usd: s2.usd + (i.usd || 0), amt: s2.amt + i.chq + i.sav, sav: s2.sav + i.sav }), { usd: 0, amt: 0, sav: 0 }), f = g[0], open = S.open?.[f.unit];
     return `<button class="arow grp" data-act="tok" data-u="${f.unit}"><span class="cstack">${coin(f.a === "usdc" ? "usdc" : f.unit === "ETH" ? "eth" : f.coin)}</span>
-      <span class="ar-t"><b>${f.name}</b><small>${g.length} networks ${I.chev}</small></span>${spark(f.cg)}
+      <span class="ar-t"><b>${cdot(f.unit)}${f.name}</b><small>${g.length} networks ${I.chev}</small></span>${spark(f.cg)}
       <span class="ar-r"><b>${mask(money(t.usd))}</b><small>${mask(n(t.amt, f.dec))} ${f.unit}${t.sav ? ` <span class="sv">${I.lock}${mask(n(t.sav, f.dec))}</span>` : ""}</small></span></button>${open ? g.map((i) => `<button class="arow sub" data-act="row-send" data-n="${i.k}" data-a="${i.a}">${coin(i.k)}<span class="ar-t"><b>${NETS[i.k].name}</b><small>${NETS[i.k].net}</small></span><span class="ar-r"><b>${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}</small></span></button>`).join("") : ""}`;
   });
   return `<section class="list">${hidden ? `<div class="hid-note">${hidden} small balance${hidden > 1 ? "s" : ""} hidden</div>` : ""}${out.join("")}${extraRows()}</section>

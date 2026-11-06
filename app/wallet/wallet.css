@@ -2216,6 +2216,9 @@ body.stacked #root, :root[data-theme] body.stacked #root { transform: translateX
 .cv-sf .sf-tot { font-size: 26px; } .cv-sf .sf-mid .lbl { font-size: 10px; } .cv-sf .sf-ic { width: 26px; height: 26px; margin-bottom: 4px; } .cv-sf .sf-ic svg { width: 15px; height: 15px; }
 /* coin page: the back button sits on the page, no separate band */
 :root[data-theme] .pane:has(.tk-page) .phead { background: transparent !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+/* 0.7.2: each coin keeps its own colour in the lozenge, with a matching bubble by its name */
+:root[data-theme] .lz-seg, :root[data-theme] .lz-seg.r0, :root[data-theme] .lz-seg.r1, :root[data-theme] .lz-seg.r2, :root[data-theme] .lz-seg.r3 { stroke: var(--cc) !important; }
+.cdot { display: inline-block; width: 8px; height: 8px; margin: 0 7px 1px 0; border-radius: 50%; vertical-align: middle; background: var(--cc); box-shadow: 0 0 0 2px color-mix(in srgb, var(--cc) 22%, transparent), 0 0 8px color-mix(in srgb, var(--cc) 55%, transparent); }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
