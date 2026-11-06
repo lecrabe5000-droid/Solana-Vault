@@ -2047,6 +2047,26 @@ button.sf-tile { cursor: pointer; } button.sf-tile:active { transform: scale(.97
 .bio-scr .bs-stage { position: absolute; left: 50%; top: var(--bt, 30vh); margin-left: -110px; animation: bs-fade .35s ease both !important; }
 .bio-scr .bs-t { position: absolute; left: 0; right: 0; top: calc(var(--bt, 30vh) + 242px); text-align: center; }
 @keyframes bs-fade { from { opacity: 0; } }
+/* 0.5.3: coin page actions as pills (same as home) */
+.tk-acts { display: flex !important; gap: 6px !important; margin: 14px 0 18px !important; grid-template-columns: none !important; }
+.tk-acts button { flex: 1 1 0; min-width: 0; display: flex !important; align-items: center; justify-content: center; gap: 5px; height: 38px; padding: 0 6px; border: 0; border-radius: 19px; cursor: pointer;
+  color: var(--ink) !important; font: 600 13px var(--font) !important; background: rgba(140, 160, 255, .05); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), inset 0 0 0 1px var(--line-2); transition: transform .18s cubic-bezier(.2, .8, .2, 1.4); }
+.tk-acts button span { display: contents !important; }
+.tk-acts svg { width: 14px !important; height: 14px !important; stroke-width: 2 !important; color: var(--muted); }
+.tk-acts button:active { transform: scale(.95); }
+.tk-acts button[data-p="protect"] { background: linear-gradient(160deg, #6d86ff, #3c5cff 55%, #2a46e0); color: #fff !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 10px 24px -12px rgba(60, 92, 255, .9); }
+.tk-acts button[data-p="protect"] svg { color: #fff; }
+:root[data-theme="light"] .tk-acts button:not([data-p="protect"]) { background: #fff; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .08); }
+/* 0.5.3: the space background moves, slowly: the nebula drifts, the stars breathe (one clock across refreshes) */
+:root[data-theme="dark"] .aura, :root[data-theme="dark"] .sf-aura { background: var(--grain) !important; isolation: isolate; }
+:root[data-theme="dark"] .aura::before, :root[data-theme="dark"] .sf-aura::before { content: ""; position: absolute; inset: -12% -20%; z-index: -1;
+  background: radial-gradient(42% 26% at 50% 8%, rgba(79, 111, 255, .24), transparent 75%), radial-gradient(34% 22% at 86% 30%, rgba(60, 70, 190, .14), transparent 75%), radial-gradient(38% 24% at 12% 52%, rgba(40, 70, 200, .1), transparent 75%);
+  animation: neb 46s ease-in-out var(--at, 0ms) infinite alternate; will-change: transform; }
+:root[data-theme="dark"] .aura::after, :root[data-theme="dark"] .sf-aura::after { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--stars);
+  animation: twinkle 9s ease-in-out var(--at, 0ms) infinite; }
+@keyframes neb { 0% { transform: translate3d(-3%, 0, 0) scale(1); } 50% { transform: translate3d(2%, 2%, 0) scale(1.06); } 100% { transform: translate3d(4%, -1%, 0) scale(1.02); } }
+@keyframes twinkle { 0%, 100% { opacity: .75; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .aura::before, .aura::after, .sf-aura::before, .sf-aura::after { animation: none !important; } }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
