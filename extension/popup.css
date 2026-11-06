@@ -1242,3 +1242,12 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 :root[data-theme] .chart .ch-pin { display: block !important; }
 /* rows don't fade in or out while scrolling: they're simply there */
 .rv, .rv.in { opacity: 1 !important; transform: none !important; transition: none !important; }
+/* first-run question */
+.goal .onb-copy { margin-top: 28px; text-align: left; } .goal .onb-copy p { margin-left: 0; }
+.goal-l { display: grid; gap: 10px; margin: 22px 0 auto; }
+.goal-o { display: flex; align-items: center; gap: 14px; width: 100%; padding: 16px; border: 0; border-radius: 18px; background: var(--s1); box-shadow: 0 0 0 1px var(--line); color: var(--ink); text-align: left; cursor: pointer; font: inherit; transition: box-shadow .15s; }
+.goal-o:hover { box-shadow: 0 0 0 1.5px var(--eb); }
+.goal-o > span:nth-child(2) { flex: 1; display: grid; gap: 2px; } .goal-o b { font-size: 15px; font-weight: 600; } .goal-o small { color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+.goal-ic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: color-mix(in srgb, var(--eb) 12%, transparent); color: var(--eb); flex: none; }
+.goal-ic svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; } .goal-o > svg { width: 14px; height: 14px; fill: none; stroke: var(--muted); stroke-width: 2; }
+:root[data-theme="dark"] .goal-ic { color: #7f98ff; }

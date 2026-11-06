@@ -127,7 +127,7 @@ async function eng() {
 }
 
 async function boot() {
-  const pr = await local.get(["book", "hideSmall", "order", "recvNotify", "guard", "alertsOn", "showNfts"]); S.showNfts = !!pr.showNfts; Object.assign(S, { book: pr.book || {}, hideSmall: !!pr.hideSmall, order: pr.order || "value", recvNotify: pr.recvNotify, guard: { auto: 0, daily: 0, cool: 0, coolOver: 500, ...(pr.guard || {}) }, alertsOn: !!pr.alertsOn });
+  const pr = await local.get(["book", "hideSmall", "order", "recvNotify", "guard", "alertsOn", "showNfts", "goal"]); S.showNfts = !!pr.showNfts; S.goal = pr.goal || null; Object.assign(S, { book: pr.book || {}, hideSmall: !!pr.hideSmall, order: pr.order || "value", recvNotify: pr.recvNotify, guard: { auto: 0, daily: 0, cool: 0, coolOver: 500, ...(pr.guard || {}) }, alertsOn: !!pr.alertsOn });
   const st = await local.get(["box", "net", "theme", "autolock", "hide", "nums", "range", "dev", "prices", "bio", "lang"]);
   S.lang = st.lang || (/^fr/i.test(navigator.language || "") ? "fr" : "en"); document.documentElement.lang = S.lang;
   S.bio = globalThis.ECRIN_WEB && st.bio ? st.bio : null;
@@ -393,8 +393,18 @@ function tourView() {
     <div class="onb-acts"><button class="btn primary xl" data-act="tour-next">${last ? "Get started" : "Next"}</button></div>
   </div>`;
 }
+// One question after the tour: it decides which safety steps the wallet suggests first. Nothing is turned on by itself.
+const GOALS = [["savings", "Protect my savings", "From scams, drainers and stolen keys.", "shield"], ["discipline", "Help me stay in control", "Limits and pauses against impulsive trading or gambling.", "clock"], ["both", "Both", "Protection from others, and from myself.", "lock"]];
+function goalView() {
+  return `<div class="onb tour goal">
+    <div class="tour-top"><span class="mv-mark">${LOGO}<b>ECRIN</b></span><button class="link" data-act="goal" data-v="skip">Skip</button></div>
+    <div class="onb-copy"><h1>What brings you to Ecrin?</h1><p>We'll suggest the right protections first. You can change everything later.</p></div>
+    <div class="goal-l">${GOALS.map(([k, t, d, ic]) => `<button class="goal-o" data-act="goal" data-v="${k}"><span class="goal-ic">${I[ic]}</span><span><b>${t}</b><small>${d}</small></span>${I.arrow}</button>`).join("")}</div>
+  </div>`;
+}
 function welcome() {
   if (S.tour != null && S.tour < TOUR.length) return tourView();
+  if (S.tour === TOUR.length && S.askGoal) return goalView();
   return `<div class="onb">
     <div class="onb-art">${miniVault()}</div>
     <div class="onb-copy"><h1>Ecrin Wallet</h1><p>A wallet for spending.<br/>A safe nobody can rush.</p></div>
@@ -1013,6 +1023,9 @@ function safety() {
     { ok: perms === 0, pts: 10, t: "No open token permissions", tip: `Revoke ${perms} token permission${perms > 1 ? "s" : ""}`, act: "perms" },
     { ok: !!(G.daily || G.cool), pts: 10, t: "Spending limit or cooling-off on", tip: "Add a spending limit", act: "panel", p: "safety" },
   ];
+  // Your answer to "What brings you to Ecrin?" decides which step is suggested first.
+  const first = S.goal === "discipline" ? ["Spending limit or cooling-off on", "Safe set up"] : S.goal === "savings" ? ["Safe set up", "Safe alerts on", "No open token permissions"] : [];
+  items.sort((a, b) => ((first.indexOf(b.t) + 1 || 99) < (first.indexOf(a.t) + 1 || 99) ? 1 : (first.indexOf(a.t) + 1 || 99) < (first.indexOf(b.t) + 1 || 99) ? -1 : 0));
   return { score: items.reduce((s2, i) => s2 + (i.ok ? i.pts : 0), 0), items };
 }
 function safetyCard() {
@@ -1281,8 +1294,9 @@ async function useNet(n) {
 async function saveAccts() { await local.set({ accts: S.accts }); }
 const actions = {
   lang: async (el) => { S.lang = el.dataset.v; document.documentElement.lang = S.lang; await local.set({ lang: S.lang }); render(); renderPanel(); },
-  "tour-next": () => { S.tour = (S.tour || 0) + 1; if (S.tour >= TOUR.length) local.set({ toured: true }); render(); },
-  "tour-skip": () => { S.tour = TOUR.length; local.set({ toured: true }); render(); },
+  "tour-next": () => { S.tour = (S.tour || 0) + 1; if (S.tour >= TOUR.length) { local.set({ toured: true }); S.askGoal = true; } render(); },
+  "tour-skip": () => { S.tour = TOUR.length; S.askGoal = true; local.set({ toured: true }); render(); },
+  goal: async (el) => { const v = el.dataset.v; S.askGoal = false; if (v !== "skip") { S.goal = v; await local.set({ goal: v }); } render(); },
   guard: async (el) => {
     const G = S.guard, k = el.dataset.k, v = Number(el.dataset.v);
     if (k === "daily" && G.daily && (v === 0 || v > G.daily)) { G.pend = { v, at: Date.now() + 86400_000 }; toast("Raising the limit takes 24 hours. Lowering is instant.", "win"); }
