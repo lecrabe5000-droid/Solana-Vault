@@ -304,7 +304,7 @@ function go(screen, extra = {}) { Object.assign(S, { screen }, extra); render();
 
 function syncTabbar() {
   const tb = document.getElementById("tabbar"); if (!tb) return;
-  const cur = S.panel ? S.panel.p : "home", show = S.screen === "home" && ["home", "swap", "vault"].includes(cur);
+  const cur = S.panel ? S.panel.p : "home", show = S.screen === "home" && !S.panel; // only on the home screen, never over a page
   tb.hidden = !show;
   tb.querySelectorAll("button").forEach((b) => { const on = b.dataset.tab === cur; b.classList.toggle("on", on); if (on) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
 }

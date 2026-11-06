@@ -1723,3 +1723,4 @@ button.sf-tile { cursor: pointer; } button.sf-tile:active { transform: scale(.97
 #tabbar { bottom: max(6px, calc(env(safe-area-inset-bottom, 0px) - 8px)); z-index: 30; }
 .sx, .sf { padding-bottom: 96px; }
 .home { padding-bottom: 88px; }
+.sx, .sf { padding-bottom: 24px; }
