@@ -2042,3 +2042,8 @@ button.sf-tile { cursor: pointer; } button.sf-tile:active { transform: scale(.97
 @media (prefers-reduced-motion: reduce) { .lz:not(.draw) .lz-safe, .sf:not(.intro) .sf-arc, .dg { animation: none !important; } }
 .lz mask rect { fill: url(#lzgg) !important; }
 :root .lz-gu { stroke: rgba(196, 208, 255, .13); }
+/* Face ID screen: content pinned at a fixed height from the top, fades in, never slides */
+.bio-scr { position: fixed !important; inset: 0; display: block !important; min-height: 0; }
+.bio-scr .bs-stage { position: absolute; left: 50%; top: var(--bt, 30vh); margin-left: -110px; animation: bs-fade .35s ease both !important; }
+.bio-scr .bs-t { position: absolute; left: 0; right: 0; top: calc(var(--bt, 30vh) + 242px); text-align: center; }
+@keyframes bs-fade { from { opacity: 0; } }

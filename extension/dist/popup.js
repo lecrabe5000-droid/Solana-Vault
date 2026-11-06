@@ -2126,7 +2126,7 @@ zoo`.split(`
       <p class="err" data-err></p>
       <button class="btn primary xl">${h.busy?"Securing\u2026":"Import wallet"}</button>
     </form>
-  </div>`}function RT(){if(h.bioBusy){let r=h.bioBusy==="ok",e=(t,n,s,o)=>`<rect class="${t}" x="${n}" y="${n}" width="${220-2*n}" height="${220-2*n}" rx="${s}" pathLength="100"${o?` style="${o}"`:""}/>`;return`<div class="bio-scr${r?" ok":""}"><div class="aura" aria-hidden="true" style="${gu()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
+  </div>`}function RT(){if(h.bioBusy){let r=h.bioBusy==="ok",e=(n,s,o,a)=>`<rect class="${n}" x="${s}" y="${s}" width="${220-2*s}" height="${220-2*s}" rx="${o}" pathLength="100"${a?` style="${a}"`:""}/>`;document.activeElement?.blur?.();let t=h.bioTop??=Math.round(Math.max(screen.height,innerHeight)*.3);return`<div class="bio-scr${r?" ok":""}" style="--bt:${t}px"><div class="aura" aria-hidden="true" style="${gu()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
       <div class="bs-stage"><svg class="bs-lz" viewBox="0 0 220 220" aria-hidden="true"><defs><linearGradient id="bsg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b6c4ff"/><stop offset=".5" stop-color="#4b74ff"/><stop offset="1" stop-color="#00c8ff"/></linearGradient></defs>
         <g transform="rotate(45 110 110)">${e("bs-base",38,30)}${e("bs-a",38,30)}${e("bs-b",51,24)}${e("bs-full",38,30)}</g></svg>
         <span class="bs-scan"></span>
@@ -2136,7 +2136,7 @@ zoo`.split(`
     <h1>Welcome back</h1><p class="sub">Unlock Ecrin Wallet</p>
     ${h.bio?`<button class="btn primary xl bio-btn" data-act="bio-unlock">${j.face}Unlock with ${fn()}</button><p class="or">or use your password</p>`:""}
     <form class="stack" data-form="unlock">
-      <label class="fld"><span>Password</span><input name="pw" type="password" autocomplete="current-password" autofocus required/></label>
+      <label class="fld"><span>Password</span><input name="pw" type="password" autocomplete="current-password" ${h.bio&&globalThis.ECRIN_WEB?"":"autofocus"} required/></label>
       <p class="err" data-err></p>
       <button class="btn ${h.bio?"":"primary"} xl">${h.busy?"Unlocking\u2026":"Unlock"}</button>
     </form>

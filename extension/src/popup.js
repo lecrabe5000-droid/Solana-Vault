@@ -627,7 +627,9 @@ function unlock() {
   if (S.bioBusy) {
     // Face ID: the Ecrin lozenge scans while the phone checks, then closes into a full diamond with a check.
     const ok = S.bioBusy === "ok", R = (c, x, r, k) => `<rect class="${c}" x="${x}" y="${x}" width="${220 - 2 * x}" height="${220 - 2 * x}" rx="${r}" pathLength="100"${k ? ` style="${k}"` : ""}/>`;
-    return `<div class="bio-scr${ok ? " ok" : ""}"><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
+    document.activeElement?.blur?.(); // no keyboard behind Face ID
+    const top = S.bioTop ??= Math.round(Math.max(screen.height, innerHeight) * 0.3); // fixed spot, measured once: never moves with the keyboard or system sheets
+    return `<div class="bio-scr${ok ? " ok" : ""}" style="--bt:${top}px"><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
       <div class="bs-stage"><svg class="bs-lz" viewBox="0 0 220 220" aria-hidden="true"><defs><linearGradient id="bsg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b6c4ff"/><stop offset=".5" stop-color="#4b74ff"/><stop offset="1" stop-color="#00c8ff"/></linearGradient></defs>
         <g transform="rotate(45 110 110)">${R("bs-base", 38, 30)}${R("bs-a", 38, 30)}${R("bs-b", 51, 24)}${R("bs-full", 38, 30)}</g></svg>
         <span class="bs-scan"></span>
@@ -639,7 +641,7 @@ function unlock() {
     <h1>Welcome back</h1><p class="sub">Unlock Ecrin Wallet</p>
     ${S.bio ? `<button class="btn primary xl bio-btn" data-act="bio-unlock">${I.face}Unlock with ${bioName()}</button><p class="or">or use your password</p>` : ""}
     <form class="stack" data-form="unlock">
-      <label class="fld"><span>Password</span><input name="pw" type="password" autocomplete="current-password" autofocus required/></label>
+      <label class="fld"><span>Password</span><input name="pw" type="password" autocomplete="current-password" ${S.bio && globalThis.ECRIN_WEB ? "" : "autofocus"} required/></label>
       <p class="err" data-err></p>
       <button class="btn ${S.bio ? "" : "primary"} xl">${S.busy ? "Unlocking…" : "Unlock"}</button>
     </form>
