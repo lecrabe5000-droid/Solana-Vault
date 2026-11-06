@@ -87,9 +87,23 @@ function avatar(addr) {
 const A = (a) => (a === "usdc" ? { id: "usdc", unit: "USDC", base: USDC_BASE, dec: 2 } : { id: "native", unit: NETS[S.net].unit, base: BASE, dec: NETS[S.net].unit === "SOL" ? 4 : 5 });
 const amt = (units, a) => { const x = A(a), v = units / x.base; return v.toLocaleString("en-US", { minimumFractionDigits: x.dec === 2 ? 2 : 0, maximumFractionDigits: x.dec }); };
 const usdOf = (units, a) => (a === "usdc" ? units / USDC_BASE : S.prices[NETS[S.net].cg]?.usd != null ? (units / BASE) * S.prices[NETS[S.net].cg].usd : null);
-const money = (n) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+// Amounts are kept in US dollars and shown in the currency you pick (Settings → Currency), at today's rate.
+const CURS = [["USD", "US dollar"], ["EUR", "Euro"], ["CAD", "Canadian dollar"], ["GBP", "British pound"], ["CHF", "Swiss franc"], ["AUD", "Australian dollar"], ["JPY", "Japanese yen"]];
+const curRate = () => (S.cur && S.cur !== "USD" && S.fx?.[S.cur] ? S.fx[S.cur] : 1);
+const curCode = () => (curRate() === 1 && S.cur !== "USD" ? "USD" : S.cur || "USD");
+const money = (n, opt = {}) => (n * curRate()).toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { style: "currency", currency: curCode(), ...opt });
+async function loadFx() {
+  const { fx } = await local.get("fx"); if (fx && Date.now() - fx.at < 12 * 3600_000) { S.fx = fx.r; return; }
+  if (S.mock) { S.fx = { EUR: 0.92, CAD: 1.37, GBP: 0.79, CHF: 0.88, AUD: 1.52, JPY: 152 }; return; }
+  try {
+    const j = await getJSON(`https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=${CURS.map(([c]) => c.toLowerCase()).join(",")}`);
+    const t = j?.tether, u = t?.usd; if (!u) return;
+    S.fx = Object.fromEntries(CURS.slice(1).map(([c]) => [c, t[c.toLowerCase()] / u]).filter(([, v]) => v > 0));
+    await local.set({ fx: { at: Date.now(), r: S.fx } }); if (S.screen === "home") render();
+  } catch (_) {}
+}
 // Decimals dimmed; dollar cents also carry "cents" so the Numbers setting can hide them without touching coin amounts.
-const fig = (str) => { const usd = String(str).trim().startsWith("$"); return esc(str).replace(/([.,]\d+)(\D*)$/, `<span class="dec${usd ? " cents" : ""}">$1</span>$2`); };
+const fig = (str) => { const usd = !/^[\d-]/.test(String(str).trim()); return esc(str).replace(/([.,]\d+)(\D*)$/, `<span class="dec${usd ? " cents" : ""}">$1</span>$2`); };
 const parseAmt = (s, a) => { const v = Number(String(s).replace(/,/g, "")); return Number.isFinite(v) && v > 0 ? Math.round(v * A(a).base) : 0; };
 const mask = (s) => (S.hide ? "••••" : s);
 
@@ -127,7 +141,7 @@ async function eng() {
 }
 
 async function boot() {
-  const pr = await local.get(["book", "hideSmall", "order", "recvNotify", "guard", "alertsOn", "showNfts", "goal"]); S.showNfts = !!pr.showNfts; S.goal = pr.goal || null; Object.assign(S, { book: pr.book || {}, hideSmall: !!pr.hideSmall, order: pr.order || "value", recvNotify: pr.recvNotify, guard: { auto: 0, daily: 0, cool: 0, coolOver: 500, ...(pr.guard || {}) }, alertsOn: !!pr.alertsOn });
+  const pr = await local.get(["book", "hideSmall", "order", "recvNotify", "guard", "alertsOn", "showNfts", "goal", "cur"]); S.showNfts = !!pr.showNfts; S.goal = pr.goal || null; S.cur = pr.cur || "USD"; Object.assign(S, { book: pr.book || {}, hideSmall: !!pr.hideSmall, order: pr.order || "value", recvNotify: pr.recvNotify, guard: { auto: 0, daily: 0, cool: 0, coolOver: 500, ...(pr.guard || {}) }, alertsOn: !!pr.alertsOn });
   const st = await local.get(["box", "net", "theme", "autolock", "hide", "nums", "range", "dev", "prices", "bio", "lang"]);
   S.lang = st.lang || (/^fr/i.test(navigator.language || "") ? "fr" : "en"); document.documentElement.lang = S.lang;
   S.bio = globalThis.ECRIN_WEB && st.bio ? st.bio : null;
@@ -161,7 +175,7 @@ async function touch() {
 }
 
 async function home() {
-  checkUpdate(); loadBackup(); applyPendingLimit();
+  checkUpdate(); loadBackup(); applyPendingLimit(); loadFx();
   S.screen = "home"; await eng(); S.histAt = 0; S.hist = []; render(); loadActivity();
   loadAll();
   refresh();
@@ -187,7 +201,7 @@ const addrHint = (N) => (N.fam === "sol" ? "Solana address" : N.fam === "tron" ?
 const getJSON = async (url) => { const r = await fetch(url, { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return r.json(); };
 
 async function spotPrices() {
-  try { const j = await getJSON("https://api.coingecko.com/api/v3/simple/price?ids=${Object.keys(SYM).join(",")}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true"); if (j?.solana?.usd) return j; } catch (_) {}
+  try { const j = await getJSON(`https://api.coingecko.com/api/v3/simple/price?ids=${Object.keys(SYM).join(",")}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true`); if (j?.solana?.usd) return j; } catch (_) {}
   try {
     const j = await getJSON(`https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(Object.values(SYM).map((x) => x + "USDT")))}`);
     const out = {}; for (const [cg, x] of Object.entries(SYM)) { const t = j.find((r) => r.symbol === x + "USDT"); if (t) out[cg] = { usd: Number(t.lastPrice), usd_24h_change: Number(t.priceChangePercent) }; }
@@ -816,12 +830,26 @@ function permsView() {
 }
 
 function addTokView() {
-  const P = S.panel, evm = netKeys().filter((k) => NETS[k].fam === "evm");
+  const P = S.panel, evm = netKeys().filter((k) => NETS[k].fam === "evm"), k = evm.includes(P.net) ? P.net : evm.includes(S.net) ? S.net : evm[0], N = NETS[k];
+  const pv = P.info;
   return `${phead("Add a token")}<div class="pad">
-    <p class="fine">Ethereum-style networks don't list every token an address holds. Paste a token's contract address to follow it.</p>
-    <label class="fld"><span>Network</span><select data-tnet>${evm.map((k) => `<option value="${k}" ${k === (P.net || S.net) ? "selected" : ""}>${NETS[k].name}</option>`).join("")}</select></label>
-    <label class="fld"><span>Token contract</span><input data-taddr placeholder="0x…" autocomplete="off" spellcheck="false"/></label>
-    <div class="pfoot"><button class="btn primary xl" data-act="tok-add" ${P.busy ? "disabled" : ""}>${P.busy ? `<i class="spin"></i>` : ""}Add token</button></div></div>`;
+    <p class="fine">Ethereum-style networks don't list every token an address holds. Pick the network, then paste the token's contract address.</p>
+    <div class="fld"><span>Network</span>
+      <button type="button" class="dd" data-act="dd" aria-expanded="${!!P.dd}">${coin(k)}<b>${N.name}</b><small>${N.net}</small>${I.chev}</button>
+      ${P.dd ? `<div class="dd-menu" role="listbox">${evm.map((n) => `<button type="button" role="option" class="dd-o${n === k ? " on" : ""}" data-act="dd-pick" data-n="${n}">${coin(n)}<b>${NETS[n].name}</b><small>${NETS[n].net}</small>${n === k ? I.check : ""}</button>`).join("")}</div>` : ""}
+    </div>
+    <label class="fld"><span>Token contract</span><input data-taddr placeholder="0x…" value="${esc(P.addr || "")}" autocomplete="off" spellcheck="false"/></label>
+    <div class="tk-prev" data-tprev>${pv?.err ? `<span class="err">${esc(pv.err)}</span>` : pv?.symbol ? `<span class="coin letter" style="--h:${[...pv.mint].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7)}">${esc(pv.symbol.charAt(0))}</span><span><b>${esc(pv.name)}</b><small>${esc(pv.symbol)} · ${pv.dec} decimals</small></span>` : P.looking ? `<i class="spin"></i><small>Reading the token…</small>` : ""}</div>
+    <div class="pfoot"><button class="btn primary xl" data-act="tok-add" ${pv?.symbol && !P.busy ? "" : "disabled"}>${P.busy ? `<i class="spin"></i>` : ""}Add ${pv?.symbol ? esc(pv.symbol) : "token"}</button></div></div>`;
+}
+async function previewTok() {
+  const P = S.panel; if (!P || P.p !== "addTok") return;
+  const evm = netKeys().filter((k) => NETS[k].fam === "evm"), k = evm.includes(P.net) ? P.net : evm.includes(S.net) ? S.net : evm[0], addr = (P.addr || "").trim();
+  P.info = null; if (!ethers.isAddress(addr)) { if (addr.length > 6) P.info = { err: "That isn't a contract address." }; return renderPanel(); }
+  P.looking = true; renderPanel(); const ticket = (P.ticket = (P.ticket || 0) + 1);
+  try { const { dev } = await local.get("dev"); const info = await engine({ web3, ethers, acct: ACCT, net: k, dev: dev || {} }).tokenInfo(addr); if (ticket === P.ticket) P.info = info; }
+  catch (_) { if (ticket === P.ticket) P.info = { err: `No token at that address on ${NETS[k].name}.` }; }
+  P.looking = false; renderPanel(); const i = $("[data-taddr]"); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
 }
 
 function allView() {
@@ -915,7 +943,7 @@ function closePanel() { const el = $("#panel"); el.classList.remove("in"); docum
 function renderPanel(enter = false) {
   const el = $("#panel"), P = S.panel;
   if (!P) return;
-  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
+  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
   el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}">${body}</div>`; translate(el, S.lang);
   P.fresh = false;
   if (enter) requestAnimationFrame(() => { el.classList.add("in"); document.body.classList.add("stacked"); });
@@ -1047,7 +1075,7 @@ function safetyView() {
     <span class="seg wide">${auto.map((v) => `<button data-act="guard" data-k="auto" data-v="${v}" aria-pressed="${G.auto === v}">${v ? v + "%" : "Off"}</button>`).join("")}</span>
     <div class="list-h"><b>Daily spending limit</b><span>${G.daily ? money(G.daily) : "None"}</span></div>
     <p class="fine">Sends from your Wallet stop at this amount per day, on every network. Lowering it is instant; raising it waits 24 hours, so a scammer rushing you can't lift it.${G.pend ? ` <b>Changing to ${G.pend.v ? money(G.pend.v) : "no limit"} on ${new Date(G.pend.at).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" })}.</b>` : ""}</p>
-    <span class="seg wide">${lim.map((v) => `<button data-act="guard" data-k="daily" data-v="${v}" aria-pressed="${G.daily === v}">${v ? "$" + (v >= 1000 ? v / 1000 + "k" : v) : "None"}</button>`).join("")}</span>
+    <span class="seg wide">${lim.map((v) => `<button data-act="guard" data-k="daily" data-v="${v}" aria-pressed="${G.daily === v}">${v ? money(v, { maximumFractionDigits: 0, notation: v >= 1000 ? "compact" : "standard" }) : "None"}</button>`).join("")}</span>
     <div class="list-h"><b>Cooling-off pause</b><span>${G.cool ? `over ${money(G.coolOver)}` : "Off"}</span></div>
     <p class="fine">A short wait before any send over ${money(G.coolOver)}. Scams work by rushing you; the pause gives you time to notice.</p>
     <span class="seg wide">${cool.map(([v, l]) => `<button data-act="guard" data-k="cool" data-v="${v}" aria-pressed="${G.cool === v}">${l}</button>`).join("")}</span>
@@ -1223,26 +1251,39 @@ function assetsView() {
 }
 
 function settingsView() {
+  const row = (act, ic, label, val = I.arrow, extra = "") => `<button class="srow" data-act="${act}" ${extra}><span>${ic}${label}</span><span class="sv">${val}</span></button>`;
+  const onOff = (v) => (v ? "On" : "Off");
+  const sec = (title, body) => `<div class="set-h">${title}</div><div class="sets">${body}</div>`;
   return `${phead("Settings")}
-    <div class="sets">
-      <div class="srow"><span>${I.clock}Auto-lock</span><span class="seg">${[0, 1, 5, 15, 60].map((m) => `<button data-act="autolock" data-v="${m}" aria-pressed="${S.autolock === m}">${m === 0 ? "Always" : m < 60 ? m + "m" : "1h"}</button>`).join("")}</span></div>
+    <button class="set-acct" data-act="panel" data-p="accts">${acctIc(curAcct(), "lg")}<span><b>${esc(curAcct().name)}</b><small class="mono">${short(ENG?.address || "")}</small></span>${I.arrow}</button>
+    ${sec("Security", `
+      ${row("panel", I.shield, "Safety: limits, auto-protect, freeze", I.arrow, 'data-p="safety"')}
+      ${row("panel", I.key, "Recovery phrase", I.arrow, 'data-p="reveal"')}
+      ${globalThis.ECRIN_WEB && bioPossible() ? row("bio-toggle", I.face, bioName() === "Face ID" ? "Face ID" : "Biometric unlock", `${onOff(S.bio)} ${I.arrow}`) : ""}
+      <div class="srow"><span>${I.clock}Auto-lock</span><span class="seg">${[0, 1, 5, 15, 60].map((m) => `<button data-act="autolock" data-v="${m}" aria-pressed="${S.autolock === m}">${m === 0 ? "Off" : m < 60 ? m + "m" : "1h"}</button>`).join("")}</span></div>
+      ${row("perms", I.ban, "Token permissions")}
+      ${globalThis.ECRIN_WEB || globalThis.ECRIN_DEMO ? "" : row("panel", I.link, "Connected sites", I.arrow, 'data-p="sites"')}
+      ${row("lock", I.lock, "Lock now", "")}`)}
+    ${sec("Preferences", `
+      ${row("panel", I.card, "Currency", `${S.cur || "USD"} ${I.arrow}`, 'data-p="currency"')}
       <div class="srow"><span>${I.globe}Language</span><span class="seg">${LANGS.map(([k, l]) => `<button data-act="lang" data-v="${k}" aria-pressed="${S.lang === k}">${l}</button>`).join("")}</span></div>
       <div class="srow"><span>${S.theme === "dark" ? I.moon : I.sun}Appearance</span><span class="seg">${["light", "dark"].map((t) => `<button data-act="theme" data-v="${t}" aria-pressed="${S.theme === t}">${t === "light" ? "Light" : "Dark"}</button>`).join("")}</span></div>
-      <button class="srow" data-act="panel" data-p="numbers"><span><b class="nf-ico">1.2</b>Numbers</span><span class="sv">${NUM_FACES.find(([k]) => k === S.nums.face)[1]} ${I.arrow}</span></button>
-      ${globalThis.ECRIN_WEB || globalThis.ECRIN_DEMO ? "" : `<button class="srow" data-act="panel" data-p="sites"><span>${I.link}Connected sites</span><span class="sv">${I.arrow}</span></button>`}
-      ${globalThis.ECRIN_WEB && bioPossible() ? `<button class="srow" data-act="bio-toggle"><span>${I.face}${bioName() === "Face ID" ? "Face ID" : "Biometric unlock"}</span><span class="sv">${S.bio ? "On" : "Off"} ${I.arrow}</span></button>` : ""}
-      <button class="srow" data-act="tog" data-k="recvNotify"><span>${I.recv}Notify when I receive coins</span><span class="sv">${S.recvNotify === false ? "Off" : "On"}</span></button>
-      <button class="srow" data-act="tog" data-k="showNfts"><span>${I.img}Show collectibles (NFTs)</span><span class="sv">${S.showNfts ? "On" : "Off"}</span></button>
-      <button class="srow" data-act="tog" data-k="hideSmall"><span>${I.eyeOff}Hide balances under $1</span><span class="sv">${S.hideSmall ? "On" : "Off"}</span></button>
-      <button class="srow" data-act="tog" data-k="order"><span>${I.arrow}Order coins by</span><span class="sv">${S.order === "name" ? "Name" : "Value"}</span></button>
-      <button class="srow" data-act="panel" data-p="safety"><span>${I.shield}Safety: limits, auto-protect, freeze</span><span class="sv">${I.arrow}</span></button>
-      <button class="srow" data-act="perms"><span>${I.ban}Token permissions</span><span class="sv">${I.arrow}</span></button>
-      <button class="srow" data-act="panel" data-p="reveal"><span>${I.eye}Show recovery phrase</span><span class="sv">${I.arrow}</span></button>
-      <a class="srow" href="https://ecrinprotocol.app/app" target="_blank"><span>${I.shield}Vault rules and alerts</span><span class="sv">${I.ext}</span></a>
-      <button class="srow" data-act="lock"><span>${I.lock}Lock now</span><span></span></button>
-      <button class="srow danger" data-act="forget"><span>Remove wallet from this browser</span><span></span></button>
-    </div>
+      ${row("panel", '<b class="nf-ico">1.2</b>', "Numbers", `${NUM_FACES.find(([k]) => k === S.nums.face)[1]} ${I.arrow}`, 'data-p="numbers"')}`)}
+    ${sec("Home screen", `
+      ${row("tog", I.recv, "Notify when I receive coins", onOff(S.recvNotify !== false), 'data-k="recvNotify"')}
+      ${row("tog", I.img, "Show collectibles (NFTs)", onOff(S.showNfts), 'data-k="showNfts"')}
+      ${row("tog", I.eyeOff, "Hide small balances", onOff(S.hideSmall), 'data-k="hideSmall"')}
+      ${row("tog", I.arrow, "Order coins by", S.order === "name" ? "Name" : "Value", 'data-k="order"')}`)}
+    ${sec("About", `
+      <a class="srow" href="https://ecrinprotocol.app/how-it-works/" target="_blank"><span>${I.shield}How the Safe works</span><span class="sv">${I.ext}</span></a>
+      <a class="srow" href="https://ecrinprotocol.app/security/" target="_blank"><span>${I.check}Security and audits</span><span class="sv">${I.ext}</span></a>
+      <a class="srow" href="https://github.com/lecrabe5000-droid/Solana-Vault/issues" target="_blank"><span>${I.link}Help and feedback</span><span class="sv">${I.ext}</span></a>`)}
+    <div class="sets danger-z"><button class="srow danger" data-act="forget"><span>Remove wallet from this browser</span><span></span></button></div>
     <p class="fine pad">Ecrin Wallet ${VERSION} · testnet beta · not audited</p>`;
+}
+function currencyView() {
+  return `${phead("Currency")}<p class="fine">Prices and totals show in this currency at today's rate. Your coins don't change.</p>
+    <section class="list">${CURS.map(([c, n]) => `<button class="arow cur-r${(S.cur || "USD") === c ? " on" : ""}" data-act="cur" data-v="${c}"><span class="cur-c">${c}</span><span class="ar-t"><b>${n}</b><small>${(1234.5).toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { style: "currency", currency: c })}</small></span>${(S.cur || "USD") === c ? `<span class="acc-ok">${I.check}</span>` : ""}</button>`).join("")}</section>`;
 }
 
 function numbersView() {
@@ -1257,7 +1298,7 @@ function numbersView() {
 function revealView() {
   const P = S.panel;
   if (P.words) return `${phead("Recovery phrase")}<p class="sub pad">Never type these anywhere but a wallet you trust. Ecrin will never ask for them.</p><div class="phrase shown">${P.words.split(" ").map((w, i) => `<span><i>${i + 1}</i>${esc(w)}</span>`).join("")}</div>`;
-  return `${phead("Recovery phrase")}<form class="stack pad" data-form="reveal"><p class="sub">Enter your password to see your 12 words. Make sure nobody can see your screen.</p><label class="fld"><span>Password</span><input name="pw" type="password" autofocus required/></label><p class="err" data-err></p><button class="btn primary xl">Show</button></form>`;
+  return `${phead("Recovery phrase")}<form class="stack pad" data-form="reveal"><p class="sub">Enter your password to see your 12 words. Make sure nobody can see your screen.</p>${S.bio ? `<button type="button" class="btn primary bio-btn" data-act="reveal-bio">${I.face}Show with ${bioName()}</button><p class="or">or use your password</p>` : ""}<label class="fld"><span>Password</span><input name="pw" type="password" autofocus required/></label><p class="err" data-err></p><button class="btn primary xl">Show</button></form>`;
 }
 
 // ------------------------------------------------------------------ actions
@@ -1293,6 +1334,8 @@ async function useNet(n) {
 
 async function saveAccts() { await local.set({ accts: S.accts }); }
 const actions = {
+  "reveal-bio": async () => { try { const words = await bioUnlock(S.bio); S.panel.words = normalize(words); renderPanel(); } catch (e) { toast(`${bioName()} didn't work. Use your password.`, "err"); } },
+  cur: async (el) => { S.cur = el.dataset.v; await local.set({ cur: S.cur }); await loadFx(); toast(`Showing ${S.cur}`, "win"); renderPanel(); render(); },
   lang: async (el) => { S.lang = el.dataset.v; document.documentElement.lang = S.lang; await local.set({ lang: S.lang }); render(); renderPanel(); },
   "tour-next": () => { S.tour = (S.tour || 0) + 1; if (S.tour >= TOUR.length) { local.set({ toured: true }); S.askGoal = true; } render(); },
   "tour-skip": () => { S.tour = TOUR.length; S.askGoal = true; local.set({ toured: true }); render(); },
@@ -1333,13 +1376,15 @@ const actions = {
     S.tokPref = { ...S.tokPref, [t.mint]: tokHidden(t) ? "show" : "hide" }; await local.set({ tokPref: S.tokPref });
     toast(tokHidden(t) ? "Hidden from your list" : "Shown in your list"); renderPanel(); render();
   },
+  dd: () => { S.panel.dd = !S.panel.dd; renderPanel(); },
+  "dd-pick": (el) => { S.panel.net = el.dataset.n; S.panel.dd = false; previewTok(); },
   "tok-add": async () => {
-    const k = $("[data-tnet]")?.value, addr = ($("[data-taddr]")?.value || "").trim();
-    if (!ethers.isAddress(addr)) return toast("That isn't a token contract address.", "err");
-    S.panel.busy = true; S.panel.net = k; renderPanel();
+    const P = S.panel, evm = netKeys().filter((n) => NETS[n].fam === "evm"), k = evm.includes(P.net) ? P.net : evm.includes(S.net) ? S.net : evm[0];
+    if (!P.info?.symbol) return toast("Paste a token contract address first.", "err");
+    P.busy = true; P.net = k; renderPanel();
     try {
-      const { dev } = await local.get("dev"); const e = engine({ web3, ethers, acct: ACCT, net: k, dev: dev || {} });
-      const info = await e.tokenInfo(addr);
+      const { dev } = await local.get("dev");
+      const info = P.info;
       const list = S.tokList[k] || []; if (list.some((t) => t.mint === info.mint)) throw new Error("You already follow this token.");
       S.tokList = { ...S.tokList, [k]: [...list, info] }; await local.set({ tokList: S.tokList });
       toast(`${info.symbol} added`); closePanel(); loadExtras(dev);
@@ -1616,6 +1661,7 @@ document.addEventListener("input", (e) => {
     sync(); return;
     function sync() { const ta = document.querySelector('textarea[name="phrase"]'); if (ta) ta.value = [...document.querySelectorAll("[data-w]")].map((b) => b.value.trim().toLowerCase()).filter(Boolean).join(" "); }
   }
+  if (t.matches("[data-taddr]")) { S.panel.addr = t.value; clearTimeout(S.tokT); S.tokT = setTimeout(previewTok, 350); return; }
   if (t.matches("[data-actq]")) { S.actQ = t.value; const el = $("#actl"); if (el) { el.innerHTML = actRows(); translate(el, S.lang); } return; }
   if (t.matches("[data-amount]")) {
     const v = t.value.replace(/[^\d.,]/g, "").replace(",", "."), parts = v.split(".");

@@ -1251,6 +1251,27 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 .goal-ic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: color-mix(in srgb, var(--eb) 12%, transparent); color: var(--eb); flex: none; }
 .goal-ic svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; } .goal-o > svg { width: 14px; height: 14px; fill: none; stroke: var(--muted); stroke-width: 2; }
 :root[data-theme="dark"] .goal-ic { color: #7f98ff; }
+/* settings in sections */
+.set-acct { display: flex; align-items: center; gap: 12px; width: 100%; margin: 2px 0 6px; padding: 14px; border: 0; border-radius: 18px; background: var(--s1); box-shadow: 0 0 0 1px var(--line); color: var(--ink); text-align: left; cursor: pointer; font: inherit; }
+.set-acct > span:nth-child(2) { flex: 1; display: grid; } .set-acct b { font: 600 15px var(--font); } .set-acct small { color: var(--muted); font-size: 12px; }
+.set-acct > svg { width: 14px; height: 14px; fill: none; stroke: var(--muted); stroke-width: 2; } .set-acct .acct-ic.lg { width: 42px; height: 42px; border-radius: 13px; font-size: 18px; }
+:root[data-theme="light"] .set-acct { background: #fff; }
+.set-h { margin: 18px 4px 6px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+.sets + .set-h { margin-top: 20px; } .danger-z { margin-top: 20px; }
+.cur-r { width: 100%; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; font: inherit; } .cur-r .ar-t { flex: 1; }
+.cur-c { display: grid; place-items: center; width: 40px; height: 32px; border-radius: 9px; background: var(--s2); font: 600 11.5px var(--font); letter-spacing: .04em; color: var(--ink); }
+.cur-r.on .cur-c { background: var(--eb); color: #fff; }
+/* add token: network picker + preview */
+.fld > .dd { display: flex; align-items: center; gap: 10px; width: 100%; height: 46px; padding: 0 12px 0 8px; border: 0; border-radius: 12px; background: var(--s1); box-shadow: 0 0 0 1px var(--line-2); color: var(--ink); cursor: pointer; font: inherit; }
+.dd .coin { width: 28px; height: 28px; } .dd b { font-weight: 600; font-size: 14px; } .dd small { flex: 1; color: var(--muted); font-size: 12px; text-align: left; }
+.dd > svg:last-child { width: 14px; height: 14px; fill: none; stroke: var(--muted); stroke-width: 2; transition: transform .2s; } .dd[aria-expanded="true"] > svg:last-child { transform: rotate(180deg); }
+.dd-menu { display: grid; margin-top: 6px; padding: 4px; border-radius: 14px; background: var(--s1); box-shadow: 0 0 0 1px var(--line-2), 0 18px 40px -20px rgba(0,0,0,.5); animation: rise .18s var(--ease) both; }
+.dd-o { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 0; border-radius: 10px; background: none; color: var(--ink); cursor: pointer; font: inherit; text-align: left; }
+.dd-o:hover, .dd-o.on { background: var(--s2); } .dd-o .coin { width: 26px; height: 26px; } .dd-o b { font-weight: 500; font-size: 14px; } .dd-o small { flex: 1; color: var(--muted); font-size: 12px; }
+.dd-o > svg:last-child { width: 14px; height: 14px; fill: none; stroke: var(--eb); stroke-width: 2.4; }
+.tk-prev { display: flex; align-items: center; gap: 10px; min-height: 52px; margin: 2px 0 8px; padding: 0 2px; } .tk-prev .coin { width: 36px; height: 36px; }
+.tk-prev > span:not(.coin) { display: grid; } .tk-prev b { font-weight: 600; } .tk-prev small { color: var(--muted); font-size: 12.5px; }
+:root[data-theme="light"] .fld > .dd, :root[data-theme="light"] .dd-menu { background: #fff; }
 
 .device { padding: 0 !important; }
 #root, #panel { top: env(safe-area-inset-top, 0px); }
