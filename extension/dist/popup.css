@@ -1719,3 +1719,7 @@ button.sf-tile { cursor: pointer; } button.sf-tile:active { transform: scale(.97
 @media (prefers-reduced-motion: reduce) { .sx-live i, .pane.fresh .sx > * { animation: none; } }
 .sx { grid-template-columns: minmax(0, 1fr); } .sx > *, .sx-card, .sx-pair { min-width: 0; }
 .sx-in { width: 0; }
+/* 0.3.9: the three buttons sit lower, above the panels, and pages leave room for them */
+#tabbar { bottom: max(6px, calc(env(safe-area-inset-bottom, 0px) - 8px)); z-index: 30; }
+.sx, .sf { padding-bottom: 96px; }
+.home { padding-bottom: 88px; }

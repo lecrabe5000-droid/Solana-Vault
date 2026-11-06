@@ -302,10 +302,16 @@ function worth() {
 
 function go(screen, extra = {}) { Object.assign(S, { screen }, extra); render(); }
 
+function syncTabbar() {
+  const tb = document.getElementById("tabbar"); if (!tb) return;
+  const cur = S.panel ? S.panel.p : "home", show = S.screen === "home" && ["home", "swap", "vault"].includes(cur);
+  tb.hidden = !show;
+  tb.querySelectorAll("button").forEach((b) => { const on = b.dataset.tab === cur; b.classList.toggle("on", on); if (on) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
+}
 const TABBAR = `<nav id="tabbar" class="tabbar" aria-label="Main">
-      <button class="on" data-act="tb-home" aria-current="page" aria-label="Wallet"><span>${I.card}</span></button>
-      <button data-act="panel" data-p="swap" aria-label="Swap"><span>${I.swap}</span></button>
-      <button data-act="panel" data-p="vault" aria-label="Safe"><span>${I.lock}</span></button>
+      <button class="on" data-tab="home" data-act="tb-home" aria-label="Wallet"><span>${I.card}</span></button>
+      <button data-tab="swap" data-act="tb-go" data-p="swap" aria-label="Swap"><span>${I.swap}</span></button>
+      <button data-tab="vault" data-act="tb-go" data-p="vault" aria-label="Safe"><span>${I.lock}</span></button>
     </nav>`;
 function render() {
   const root = $("#root");
@@ -315,7 +321,7 @@ function render() {
   // The three floating buttons live outside #root, made once, so re-renders and panels never make them blink.
   let tb = document.getElementById("tabbar");
   if (S.screen === "home" && !tb) { document.body.insertAdjacentHTML("beforeend", TABBAR); tb = document.getElementById("tabbar"); }
-  if (tb) tb.hidden = S.screen !== "home";
+  syncTabbar();
   const f = root.querySelector("[autofocus]"); if (f) f.focus();
   bindHolds(root);
   depth(root);
@@ -1105,6 +1111,7 @@ function openPanel(p, opts = {}) { if (p === "vault") S.shT0 = 0; S.panel = { p,
 function closePanel() { const el = $("#panel"); el.classList.remove("in"); document.body.classList.remove("stacked"); setTimeout(() => { if (!S.panel) el.innerHTML = ""; }, 260); S.panel = null; render(); }
 
 function renderPanel(enter = false) {
+  queueMicrotask(syncTabbar);
   const el = $("#panel"), P = S.panel;
   if (!P) return;
   const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, report: reportHTML, txd: txdView, contacts: contactsView, pkey: pkeyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
@@ -1541,7 +1548,8 @@ async function useNet(n) {
 
 async function saveAccts() { await local.set({ accts: S.accts }); }
 const actions = {
-  "tb-home": () => { const r = $("#root"); r.scrollTo({ top: 0, behavior: "smooth" }); },
+  "tb-home": () => { if (S.panel) return closePanel(); $("#root").scrollTo({ top: 0, behavior: "smooth" }); },
+  "tb-go": (el) => { if (S.panel?.p === el.dataset.p) return; if (S.panel) { S.panel = null; $("#panel").innerHTML = ""; } openPanel(el.dataset.p); },
   speed: (el) => { S.panel.speed = el.dataset.v; renderPanel(); },
   scan: async () => {
     // Phone app: read an address from a QR code with the camera. Nothing leaves the phone.
