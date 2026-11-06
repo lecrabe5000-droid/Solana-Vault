@@ -691,6 +691,8 @@ function homeView() {
     </nav>
     <div class="tabs ${S.showNfts ? "t3" : ""}" role="tablist">${[["tokens", "Tokens"], ...(S.showNfts ? [["nfts", "Collectibles"]] : []), ["activity", "Activity"]].map(([t, l]) => `<button role="tab" data-act="tab" data-t="${t}" aria-selected="${S.tab === t}">${l}</button>`).join("")}<i class="tab-ind" style="--i:${{ tokens: 0, nfts: 1, activity: S.showNfts ? 2 : 1 }[S.tab] || 0}"></i></div>
     <div class="tab-body">${S.tab === "activity" ? activityList() : S.tab === "nfts" && S.showNfts ? nftGrid() : tokenList(w)}</div>
+    ${S.tab === "tokens" && !loading ? homeMore() : ""}
+    <footer class="home-end"><span>${LOGO}</span>Ecrin Wallet · testnet beta</footer>
 
   </div>`;
 }
@@ -757,6 +759,18 @@ function tokenList(w) {
 
 // Live prices for every coin Ecrin supports, held or not: something is always moving on the home screen.
 const MARKET = [["solana", "SOL", "sol", "Solana"], ["ethereum", "ETH", "eth", "Ethereum"], ["binancecoin", "BNB", "bnb", "BNB"], ["tron", "TRX", "tron", "TRON"], ["avalanche-2", "AVAX", "avax", "Avalanche"], ["polygon-ecosystem-token", "POL", "pol", "Polygon"]];
+/** Below your coins, like any good wallet: recent activity, shortcuts and the market. */
+function homeMore() {
+  const all = S.activity || [];
+  let recent = "";
+  if (all.length) { S.activity = all.slice(0, 3); try { recent = actRows(); } finally { S.activity = all; } }
+  const sc = [["swap", "Swap", I.swap, 'data-act="panel" data-p="swap"'], ["buy", "Buy", I.card, 'data-act="panel" data-p="buy"'], ["req", "Request", I.recv, 'data-act="home-req"'],
+    ["ct", "Contacts", '<svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 19.5c1.2-3.2 3.9-5 7-5s5.8 1.8 7 5"/></svg>', 'data-act="panel" data-p="contacts"'], ...(globalThis.ECRIN_WEB ? [["wc", "Apps", I.link, 'data-act="panel" data-p="wc"']] : globalThis.ECRIN_DEMO ? [] : [["sites", "Sites", I.link, 'data-act="panel" data-p="sites"']]), ["al", "Alerts", I.spark, 'data-act="panel" data-p="alerts"']];
+  return `${recent ? `<div class="list-h"><b>Recent activity</b><button class="see-all" data-act="tab" data-t="activity">See all</button></div><div class="tab-body"><section class="list recent">${recent}</section></div>` : ""}
+    <div class="list-h"><b>Shortcuts</b></div>
+    <div class="shortcuts">${sc.map(([k, l, ic, a]) => `<button class="sc sc-${k}" ${a}><span>${ic}</span>${l}</button>`).join("")}</div>
+    ${marketList()}`;
+}
 function marketList() {
   const rows = MARKET.filter(([cg]) => S.prices[cg]?.usd != null);
   if (!rows.length) return "";
@@ -1643,6 +1657,7 @@ const actions = {
   speed: (el) => { S.panel.speed = el.dataset.v; renderPanel(); },
   palert: async (el) => { S.palerts = { ...(S.palerts || {}), [el.dataset.cg]: Number(el.dataset.v) }; await local.set({ palerts: S.palerts }); renderPanel(); checkPriceAlerts(); },
   "palert-notify": async () => { try { await Notification.requestPermission(); } catch (_) {} renderPanel(); },
+  "home-req": () => openPanel("payreq", { a: "native" }),
   payreq: () => { const a = S.panel?.asset || "native"; S.panel = null; $("#panel").innerHTML = ""; openPanel("payreq", { a }); },
   "copy-req": async () => { const P = S.panel; try { await navigator.clipboard.writeText(payLink(S.net, P.asset || "native", Number(P.amount) > 0 ? P.amount : "", P.label || "")); toast("Payment link copied", "win"); } catch (_) { toast("Couldn't copy", "err"); } },
   "share-req": async () => { const P = S.panel; try { await navigator.share({ text: payLink(S.net, P.asset || "native", Number(P.amount) > 0 ? P.amount : "", P.label || "") }); } catch (_) {} },
