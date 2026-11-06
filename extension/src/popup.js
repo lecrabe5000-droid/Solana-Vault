@@ -580,12 +580,11 @@ function homeView() {
       <div class="lz-wrap">${lozenge(w, loading)}
         <div class="lz-in">
           <div class="hero-l"><span class="lbl">Net worth</span><button class="eye" data-act="hide" aria-label="${S.hide ? "Show" : "Hide"} balances">${S.hide ? I.eyeOff : I.eye}</button></div>
-          <div class="big ${loading ? "sk" : ""}">${loading ? "&nbsp;" : mask(fig(money(w.total)))}</div>
-          <div class="hero-sub">${chip()}</div>
+          <div class="big ${loading ? "sk" : ""}${(() => { const n = String(money(w.total ?? 0)).length; return n > 13 ? " xs" : n > 10 ? " sm" : ""; })()}">${loading ? "&nbsp;" : mask(fig(money(w.total)))}</div>
         </div>
       </div>
+      <button class="lz-chg" data-act="range-next" aria-label="Change period">${chip()}</button>
       ${lozLegend(w, loading)}
-      ${chartView()}
     </section>
     <section class="accts">
       <button class="acard chq" data-act="panel" data-p="assets" data-tilt><i class="sheen"></i>
@@ -601,7 +600,6 @@ function homeView() {
         <span class="ac-s">${w.leaving ? `<i class="dot warn"></i>${w.leavingText || w.leaving} leaving` : w.vaults ? `<i class="dot"></i>${pct}% of net worth` : `<i class="dot off"></i>Not set up`}</span>
       </button>
     </section>
-    ${safetyCard()}
     <nav class="acts">
       ${[["send", "Send", I.send], ["receive", "Receive", I.recv], ["swap", "Swap", I.swap], ["protect", "Protect", I.protect], ["withdraw", "Withdraw", I.out]].map(([p, l, ic]) => `<button data-act="panel" data-p="${p}"><span>${ic}</span>${l}</button>`).join("")}
     </nav>
@@ -1777,6 +1775,7 @@ const actions = {
   "row-send": async (el) => { if (el.dataset.n !== S.net) { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; await eng(); loadActivity(); await refresh(); } openPanel("send", { a: el.dataset.a }); const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); },
   "net-go": async (el) => { if (el.dataset.n !== S.net) await actions.net(el); else closePanel(); },
   tab: async (el) => { S.tab = el.dataset.t; render(); if (S.tab === "activity") loadActivity(); },
+  "range-next": async () => { const o = ["1", "7", "30", "365"]; S.range = o[(o.indexOf(S.range) + 1) % o.length]; await local.set({ range: S.range }); render(); loadSeries(); },
   range: async (el) => { S.range = el.dataset.d; await local.set({ range: S.range }); S.drawChart = true; render(); if (S.panel?.p === "tok") { renderPanel(); loadSeriesFor(S.panel.cg).then(() => S.panel?.p === "tok" && renderPanel()); } else loadSeries(); },
   num: async (el) => { S.nums[el.dataset.k] = el.dataset.v; applyNums(); await local.set({ nums: S.nums }); renderPanel(); render(); },
   autolock: async (el) => { S.autolock = Number(el.dataset.v); await local.set({ autolock: S.autolock }); await touch(); renderPanel(); },

@@ -1404,3 +1404,25 @@ body.stacked .tabbar { opacity: 0; pointer-events: none; transition: opacity .2s
   background: color-mix(in srgb, var(--bg) 94%, transparent); box-shadow: 0 -1px 0 var(--line); }
 .tabbar button { max-width: 120px; margin: 0 auto; }
 .home { padding-bottom: 92px; }
+/* 0.3.5: the lozenge holds only the label and the total; the change sits just under it */
+.lz-wrap { width: 270px; height: 270px; margin: -10px auto -14px; }
+.lz-in { gap: 4px; max-width: 150px; }
+.lz-in .big { font-size: 30px !important; line-height: 1.1; white-space: nowrap; }
+.lz-in .big.sm { font-size: 25px !important; } .lz-in .big.xs { font-size: 20px !important; }
+.lz-chg { display: flex; justify-content: center; margin: 0 0 6px; font-size: 12.5px; }
+.lz-chg .delta { padding: 4px 10px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.lz-chg .delta:empty { display: none; }
+/* three separate floating buttons, no bar behind them */
+.tabbar { left: 50%; right: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); width: auto; transform: translateX(-50%); padding: 0; gap: 12px;
+  border-radius: 0; background: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; pointer-events: none; }
+.tabbar button { pointer-events: auto; flex: none; width: 74px; max-width: none; margin: 0; padding: 10px 0 8px; gap: 4px; border-radius: 20px;
+  color: var(--ink); background: color-mix(in srgb, var(--s1) 78%, transparent); backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow: 0 0 0 1px var(--line-2), 0 14px 30px -12px rgba(0, 0, 0, .6); transition: transform .18s cubic-bezier(.2, .7, .2, 1), background .2s; }
+.tabbar button.on { color: #fff; background: var(--eb); box-shadow: 0 0 0 1px color-mix(in srgb, #fff 18%, transparent), 0 14px 30px -10px color-mix(in srgb, var(--eb) 70%, transparent); }
+.tabbar button.on::before { display: none; }
+.tabbar button:active { transform: scale(.93); }
+.home { padding-bottom: 100px; }
+.lz-chg { margin: 0 auto 6px; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-size: 12.5px; cursor: pointer; }
+.lz-chg:active .delta { transform: scale(.96); } .lz-chg .delta { transition: transform .15s; }
+.tabbar { gap: 10px; } .tabbar button { width: 68px; padding: 9px 0 7px; border-radius: 18px; font-size: 10.5px; }
+.tabbar svg { width: 19px; height: 19px; }
