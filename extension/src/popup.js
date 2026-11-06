@@ -713,7 +713,6 @@ function lozenge(w, loading) {
   const L = lit(), hot = !loading && w.leaving ? " hot" : "";
   return `<svg class="lz${draw ? " draw" : ""}${hot}" style="--lt:${-Math.round(el)}ms;--at:${-Math.round(performance.now() - AURA_T0)}ms" viewBox="0 0 220 220" aria-hidden="true">
     <defs>${litDefs(L)}</defs>
-    <g class="lz-gu" mask="url(#lzgm)">${ROSETTE}</g>
     <g transform="rotate(45 110 110)">
     <rect class="lz-base" x="38" y="38" width="144" height="144" rx="30"/>${segs}
     <rect class="lz-base in" x="51" y="51" width="118" height="118" rx="24"/>
