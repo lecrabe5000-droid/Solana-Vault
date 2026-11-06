@@ -1905,3 +1905,35 @@ button.sf-tile { cursor: pointer; } button.sf-tile:active { transform: scale(.97
 /* the Shield's Safe colours follow the same steel blue */
 :root[data-theme="dark"] #sfg stop:nth-child(3) { stop-color: #8ea2d4; }
 :root[data-theme="dark"] .rl-f, :root[data-theme="dark"] .rl-d { background: var(--ivory); }
+
+/* =====================================================================
+   0.4.6: Ecrin night. Near black with a slight Ecrin blue tone, cool white type,
+   Ecrin blue kept for the Safe. Same calm, but it reads as Ecrin.
+   ===================================================================== */
+:root[data-theme="dark"] {
+  --bg: #090a10; --s1: #10121a; --s2: #161924; --s3: #1e2230; --ink: #eef0f6; --muted: #868b9c;
+  --line: rgba(196, 208, 255, .07); --line-2: rgba(196, 208, 255, .12); --ivory: #eef0f6; --ivory-ink: #0b0d16;
+  --ecrin: #4f6fff; --ecrin-soft: #7f95ff;
+}
+/* the light from the top is Ecrin blue, very low */
+:root[data-theme="dark"] .aura, :root[data-theme="dark"] .sf-aura { background: radial-gradient(90% 55% at 50% -8%, rgba(79, 111, 255, .16), rgba(79, 111, 255, .04) 55%, transparent 80%), var(--grain); }
+:root[data-theme="dark"] #root[data-screen="loading"] { background: radial-gradient(90% 55% at 50% -8%, rgba(79, 111, 255, .16), transparent 75%), var(--bg); }
+/* surfaces pick up the blue undertone */
+:root[data-theme="dark"] .home { --glass: rgba(140, 160, 255, .04); --glass-hi: rgba(196, 208, 255, .09); }
+:root[data-theme="dark"] #tabbar { --glass: rgba(20, 23, 34, .86); --glass-hi: rgba(196, 208, 255, .1); }
+:root[data-theme="dark"] .tabbar button:not(.on), :root[data-theme="dark"] .home .acts button:not(:first-child) span, :root[data-theme="dark"] .sf-go2 { background: #141724 !important; }
+:root[data-theme="dark"] .wsplit, :root[data-theme="dark"] .rt, :root[data-theme="dark"] .slide, :root[data-theme="dark"] .mv-pcts button,
+:root[data-theme="dark"] .sf-tile, :root[data-theme="dark"] .sf-net, :root[data-theme="dark"] .sb-r, :root[data-theme="dark"] .sb-empty, :root[data-theme="dark"] .sx-card, :root[data-theme="dark"] .sx-kv { background: rgba(140, 160, 255, .04); }
+/* Ecrin blue marks the Safe: the inner ring, the split bar, the locked amounts, the shield arc */
+:root[data-theme="dark"] .lz-safe { stroke: var(--ecrin-soft) !important; }
+:root[data-theme="dark"] .lz-seg.r0 { stroke: #eef0f6; } :root[data-theme="dark"] .lz-seg.r1 { stroke: #a3a9bc; } :root[data-theme="dark"] .lz-seg.r2 { stroke: #6e7488; } :root[data-theme="dark"] .lz-seg.r3 { stroke: #4a4f60; }
+:root[data-theme="dark"] .lz-base { stroke: rgba(196, 208, 255, .08); } :root[data-theme="dark"] .lz-base.in { stroke: rgba(127, 149, 255, .16); }
+:root[data-theme="dark"] .wsplit .sp-bar i { background: linear-gradient(90deg, var(--ecrin), var(--ecrin-soft)); }
+:root[data-theme="dark"] .arow .sv, :root[data-theme="dark"] .home .arow .sv { color: var(--ecrin-soft) !important; }
+:root[data-theme="dark"] .wsplit .sp-s span { color: var(--ecrin-soft); }
+:root[data-theme="dark"] #sfg stop:nth-child(1) { stop-color: #eef0f6; } :root[data-theme="dark"] #sfg stop:nth-child(2) { stop-color: #9fb0ff; } :root[data-theme="dark"] #sfg stop:nth-child(3) { stop-color: var(--ecrin); }
+:root[data-theme="dark"] .sf-core { fill: rgba(79, 111, 255, .05) !important; stroke: rgba(127, 149, 255, .16); }
+:root[data-theme="dark"] .sf-tk { stroke: rgba(127, 149, 255, .3); }
+:root[data-theme="dark"] .lz-leg .lp-lock, :root[data-theme="dark"] .sf-ic { background: var(--ecrin); color: #fff; } :root[data-theme="dark"] .sf-ic svg { stroke: #fff; }
+:root[data-theme="dark"] .acct-ic.av { background: color-mix(in srgb, var(--ac) 30%, #151826) !important; }
+:root[data-theme="dark"] .mv-pcts button.on, :root[data-theme="dark"] .sx-pcts button.on { background: var(--ivory); color: var(--ivory-ink); }
