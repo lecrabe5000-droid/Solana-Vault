@@ -1987,6 +1987,10 @@ button.sf-tile { cursor: pointer; } button.sf-tile:active { transform: scale(.97
 .home .acts button[data-p="protect"] svg { color: #fff; }
 :root[data-theme="light"] .home .acts button:not([data-p="protect"]) { background: #fff; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .08); }
 .home .acts { gap: 8px !important; column-gap: 8px !important; }
+/* 0.4.10: smaller, centred pills */
+.home .acts { justify-content: center; gap: 8px !important; }
+.home .acts button { flex: 0 0 auto; height: 38px; padding: 0 16px 0 13px; border-radius: 19px; font-size: 13.5px !important; gap: 6px; }
+.home .acts svg { width: 15px !important; height: 15px !important; }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
