@@ -2110,6 +2110,17 @@ body.stacked #root, :root[data-theme] body.stacked #root { transform: translateX
 /* calmer silk: about half the light */
 :root[data-theme="dark"] .aura::before, :root[data-theme="dark"] .sf-aura::before { opacity: .5; }
 :root[data-theme="dark"] #root[data-screen="loading"] { background: linear-gradient(rgba(3, 4, 14, .5), rgba(3, 4, 14, .5)), var(--silk) center / cover no-repeat, var(--bg); }
+/* 0.6.2: atmosphere, not lines. Soft out-of-focus pools of deep Ecrin blue that melt into black; no edges anywhere. */
+:root[data-theme="dark"] .aura::before, :root[data-theme="dark"] .sf-aura::before {
+  inset: -30% !important; opacity: 1 !important;
+  background:
+    radial-gradient(38% 30% at 74% 78%, rgba(36, 62, 230, .30), rgba(36, 62, 230, .10) 45%, transparent 72%),
+    radial-gradient(34% 26% at 22% 30%, rgba(52, 70, 200, .16), transparent 70%),
+    radial-gradient(46% 30% at 52% 4%, rgba(70, 100, 255, .14), transparent 72%),
+    radial-gradient(30% 24% at 12% 92%, rgba(28, 40, 150, .16), transparent 70%) !important;
+  filter: blur(18px); animation: atmo 48s ease-in-out var(--at, 0ms) infinite alternate !important; }
+@keyframes atmo { 0% { transform: translate3d(0, 0, 0) scale(1); } 33% { transform: translate3d(-3%, 2%, 0) scale(1.05); } 66% { transform: translate3d(2%, -2%, 0) scale(1.03); } 100% { transform: translate3d(3%, 1%, 0) scale(1.07); } }
+:root[data-theme="dark"] #root[data-screen="loading"] { background: radial-gradient(40% 30% at 74% 78%, rgba(36, 62, 230, .24), transparent 72%), radial-gradient(46% 30% at 52% 4%, rgba(70, 100, 255, .12), transparent 72%), var(--bg); }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
