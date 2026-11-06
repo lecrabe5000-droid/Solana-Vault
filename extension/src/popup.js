@@ -189,7 +189,7 @@ async function refresh() {
   try {
     const e = await eng();
     const [bal, vault] = await Promise.all([e.balances(), e.vault().catch((err) => (console.warn(err), null))]);
-    noticeIncoming(bal); S.bal = bal; S.vault = vault; S.err = null; autoProtect(bal);
+    S.bal = bal; S.vault = vault; S.err = null; autoProtect(bal); queueMicrotask(checkIncoming);
   } catch (err) { console.warn(err); S.err = `Can't reach ${NETS[S.net].name} right now. Retrying…`; setTimeout(refresh, 6000); }
   if (S.screen === "home") render();
   if (S.panel) renderPanel();
@@ -308,6 +308,66 @@ function syncTabbar() {
   tb.hidden = !show;
   tb.querySelectorAll("button").forEach((b) => { const on = b.dataset.tab === cur; b.classList.toggle("on", on); if (on) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
 }
+
+// ------------------------------------------------------------------ light on the lozenge
+// A thin highlight slides across the rings as the phone tilts (or the pointer moves on a computer), and the engraved
+// rosette behind the total catches that same light. Values are -1..1; idle, the light rests at the top left.
+const ROSETTE = (() => { let d = ""; for (let i = 0; i < 24; i++) { const a = (i * Math.PI) / 12; d += `<ellipse cx="110" cy="110" rx="58" ry="20" transform="rotate(${((a * 180) / Math.PI).toFixed(1)} 110 110)"/>`; } for (let r = 14; r <= 62; r += 6) d += `<circle cx="110" cy="110" r="${r}"/>`; return d; })();
+const lit = () => S.lit || { x: -0.45, y: -0.55 };
+function litDefs(L) {
+  const px = 0.5 + L.x * 0.55, py = 0.5 + L.y * 0.55;
+  return `<linearGradient id="lzsh" gradientUnits="objectBoundingBox" x1="${(px - 0.42).toFixed(3)}" y1="${(py - 0.42).toFixed(3)}" x2="${(px + 0.42).toFixed(3)}" y2="${(py + 0.42).toFixed(3)}"><stop offset=".38" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".9"/><stop offset=".62" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <radialGradient id="lzgg" cx="${(0.5 + L.x * 0.32).toFixed(3)}" cy="${(0.5 + L.y * 0.32).toFixed(3)}" r=".42"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <mask id="lzgm" maskUnits="userSpaceOnUse" x="0" y="0" width="220" height="220"><rect width="220" height="220" fill="url(#lzgg)"/></mask>`;
+}
+let litRaf = 0;
+function setLit(x, y) {
+  const c = (v) => Math.max(-1, Math.min(1, v));
+  S.lit = { x: c(x), y: c(y) };
+  if (litRaf) return;
+  litRaf = requestAnimationFrame(() => {
+    litRaf = 0; const L = lit(), d = document.querySelector(".lz defs"); if (d) d.innerHTML = litDefs(L);
+  });
+}
+addEventListener("pointermove", (e) => { if (e.pointerType === "mouse" && S.screen === "home" && !S.panel) setLit((e.clientX / innerWidth) * 2 - 1, (e.clientY / innerHeight) * 2 - 1); }, { passive: true });
+addEventListener("deviceorientation", (e) => { if (e.gamma == null || S.screen !== "home") return; setLit(e.gamma / 30, (e.beta - 45) / 30); });
+// iPhone asks once for motion access; we ask only when the lozenge itself is tapped.
+document.addEventListener("click", (e) => {
+  if (!e.target.closest?.(".lz-wrap") || S.motionAsked || typeof DeviceOrientationEvent?.requestPermission !== "function") return;
+  S.motionAsked = true; DeviceOrientationEvent.requestPermission().catch(() => {});
+});
+
+// ------------------------------------------------------------------ money moves
+// After protecting or withdrawing, a small diamond travels between the Wallet side and the Safe ring, and the ring beats.
+function flyFx(kind) {
+  const w = document.querySelector(".wsplit .sp-w b"), z = document.querySelector(".lz-wrap"); if (!w || !z) return;
+  const a = w.getBoundingClientRect(), b = z.getBoundingClientRect();
+  const from = { x: a.left + a.width / 2, y: a.top + a.height / 2 }, to = { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+  const [p0, p1] = kind === "protect" ? [from, to] : [to, from], mid = { x: (p0.x + p1.x) / 2 + 40, y: Math.min(p0.y, p1.y) - 30 };
+  const d = document.createElement("i"); d.className = "fly-d"; document.body.append(d);
+  const at = (p, s) => `translate(${p.x - 7}px, ${p.y - 7}px) rotate(45deg) scale(${s})`;
+  const an = d.animate([{ transform: at(p0, 0.4), opacity: 0 }, { transform: at(p0, 1), opacity: 1, offset: 0.12 }, { transform: at(mid, 1.15), offset: 0.5 }, { transform: at(p1, 0.7), opacity: 1, offset: 0.9 }, { transform: at(p1, 0.2), opacity: 0 }], { duration: 900, easing: "cubic-bezier(.5, 0, .3, 1)" });
+  an.onfinish = () => { d.remove(); const r = document.querySelector(".lz"); if (r) { r.classList.remove("beat"); void r.getBoundingClientRect(); r.classList.add("beat"); } navigator.vibrate?.(10); };
+}
+
+// ------------------------------------------------------------------ rolling digits
+// When a balance changes, only the digits that changed roll into place, right to left. Plain text, no clipping tricks.
+function rollDigits(el, prev) {
+  const now = el.textContent; if (!prev || prev === now) return;
+  const pad = Math.max(prev.length, now.length), P = prev.padStart(pad), N = now.padStart(pad);
+  const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), nodes = []; let n; while ((n = walk.nextNode())) nodes.push(n);
+  let i = pad - now.length;
+  for (const t of nodes) {
+    const frag = document.createDocumentFragment();
+    for (const ch of t.textContent) {
+      if (/\d/.test(ch) && P[i] !== N[i]) { const sp = document.createElement("span"); sp.className = "dg"; sp.style.setProperty("--d", `${(pad - i) * 28}ms`); sp.textContent = ch; frag.append(sp); }
+      else frag.append(ch);
+      i++;
+    }
+    t.replaceWith(frag);
+  }
+}
+
 const AURA_T0 = performance.now();
 const auraT = () => `--at:${-Math.round(performance.now() - AURA_T0)}ms`;
 const TABBAR = `<nav id="tabbar" class="tabbar" aria-label="Main">
@@ -332,13 +392,16 @@ function render() {
   if (S.screen === "home") { scrollWatch(); S.prevPx = Object.fromEntries(Object.entries(S.prices).map(([k, v]) => [k, v?.usd])); }
   // The home arrives in a cascade once per unlock.
   if (S.screen === "home" && !S.entered && S.bal) { S.entered = true; root.querySelector(".home")?.classList.add("enter"); }
+  if (S.screen === "home" && S.recvQ) setTimeout(playRecv, 600);
+  if (S.screen === "home" && S.fly) { const k = S.fly; S.fly = null; setTimeout(() => flyFx(k), 320); }
   // Balances roll into place like a fine mechanical counter: only the digits that changed move.
   if (!S.hide && !S.scrubbing) {
     S.rollPrev ||= {};
     for (const [key, sel] of Object.entries(ROLL_SEL)) {
       const el = root.querySelector(sel); if (!el) continue;
       const txt = el.textContent;
-      S.rollPrev[key] = txt; // amounts simply show: no rolling (it flickered on iPhone)
+      if (S.rollPrev[key] && S.rollPrev[key] !== txt && /\d/.test(txt) && !el.classList.contains("sk")) rollDigits(el, S.rollPrev[key]);
+      S.rollPrev[key] = txt;
     }
   }
 }
@@ -362,6 +425,11 @@ function scrollWatch() {
 }
 // Prices refresh every 30 seconds while the home screen is open.
 setInterval(() => { if (S.screen === "home" && !document.hidden && ACCT) loadPrices(); }, 30_000);
+// Balances stay fresh while the wallet is open, so money arriving shows (and animates) within seconds:
+// this network every 15 s, every network every minute, and straight away when you come back to the app.
+let polls = 0;
+setInterval(() => { if (S.screen !== "home" || document.hidden || !ACCT || S.panel?.step === "sending") return; polls++; refresh(); if (polls % 4 === 0) loadAll(); }, 15_000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden && S.screen === "home" && ACCT) { refresh(); loadAll(); } });
 
 // Rolling digits, driven by time rather than CSS transitions, so a redraw in the middle doesn't restart or cut them.
 const ROLL_MS = 1100, ease = (k) => 1 - Math.pow(1 - k, 4);
@@ -404,7 +472,7 @@ function rollTick() {
   };
   S.rollRaf = requestAnimationFrame(step);
 }
-const ROLL_SEL = { total: ".home .big:not(.sk)", chq: ".home .acard.chq .ac-v:not(.sk)", sav: ".home .acard.sav .ac-v:not(.sk)" };
+const ROLL_SEL = { total: ".home .big:not(.sk)", chq: ".home .wsplit .sp-w b", sav: ".home .wsplit .sp-s b" };
 function countUp(el, from = 0) {
   const to = Number(el.textContent.replace(/[^\d.]/g, "")); if (!to && !from) return;
   const t0 = performance.now();
@@ -640,10 +708,15 @@ function lozenge(w, loading) {
   // The opening spin lasts 2.2s; a re-render in that time picks the animation up where it was, so it never restarts or cuts.
   if (!loading && !S.lzT0) S.lzT0 = performance.now();
   const el = S.lzT0 ? performance.now() - S.lzT0 : 1e9, draw = el < 2300;
-  return `<svg class="lz${draw ? " draw" : ""}" style="--lt:${-Math.round(el)}ms" viewBox="0 0 220 220" aria-hidden="true"><g transform="rotate(45 110 110)">
+  const L = lit(), hot = !loading && w.leaving ? " hot" : "";
+  return `<svg class="lz${draw ? " draw" : ""}${hot}" style="--lt:${-Math.round(el)}ms;--at:${-Math.round(performance.now() - AURA_T0)}ms" viewBox="0 0 220 220" aria-hidden="true">
+    <defs>${litDefs(L)}</defs>
+    <g class="lz-gu" mask="url(#lzgm)">${ROSETTE}</g>
+    <g transform="rotate(45 110 110)">
     <rect class="lz-base" x="38" y="38" width="144" height="144" rx="30"/>${segs}
     <rect class="lz-base in" x="51" y="51" width="118" height="118" rx="24"/>
-    <rect class="lz-safe" x="51" y="51" width="118" height="118" rx="24" pathLength="100" style="stroke-dasharray:${(safe * 100).toFixed(2)} 100"/></g></svg>`;
+    <rect class="lz-safe" x="51" y="51" width="118" height="118" rx="24" pathLength="100" style="stroke-dasharray:${(safe * 100).toFixed(2)} 100"/>
+    <rect class="lz-sheen" x="38" y="38" width="144" height="144" rx="30"/><rect class="lz-sheen in" x="51" y="51" width="118" height="118" rx="24"/></g></svg>`;
 }
 function lozLegend(w, loading) {
   if (loading || !w.total) return "";
@@ -785,7 +858,7 @@ async function loadAll() {
       return { k, b, v, ok: true };
     } catch (_) { return { k, ok: false }; }
   }));
-  S.all = rows;
+  S.all = rows; queueMicrotask(checkIncoming);
   loadExtras(dev);
   if (S.panel?.p === "all") { S.panel.rows = rows; renderPanel(); }
   if (S.panel?.p === "vault" || S.panel?.p === "rules") renderPanel();
@@ -1099,7 +1172,7 @@ function dur(s) { if (s <= 0) return "ready"; const d = Math.floor(s / 86400), h
 // ------------------------------------------------------------------ panels (slide over the home screen)
 
 function openPanel(p, opts = {}) { if (p === "vault") S.shT0 = 0; S.panel = { p, step: "form", asset: opts.a || "native", amount: "", to: "", ...opts }; renderPanel(true); }
-function closePanel() { const el = $("#panel"); el.classList.remove("in"); document.body.classList.remove("stacked"); setTimeout(() => { if (!S.panel) el.innerHTML = ""; }, 260); S.panel = null; render(); }
+function closePanel() { if (S.panel?.step === "done" && (S.panel.p === "protect" || S.panel.p === "withdraw")) S.fly = S.panel.p; const el = $("#panel"); el.classList.remove("in"); document.body.classList.remove("stacked"); setTimeout(() => { if (!S.panel) el.innerHTML = ""; }, 260); S.panel = null; render(); }
 
 function renderPanel(enter = false) {
   queueMicrotask(syncTabbar);
@@ -2184,18 +2257,37 @@ const bookList = () => Object.entries(S.book?.[NETS[S.net].fam] || {}).sort((a, 
 const bookName = (a) => (a && S.book?.[NETS[S.net].fam]?.[a]) || null;
 
 // Money arriving while the wallet is open: a toast, and a phone notification if the app is in the background.
-function noticeIncoming(bal) {
-  const prev = S.bal, key = `${S.net}:${ENG?.address}`;
-  if (!prev || S.balKey !== key) { S.balKey = key; return; }
-  if (S.recvNotify === false || Date.now() - (S.lastTx || 0) < 90_000) return;
-  for (const [a, now, was] of [["native", bal.native, prev.native], ["usdc", bal.usdc, prev.usdc]]) {
-    if (!(now > was)) continue;
-    const text = `Received ${amt(now - was, a)} ${A(a).unit} on ${NETS[S.net].name}`;
-    recvFx(`+${amt(now - was, a)} ${A(a).unit}`);
-    if (NETS[S.net].fam === "evm") logActivity({ t: "recv", a, n: now - was }).then(loadActivity);
-    if (document.hidden && window.Notification?.permission === "granted") try { new Notification("Ecrin Wallet", { body: text, icon: "/icon2-192.png" }); } catch (_) {}
+function noticeIncoming() {} // replaced by checkIncoming(): every coin, every network, remembered between visits
+
+// Money arriving: every coin on every network, compared with what this device last saw (kept between visits), so an
+// arrival while the app was closed still plays the moment you open it. Our own moves (release, swap) are skipped.
+async function checkIncoming() {
+  const w = worth(); if (!w.ready || !ACCT) return;
+  if (S.seen === undefined) S.seen = (await local.get("seenBal")).seenBal || {};
+  const who = curAcct()?.id ?? "0", first = !Object.keys(S.seen).some((k) => k.startsWith(who + ":")), mine = Date.now() - (S.lastTx || 0) < 90_000;
+  const got = [], now = {};
+  for (const i of w.items) now[`${who}:${i.k}:${i.a}`] = { v: i.chq, i };
+  if (w.all) for (const k of Object.keys(S.seen)) if (k.startsWith(who + ":") && !(k in now)) now[k] = { v: 0 };
+  for (const [k, { v, i }] of Object.entries(now)) {
+    const was = S.seen[k];
+    if (!first && !mine && i && was != null && v > was + 1e-9) got.push({ i, d: v - was });
+    S.seen[k] = v;
   }
+  local.set({ seenBal: S.seen });
+  if (!got.length || S.recvNotify === false) return;
+  got.sort((x, y) => (y.i.usd || 0) - (x.i.usd || 0));
+  const g = got[0], n = (x) => x.toLocaleString("en-US", { maximumFractionDigits: g.i.dec });
+  const label = `+${n(g.d)} ${g.i.unit}${got.length > 1 ? ` · +${got.length - 1} more` : ""}`;
+  for (const x of got) if (NETS[x.i.k]?.fam === "evm") logActivity({ t: "recv", a: x.i.a, n: Math.round(x.d * (x.i.a === "usdc" ? USDC_BASE : BASE)), k: x.i.k }).then(loadActivity);
+  if (document.hidden && window.Notification?.permission === "granted") try { new Notification("Ecrin Wallet", { body: `Received ${n(g.d)} ${g.i.unit} on ${g.i.net}`, icon: "/icon2-192.png" }); } catch (_) {}
+  S.recvQ = label; playRecv();
 }
+// Played only where you can see it: on home, app in front. Otherwise it waits until you are.
+function playRecv() {
+  if (!S.recvQ || document.hidden || S.screen !== "home") return;
+  const l = S.recvQ; S.recvQ = null; recvFx(l);
+}
+document.addEventListener("visibilitychange", playRecv);
 
 // Phone app: pull down to refresh (the Ecrin mark follows your finger, then spins until everything is fresh),
 // and a light tap of the vibration motor on important buttons (Android).

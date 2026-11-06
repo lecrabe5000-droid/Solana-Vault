@@ -2005,6 +2005,44 @@ button.sf-tile { cursor: pointer; } button.sf-tile:active { transform: scale(.97
 :root[data-theme="dark"] .done-mark svg { fill: rgba(79, 111, 255, .07); stroke: var(--ecrin-soft); }
 .done-mark path { fill: none !important; }
 
+/* ================= 0.5.0: light, life and movement ================= */
+/* 1. light sweep on the lozenge rings */
+.lz .lz-sheen { fill: none; stroke: url(#lzsh); stroke-width: 2.4; opacity: .55; vector-effect: non-scaling-stroke; pointer-events: none; }
+.lz .lz-sheen.in { stroke-width: 2; opacity: .35; }
+/* 4. engraved rosette behind the total, lit where the light falls */
+.lz-gu { fill: none; stroke: rgba(196, 208, 255, .22); stroke-width: .35; vector-effect: non-scaling-stroke; }
+.lz-gu * { vector-effect: non-scaling-stroke; }
+:root[data-theme="light"] .lz-gu { stroke: rgba(20, 30, 90, .18); }
+/* 2. the Safe ring's heartbeat: one soft double beat every 4.2 s; faster while something is leaving */
+@keyframes hb { 0%, 30%, 100% { stroke-width: 2.2; opacity: .85; } 6% { stroke-width: 3.6; opacity: 1; } 12% { stroke-width: 2.4; opacity: .9; } 18% { stroke-width: 3.2; opacity: 1; } }
+.lz:not(.draw) .lz-safe { animation: hb 4.2s ease-in-out var(--at, 0ms) infinite; }
+.lz.hot:not(.draw) .lz-safe { animation-duration: 1.6s; }
+.lz.beat .lz-safe { animation: hb-big .9s ease-out 1 !important; }
+@keyframes hb-big { 0% { stroke-width: 2.2; } 25% { stroke-width: 5; opacity: 1; } 100% { stroke-width: 2.2; } }
+.sf:not(.intro) .sf-arc { animation: hb-arc 4.2s ease-in-out infinite; }
+@keyframes hb-arc { 0%, 30%, 100% { stroke-width: 6; } 6% { stroke-width: 8; } 12% { stroke-width: 6.4; } 18% { stroke-width: 7.4; } }
+/* 3. money moves: the travelling diamond */
+.fly-d { position: fixed; left: 0; top: 0; z-index: 60; width: 14px; height: 14px; border-radius: 3px; pointer-events: none;
+  background: linear-gradient(135deg, #fff, #9fb0ff); box-shadow: 0 0 0 1px rgba(255, 255, 255, .5), 0 0 18px 4px rgba(79, 111, 255, .6); }
+/* 5. rolling digits: only the ones that changed */
+.dg { display: inline-block; animation: dg-roll .55s cubic-bezier(.2, .9, .25, 1) var(--d, 0ms) both; }
+@keyframes dg-roll { from { transform: translateY(-.55em); opacity: 0; } 60% { opacity: 1; } to { transform: none; opacity: 1; } }
+/* deep space: black with an Ecrin blue tint, a far nebula and a few faint stars */
+:root[data-theme="dark"] { --bg: #06070d; --stars: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cg fill='%23c8d4ff'%3E%3Ccircle cx='23' cy='41' r='.7' opacity='.5'/%3E%3Ccircle cx='211' cy='17' r='.5' opacity='.35'/%3E%3Ccircle cx='160' cy='97' r='.9' opacity='.45'/%3E%3Ccircle cx='71' cy='151' r='.5' opacity='.3'/%3E%3Ccircle cx='259' cy='133' r='.6' opacity='.4'/%3E%3Ccircle cx='118' cy='223' r='.7' opacity='.35'/%3E%3Ccircle cx='280' cy='262' r='.5' opacity='.3'/%3E%3Ccircle cx='31' cy='271' r='.8' opacity='.4'/%3E%3Ccircle cx='191' cy='191' r='.4' opacity='.3'/%3E%3Ccircle cx='96' cy='64' r='.4' opacity='.25'/%3E%3C/g%3E%3C/svg%3E"); }
+:root[data-theme="dark"] .aura, :root[data-theme="dark"] .sf-aura {
+  background: radial-gradient(70% 38% at 50% -6%, rgba(79, 111, 255, .22), transparent 75%), radial-gradient(55% 30% at 88% 24%, rgba(60, 70, 190, .12), transparent 75%), radial-gradient(60% 34% at 8% 46%, rgba(40, 70, 200, .08), transparent 75%), var(--stars), var(--grain) !important;
+  -webkit-mask-image: linear-gradient(#000 75%, transparent); mask-image: linear-gradient(#000 75%, transparent); }
+:root[data-theme="dark"] .aura i, :root[data-theme="dark"] .sf-aura i { display: none !important; }
+:root[data-theme="dark"] #root, :root[data-theme="dark"] body, :root[data-theme="dark"] .device { background: radial-gradient(120% 60% at 50% 120%, rgba(30, 45, 130, .18), transparent 70%), var(--bg); }
+/* 6. coin pages: a faint wash of the coin's own colour (home stays Ecrin) */
+:root[data-theme="dark"] .tk-page::before { background: radial-gradient(70% 50% at 50% 26%, color-mix(in srgb, var(--cc) 22%, transparent), transparent 75%) !important; }
+:root[data-theme="dark"] .tk-page .tk-chart { color: var(--cc) !important; }
+:root[data-theme="dark"] .tk-stats > div { box-shadow: 0 0 0 1px color-mix(in srgb, var(--cc) 22%, var(--line)); }
+:root[data-theme="dark"] .tk-stats b.up, :root[data-theme="dark"] .tk-page .tk-ch.up { color: var(--cc) !important; }
+@media (prefers-reduced-motion: reduce) { .lz:not(.draw) .lz-safe, .sf:not(.intro) .sf-arc, .dg { animation: none !important; } }
+.lz mask rect { fill: url(#lzgg) !important; }
+:root .lz-gu { stroke: rgba(196, 208, 255, .13); }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
 #root, #panel { top: 0; bottom: 0; }
