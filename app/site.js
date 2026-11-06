@@ -234,7 +234,7 @@
   } else els.forEach((el) => el.classList.add("in"));
 
   // Scroll: progress bar, and the hero card settling back (a slight zoom out) as you leave it.
-  const bar = document.querySelector(".progress i"), heroCard = document.querySelector(".hero-card");
+  const bar = document.querySelector(".progress i"), heroCard = null; // the hero never moves on scroll
   let ticking = false;
   const onScroll = () => {
     if (ticking) return; ticking = true;
@@ -251,32 +251,9 @@
   };
   addEventListener("scroll", onScroll, { passive: true }); onScroll();
 
-  // The hero follows the pointer: the ribbons drift against it, the card leans a little.
-  if (heroCard && fine) {
-    let raf = 0, tx = 0, ty = 0, cx = 0, cy = 0;
-    const loop = () => {
-      cx += (tx - cx) * 0.08; cy += (ty - cy) * 0.08;
-      heroCard.style.setProperty("--px", cx.toFixed(4)); heroCard.style.setProperty("--py", cy.toFixed(4));
-      raf = Math.abs(tx - cx) + Math.abs(ty - cy) > 0.001 ? requestAnimationFrame(loop) : 0;
-    };
-    heroCard.addEventListener("pointermove", (e) => {
-      const r = heroCard.getBoundingClientRect(); tx = (e.clientX - r.left) / r.width - 0.5; ty = (e.clientY - r.top) / r.height - 0.5;
-      heroCard.style.setProperty("--gx", ((e.clientX - r.left) / r.width * 100).toFixed(1) + "%"); heroCard.style.setProperty("--gy", ((e.clientY - r.top) / r.height * 100).toFixed(1) + "%");
-      if (!raf) raf = requestAnimationFrame(loop);
-    });
-    heroCard.addEventListener("pointerleave", () => { tx = 0; ty = 0; if (!raf) raf = requestAnimationFrame(loop); });
-  }
-
-  // Magnetic buttons: the main calls to action lean toward the pointer.
-  if (fine) document.querySelectorAll(".hero-cta .btn, .nav-cta .btn.blue, .cta-s .btn, .wl-form .btn").forEach((b) => {
-    b.classList.add("mag");
-    b.addEventListener("pointermove", (e) => { const r = b.getBoundingClientRect(); b.style.setProperty("--mx", ((e.clientX - r.left - r.width / 2) * 0.22).toFixed(1) + "px"); b.style.setProperty("--my", ((e.clientY - r.top - r.height / 2) * 0.3).toFixed(1) + "px"); });
-    b.addEventListener("pointerleave", () => { b.style.setProperty("--mx", "0px"); b.style.setProperty("--my", "0px"); });
-  });
-
   // A soft light follows the pointer across the cards.
   if (fine) document.addEventListener("pointermove", (e) => {
-    const c = e.target.closest?.(".tcard, .hcard, .scard, .tier, .stage, .assets-mock, .play");
+    const c = e.target.closest?.(".tcard, .hcard, .scard, .tier, .stage, .assets-mock");
     if (!c) return;
     const r = c.getBoundingClientRect();
     c.style.setProperty("--lx", e.clientX - r.left + "px"); c.style.setProperty("--ly", e.clientY - r.top + "px");

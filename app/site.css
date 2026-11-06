@@ -678,3 +678,8 @@ td:first-child { color: var(--ink); font-weight: 600; width: 44%; }
 @media (max-width: 560px) { .ut-grid { grid-template-columns: 1fr; gap: 10px; } .ut { padding: 18px; display: grid; grid-template-columns: 44px 1fr; column-gap: 14px; } .ut-ic { grid-row: span 2; margin: 0; } .urge-tools { margin-top: 32px; } }
 .play, .play:hover { transform: none !important; } .play .pl-btn { translate: none !important; }
 .hero-copy { translate: none !important; } .ribbons { translate: none !important; }
+/* the hero is still: no drifting ribbons, no pointer-follow, nothing moving around the example */
+.rb, .rb2, .rb3, .rb4, .rb5 { animation: none !important; transform: none !important; }
+.ribbons, .hero-card { scale: none !important; translate: none !important; transform: none !important; will-change: auto !important; }
+.btn.mag, .pl-btn.mag { translate: none !important; }
+.play::after { display: none !important; }

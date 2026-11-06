@@ -20,9 +20,9 @@ if (cloud) {
 }
 
 // 3. Cards catch a soft light under the pointer and lift a little.
-const cards = ".hero-card .play, .assets-mock, .sec .card, .cmp-card, .rm-card, .faq details, .story-s .phone, [class*='-card']";
+const cards = ".assets-mock, .sec .card, .cmp-card, .rm-card, .faq details, .story-s .phone, [class*='-card']";
 document.addEventListener("pointermove", (e) => {
-  const c = e.target.closest?.(cards); if (!c) return;
+  const c = e.target.closest?.(cards); if (!c || c.closest(".hero-card")) return;
   const r = c.getBoundingClientRect(); c.style.setProperty("--mx", `${e.clientX - r.left}px`); c.style.setProperty("--my", `${e.clientY - r.top}px`); c.classList.add("lit");
 }, { passive: true });
 document.addEventListener("pointerout", (e) => { const c = e.target.closest?.(cards); if (c && !c.contains(e.relatedTarget)) c.classList.remove("lit"); });
