@@ -1991,3 +1991,16 @@ button.sf-tile { cursor: pointer; } button.sf-tile:active { transform: scale(.97
 .home .acts { justify-content: center; gap: 8px !important; }
 .home .acts button { flex: 0 0 auto; height: 38px; padding: 0 16px 0 13px; border-radius: 19px; font-size: 13.5px !important; gap: 6px; }
 .home .acts svg { width: 15px !important; height: 15px !important; }
+/* 0.4.11: the success screen appears in place (no sliding up): content centred, Done at the bottom, the check draws itself */
+.done { justify-content: flex-start; padding-top: 0 !important; min-height: 100%; }
+.done > :first-child { margin-top: auto; }
+.done .pfoot { margin-top: auto; }
+#panel.in .pane.fresh > .done, #panel .pane > .done { animation: done-in .35s ease both !important; transform: none !important; }
+.done h2, .done p, .done .link { animation: done-in .4s .15s ease both !important; transform: none !important; }
+.done-mark { animation: none !important; }
+.done-mark circle { stroke-dasharray: 190; stroke-dashoffset: 190; animation: done-draw .6s cubic-bezier(.4, 0, .2, 1) forwards; }
+.done-mark path { stroke-dasharray: 40; stroke-dashoffset: 40; animation: done-draw .35s .45s cubic-bezier(.4, 0, .2, 1) forwards; }
+@keyframes done-in { from { opacity: 0; } } @keyframes done-draw { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { .done-mark circle, .done-mark path { animation: none; stroke-dashoffset: 0; } }
+:root[data-theme="dark"] .done-mark svg { fill: rgba(79, 111, 255, .07); stroke: var(--ecrin-soft); }
+.done-mark path { fill: none !important; }
