@@ -51,6 +51,10 @@ if (!process.argv.includes("--watch")) {
 .home .top, .phead { padding-top: env(safe-area-inset-top, 0px) !important; height: calc(56px + env(safe-area-inset-top, 0px)) !important; box-sizing: border-box; }
 .lock, .onb, .flow, .splash, .bio-scr, .cv { padding-top: env(safe-area-inset-top, 0px); }
 #tabbar { bottom: max(6px, calc(env(safe-area-inset-bottom, 0px) - 8px)) !important; }
+/* Under iPhone's solid status bar (pure black), the app's top edge is that same black and the atmosphere fades in
+   below it, so the clock area and the app read as one surface. */
+:root[data-theme="dark"] body, :root[data-theme="dark"] .device, :root[data-theme="dark"] #root, :root[data-theme="dark"] #panel .pane { background: linear-gradient(#000 0, var(--bg) 140px) !important; }
+:root[data-theme="dark"] .aura, :root[data-theme="dark"] .sf-aura { -webkit-mask-image: linear-gradient(transparent 0, #000 150px) !important; mask-image: linear-gradient(transparent 0, #000 150px) !important; }
 .home, #panel .pane, .lock, .onb, .flow { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important; }
 .pfoot { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
 .toast { bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important; }
