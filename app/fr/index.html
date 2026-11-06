@@ -73,16 +73,16 @@
           <h1>Protégez votre argent des autres, et de vous-même.</h1>
           <p class="lede">Rien ne sort sans un délai que vous choisissez. Un drainer, une signature d'hameçonnage, une clé volée ou une mauvaise soirée frappent le même mur : le temps. Vous le voyez venir, et vous annulez.</p>
           <div class="hero-cta"><a class="btn ivory lg" href="/app"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 2.5l7.5 3v6c0 4.6-3.2 8.6-7.5 10-4.3-1.4-7.5-5.4-7.5-10v-6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 12.2l2.4 2.4 4.6-4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ouvrir l'app</a><a class="btn glass lg" href="/demo">Essayer la démo</a></div>
-          <div class="play pro" data-play>
-            <div class="pl-top"><span class="pl-k"><svg viewBox="0 0 32 32" width="16" height="16" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="currentColor"/></svg>Safe · Retrait en attente</span><span class="pl-ex">Exemple</span></div>
+          <div class="play" data-play aria-live="polite">
+            <div class="pl-top"><span class="pl-k"><i class="pl-dot"></i><span data-pl-title>Quelqu'un vient de demander un retrait</span></span><span class="pl-try">Essayez</span></div>
             <div class="pl-attack">
-              <div class="pl-amt"><b class="num">24,00</b><small>SOL</small></div>
-              <dl class="pl-rows"><div><dt>Vers</dt><dd><code>9cRt…X2pa</code><span class="pl-flag">Adresse inconnue</span></dd></div><div><dt>Peut sortir dans</dt><dd class="num">2 j 23 h 58 min</dd></div></dl>
-              <p class="pl-why">Demandé il y a 2 minutes depuis un site que vous venez de signer.</p>
-              <button type="button" class="pl-btn" data-pl-cancel>Annuler le retrait</button>
+              <div class="pl-amt"><b class="num" data-pl-amt>24,00</b><small data-pl-unit>SOL</small></div>
+              <span class="pl-why">vers <code data-pl-to>9cRt…X2pa</code> · <span data-pl-why>un drainer signé par erreur</span></span>
+              <div class="pl-clock"><span>peut sortir dans</span><b class="num" data-pl-clock>71:59:48</b></div>
+              <button type="button" class="pl-btn" data-pl-cancel><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 2.5l7.5 3v6c0 4.6-3.2 8.6-7.5 10-4.3-1.4-7.5-5.4-7.5-10v-6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 12.2l2.4 2.4 4.6-4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Annuler et le garder</button>
             </div>
-            <div class="pl-safe" hidden><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29"/><path d="M20 33l8 8 16-17"/></svg><b>Retrait annulé</b><span>Les 24,00 SOL restent dans votre Safe. Annuler est gratuit et immédiat.</span><button type="button" class="pl-again" data-pl-again>Revoir</button></div>
-            <p class="pl-foot">Voici à quoi ressemble une demande dans Ecrin Wallet. Chaque retrait attend, et vous pouvez l'annuler pendant tout ce temps.</p>
+            <div class="pl-safe" hidden><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29"/><path d="M20 33l8 8 16-17"/></svg><b data-pl-safe>En sécurité. Les 24 SOL ne sont jamais sortis.</b><span>Le voleur a obtenu une demande en attente, rien d'autre.</span></div>
+            <div class="pl-foot"><span data-pl-count>0 attaque bloquée</span><span>Les vrais coffres fonctionnent exactement comme ça.</span></div>
           </div>
         </div>
         <span class="hero-note">Bêta sur testnet · pas encore audité · jetons de test seulement</span>

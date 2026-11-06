@@ -31,17 +31,4 @@ document.addEventListener("pointerout", (e) => { const c = e.target.closest?.(ca
 const w = document.querySelector("#wallet .big-head");
 if (w) { w.insertAdjacentHTML("afterbegin", `<div class="site-v3d" aria-hidden="true"><canvas data-vault3d></canvas></div>`); mountVault3d(w); }
 
-// 5. Depth on scroll: the hero card eases back and the ribbons drift slower than the page.
-if (!still) {
-  const hero = document.querySelector(".hero-card"), rib = document.querySelector(".ribbons");
-  let ticking = false;
-  addEventListener("scroll", () => {
-    if (ticking) return; ticking = true;
-    requestAnimationFrame(() => {
-      const y = Math.min(scrollY, innerHeight), k = y / innerHeight;
-      if (hero) hero.style.transform = `perspective(1200px) translateY(${k * 30}px) scale(${1 - k * 0.04}) rotateX(${k * 4}deg)`;
-      if (rib) rib.style.transform = `translateY(${k * -60}px)`;
-      ticking = false;
-    });
-  }, { passive: true });
-}
+// (No scroll depth on the hero: the top card stays perfectly still.)

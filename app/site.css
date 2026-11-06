@@ -676,3 +676,5 @@ td:first-child { color: var(--ink); font-weight: 600; width: 44%; }
 .ut-note { max-width: 620px; margin: 22px auto 0; text-align: center; font-size: 13.5px; color: var(--muted); }
 @media (max-width: 860px) { .ut-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 560px) { .ut-grid { grid-template-columns: 1fr; gap: 10px; } .ut { padding: 18px; display: grid; grid-template-columns: 44px 1fr; column-gap: 14px; } .ut-ic { grid-row: span 2; margin: 0; } .urge-tools { margin-top: 32px; } }
+.play, .play:hover { transform: none !important; } .play .pl-btn { translate: none !important; }
+.hero-copy { translate: none !important; } .ribbons { translate: none !important; }
