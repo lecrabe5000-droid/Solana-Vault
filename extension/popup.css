@@ -2121,3 +2121,8 @@ body.stacked #root, :root[data-theme] body.stacked #root { transform: translateX
   filter: blur(18px); animation: atmo 48s ease-in-out var(--at, 0ms) infinite alternate !important; }
 @keyframes atmo { 0% { transform: translate3d(0, 0, 0) scale(1); } 33% { transform: translate3d(-3%, 2%, 0) scale(1.05); } 66% { transform: translate3d(2%, -2%, 0) scale(1.03); } 100% { transform: translate3d(3%, 1%, 0) scale(1.07); } }
 :root[data-theme="dark"] #root[data-screen="loading"] { background: radial-gradient(40% 30% at 74% 78%, rgba(36, 62, 230, .24), transparent 72%), radial-gradient(46% 30% at 52% 4%, rgba(70, 100, 255, .12), transparent 72%), var(--bg); }
+/* lock screen: everything centred on the screen, "Forgot your password?" at the bottom */
+.lock { justify-content: flex-start !important; min-height: 100%; padding-top: max(18px, env(safe-area-inset-top, 0px)) !important; padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)) !important; }
+.lock > .lock-mark { margin-top: auto !important; }
+.lock > .link:last-child { margin-top: auto !important; }
+.lock > .stack { flex: none; }
