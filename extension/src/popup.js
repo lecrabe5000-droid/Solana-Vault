@@ -1400,8 +1400,7 @@ function vaultView() {
       <rect class="sf-base" x="52" y="52" width="196" height="196" rx="44"/>
       <rect class="sf-arc" x="52" y="52" width="196" height="196" rx="44" pathLength="100" style="--p:${Math.max(pct, open.length ? 2 : 0)}"/>
       <rect class="sf-run" x="52" y="52" width="196" height="196" rx="44" pathLength="100"/>
-      <rect class="sf-core" x="72" y="72" width="156" height="156" rx="34"/>
-      <rect class="sf-in" x="86" y="86" width="128" height="128" rx="28"/>
+      <rect class="sf-core" x="66" y="66" width="168" height="168" rx="36"/>
     </g></svg>`;
   const ring = (left, d) => { const f = Math.max(0, Math.min(1, left / (d || 86400))); return `<i class="sf-ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15"/><circle class="p" cx="18" cy="18" r="15" pathLength="100" style="stroke-dasharray:${(f * 100).toFixed(1)} 100"/></svg></i>`; };
   const section = (r) => {
@@ -1423,7 +1422,7 @@ function vaultView() {
     <div class="sf-aura" aria-hidden="true"><i></i><i></i><i></i></div>
     <section class="sf-hero lv-${lvl[0]}${next ? " alert" : ""}">
       <div class="sf-stage">${shield}
-        <div class="sf-mid"><span class="sf-ic">${I.shield}</span><span class="lbl">Protected</span><b class="sf-tot">${mask(fig(money(total)))}</b></div>
+        <div class="sf-mid"><span class="sf-ic">${I.shield}</span><span class="lbl">Protected</span><b class="sf-tot${(() => { const n = money(total).length; return n > 12 ? " xs" : n > 9 ? " sm" : ""; })()}">${mask(fig(money(total)))}</b></div>
       </div>
       <div class="sf-lvl"><span class="sf-pill"><i></i>Shield ${lvl[1]}</span><span class="sf-pct">${open.length ? `${pct}% of everything you own` : "Open your Safe to raise it"}</span></div>
     </section>
@@ -2062,16 +2061,31 @@ function swapView() {
   const fee = SWAP.feeBps / 10_000, inAmt = units / A(a).base;
   const out = px && inAmt ? (a === "native" ? inAmt * px : inAmt / px) * (1 - fee) : 0;
   const rate = px ? (a === "native" ? `1 SOL ≈ ${money(px)}` : `1 USDC ≈ ${(1 / px).toFixed(6)} SOL`) : "—";
+  const max = sendMax(), over = units > max, usdIn = usdOf(units, a), usdOut = out && px ? (b === "usdc" ? out : out * px) : null;
+  const bal = (x) => amt(Math.max(0, x === a ? max : (S.bal?.[x] || 0)), x);
+  const chip = (x) => `<span class="sx-coin">${assetCoin(x)}<b>${A(x).unit}</b><small>${x === "usdc" ? "USD Coin" : N.name}</small></span>`;
   return `${phead("Swap")}
-    <div class="soon-row"><span class="soon">Coming soon · opens with mainnet</span></div>
-    <div class="sw">
-      <div class="sw-box"><span class="sw-k">You pay</span>${amountBlock(sendMax(), "In your Wallet")}<span class="sw-coin">${assetCoin(a)}${A(a).unit}</span></div>
-      <button class="sw-flip" data-act="swap-flip" aria-label="Swap direction">${I.swap}</button>
-      <div class="sw-box out"><span class="sw-k">You receive (estimate)</span><div class="sw-out"><b>${out ? out.toLocaleString("en-US", { maximumFractionDigits: b === "usdc" ? 2 : 4 }) : "0"}</b><span class="sw-coin">${assetCoin(b)}${A(b).unit}</span></div></div>
-      <div class="ap-kv sw-kv"><div><span>Rate</span><b>${rate}</b></div><div><span>Ecrin fee</span><b>${(SWAP.feeBps / 100).toFixed(1)}%</b></div><div><span>Route</span><b>Jupiter, best price</b></div></div>
-      <p class="note">${I.lock}<span>Swaps use your Wallet only. Money in your Safe never moves without its delay.</span></p>
+  <div class="sx">
+    <div class="sf-aura" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="sx-soon"><i></i>Preview · swaps open with mainnet</div>
+    <div class="sx-pair">
+      <div class="sx-card${over ? " over" : ""}">
+        <div class="sx-top"><span class="sx-k">You pay</span><span class="sx-bal">${I.card}${bal(a)} ${A(a).unit}</span></div>
+        <div class="sx-row">${chip(a)}<input class="sx-in" data-amount inputmode="decimal" placeholder="0" value="${esc(P.amount)}" autocomplete="off" autofocus/></div>
+        <div class="sx-foot"><span class="sx-pcts">${[25, 50, 100].map((v) => `<button data-act="pct" data-v="${v}" class="${P.pct === v ? "on" : ""}">${v === 100 ? "Max" : v + "%"}</button>`).join("")}</span><span class="sx-usd">${over ? `<span class="bad">Not enough</span>` : usdIn != null && units ? money(usdIn) : ""}</span></div>
+      </div>
+      <button class="sx-flip" data-act="swap-flip" aria-label="Swap direction"><svg viewBox="0 0 24 24"><path d="M8 4v15M8 19l-4-4M8 19l4-4M16 20V5M16 5l-4 4M16 5l4 4"/></svg></button>
+      <div class="sx-card to">
+        <div class="sx-top"><span class="sx-k">You receive</span><span class="sx-bal">${I.card}${bal(b)} ${A(b).unit}</span></div>
+        <div class="sx-row">${chip(b)}<b class="sx-out${out ? "" : " zero"}">${out ? out.toLocaleString("en-US", { maximumFractionDigits: b === "usdc" ? 2 : 4 }) : "0"}</b></div>
+        <div class="sx-foot"><span class="sx-est">Best price across every exchange</span><span class="sx-usd">${usdOut != null ? money(usdOut) : ""}</span></div>
+      </div>
     </div>
-    <div class="pfoot"><button class="btn primary xl" disabled>${SWAP.live ? "Swap" : "Coming soon"}</button></div>`;
+    <div class="sx-rate"><span class="sx-live"><i></i>${rate}</span><span class="sx-route">via Jupiter</span></div>
+    <div class="sx-kv"><div><span>Ecrin fee</span><b>${(SWAP.feeBps / 100).toFixed(1)}%</b></div><div><span>Network fee</span><b>${N.unit === "SOL" ? "< 0.001 SOL" : "—"}</b></div><div><span>Price protection</span><b>0.5% max slippage</b></div></div>
+    <div class="sx-note">${I.lock}<span>Swaps use your Wallet only. Money in your Safe never moves without its delay.</span></div>
+    <button class="sx-go" ${SWAP.live && units && !over ? "" : "disabled"}>${SWAP.live ? (units ? (over ? "Not enough " + A(a).unit : "Swap") : "Enter an amount") : "Coming soon"}</button>
+  </div>`;
 }
 
 function earnView() {
