@@ -2100,6 +2100,16 @@ button.sf-tile { cursor: pointer; } button.sf-tile:active { transform: scale(.97
 .fee-n svg { flex: none; width: 16px; height: 16px; margin-top: 1px; fill: none; stroke: var(--ecrin-soft, #7f95ff); stroke-width: 2; } .fee-n b { color: var(--ink); } .fee-n a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 .fee-n a svg { display: inline; width: 11px; height: 11px; margin: 0 0 -1px 2px; stroke: currentColor; }
 .coin.al-c { width: 22px; height: 22px; margin-right: 8px; }
+/* 0.6.1: one clean slide between screens, like iOS. The page slides in from the right; home eases a little to the
+   left underneath. Nothing shrinks, dims, blurs or rises. Back is the exact reverse. */
+#root { transition: transform .42s cubic-bezier(.32, .72, 0, 1) !important; }
+body.stacked #root, :root[data-theme] body.stacked #root { transform: translateX(-22%) !important; filter: none !important; border-radius: 0 !important; }
+#panel .pane { transition: transform .42s cubic-bezier(.32, .72, 0, 1) !important; box-shadow: -1px 0 0 rgba(196, 208, 255, .06), -24px 0 48px -24px rgba(0, 0, 0, .7) !important; will-change: transform; }
+#panel.in .pane.fresh > *, .pane.fresh .sx > *, .pane.fresh .tk-page { animation: none !important; }
+#panel.in .pane.fresh > .done { animation: done-in .35s ease both !important; }
+/* calmer silk: about half the light */
+:root[data-theme="dark"] .aura::before, :root[data-theme="dark"] .sf-aura::before { opacity: .5; }
+:root[data-theme="dark"] #root[data-screen="loading"] { background: linear-gradient(rgba(3, 4, 14, .5), rgba(3, 4, 14, .5)), var(--silk) center / cover no-repeat, var(--bg); }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
