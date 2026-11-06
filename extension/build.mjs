@@ -48,7 +48,8 @@ if (!process.argv.includes("--watch")) {
 #root, #panel { top: 0; bottom: 0; }
 .home .top, .phead { padding-top: env(safe-area-inset-top, 0px) !important; height: calc(56px + env(safe-area-inset-top, 0px)) !important; box-sizing: border-box; }
 .lock, .onb, .flow, .splash, .bio-scr, .cv { padding-top: env(safe-area-inset-top, 0px); }
-#tabbar { bottom: max(6px, calc(env(safe-area-inset-bottom, 0px) - 8px)) !important; }
+.device { bottom: calc(-1 * var(--gap, 0px)) !important; }
+#tabbar { bottom: calc(max(6px, calc(env(safe-area-inset-bottom, 0px) - 8px)) - var(--gap, 0px)) !important; }
 .home, #panel .pane, .lock, .onb, .flow { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important; }
 .pfoot { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
 .toast { bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important; }
