@@ -1937,6 +1937,27 @@ button.sf-tile { cursor: pointer; } button.sf-tile:active { transform: scale(.97
 :root[data-theme="dark"] .lz-leg .lp-lock, :root[data-theme="dark"] .sf-ic { background: var(--ecrin); color: #fff; } :root[data-theme="dark"] .sf-ic svg { stroke: #fff; }
 :root[data-theme="dark"] .acct-ic.av { background: color-mix(in srgb, var(--ac) 30%, #151826) !important; }
 :root[data-theme="dark"] .mv-pcts button.on, :root[data-theme="dark"] .sx-pcts button.on { background: var(--ivory); color: var(--ivory-ink); }
+/* 0.4.7: one accent only. Blue-black, white and greys, Ecrin blue. No green, red, clay or sage. */
+:root[data-theme="dark"] .up, :root[data-theme="dark"] .dn,
+:root[data-theme="dark"] .lz-chg .delta.up, :root[data-theme="dark"] .lz-chg .delta.dn,
+:root[data-theme="dark"] .home .tab-body .arow small .up, :root[data-theme="dark"] .home .tab-body .arow small .dn,
+:root[data-theme="dark"] .tk-ch.up, :root[data-theme="dark"] .tk-ch.dn { color: var(--muted) !important; background: none !important; }
+:root[data-theme="dark"] .lz-chg .delta { color: var(--ink) !important; } :root[data-theme="dark"] .lz-chg .delta .dp, :root[data-theme="dark"] .lz-chg .delta .dl { color: var(--muted) !important; }
+:root[data-theme="dark"] .home .tab-body .arow small .up, :root[data-theme="dark"] .home .tab-body .arow small .dn { padding: 0 !important; margin-left: 6px; }
+:root[data-theme="dark"] .acct-ic.av { background: #1a1e2c !important; box-shadow: inset 0 0 0 1px var(--line-2); color: var(--ink) !important; }
+/* anything leaving the Safe: Ecrin blue, not red */
+:root[data-theme="dark"] .sf-alert { box-shadow: inset 0 0 0 1px rgba(127, 149, 255, .5); background: rgba(79, 111, 255, .07); }
+:root[data-theme="dark"] .sa-ic { background: rgba(79, 111, 255, .16); color: var(--ecrin-soft); } :root[data-theme="dark"] .sa-cd { color: var(--ink); }
+:root[data-theme="dark"] .sf-hero.alert .sf-tk { stroke: rgba(127, 149, 255, .7); }
+:root[data-theme="dark"] .t-out.hot { box-shadow: inset 0 0 0 1px rgba(127, 149, 255, .5); } :root[data-theme="dark"] .t-out.hot .st-ic { background: rgba(79, 111, 255, .16); color: var(--ecrin-soft); }
+:root[data-theme="dark"] .sf-w { background: rgba(79, 111, 255, .06); box-shadow: inset 0 0 0 1px rgba(127, 149, 255, .3); } :root[data-theme="dark"] .sf-w .cd { color: var(--ink); } :root[data-theme="dark"] .sf-ring .p { stroke: var(--ecrin-soft); }
+:root[data-theme="dark"] .wsplit em { color: var(--ecrin-soft); }
+:root[data-theme="dark"] .sb-d { background: var(--ecrin-soft); box-shadow: none; } :root[data-theme="dark"] .sb-r em { color: var(--ink); background: rgba(255, 255, 255, .06); }
+:root[data-theme="dark"] .sx-live i { background: var(--ecrin-soft); animation: none; box-shadow: none; }
+:root[data-theme="dark"] .bad, :root[data-theme="dark"] .mv-amt.over b, :root[data-theme="dark"] .mv-sub .bad, :root[data-theme="dark"] .sx-usd .bad { color: var(--ink) !important; text-decoration: underline; text-decoration-color: var(--ecrin-soft); text-underline-offset: 4px; }
+:root[data-theme="dark"] .lv-low .sf-pill { background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1px var(--line-2); color: var(--ink); } :root[data-theme="dark"] .lv-low .sf-pill i { background: var(--muted); box-shadow: none; }
+/* sparklines and charts: grey; the lozenge's coin ring: white to grey */
+:root[data-theme="dark"] .spark path { stroke: #6e7488 !important; }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
