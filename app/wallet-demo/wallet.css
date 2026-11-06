@@ -1958,3 +1958,20 @@ button.sf-tile { cursor: pointer; } button.sf-tile:active { transform: scale(.97
 :root[data-theme="dark"] .lv-low .sf-pill { background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1px var(--line-2); color: var(--ink); } :root[data-theme="dark"] .lv-low .sf-pill i { background: var(--muted); box-shadow: none; }
 /* sparklines and charts: grey; the lozenge's coin ring: white to grey */
 :root[data-theme="dark"] .spark path { stroke: #6e7488 !important; }
+/* ---- 0.4.8: bottom buttons as one floating glass capsule ---- */
+#tabbar { gap: 0 !important; padding: 6px !important; width: 248px !important; height: 66px; border-radius: 33px !important; pointer-events: auto !important;
+  background: rgba(22, 25, 38, .72) !important; backdrop-filter: blur(24px) saturate(1.6) !important; -webkit-backdrop-filter: blur(24px) saturate(1.6) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), inset 0 0 0 1px rgba(196, 208, 255, .1), 0 18px 40px -14px rgba(0, 0, 0, .85) !important; overflow: hidden; }
+#tabbar button, #tabbar button.on, #tabbar button:not(.on) { position: relative; flex: 1; width: auto !important; height: 54px !important; border-radius: 27px !important;
+  background: none !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; color: rgba(238, 240, 246, .55) !important; transition: color .25s, transform .2s cubic-bezier(.2, .8, .2, 1.4); }
+#tabbar svg { width: 25px !important; height: 25px !important; stroke-width: 1.8; filter: none !important; }
+#tabbar button.on { color: #fff !important; }
+#tabbar button.on span { position: relative; display: grid; place-items: center; width: 46px; height: 40px; border-radius: 14px;
+  background: linear-gradient(160deg, #6d86ff, #3c5cff 55%, #2a46e0); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 8px 18px -8px rgba(60, 92, 255, .9); }
+/* the glowing line along the capsule's bottom edge, under the current tab */
+#tabbar button.on::after { content: ""; position: absolute; left: 18%; right: 18%; bottom: -6px; height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #7f95ff, transparent); box-shadow: 0 0 12px 2px rgba(79, 111, 255, .7); }
+#tabbar button:active { transform: scale(.92); }
+:root[data-theme="light"] #tabbar { background: rgba(255, 255, 255, .82) !important; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .06), 0 16px 34px -14px rgba(20, 30, 90, .35) !important; }
+:root[data-theme="light"] #tabbar button:not(.on) { color: rgba(11, 13, 22, .5) !important; }
+#tabbar button.on::after { bottom: -4px; left: 22%; right: 22%; }
