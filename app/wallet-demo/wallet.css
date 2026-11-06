@@ -2198,3 +2198,21 @@ body.stacked #root, :root[data-theme] body.stacked #root { transform: translateX
 :root[data-theme="dark"] .lz-safe { stroke: #7d97ff !important; } :root[data-theme="dark"] .wsplit .sp-bar i { background: #7d97ff; }
 :root[data-theme="dark"] .lz-seg.r0 { stroke: #f3f3ef; } :root[data-theme="dark"] .lz-seg.r1 { stroke: #b5b7bd; } :root[data-theme="dark"] .lz-seg.r2 { stroke: #7c7f87; } :root[data-theme="dark"] .lz-seg.r3 { stroke: #4a4c52; }
 :root[data-theme="dark"] .lz-base { stroke: rgba(243, 243, 239, .08); }
+/* ---- 0.7.0 polish from the full sweep ---- */
+/* comfortable tap areas without changing how things look */
+.eye { position: relative; } .eye::after { content: ""; position: absolute; inset: -10px; }
+.lz-chg.plain { padding: 8px 12px !important; margin-top: -8px !important; }
+.act-q input { min-height: 40px; }
+/* coin rows: the price and its change always show in full; the little chart gives way first */
+.arow .ar-t { flex: 1 1 auto; min-width: 0; } .arow .ar-t small { white-space: nowrap; overflow: hidden; text-overflow: clip; }
+.arow .spark { flex: 0 1 54px; min-width: 0; overflow: hidden; }
+.arow .ar-r { flex: 0 0 auto; }
+@media (max-width: 400px) { .arow .spark { flex-basis: 36px; } .arow .ar-t small .up, .arow .ar-t small .dn { margin-left: 4px !important; } }
+/* swap: the flip button never sits on the 25/50/Max pills */
+.sx-pair { gap: 10px; } .sx-card:first-child { padding-bottom: 30px; } .sx-card.to { padding-top: 26px; }
+@media (max-width: 380px) { .pane .arow .spark { display: none; } }
+/* Open your Safe: the Shield, smaller */
+.cv-sf { gap: 0; padding: 0; } .cv-sf .sf-stage { width: 230px; height: 230px; margin: -10px auto -14px; }
+.cv-sf .sf-tot { font-size: 26px; } .cv-sf .sf-mid .lbl { font-size: 10px; } .cv-sf .sf-ic { width: 26px; height: 26px; margin-bottom: 4px; } .cv-sf .sf-ic svg { width: 15px; height: 15px; }
+/* coin page: the back button sits on the page, no separate band */
+:root[data-theme] .pane:has(.tk-page) .phead { background: transparent !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }

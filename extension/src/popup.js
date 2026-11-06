@@ -1203,7 +1203,7 @@ function dur(s) { if (s <= 0) return "ready"; const d = Math.floor(s / 86400), h
 
 // ------------------------------------------------------------------ panels (slide over the home screen)
 
-function openPanel(p, opts = {}) { if (p === "vault") S.shT0 = 0; S.panel = { p, step: "form", asset: opts.a || "native", amount: "", to: "", ...opts }; renderPanel(true); }
+function openPanel(p, opts = {}) { if (p === "vault") S.shT0 = 0; S.cvT0 = 0; S.panel = { p, step: "form", asset: opts.a || "native", amount: "", to: "", ...opts }; renderPanel(true); }
 function closePanel() { if (S.panel?.step === "done" && (S.panel.p === "protect" || S.panel.p === "withdraw")) S.fly = S.panel.p; const el = $("#panel"); el.classList.remove("in"); document.body.classList.remove("stacked"); setTimeout(() => { if (!S.panel) el.innerHTML = ""; }, 260); S.panel = null; render(); }
 
 function renderPanel(enter = false) {
@@ -1477,13 +1477,25 @@ function moveView() {
 }
 function sendMaxProtect() { const a = S.panel.asset; return a === "native" ? Math.max(0, (S.bal?.native || 0) - (S.panel.reserve || 0) - (NETS[S.net].fam === "sol" ? 3_000_000 : 0)) : S.bal?.usdc || 0; }
 
+/** Opening a Safe: the Shield from the Safe page, its arc filling as you arrive, the delay you're choosing in the middle. */
+function cvShield(label) {
+  if (!S.cvT0) S.cvT0 = performance.now();
+  const el = performance.now() - S.cvT0;
+  return `<div class="sf cv-sf${el < 2600 ? " intro" : ""}" style="--lt:${-Math.round(el)}ms"><div class="sf-stage"><svg class="sf-sh" viewBox="0 0 300 300" aria-hidden="true">
+    <defs><linearGradient id="sfg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b6c4ff"/><stop offset=".45" stop-color="#4b74ff"/><stop offset="1" stop-color="#00c8ff"/></linearGradient>
+      <radialGradient id="sfc" cx=".5" cy=".42" r=".7"><stop offset="0" stop-color="#3a5cff" stop-opacity=".55"/><stop offset=".6" stop-color="#1a2160" stop-opacity=".35"/><stop offset="1" stop-color="#0b0d1c" stop-opacity=".1"/></radialGradient></defs>
+    <g transform="rotate(45 150 150)"><rect class="sf-tk" x="34" y="34" width="232" height="232" rx="52" pathLength="100"/><rect class="sf-base" x="52" y="52" width="196" height="196" rx="44"/>
+      <rect class="sf-arc" x="52" y="52" width="196" height="196" rx="44" pathLength="100" style="--p:100"/><rect class="sf-run" x="52" y="52" width="196" height="196" rx="44" pathLength="100"/>
+      <rect class="sf-core" x="66" y="66" width="168" height="168" rx="36"/></g></svg>
+    <div class="sf-mid"><span class="sf-ic">${I.shield}</span><span class="lbl">Withdrawals wait</span><b class="sf-tot">${label}</b></div></div></div>`;
+}
 function createVaultView(title) {
   const P = S.panel, other = (S.all || []).find((r) => r.v && r.k !== S.net);
   if (other && !P.kind) P.kind = other.v.main.withdrawDelay >= 72 * 3600 ? "strong" : "gentle";
   const same = other ? `<p class="note">${I.lock}<span>Same rules as your Safe on ${NETS[other.k].name}: <b>${delay(other.v.main.withdrawDelay)}</b> delay. One tap opens it here too.</span></p>` : "";
   return `${phead(title)}
     <div class="cv">
-      <div class="cv-art">${miniVault()}</div>
+      <div class="cv-art">${cvShield(P.kind === "gentle" ? "24 h" : "72 h")}</div>
       <h2>Open your Safe</h2>
       <p class="sub">Money you move here can't leave in a hurry: every withdrawal waits, and you can cancel it the whole time. Your Wallet stays instant.</p>
       <div class="presets">
@@ -1491,7 +1503,7 @@ function createVaultView(title) {
       </div>
     </div>
     ${S.bal && !S.bal.native ? `<p class="note">${I.recv}<span>Your Wallet has no ${NETS[S.net].unit} yet. Opening your Safe costs a tiny network fee. <a class="link" href="${NETS[S.net].faucet}" target="_blank">Get free test ${NETS[S.net].unit} ${I.ext}</a></span></p>` : ""}
-    ${same}<div class="pfoot">${P.step === "sending" ? hold("Opening…", true) : `<button class="btn primary xl" data-act="create-vault" ${S.bal && !S.bal.native ? "disabled" : ""}>Open vault</button>`}</div>`;
+    ${same}<div class="pfoot">${P.step === "sending" ? hold("Opening…", true) : `<button class="btn primary xl" data-act="create-vault" ${S.bal && !S.bal.native ? "disabled" : ""}>Open my Safe</button>`}</div>`;
 }
 
 /** One Safe for everything: every network that has a vault, each in its own section, with its own delay, balances
@@ -2589,8 +2601,11 @@ function tokenView() {
   const tl = P.u === "USDC" ? null : h ? h.pts.filter((_, i, a) => i % Math.max(1, Math.floor(a.length / 120)) === 0).map((x) => x[0]) : null;
   let chart = `<div class="tk-chart"><div class="ch-sk"></div></div>`, dd = 0, pc = 0;
   if (v) {
-    const lo = Math.min(...v), hi = Math.max(...v), sp = hi - lo || 1, xy = v.map((y, i) => [(i / (v.length - 1)) * W, 10 + (1 - (y - lo) / sp) * (H - 20)]);
-    const d = xy.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join("");
+    // Headroom above the highest point and below the lowest, and a light moving average so one spike never looks clipped.
+    const sm = v.map((_, i) => { const a = Math.max(0, i - 1), b = Math.min(v.length - 1, i + 1); let t = 0; for (let j = a; j <= b; j++) t += v[j]; return t / (b - a + 1); }); sm[0] = v[0]; sm[sm.length - 1] = v[v.length - 1];
+    const lo = Math.min(...sm), hi = Math.max(...sm), sp = hi - lo || 1, xy = sm.map((y, i) => [(i / (sm.length - 1)) * W, 18 + (1 - (y - lo) / sp) * (H - 30)]);
+    let d = `M${xy[0][0].toFixed(1)},${xy[0][1].toFixed(1)}`;
+    for (let i = 0; i < xy.length - 1; i++) { const p0 = xy[i - 1] || xy[i], p1 = xy[i], p2 = xy[i + 1], p3 = xy[i + 2] || p2; d += `C${(p1[0] + (p2[0] - p0[0]) / 6).toFixed(1)},${(p1[1] + (p2[1] - p0[1]) / 6).toFixed(1)} ${(p2[0] - (p3[0] - p1[0]) / 6).toFixed(1)},${(p2[1] - (p3[1] - p1[1]) / 6).toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`; }
     dd = v[v.length - 1] - v[0]; pc = (dd / (v[0] || 1)) * 100;
     S.tkChart = { v, tl, xy, W };
     const fresh = S.tkDrawKey !== `${P.u}:${S.range}`; S.tkDrawKey = `${P.u}:${S.range}`;
@@ -2703,7 +2718,7 @@ function rulesView() {
     <div class="sets">
       ${row("delay", I.clock, "Withdrawal delay", delay(m.withdrawDelay))}
       ${row("limit", I.out, "Daily limit", vs.map(fmtLim).filter((x, i, a) => a.indexOf(x) === i).join(" · "))}
-      ${row("guardian", I.shield, "Guardian", [vs.some((r) => r.k === "sol") && `SOL ${guard("sol")}`, vs.some((r) => famOf(r.k) === "evm") && `ETH ${guard("evm")}`].filter(Boolean).join(" · "))}
+      ${row("guardian", I.shield, "Guardian", (() => { const g = [vs.some((r) => r.k === "sol") && ["Solana", guard("sol")], vs.some((r) => famOf(r.k) === "evm") && ["Ethereum", guard("evm")]].filter(Boolean); return g.length === 1 ? g[0][1] : g.map(([n, v]) => `${n}: ${v}`).join(" · "); })())}
       ${row("trust", I.check, "Trusted addresses", trusted.length ? `${trusted.length}` : "None")}
       ${row("freeze", I.lock, "Freeze", lockTxt)}
     </div>
