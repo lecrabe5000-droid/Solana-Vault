@@ -9,7 +9,7 @@ import { NETS, BASE, USDC_BASE, engine } from "./chains.js";
 import { makeApprovals } from "./approve.js";
 import { mountVault3d } from "./vault3d.js";
 import { bioEnable, bioUnlock, bioName, bioPossible } from "./bio.js";
-import { sealKeys, openKeys, parseKey, keysFor, COLORS } from "./accounts.js";
+import { sealKeys, openKeys, parseKey, keysFor, COLORS, b58 } from "./accounts.js";
 import { translate, LANGS } from "./i18n.js";
 import { toTron } from "./tron.js";
 import { LOGOS } from "./logos.js";
@@ -959,12 +959,12 @@ function actRows() {
   const rows = all.map((e) => { const [title, ic, cls] = (ACT_LBL[e.t] || (() => ["Transaction", I.arrow, ""]))(e); return { e, title, ic, cls }; })
     .filter((r) => !q || `${r.title} ${r.e.to || ""} ${r.e.from || ""} ${r.e.origin || ""} ${NETS[r.e.k]?.name || ""}`.toLowerCase().includes(q));
   if (!rows.length) return `<div class="empty">${I.search}<b>Nothing matches “${esc(q)}”</b><span>Try a name, an address or a site.</span></div>`;
-  let day = "";
-  return rows.slice(0, 120).map(({ e, title, ic, cls }) => {
+  let day = ""; S.actShown = rows.slice(0, 120);
+  return rows.slice(0, 120).map(({ e, title, ic, cls }, ix) => {
     const d = e.at ? new Date(e.at).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }) : "Earlier", head = d !== day ? `<div class="act-day">${(day = d)}</div>` : "";
     const N = NETS[e.k] || NETS.sol, unit = e.sym || (e.a === "usdc" ? "USDC" : N.unit), val = e.n ? (e.a === "usdc" ? e.n / USDC_BASE : e.t === "tsend" ? e.n : e.n / BASE) : null;
     const sign = cls === "out" ? "−" : cls === "in" ? "+" : "";
-    const tag = e.sig && e.k ? `a href="${N.explorer("tx", e.sig)}" target="_blank"` : "div";
+    const tag = `button data-act="txd" data-i="${ix}"`;
     return `${head}<${tag} class="arow act-row ${e.t} ${cls}"><span class="act-ico">${ic}${e.k ? `<span class="cmini">${coin(e.k)}</span>` : ""}</span>
       <span class="ar-t"><b>${title}</b><small>${when(e.at)}${e.k ? ` · ${N.name}` : ""}</small></span>
       ${val != null ? `<span class="ar-r"><b class="${cls === "out" ? "neg" : cls === "in" ? "pos" : ""}">${sign}${mask(val.toLocaleString("en-US", { maximumFractionDigits: 6 }))} ${esc(unit)}</b></span>` : ""}</${tag.split(" ")[0]}>`;
@@ -995,6 +995,51 @@ function reportHTML() {
     <p class="fine pad">Amounts use today's prices. ${list.length ? `${list.length} event${list.length > 1 ? "s" : ""} this month.` : "No activity this month yet."}</p>`;
 }
 
+/** One activity in full: what, how much, who, when, where, and the explorer link. */
+function txdView() {
+  const r = S.actShown?.[S.panel.i]; if (!r) return `${phead("Details")}<p class="fine pad">This item isn't available anymore.</p>`;
+  const { e, title, ic, cls } = r, N = NETS[e.k] || NETS.sol, unit = e.sym || (e.a === "usdc" ? "USDC" : N.unit);
+  const val = e.n ? (e.a === "usdc" ? e.n / USDC_BASE : e.t === "tsend" ? e.n : e.n / BASE) : null, usd = usdOfEntry(e);
+  const who = e.to || e.from, whoName = who ? nameFor(e.k, who) : null;
+  const rowA = (label, a) => `<div><span>${label}</span><b class="mono wrap">${whoName && a === who ? `${esc(whoName)}<br/>` : ""}${esc(a)} <button class="ib sm" data-act="copy" data-v="${esc(a)}" aria-label="Copy">${I.copy}</button></b></div>`;
+  return `${phead("Details")}
+    <div class="txd-hero"><span class="act-ico lg ${cls}">${ic}</span><b>${title}</b>
+      ${val != null ? `<span class="txd-amt ${cls}">${cls === "out" ? "−" : cls === "in" ? "+" : ""}${mask(val.toLocaleString("en-US", { maximumFractionDigits: 6 }))} ${esc(unit)}</span>${usd ? `<small>${mask(money(usd))} today</small>` : ""}` : ""}</div>
+    <div class="tk-info">
+      <div><span>Status</span><b class="up">Confirmed</b></div>
+      <div><span>Date</span><b>${e.at ? new Date(e.at).toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { dateStyle: "medium", timeStyle: "short" }) : "—"}</b></div>
+      <div><span>Network</span><b>${N.name} ${N.net}</b></div>
+      ${e.to ? rowA("To", e.to) : ""}${e.from ? rowA("From", e.from) : ""}
+      ${e.origin ? `<div><span>Website</span><b>${esc(host(e.origin))}</b></div>` : ""}
+      ${e.sig ? `<div><span>Transaction</span><b class="mono">${short(e.sig)} <button class="ib sm" data-act="copy" data-v="${esc(e.sig)}" aria-label="Copy">${I.copy}</button></b></div>` : ""}
+    </div>
+    ${who && !whoName && N.fam ? `<div class="book-save txd-save"><input data-bookname placeholder="Save this address as a contact" maxlength="24" autocomplete="off"/><button class="btn sm" data-act="txd-save" data-a="${esc(who)}" data-f="${N.fam}">Save</button></div>` : ""}
+    ${e.sig ? `<div class="pfoot"><a class="btn xl" href="${N.explorer("tx", e.sig)}" target="_blank">${I.ext}View on the explorer</a></div>` : ""}`;
+}
+
+// ------------------------------------------------------------------ contacts
+const FAM_NAME = { sol: "Solana", evm: "Ethereum-style", tron: "Tron" };
+const famOfAddr = (a) => { a = String(a || "").trim(); if (/^0x[0-9a-fA-F]{40}$/.test(a)) return "evm"; if (/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(a)) return "tron"; try { new web3.PublicKey(a); return a.length >= 32 ? "sol" : null; } catch (_) { return null; } };
+function contactsView() {
+  const P = S.panel, all = Object.entries(S.book || {}).flatMap(([f, m]) => Object.entries(m || {}).map(([a, n]) => ({ f, a, n }))).sort((x, y) => x.n.localeCompare(y.n));
+  return `${phead("Contacts")}
+    <div class="ct-add"><input data-ctname placeholder="Name" maxlength="24" value="${esc(P.n || "")}"/><input data-ctaddr placeholder="Address (Solana, 0x… or T…)" value="${esc(P.a || "")}" spellcheck="false" autocomplete="off"/><button class="btn primary" data-act="ct-add">${I.plus}Add contact</button></div>
+    <section class="list">${all.length ? all.map((c) => `<div class="arow ct">${acctIc({ name: c.n, c: [...c.a].reduce((h, ch) => h + ch.charCodeAt(0), 0) })}<span class="ar-t"><b>${esc(c.n)}</b><small class="mono">${short(c.a)} · ${FAM_NAME[c.f] || c.f}</small></span>
+      <button class="ib sm" data-act="copy" data-v="${esc(c.a)}" aria-label="Copy">${I.copy}</button><button class="ib sm" data-act="ct-del" data-f="${c.f}" data-a="${esc(c.a)}" aria-label="Delete ${esc(c.n)}">${I.x}</button></div>`).join("")
+      : `<div class="empty">${I.recv}<b>No contacts yet</b><span>Save people and places you send to often. You can also save an address after you send to it.</span></div>`}</section>
+    <p class="fine pad">Contacts stay on this device. Sending to a contact still shows the full address to check.</p>`;
+}
+
+// ------------------------------------------------------------------ export a private key
+function pkeyView() {
+  const P = S.panel, A0 = curAcct();
+  if (!P.keys) return `${phead("Private key")}<form class="stack pad" data-form="pkey"><div class="note warn">${I.warn}<span>A private key gives full control of <b>${esc(A0.name)}</b>. Anyone who sees it can take everything in its Wallet. Never paste it on a website or give it to anyone, including "support".</span></div>
+    <label class="fld"><span>Password</span><input name="pw" type="password" autofocus required/></label><p class="err" data-err></p><button class="btn primary xl">Show private key</button></form>`;
+  return `${phead("Private key")}<p class="sub pad">For <b>${esc(A0.name)}</b>. Import it only into a wallet you trust.</p>
+    ${P.keys.map(([label, k]) => `<div class="ad-card pk"><header class="ad-h"><span><b>${label}</b></span><button class="ib sm" data-act="copy" data-v="${esc(k)}" aria-label="Copy">${I.copy}</button></header><div class="ad-a mono" data-notr>${esc(k)}</div></div>`).join("")}
+    <p class="fine pad">Your Safe can't be emptied with this key alone in a hurry: its delay still applies.</p>`;
+}
+
 function activityList() {
   const list = S.activity || [];
   if (!list.length) return `<section class="list"><div class="empty art">${emptyArt("act")}<b>Nothing here yet</b><span>Sends, receives, Safe moves and website approvals show up here.</span><button class="btn sm primary" data-act="panel" data-p="receive">Receive your first coins</button></div></section>`;
@@ -1013,7 +1058,7 @@ function closePanel() { const el = $("#panel"); el.classList.remove("in"); docum
 function renderPanel(enter = false) {
   const el = $("#panel"), P = S.panel;
   if (!P) return;
-  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, report: reportHTML, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
+  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, report: reportHTML, txd: txdView, contacts: contactsView, pkey: pkeyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
   if (enter || P.fresh) P.openedAt = performance.now();
   const since = P.openedAt ? performance.now() - P.openedAt : 9999;
   el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}${since < 1300 ? " trace" : ""}" style="--tt:${-Math.round(since)}ms">${body}</div>`; translate(el, S.lang);
@@ -1056,7 +1101,7 @@ function sendView() {
           <div><dt>From</dt><dd>Wallet · ${short(e.address)}</dd></div>
           <div><dt>To</dt><dd class="mono">${esc(P.to.trim())}</dd></div>
           <div><dt>Network</dt><dd>${NETS[S.net].name} ${NETS[S.net].net}</dd></div>
-          <div><dt>Network fee</dt><dd>${e.feeText()}</dd></div>
+          <div><dt>Network fee</dt><dd>${NETS[S.net].fam === "evm" ? `<span class="seg fee-seg">${[["slow", "Slow"], ["normal", "Normal"], ["fast", "Fast"]].map(([k, l]) => `<button data-act="speed" data-v="${k}" aria-pressed="${(P.speed || "normal") === k}">${l}</button>`).join("")}</span>` : e.feeText()}</dd></div>
         </dl>
         ${self ? `<p class="warn-n">That's your own address.</p>` : P.fresh ? `<p class="warn-n">${I.shield}<span>You've never sent to this address from Ecrin. Check the first and last characters against where you copied it.</span></p>` : ""}
       </div>
@@ -1067,7 +1112,7 @@ function sendView() {
   return `${phead("Send")}
     ${fromRow()}${assetPick()}
     ${amountBlock(sendMax(), "Wallet")}
-    <label class="fld to"><span>To</span><div class="in-btn"><input data-to placeholder="${addrHint(NETS[S.net])}" value="${esc(P.to)}" spellcheck="false" autocomplete="off"/><button type="button" class="ib sm" data-act="paste" aria-label="Paste">${I.paste}</button></div></label>
+    <label class="fld to"><span>To</span><div class="in-btn"><input data-to placeholder="${addrHint(NETS[S.net])}" value="${esc(P.to)}" spellcheck="false" autocomplete="off"/><button type="button" class="ib sm" data-act="paste" aria-label="Paste">${I.paste}</button>${globalThis.ECRIN_WEB && navigator.mediaDevices?.getUserMedia ? `<button type="button" class="ib sm" data-act="scan" aria-label="Scan a QR code">${I.qr}</button>` : ""}</div></label>
     ${P.to && !e.isAddress(P.to) ? `<p class="err">That isn't a ${NETS[S.net].name} address.</p>` : ""}
     ${bookName(P.to.trim()) ? `<p class="book-to">${I.check}Sending to <b>${esc(bookName(P.to.trim()))}</b></p>` : ""}
     ${bookList().length ? `<div class="book">${bookList().map(([a, n]) => `<button class="${P.to.trim() === a ? "on" : ""}" data-act="book-pick" data-a="${esc(a)}"><i>${esc(n.slice(0, 1).toUpperCase())}</i>${esc(n)}</button>`).join("")}</div>` : ""}
@@ -1331,6 +1376,7 @@ function settingsView() {
     ${sec("Security", `
       ${row("panel", I.shield, "Safety: limits, auto-protect, freeze", I.arrow, 'data-p="safety"')}
       ${row("panel", I.key, "Recovery phrase", I.arrow, 'data-p="reveal"')}
+      ${row("panel", I.key, "Export private key", I.arrow, 'data-p="pkey"')}
       ${globalThis.ECRIN_WEB && bioPossible() ? row("bio-toggle", I.face, bioName() === "Face ID" ? "Face ID" : "Biometric unlock", `${onOff(S.bio)} ${I.arrow}`) : ""}
       <div class="srow"><span>${I.clock}Auto-lock</span><span class="seg">${[0, 1, 5, 15, 60].map((m) => `<button data-act="autolock" data-v="${m}" aria-pressed="${S.autolock === m}">${m === 0 ? "Off" : m < 60 ? m + "m" : "1h"}</button>`).join("")}</span></div>
       ${row("perms", I.ban, "Token permissions")}
@@ -1341,6 +1387,9 @@ function settingsView() {
       <div class="srow"><span>${I.globe}Language</span><span class="seg">${LANGS.map(([k, l]) => `<button data-act="lang" data-v="${k}" aria-pressed="${S.lang === k}">${l}</button>`).join("")}</span></div>
       <div class="srow"><span>${S.theme === "dark" ? I.moon : I.sun}Appearance</span><span class="seg">${["light", "dark"].map((t) => `<button data-act="theme" data-v="${t}" aria-pressed="${S.theme === t}">${t === "light" ? "Light" : "Dark"}</button>`).join("")}</span></div>
       ${row("panel", '<b class="nf-ico">1.2</b>', "Numbers", `${NUM_FACES.find(([k]) => k === S.nums.face)[1]} ${I.arrow}`, 'data-p="numbers"')}`)}
+    ${sec("Wallet", `
+      ${row("panel", I.recv, "Contacts", `${Object.values(S.book || {}).reduce((t, m) => t + Object.keys(m || {}).length, 0) || ""} ${I.arrow}`, 'data-p="contacts"')}
+      ${row("report", I.spark, "Monthly report")}`)}
     ${sec("Home screen", `
       ${row("tog", I.recv, "Notify when I receive coins", onOff(S.recvNotify !== false), 'data-k="recvNotify"')}
       ${row("tog", I.img, "Show collectibles (NFTs)", onOff(S.showNfts), 'data-k="showNfts"')}
@@ -1406,6 +1455,33 @@ async function useNet(n) {
 
 async function saveAccts() { await local.set({ accts: S.accts }); }
 const actions = {
+  speed: (el) => { S.panel.speed = el.dataset.v; renderPanel(); },
+  scan: async () => {
+    // Phone app: read an address from a QR code with the camera. Nothing leaves the phone.
+    const ov = document.createElement("div"); ov.className = "scan-ov"; ov.innerHTML = `<video playsinline muted></video><div class="scan-box"></div><p>Point at a QR code</p><button class="btn">Cancel</button>`; document.body.append(ov);
+    let stream, raf, stop = () => { cancelAnimationFrame(raf); stream?.getTracks().forEach((t) => t.stop()); ov.remove(); };
+    ov.querySelector("button").onclick = stop;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      const v = ov.querySelector("video"); v.srcObject = stream; await v.play();
+      const { default: jsQR } = await import("jsqr"), c = document.createElement("canvas"), x = c.getContext("2d", { willReadFrequently: true });
+      const tick = () => {
+        if (v.videoWidth) { c.width = v.videoWidth; c.height = v.videoHeight; x.drawImage(v, 0, 0); const r = jsQR(x.getImageData(0, 0, c.width, c.height).data, c.width, c.height);
+          if (r?.data) { const a = r.data.replace(/^(solana|ethereum|tron):/i, "").split(/[?@]/)[0].trim(); stop(); S.panel.to = a; navigator.vibrate?.(10); renderPanel(); return; } }
+        raf = requestAnimationFrame(tick);
+      };
+      tick();
+    } catch (_) { stop(); toast("Allow the camera to scan a QR code.", "err"); }
+  },
+  txd: (el) => openPanel("txd", { i: Number(el.dataset.i) }),
+  "txd-save": async (el) => { const n = ($("#panel [data-bookname]")?.value || "").trim(); if (!n) return toast("Give the contact a name.", "err"); const f = el.dataset.f; S.book[f] = { ...(S.book[f] || {}), [el.dataset.a]: n }; await local.set({ book: S.book }); toast(`Saved as ${n}`, "win"); renderPanel(); },
+  "ct-add": async () => {
+    const n = ($("[data-ctname]")?.value || "").trim(), a = ($("[data-ctaddr]")?.value || "").trim(), f = famOfAddr(a);
+    S.panel.n = n; S.panel.a = a;
+    if (!n) return toast("Give the contact a name.", "err"); if (!f) return toast("That isn't a Solana, Ethereum or Tron address.", "err");
+    S.book[f] = { ...(S.book[f] || {}), [a]: n }; await local.set({ book: S.book }); S.panel.n = S.panel.a = ""; toast(`${n} added`, "win"); renderPanel();
+  },
+  "ct-del": async (el) => { const f = el.dataset.f, a = el.dataset.a, n = S.book?.[f]?.[a]; if (!confirm(`Delete ${n}?`)) return; delete S.book[f][a]; await local.set({ book: S.book }); renderPanel(); },
   report: async () => { S.stats = (await local.get("stats")).stats || {}; await loadActivity(); openPanel("report", { month: monthKey() }); },
   "rp-m": (el) => { if (!el.dataset.v) return; S.panel.month = el.dataset.v; renderPanel(); },
   "reveal-bio": async () => { try { const words = await bioUnlock(S.bio); S.panel.words = normalize(words); renderPanel(); } catch (e) { toast(`${bioName()} didn't work. Use your password.`, "err"); } },
@@ -1714,7 +1790,7 @@ async function confirmSend() {
   const P = S.panel, units = parseAmt(P.amount, P.asset), to = P.to.trim();
   P.sent = units;
   const lim = await limitCheck(usdOf(units, P.asset)); if (lim) { P.step = "form"; renderPanel(); return toast(lim, "err"); }
-  await txRun(async () => (await eng()).send(P.asset, to, units), async () => { await rememberDest(to); await countSpend(usdOf(units, P.asset)); }, { t: "send", a: P.asset, n: units, to });
+  await txRun(async () => (await eng()).send(P.asset, to, units, { speed: P.speed }), async () => { await rememberDest(to); await countSpend(usdOf(units, P.asset)); }, { t: "send", a: P.asset, n: units, to });
 }
 
 document.addEventListener("click", (e) => {
@@ -1764,6 +1840,17 @@ document.addEventListener("submit", async (e) => {
     S.busy = true; render();
     try { const { box } = await local.get("box"); const phrase = await open(box, d.pw); await session.set({ phrase }); await useAccount(phrase); await touch(); S.busy = false; AP.id ? startApproval() : home(); }
     catch (_) { S.busy = false; render(); const x = $("[data-err]"); if (x) x.textContent = "Wrong password"; $("#root form")?.classList.add("shake"); }
+    return;
+  }
+  if (kind === "pkey") {
+    try {
+      const { box } = await local.get("box"); await open(box, d.pw);
+      const A0 = curAcct(), keys = [];
+      if (ACCT.sol) keys.push(["Solana", b58(ACCT.sol.secretKey)]);
+      if (ACCT.evm) keys.push(["Ethereum-style networks", ACCT.evm.privateKey]);
+      if (ACCT.tron && !ACCT.only) keys.push(["Tron", ACCT.tron.privateKey.slice(2)]);
+      S.panel.keys = keys; renderPanel();
+    } catch (_) { err("Wrong password."); }
     return;
   }
   if (kind === "reveal") {

@@ -160,6 +160,12 @@ function evmEngine({ ethers, acct, N, dev }) {
   const GWEI = 1_000_000_000n;
   const done = async (t) => { const r = await t.wait(); if (!r || r.status !== 1) throw new Error("The transaction failed on-chain."); return t.hash; };
   const vt = client && E.usdc ? client.token(E.usdc) : null;
+  async function feeFor(speed) {
+    if (!speed || speed === "normal") return {};
+    const f = await provider.getFeeData(), m = speed === "fast" ? 150n : 85n;
+    if (f.maxFeePerGas) return { maxFeePerGas: (f.maxFeePerGas * m) / 100n, maxPriorityFeePerGas: ((f.maxPriorityFeePerGas || 0n) * m) / 100n };
+    return f.gasPrice ? { gasPrice: (f.gasPrice * m) / 100n } : {};
+  }
   async function gasUnits(limit) {
     const f = await provider.getFeeData();
     const price = f.maxFeePerGas || f.gasPrice || 0n;
@@ -182,9 +188,11 @@ function evmEngine({ ethers, acct, N, dev }) {
     },
     reserve: async (asset) => (asset === "native" ? gasUnits(21_000) : 0),
     feeText: () => "a little " + N.unit + " for gas",
-    async send(asset, to, amount) {
-      if (asset === "native") return done(await wallet.sendTransaction({ to: ethers.getAddress(to), value: BigInt(amount) * GWEI }));
-      return done(await usdc.transfer(ethers.getAddress(to), BigInt(amount)));
+    /** Slow, normal or fast: the network fee you offer (normal = the network's own suggestion). */
+    async send(asset, to, amount, opts = {}) {
+      const ov = await feeFor(opts.speed);
+      if (asset === "native") return done(await wallet.sendTransaction({ to: ethers.getAddress(to), value: BigInt(amount) * GWEI, ...ov }));
+      return done(await usdc.transfer(ethers.getAddress(to), BigInt(amount), ov));
     },
     /** ERC-20 tokens you added by address (Ethereum has no standard way to list every token an address holds). */
     async listTokens(list = []) {

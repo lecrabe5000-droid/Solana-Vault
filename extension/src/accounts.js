@@ -53,3 +53,4 @@ export function keysFor(entry, phrase, imported, { web3, ethers }) {
 }
 
 export const COLORS = ["#2f5bff", "#12b886", "#f59f00", "#e64980", "#7950f2", "#15aabf", "#fd7e14", "#82c91e"];
+export const b58 = (u8) => bs58.encode(u8);
