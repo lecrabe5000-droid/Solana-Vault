@@ -329,11 +329,11 @@ function setLit(x, y) {
     litRaf = 0; const L = lit(), d = document.querySelector(".lz defs"); if (d) d.innerHTML = litDefs(L);
   });
 }
-addEventListener("pointermove", (e) => { if (e.pointerType === "mouse" && S.screen === "home" && !S.panel) setLit((e.clientX / innerWidth) * 2 - 1, (e.clientY / innerHeight) * 2 - 1); }, { passive: true });
-addEventListener("deviceorientation", (e) => { if (e.gamma == null || S.screen !== "home") return; setLit(e.gamma / 30, (e.beta - 45) / 30); });
+addEventListener("pointermove", (e) => { if (e.pointerType === "mouse" && (S.screen === "home" || S.screen === "welcome") && !S.panel) setLit((e.clientX / innerWidth) * 2 - 1, (e.clientY / innerHeight) * 2 - 1); }, { passive: true });
+addEventListener("deviceorientation", (e) => { if (e.gamma == null || (S.screen !== "home" && S.screen !== "welcome")) return; setLit(e.gamma / 30, (e.beta - 45) / 30); });
 // iPhone asks once for motion access; we ask only when the lozenge itself is tapped.
 document.addEventListener("click", (e) => {
-  if (!e.target.closest?.(".lz-wrap") || S.motionAsked || typeof DeviceOrientationEvent?.requestPermission !== "function") return;
+  if (!e.target.closest?.(".lz-wrap, .onb-w") || S.motionAsked || typeof DeviceOrientationEvent?.requestPermission !== "function") return;
   S.motionAsked = true; DeviceOrientationEvent.requestPermission().catch(() => {});
 });
 
@@ -545,11 +545,27 @@ function goalView() {
     <div class="goal-l">${GOALS.map(([k, t, d, ic]) => `<button class="goal-o" data-act="goal" data-v="${k}"><span class="goal-ic">${I[ic]}</span><span><b>${t}</b><small>${d}</small></span>${I.arrow}</button>`).join("")}</div>
   </div>`;
 }
+/** The first thing you see: the Ecrin lozenge with an example balance, the coin rings spinning in, the Safe ring
+ *  beating, and the two halves of Ecrin explained in two pills. */
+function welcomeArt() {
+  const seg = (cls, len, off) => `<rect class="lz-seg ${cls}" x="38" y="38" width="144" height="144" rx="30" pathLength="100" style="stroke-dasharray:${len} ${100 - len};stroke-dashoffset:${-off};--o:${-off}"/>`;
+  return `<div class="wl">
+    <div class="lz-wrap wl-lz"><svg class="lz draw" style="--lt:0ms;--at:0ms" viewBox="0 0 220 220" aria-hidden="true"><defs>${litDefs(lit())}</defs>
+      <g transform="rotate(45 110 110)"><rect class="lz-base" x="38" y="38" width="144" height="144" rx="30"/>
+      ${seg("r0", 51, 0)}${seg("r1", 27, 52)}${seg("r2", 19, 80)}
+      <rect class="lz-base in" x="51" y="51" width="118" height="118" rx="24"/>
+      <rect class="lz-safe" x="51" y="51" width="118" height="118" rx="24" pathLength="100" style="stroke-dasharray:64 100"/>
+      <rect class="lz-sheen" x="38" y="38" width="144" height="144" rx="30"/><rect class="lz-sheen in" x="51" y="51" width="118" height="118" rx="24"/></g></svg>
+      <div class="lz-in"><span class="lbl">Net worth</span><div class="big">$12,480<span class="dec cents">.00</span></div></div>
+    </div>
+    <div class="wl-pills"><span class="wl-p">${I.card}<b>Wallet</b><small>spend now</small></span><span class="wl-p safe">${I.lock}<b>Safe</b><small>72 h to leave</small></span></div>
+  </div>`;
+}
 function welcome() {
   if (S.tour != null && S.tour < TOUR.length) return tourView();
   if (S.tour === TOUR.length && S.askGoal) return goalView();
-  return `<div class="onb">
-    <div class="onb-art">${miniVault()}</div>
+  return `<div class="onb onb-w"><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
+    <div class="onb-art">${welcomeArt()}</div>
     <div class="onb-copy"><h1>Ecrin Wallet</h1><p>A wallet for spending.<br/>A safe nobody can rush.</p></div>
     <div class="onb-acts">
       <button class="btn primary xl" data-act="start-create">Create a new wallet</button>

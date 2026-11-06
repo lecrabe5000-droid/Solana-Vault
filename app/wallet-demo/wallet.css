@@ -2150,3 +2150,15 @@ body.stacked #root, :root[data-theme] body.stacked #root { transform: translateX
 #tabbar button.on::after { bottom: 2px !important; }
 .recent .act-day, .recent .act-d, .recent > :not(.arow):not(button) { display: none; }
 .arow.act-row.recv { display: flex !important; justify-items: normal; gap: 12px; text-align: left; }
+/* welcome: the Ecrin lozenge instead of the flat card */
+.onb-art { display: grid; place-items: center; }
+.wl { display: grid; justify-items: center; gap: 14px; animation: done-in .6s ease both; }
+.wl-lz { width: 250px !important; height: 250px !important; margin: 0 !important; }
+.wl-lz .big { font-size: 28px !important; }
+.wl-lz .lz:not(.draw) .lz-safe, .wl-lz .lz .lz-safe { animation: lz-spin-r 2.1s cubic-bezier(.5, .05, .15, 1) .15s both, hb 4.2s ease-in-out 2.4s infinite; }
+.wl-pills { display: flex; gap: 8px; }
+.wl-p { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 999px; font-size: 12.5px; color: var(--ink);
+  background: rgba(140, 160, 255, .05); box-shadow: inset 0 0 0 1px var(--line-2); }
+.wl-p svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; } .wl-p small { color: var(--muted); font-size: 12px; }
+.wl-p.safe { background: rgba(79, 111, 255, .12); box-shadow: inset 0 0 0 1px rgba(127, 149, 255, .4); } .wl-p.safe svg, .wl-p.safe b { color: var(--ecrin-soft, #7f95ff); }
+.onb-w { position: relative; isolation: isolate; }
