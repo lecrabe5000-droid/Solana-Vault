@@ -567,7 +567,7 @@ function homeView() {
   const N = NETS[S.net], e = ENG, w = worth(), loading = !w.ready;
   const pct = w.total ? Math.round((w.sav / w.total) * 100) : 0;
   const addr = e?.address || "";
-  return `<div class="home">
+  return `<div class="home"><div class="aura" aria-hidden="true"><i class="a1"></i><i class="a2"></i><i class="a3"></i><i class="a4"></i></div>
     <header class="top">
       <button class="acct" data-act="panel" data-p="accts" title="Your accounts">${acctIc(curAcct())}<span class="acct-n">${esc(curAcct().name)}</span><span class="top-total">${loading ? "" : mask(money(w.total))}</span><span class="acct-a">${short(addr)}${I.chev}</span></button>
       <div class="top-r">
@@ -607,9 +607,9 @@ function homeView() {
     <div class="tab-body">${S.tab === "activity" ? activityList() : S.tab === "nfts" && S.showNfts ? nftGrid() : tokenList(w)}</div>
     <footer class="foot">${w.all ? "Every network" : "Reading every network…"} · testnet beta</footer>
     <nav class="tabbar" aria-label="Main">
-      <button class="on" data-act="tb-home" aria-current="page"><span>${I.card}</span>Wallet</button>
-      <button data-act="panel" data-p="swap"><span>${I.swap}</span>Swap</button>
-      <button data-act="panel" data-p="vault"><span>${I.lock}</span>Safe</button>
+      <button class="on" data-act="tb-home" aria-current="page" aria-label="Wallet"><span>${I.card}</span></button>
+      <button data-act="panel" data-p="swap" aria-label="Swap"><span>${I.swap}</span></button>
+      <button data-act="panel" data-p="vault" aria-label="Safe"><span>${I.lock}</span></button>
     </nav>
   </div>`;
 }
@@ -626,9 +626,11 @@ function lozShares(w) {
 function lozenge(w, loading) {
   const sh = loading ? [] : lozShares(w), safe = !loading && w.total ? w.sav / w.total : 0, G = sh.length > 1 ? 0.9 : 0;
   let at = 0;
-  const segs = sh.map(({ u, f }) => { const len = Math.max(0.6, f * 100 - G); const d = `<rect class="lz-seg" x="38" y="38" width="144" height="144" rx="30" pathLength="100" style="stroke:${COIN_COL[u] || "#9aa0b4"};stroke-dasharray:${len.toFixed(2)} ${(100 - len).toFixed(2)};stroke-dashoffset:${(-at).toFixed(2)}"/>`; at += f * 100; return d; }).join("");
-  const draw = !S.lzDrawn && !loading; if (draw) S.lzDrawn = true;
-  return `<svg class="lz${draw ? " draw" : ""}" viewBox="0 0 220 220" aria-hidden="true"><g transform="rotate(45 110 110)">
+  const segs = sh.map(({ u, f }) => { const len = Math.max(0.6, f * 100 - G); const d = `<rect class="lz-seg" x="38" y="38" width="144" height="144" rx="30" pathLength="100" style="stroke:${COIN_COL[u] || "#9aa0b4"};stroke-dasharray:${len.toFixed(2)} ${(100 - len).toFixed(2)};stroke-dashoffset:${(-at).toFixed(2)};--o:${(-at).toFixed(2)}"/>`; at += f * 100; return d; }).join("");
+  // The opening spin lasts 2.2s; a re-render in that time picks the animation up where it was, so it never restarts or cuts.
+  if (!loading && !S.lzT0) S.lzT0 = performance.now();
+  const el = S.lzT0 ? performance.now() - S.lzT0 : 1e9, draw = el < 2300;
+  return `<svg class="lz${draw ? " draw" : ""}" style="--lt:${-Math.round(el)}ms" viewBox="0 0 220 220" aria-hidden="true"><g transform="rotate(45 110 110)">
     <rect class="lz-base" x="38" y="38" width="144" height="144" rx="30"/>${segs}
     <rect class="lz-base in" x="51" y="51" width="118" height="118" rx="24"/>
     <rect class="lz-safe" x="51" y="51" width="118" height="118" rx="24" pathLength="100" style="stroke-dasharray:${(safe * 100).toFixed(2)} 100"/></g></svg>`;
@@ -636,7 +638,9 @@ function lozenge(w, loading) {
 function lozLegend(w, loading) {
   if (loading || !w.total) return "";
   const sh = lozShares(w).slice(0, 4), safe = Math.round((w.sav / w.total) * 100);
-  return `<div class="lz-leg">${sh.map(({ u, f }) => `<span><i style="background:${COIN_COL[u] || "#9aa0b4"}"></i>${u} ${Math.round(f * 100)}%</span>`).join("")}<span class="lz-s">${I.lock}Safe ${safe}%</span></div>`;
+  const LK = { SOL: "sol", ETH: "eth", USDC: "usdc", USDT: "usdt", BNB: "bnb", AVAX: "avax", TRX: "tron", POL: "pol" };
+  const pill = (cls, col, ic, name, pct) => `<span class="lp ${cls}" style="--pc:${col};--pf:${pct}%">${ic}<b>${name}</b><em>${pct}%</em><i class="lp-bar"></i></span>`;
+  return `<div class="lz-leg">${sh.map(({ u, f }) => pill("", COIN_COL[u] || "#9aa0b4", LK[u] ? coin(LK[u], "lp-c") : `<i class="lp-d"></i>`, u, Math.round(f * 100))).join("")}${pill("lz-s", "#5b7cff", `<span class="lp-lock">${I.lock}</span>`, "Safe", safe)}</div>`;
 }
 
 /** Every coin you hold on every network, biggest first. Tapping one opens Send on its network. */

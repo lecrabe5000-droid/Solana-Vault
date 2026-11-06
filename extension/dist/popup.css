@@ -1426,3 +1426,83 @@ body.stacked .tabbar { opacity: 0; pointer-events: none; transition: opacity .2s
 .lz-chg:active .delta { transform: scale(.96); } .lz-chg .delta { transition: transform .15s; }
 .tabbar { gap: 10px; } .tabbar button { width: 68px; padding: 9px 0 7px; border-radius: 18px; font-size: 10.5px; }
 .tabbar svg { width: 19px; height: 19px; }
+/* 0.3.6: a vivid Ecrin glow behind home (the old hero glow was switched off by an earlier rule) */
+.home { position: relative; isolation: isolate; }
+.aura { position: absolute; left: 0; right: 0; top: 0; height: 980px; z-index: -1; pointer-events: none; overflow: hidden;
+  -webkit-mask-image: linear-gradient(#000 55%, transparent); mask-image: linear-gradient(#000 55%, transparent); }
+.aura i { position: absolute; border-radius: 50%; will-change: opacity, transform; }
+.aura .a1 { left: 50%; top: 40px; width: 520px; height: 520px; margin-left: -260px; background: radial-gradient(closest-side, rgba(47, 91, 255, .62), rgba(47, 91, 255, .18) 55%, transparent); animation: au-a 11s ease-in-out infinite; }
+.aura .a2 { left: -170px; top: -90px; width: 440px; height: 440px; background: radial-gradient(closest-side, rgba(122, 77, 255, .55), transparent); animation: au-b 14s ease-in-out infinite; }
+.aura .a3 { right: -180px; top: 170px; width: 420px; height: 420px; background: radial-gradient(closest-side, rgba(0, 194, 255, .38), transparent); animation: au-b 16s ease-in-out -5s infinite; }
+.aura .a4 { left: 10%; top: 460px; width: 380px; height: 380px; background: radial-gradient(closest-side, rgba(214, 51, 255, .22), transparent); animation: au-a 18s ease-in-out -7s infinite; }
+@keyframes au-a { 0%, 100% { opacity: .85; transform: scale(1); } 50% { opacity: 1; transform: scale(1.08); } }
+@keyframes au-b { 0%, 100% { opacity: .7; } 50% { opacity: 1; } }
+:root[data-theme="light"] .aura { opacity: .45; }
+.home .top { background: transparent; }
+@media (prefers-reduced-motion: reduce) { .aura i { animation: none; } }
+:root[data-theme] .home .top { background: transparent; transition: background .25s; }
+:root[data-theme] #root.scrolled .home .top { background: color-mix(in srgb, var(--bg) 78%, transparent); backdrop-filter: blur(18px) saturate(1.3); -webkit-backdrop-filter: blur(18px) saturate(1.3); }
+/* coin pills under the lozenge: logo, name, share, and a thin bar of that share in the coin's colour */
+.lz-leg { gap: 8px; margin: 6px 0 10px; }
+.lz-leg .lp { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px 0 5px; overflow: hidden; border-radius: 999px;
+  color: var(--ink); font-size: 12.5px; background: color-mix(in srgb, var(--pc) 14%, rgba(16, 17, 26, .55)); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pc) 34%, transparent), 0 8px 20px -12px color-mix(in srgb, var(--pc) 80%, transparent); }
+.lz-leg .lp b { font-weight: 600; } .lz-leg .lp em { font-style: normal; font-family: var(--num); font-weight: 600; color: color-mix(in srgb, var(--pc) 45%, #fff); }
+.lz-leg .lp .coin.lp-c { width: 22px; height: 22px; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .12); }
+.lz-leg .lp-d { width: 22px; height: 22px; border-radius: 50%; background: var(--pc); transform: none; }
+.lz-leg .lp-lock { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--eb); color: #fff; }
+.lz-leg .lp-lock svg { width: 12px; height: 12px; stroke: #fff; }
+.lz-leg .lp-bar { position: absolute; left: 0; bottom: 0; width: var(--pf); height: 2px; border-radius: 2px; background: var(--pc); transform: none; transform-origin: 0 50%; animation: lp-grow 1s cubic-bezier(.3, .1, .1, 1) both .3s; }
+@keyframes lp-grow { from { transform: scaleX(0); } }
+.lz-leg .lz-s { color: var(--ink); } .lz-leg .lz-s em { color: #9fb2ff; }
+:root[data-theme="light"] .lz-leg .lp { background: color-mix(in srgb, var(--pc) 10%, #fff); } :root[data-theme="light"] .lz-leg .lp em { color: color-mix(in srgb, var(--pc) 80%, #000); }
+@media (prefers-reduced-motion: reduce) { .lz-leg .lp-bar { animation: none; } }
+/* ---- 0.3.6: one glass pill language across home ---- */
+.home { --glass: rgba(18, 20, 32, .5); --glass-hi: rgba(255, 255, 255, .09); }
+:root[data-theme="light"] .home { --glass: rgba(255, 255, 255, .72); --glass-hi: rgba(0, 0, 0, .07); }
+.home .glassy, .home .acct-a, .lz-chg .delta, .home .acard, .home .acts button span, .home .tabs, .home .tab-body .arow, .home .add-tok, .tabbar button:not(.on) {
+  background: var(--glass) !important; backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 0 0 1px var(--glass-hi) !important; }
+/* address pill: network dot, monospace, soft */
+.home .acct-a { padding: 6px 10px 6px 12px !important; border-radius: 999px; gap: 6px; font-size: 12px; }
+/* the change pill: tinted by direction, arrow, period as its own little segment */
+.lz-chg .delta { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 5px 0 13px !important; border-radius: 999px; font-weight: 600; }
+.lz-chg .delta.up { color: #8fe3b4; background: color-mix(in srgb, #1fbf75 16%, rgba(18, 20, 32, .5)) !important; box-shadow: inset 0 0 0 1px rgba(31, 191, 117, .3) !important; }
+.lz-chg .delta.dn { color: #ff9c9c; background: color-mix(in srgb, #ff5a5a 14%, rgba(18, 20, 32, .5)) !important; box-shadow: inset 0 0 0 1px rgba(255, 90, 90, .28) !important; }
+.lz-chg .delta.up::before { content: "▲"; font-size: 9px; } .lz-chg .delta.dn::before { content: "▼"; font-size: 9px; }
+.lz-chg .delta .dp { opacity: .8; }
+.lz-chg .delta .dl { display: grid; place-items: center; height: 22px; min-width: 30px; margin: 0; padding: 0 8px; border: 0 !important; border-radius: 999px; background: rgba(255, 255, 255, .1); color: var(--ink); font-size: 11px; letter-spacing: .04em; }
+.lz-chg .delta .dl::before { display: none !important; }
+:root[data-theme="light"] .lz-chg .delta.up { color: #11804d; } :root[data-theme="light"] .lz-chg .delta.dn { color: #c43a3a; } :root[data-theme="light"] .lz-chg .delta .dl { background: rgba(0, 0, 0, .07); }
+/* Wallet and Safe cards: glass, the Safe one lit in Ecrin blue */
+.home .acard { border-radius: 22px !important; border: 0 !important; }
+.home .acard.sav { background: linear-gradient(150deg, color-mix(in srgb, var(--eb) 30%, rgba(18, 20, 32, .5)), rgba(18, 20, 32, .5) 70%) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 0 0 1px color-mix(in srgb, var(--eb) 45%, transparent), 0 18px 40px -22px var(--eb) !important; }
+/* round actions: glass, the first stays solid Ecrin blue */
+.home .acts button span { border: 0 !important; }
+.home .acts button:first-child span { background: var(--eb) !important; color: #fff; box-shadow: 0 10px 26px -10px var(--eb), inset 0 1px 0 rgba(255, 255, 255, .25) !important; }
+/* Tokens / Activity as a segmented pill */
+.home .tabs { display: grid !important; grid-auto-flow: column; grid-auto-columns: 1fr; position: relative; padding: 4px; margin: 14px 0 12px; border: 0 !important; border-radius: 999px; }
+.home .tabs button { position: relative; z-index: 1; height: 36px; border-radius: 999px; font-size: 13px; letter-spacing: .02em; text-transform: none; }
+.home .tabs button[aria-selected="true"] { color: #fff; }
+.home .tabs .tab-ind { top: 4px; bottom: 4px; height: auto !important; left: 4px; width: calc((100% - 8px) / 2) !important; border-radius: 999px; background: var(--eb) !important; box-shadow: 0 8px 20px -10px var(--eb);
+  transform: translateX(calc(var(--i) * 100%)) !important; transition: transform .35s cubic-bezier(.2, .8, .2, 1); }
+.home .tabs.t3 .tab-ind { width: calc((100% - 8px) / 3) !important; }
+/* token rows and Add a token as glass tiles */
+.home .tab-body .arow { border-radius: 20px !important; }
+.home .add-tok { border: 0 !important; border-radius: 18px; }
+/* row change badges: tinted pills */
+.home .tab-body .arow small .up { color: #8fe3b4; background: rgba(31, 191, 117, .14); } .home .tab-body .arow small .dn { color: #ff9c9c; background: rgba(255, 90, 90, .12); }
+:root[data-theme="light"] .home .tab-body .arow small .up { color: #11804d; } :root[data-theme="light"] .home .tab-body .arow small .dn { color: #c43a3a; }
+/* icon-only floating buttons */
+.tabbar { gap: 14px; } .tabbar button { width: 58px; height: 58px; padding: 0; place-items: center; border-radius: 50%; }
+.tabbar svg { width: 23px; height: 23px; }
+/* opening the app: the coin rings sweep around the lozenge and settle; the Safe ring turns the other way */
+.lz.draw .lz-seg { animation: lz-spin 2s cubic-bezier(.16, .8, .14, 1) both; }
+.lz.draw .lz-safe { animation: lz-spin-r 2s cubic-bezier(.16, .8, .14, 1) .15s both; }
+@keyframes lz-spin { from { stroke-dashoffset: calc(var(--o, 0) + 200); opacity: 0; } 12% { opacity: 1; } to { stroke-dashoffset: var(--o, 0); } }
+@keyframes lz-spin-r { from { stroke-dashoffset: -200; opacity: 0; } 12% { opacity: 1; } to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { .lz.draw .lz-seg, .lz.draw .lz-safe { animation: none; } }
+.tabbar button { width: 54px; height: 54px; } .tabbar svg { width: 22px; height: 22px; }
+.lz.draw .lz-seg { animation-delay: var(--lt, 0ms); } .lz.draw .lz-safe { animation-delay: calc(var(--lt, 0ms) + 150ms); }
+.lz.draw .lz-seg, .lz.draw .lz-safe { animation-duration: 2.1s; animation-timing-function: cubic-bezier(.5, .05, .15, 1); }
