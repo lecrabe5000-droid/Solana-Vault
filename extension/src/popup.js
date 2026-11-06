@@ -577,9 +577,14 @@ function homeView() {
     ${S.err ? `<div class="banner">${esc(S.err)}</div>` : ""}
     ${updateBanner()}${backupCard()}
     <section class="hero"><svg class="hero-g" viewBox="0 0 360 230" preserveAspectRatio="xMidYMin slice" aria-hidden="true">${Array.from({ length: 30 }, (_, i) => `<ellipse cx="${180 + Math.sin(i / 2.6) * 6}" cy="${-10 + Math.cos(i / 2.6) * 4}" rx="${40 + i * 9}" ry="${22 + i * 6.2}"/>`).join("")}</svg>
-      <div class="hero-l"><span class="lbl">Net worth</span><button class="eye" data-act="hide" aria-label="${S.hide ? "Show" : "Hide"} balances">${S.hide ? I.eyeOff : I.eye}</button></div>
-      <div class="big ${loading ? "sk" : ""}">${loading ? "&nbsp;" : mask(fig(money(w.total)))}</div>
-      <div class="hero-sub">${chip()}</div>
+      <div class="lz-wrap">${lozenge(w, loading)}
+        <div class="lz-in">
+          <div class="hero-l"><span class="lbl">Net worth</span><button class="eye" data-act="hide" aria-label="${S.hide ? "Show" : "Hide"} balances">${S.hide ? I.eyeOff : I.eye}</button></div>
+          <div class="big ${loading ? "sk" : ""}">${loading ? "&nbsp;" : mask(fig(money(w.total)))}</div>
+          <div class="hero-sub">${chip()}</div>
+        </div>
+      </div>
+      ${lozLegend(w, loading)}
       ${chartView()}
     </section>
     <section class="accts">
@@ -604,6 +609,31 @@ function homeView() {
     <div class="tab-body">${S.tab === "activity" ? activityList() : S.tab === "nfts" && S.showNfts ? nftGrid() : tokenList(w)}</div>
     <footer class="foot">${w.all ? "Every network" : "Reading every network…"} · testnet beta</footer>
   </div>`;
+}
+
+// ------------------------------------------------------------------ the Ecrin lozenge
+// Your money as the Ecrin diamond: the outer edge is split by coin (each coin's share, in its colour); the inner edge
+// fills with Ecrin blue as more of it sits in your Safe. Thin lines, drawn once when you open the wallet.
+const COIN_COL = { SOL: "#9945FF", ETH: "#7d97ff", USDC: "#2775CA", USDT: "#26A17B", BNB: "#F0B90B", AVAX: "#E84142", TRX: "#FF3B3F", POL: "#8247E5" };
+function lozShares(w) {
+  const by = {}; for (const i of w.items) if (i.usd) by[i.unit] = (by[i.unit] || 0) + i.usd;
+  const tot = Object.values(by).reduce((a, b) => a + b, 0);
+  return tot ? Object.entries(by).sort((a, b) => b[1] - a[1]).map(([u, v]) => ({ u, f: v / tot })) : [];
+}
+function lozenge(w, loading) {
+  const sh = loading ? [] : lozShares(w), safe = !loading && w.total ? w.sav / w.total : 0, G = sh.length > 1 ? 0.9 : 0;
+  let at = 0;
+  const segs = sh.map(({ u, f }) => { const len = Math.max(0.6, f * 100 - G); const d = `<rect class="lz-seg" x="38" y="38" width="144" height="144" rx="30" pathLength="100" style="stroke:${COIN_COL[u] || "#9aa0b4"};stroke-dasharray:${len.toFixed(2)} ${(100 - len).toFixed(2)};stroke-dashoffset:${(-at).toFixed(2)}"/>`; at += f * 100; return d; }).join("");
+  const draw = !S.lzDrawn && !loading; if (draw) S.lzDrawn = true;
+  return `<svg class="lz${draw ? " draw" : ""}" viewBox="0 0 220 220" aria-hidden="true"><g transform="rotate(45 110 110)">
+    <rect class="lz-base" x="38" y="38" width="144" height="144" rx="30"/>${segs}
+    <rect class="lz-base in" x="51" y="51" width="118" height="118" rx="24"/>
+    <rect class="lz-safe" x="51" y="51" width="118" height="118" rx="24" pathLength="100" style="stroke-dasharray:${(safe * 100).toFixed(2)} 100"/></g></svg>`;
+}
+function lozLegend(w, loading) {
+  if (loading || !w.total) return "";
+  const sh = lozShares(w).slice(0, 4), safe = Math.round((w.sav / w.total) * 100);
+  return `<div class="lz-leg">${sh.map(({ u, f }) => `<span><i style="background:${COIN_COL[u] || "#9aa0b4"}"></i>${u} ${Math.round(f * 100)}%</span>`).join("")}<span class="lz-s">${I.lock}Safe ${safe}%</span></div>`;
 }
 
 /** Every coin you hold on every network, biggest first. Tapping one opens Send on its network. */

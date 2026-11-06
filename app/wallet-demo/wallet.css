@@ -1334,3 +1334,21 @@ button.act-row { width: 100%; border: 0; background: none; color: inherit; text-
 /* the total and the card amounts just show, no light or roll */
 .home .hero .big:not(.sk) { background: none !important; -webkit-text-fill-color: currentColor !important; animation: none !important; }
 .home .hero .big .dec { -webkit-text-fill-color: unset !important; }
+/* ---- the Ecrin lozenge at the top of home ---- */
+.lz-wrap { position: relative; display: grid; place-items: center; width: 276px; height: 276px; margin: -6px auto -6px; }
+.lz { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.lz rect { fill: none; vector-effect: non-scaling-stroke; }
+.lz-base { stroke: var(--line-2); stroke-width: 1; } .lz-base.in { stroke: color-mix(in srgb, var(--eb) 18%, transparent); }
+.lz-seg { stroke-width: 2.2; stroke-linecap: round; }
+.lz-safe { stroke: var(--eb); stroke-width: 2.2; stroke-linecap: round; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--eb) 55%, transparent)); }
+:root[data-theme="dark"] .lz-safe { stroke: #5b7cff; }
+.lz.draw .lz-seg, .lz.draw .lz-safe { animation: lz-in 1.4s cubic-bezier(.3, .1, .1, 1) both; }
+.lz.draw .lz-safe { animation-delay: .35s; }
+@keyframes lz-in { from { stroke-dasharray: 0 100; } }
+.lz-in { position: relative; display: grid; justify-items: center; gap: 2px; text-align: center; }
+.lz-in .big { font-size: 30px !important; } .lz-in .hero-l { margin: 0; } .lz-in .hero-sub { margin-top: 2px; }
+.lz-leg { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 12px; margin: 4px 0 6px; color: var(--muted); font-size: 11.5px; }
+.lz-leg span { display: inline-flex; align-items: center; gap: 5px; } .lz-leg i { width: 7px; height: 7px; border-radius: 2px; transform: rotate(45deg); }
+.lz-leg .lz-s { color: var(--eb); } :root[data-theme="dark"] .lz-leg .lz-s { color: #7f98ff; } .lz-leg svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; }
+@media (prefers-reduced-motion: reduce) { .lz.draw .lz-seg, .lz.draw .lz-safe { animation: none; } }
+.lz-in .hero-sub { font-size: 12px; } .lz-in .lbl { font-size: 10.5px; }
