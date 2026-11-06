@@ -2179,7 +2179,9 @@ body.stacked #root, :root[data-theme] body.stacked #root { transform: translateX
    it still paints the page's base colour, so the lowest part of every screen fades into that same colour. */
 html { background: #03040e !important; }
 :root[data-theme="dark"] body, :root[data-theme="dark"] .device, :root[data-theme="dark"] #root, :root[data-theme="dark"] #panel .pane { background: #03040e !important; }
-:root[data-theme="dark"] .aura, :root[data-theme="dark"] .sf-aura { -webkit-mask-image: linear-gradient(#000 62%, transparent 88%) !important; mask-image: linear-gradient(#000 62%, transparent 88%) !important; }
+/* The very top and bottom of every screen are the plain base colour (the same one iPhone paints in its status bar
+   and below the app), and the atmosphere fades in between, so there is no band in either status-bar mode. */
+:root[data-theme="dark"] .aura, :root[data-theme="dark"] .sf-aura { -webkit-mask-image: linear-gradient(transparent 0, transparent calc(env(safe-area-inset-top, 0px) + 10px), #000 calc(env(safe-area-inset-top, 0px) + 160px), #000 62%, transparent 88%) !important; mask-image: linear-gradient(transparent 0, transparent calc(env(safe-area-inset-top, 0px) + 10px), #000 calc(env(safe-area-inset-top, 0px) + 160px), #000 62%, transparent 88%) !important; }
 .home, #panel .pane, .lock, .onb, .flow { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important; }
 .pfoot { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
 .toast { bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important; }
