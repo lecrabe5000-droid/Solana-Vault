@@ -2219,3 +2219,102 @@ body.stacked #root, :root[data-theme] body.stacked #root { transform: translateX
 /* 0.7.2: each coin keeps its own colour in the lozenge, with a matching bubble by its name */
 :root[data-theme] .lz-seg, :root[data-theme] .lz-seg.r0, :root[data-theme] .lz-seg.r1, :root[data-theme] .lz-seg.r2, :root[data-theme] .lz-seg.r3 { stroke: var(--cc) !important; }
 .cdot { display: inline-block; width: 8px; height: 8px; margin: 0 7px 1px 0; border-radius: 50%; vertical-align: middle; background: var(--cc); box-shadow: 0 0 0 2px color-mix(in srgb, var(--cc) 22%, transparent), 0 0 8px color-mix(in srgb, var(--cc) 55%, transparent); }
+
+/* ===================== 0.8.0: the six visual items ===================== */
+/* empty states: the Ecrin lozenge, drawn once, with the subject inside */
+.eart2 { position: relative; display: grid; place-items: center; width: 96px; height: 96px; margin: 2px auto 8px; }
+.eart2 svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.eart2 rect { fill: none; vector-effect: non-scaling-stroke; }
+.eart2 .e-o { stroke: var(--ecrin-soft, #7d97ff); stroke-width: 1.6; stroke-dasharray: 100; stroke-dashoffset: 100; animation: e-draw 1.1s cubic-bezier(.4, 0, .2, 1) .1s forwards; }
+.eart2 .e-i { stroke: var(--line-2); stroke-width: 1; fill: color-mix(in srgb, var(--ecrin, #2f5bff) 7%, transparent); }
+.eart2 i { position: relative; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; color: var(--ecrin-soft, #7d97ff); }
+.eart2 svg + i svg, .eart2 i svg { position: static; width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+@keyframes e-draw { to { stroke-dashoffset: 0; } }
+.empty.art { padding: 26px 18px 22px !important; text-align: center; } .empty.art b { display: block; margin-bottom: 4px; font-size: 15px; } .empty.art span { color: var(--muted); font-size: 13px; line-height: 1.5; }
+.empty.art .btn { margin-top: 14px; }
+/* loading: a light runs around the lozenge until balances arrive; skeletons shimmer softly */
+.lz-wait { fill: none; stroke: var(--ecrin-soft, #7d97ff); stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 16 84; vector-effect: non-scaling-stroke; animation: lz-wait 1.6s linear infinite; opacity: .9; }
+.lz-wait.in { stroke-dasharray: 10 90; animation-duration: 2.2s; animation-direction: reverse; opacity: .5; }
+@keyframes lz-wait { to { stroke-dashoffset: -100; } }
+.sk::after { inset: 22% 18% 22% 18%; border-radius: 10px; background: linear-gradient(90deg, color-mix(in srgb, var(--ink) 6%, transparent), color-mix(in srgb, var(--ink) 13%, transparent), color-mix(in srgb, var(--ink) 6%, transparent)) !important; background-size: 200% 100% !important; }
+.home .tab-body .arow .sk { min-width: 60px; }
+/* activity: the coin's colour on the icon ring; Safe events in Ecrin blue with a small Safe tag */
+.act-row .act-ico { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--cc) 55%, transparent); color: var(--cc); }
+.act-row.safe-ev .act-ico { background: color-mix(in srgb, var(--ecrin, #2f5bff) 16%, transparent); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ecrin-soft, #7d97ff) 60%, transparent); color: var(--ecrin-soft, #7d97ff); }
+.sv-tag { display: inline-flex; align-items: center; gap: 3px; margin-right: 6px; padding: 0 6px; border-radius: 6px; font-style: normal; font-size: 10.5px; font-weight: 600; line-height: 16px; color: var(--ecrin-soft, #7d97ff); background: color-mix(in srgb, var(--ecrin, #2f5bff) 14%, transparent); }
+.sv-tag svg { width: 9px; height: 9px; fill: none; stroke: currentColor; stroke-width: 2.4; }
+.act-day { margin: 18px 4px 8px; color: var(--muted); font-size: 11.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.act-row .ar-r b.pos { color: var(--ink); } .act-row .ar-r b.neg { color: var(--muted); }
+/* older screens in the same language: rounded panels, icon tiles, roomy rows */
+.sets { border-radius: 20px !important; overflow: hidden; }
+.sets .srow { min-height: 54px; }
+.sets .srow > span:first-child { display: inline-flex; align-items: center; gap: 12px; }
+.sets .srow > span:first-child > svg, .sets .srow > span:first-child > .nf-ico { flex: none; box-sizing: border-box; width: 30px !important; height: 30px !important; padding: 7px; border-radius: 9px; background: color-mix(in srgb, var(--ecrin, #2f5bff) 12%, transparent); color: var(--ecrin-soft, #7d97ff); stroke: currentColor; }
+.sets .srow.danger > span:first-child { color: #e0a39b; }
+.set-h { margin: 22px 6px 8px !important; font-size: 11.5px !important; letter-spacing: .08em; }
+.set-acct { border-radius: 20px !important; }
+.sscore, .freeze-btn, .cool { border-radius: 20px !important; }
+/* coin page */
+.tk-about { color: var(--muted); font-size: 13.5px; line-height: 1.6; margin: 0 4px 24px; }
+.tk-page .tab-body .list { display: grid; gap: 6px; background: none !important; box-shadow: none !important; padding: 0; }
+.tk-page .tab-body .arow { min-height: 60px; padding: 10px 14px; border-radius: 18px; background: var(--s1); box-shadow: 0 0 0 1px var(--line); }
+
+/* ===================== light mode, in the website's light palette ===================== */
+:root[data-theme="light"] {
+  --bg: #f3f2ee; --s1: #ffffff; --s2: #f1f1ed; --s3: #e6e6e1; --ink: #101114; --muted: #8b8d93; --text: #45484f;
+  --line: rgba(16, 17, 20, .07); --line-2: rgba(16, 17, 20, .12); --ivory: #101114; --ivory-ink: #ffffff;
+  --ecrin: #2f5bff; --ecrin-soft: #2f5bff; --eb: #2f5bff; --acc: #101114; --acc-ink: #fff;
+}
+:root[data-theme="light"] body, :root[data-theme="light"] #root, :root[data-theme="light"] .device, :root[data-theme="light"] #panel .pane { background: #f3f2ee !important; }
+/* atmosphere: a faint Ecrin light on warm paper */
+:root[data-theme="light"] .aura, :root[data-theme="light"] .sf-aura { opacity: 1 !important; background: none !important; -webkit-mask-image: none !important; mask-image: none !important; }
+:root[data-theme="light"] .aura i, :root[data-theme="light"] .sf-aura i, :root[data-theme="light"] .aura::after, :root[data-theme="light"] .sf-aura::after { display: none !important; }
+:root[data-theme="light"] .aura::before, :root[data-theme="light"] .sf-aura::before { content: ""; position: absolute; inset: -20%; z-index: -1; filter: blur(18px);
+  background: radial-gradient(40% 26% at 74% 22%, rgba(47, 91, 255, .10), transparent 72%), radial-gradient(36% 24% at 18% 50%, rgba(125, 151, 255, .08), transparent 70%) !important;
+  animation: atmo 48s ease-in-out var(--at, 0ms) infinite alternate; }
+:root[data-theme="light"] .home::after { background: linear-gradient(to top, #f3f2ee 18%, rgba(243, 242, 238, .7) 55%, transparent) !important; }
+/* surfaces: white panels with a hairline, like the site */
+:root[data-theme="light"] .wsplit, :root[data-theme="light"] .rt, :root[data-theme="light"] .slide, :root[data-theme="light"] .mv-pcts button, :root[data-theme="light"] .shortcuts .sc,
+:root[data-theme="light"] .sf-tile, :root[data-theme="light"] .sf-net, :root[data-theme="light"] .sb-r, :root[data-theme="light"] .sb-empty, :root[data-theme="light"] .sx-card, :root[data-theme="light"] .sx-kv,
+:root[data-theme="light"] .home .tab-body .arow, :root[data-theme="light"] .tk-page .tab-body .arow, :root[data-theme="light"] .sets, :root[data-theme="light"] .set-acct, :root[data-theme="light"] .tk-bal, :root[data-theme="light"] .tk-stats > div,
+:root[data-theme="light"] .lz-leg .lp, :root[data-theme="light"] .home .acts button:not([data-p="protect"]), :root[data-theme="light"] .tk-acts button:not([data-p="protect"]), :root[data-theme="light"] .sf-go2 {
+  background: #ffffff !important; box-shadow: 0 0 0 1px rgba(16, 17, 20, .08), 0 6px 18px -14px rgba(16, 17, 20, .25) !important; color: var(--ink) !important; }
+:root[data-theme="light"] .t-lock, :root[data-theme="light"] .sx-card.to { background: color-mix(in srgb, #2f5bff 5%, #fff) !important; box-shadow: 0 0 0 1px rgba(47, 91, 255, .2) !important; }
+/* the main action is ink, like the site; Ecrin blue marks the Safe */
+:root[data-theme="light"] .btn.primary, :root[data-theme="light"] .sf-go, :root[data-theme="light"] .sx-go, :root[data-theme="light"] .home .acts button:first-child span { background: #101114 !important; color: #fff !important; box-shadow: 0 10px 22px -14px rgba(16, 17, 20, .6) !important; }
+:root[data-theme="light"] .sl-k, :root[data-theme="light"] .mv-pcts button.on, :root[data-theme="light"] .sx-pcts button.on, :root[data-theme="light"] .home .tabs .tab-ind { background: #101114 !important; color: #fff !important; }
+:root[data-theme="light"] .home .tabs button[aria-selected="true"]::after { background: #101114; }
+:root[data-theme="light"] #tabbar { background: rgba(255, 255, 255, .86) !important; box-shadow: inset 0 0 0 1px rgba(16, 17, 20, .07), 0 16px 34px -16px rgba(16, 17, 20, .35) !important; }
+:root[data-theme="light"] #tabbar button:not(.on) { color: rgba(16, 17, 20, .45) !important; }
+/* lozenge and split */
+:root[data-theme="light"] .lz-base { stroke: rgba(16, 17, 20, .1) !important; } :root[data-theme="light"] .lz-base.in { stroke: rgba(47, 91, 255, .16) !important; }
+:root[data-theme="light"] .lz-safe { stroke: #2f5bff !important; } :root[data-theme="light"] .lz .lz-sheen { opacity: .25; }
+:root[data-theme="light"] .lz-seg { filter: saturate(1.1) brightness(.9); }
+:root[data-theme="light"] .wsplit .sp-bar i { background: #2f5bff !important; } :root[data-theme="light"] .wsplit .sp-s span, :root[data-theme="light"] .arow .sv { color: #2f5bff !important; }
+:root[data-theme="light"] .home .big, :root[data-theme="light"] .lz-in .big { color: #101114 !important; }
+/* one accent: changes in ink and grey */
+:root[data-theme="light"] .up, :root[data-theme="light"] .dn, :root[data-theme="light"] .lz-chg .delta.up, :root[data-theme="light"] .lz-chg .delta.dn, :root[data-theme="light"] .home .tab-body .arow small .up, :root[data-theme="light"] .home .tab-body .arow small .dn { color: var(--muted) !important; background: none !important; }
+:root[data-theme="light"] .lz-chg .delta { color: #101114 !important; }
+/* the Shield on paper */
+:root[data-theme="light"] .sf-core { fill: rgba(47, 91, 255, .05) !important; stroke: rgba(47, 91, 255, .16) !important; }
+:root[data-theme="light"] .sf-base { stroke: rgba(16, 17, 20, .07) !important; } :root[data-theme="light"] .sf-tk { stroke: rgba(47, 91, 255, .35) !important; }
+:root[data-theme="light"] #sfg stop:nth-child(1) { stop-color: #9db0ff; } :root[data-theme="light"] #sfg stop:nth-child(2) { stop-color: #4b74ff; } :root[data-theme="light"] #sfg stop:nth-child(3) { stop-color: #2f5bff; }
+:root[data-theme="light"] .sf-arc { filter: none !important; } :root[data-theme="light"] .sf-tot { color: #101114 !important; text-shadow: none !important; } :root[data-theme="light"] .sf-mid .lbl { color: var(--muted) !important; }
+:root[data-theme="light"] .sf-ic, :root[data-theme="light"] .lz-leg .lp-lock { background: #2f5bff !important; color: #fff !important; box-shadow: none !important; }
+:root[data-theme="light"] .sf-pill { background: #fff !important; color: #101114 !important; box-shadow: 0 0 0 1px rgba(16, 17, 20, .1) !important; } :root[data-theme="light"] .sf-pill i { background: #2f5bff !important; box-shadow: none !important; }
+:root[data-theme="light"] .lv-max .sf-pill { background: #101114 !important; color: #fff !important; } :root[data-theme="light"] .lv-max .sf-pill i { background: #fff !important; }
+:root[data-theme="light"] .st-ic { background: rgba(47, 91, 255, .1) !important; color: #2f5bff !important; }
+:root[data-theme="light"] .sf-alert { background: color-mix(in srgb, #2f5bff 6%, #fff) !important; box-shadow: 0 0 0 1px rgba(47, 91, 255, .35) !important; } :root[data-theme="light"] .sa-x { background: #101114; color: #fff; }
+:root[data-theme="light"] .sa-cd, :root[data-theme="light"] .sf-w .cd { color: #101114 !important; } :root[data-theme="light"] .sa-ic { background: rgba(47, 91, 255, .12) !important; color: #2f5bff !important; }
+/* the rest */
+:root[data-theme="light"] .acct-ic.av { background: #fff !important; color: #101114 !important; box-shadow: 0 0 0 1px rgba(16, 17, 20, .12) !important; }
+:root[data-theme="light"] .sx-flip { background: #101114 !important; color: #fff !important; box-shadow: 0 0 0 5px #f3f2ee !important; }
+:root[data-theme="light"] .toast { background: #101114 !important; color: #fff !important; }
+:root[data-theme="light"] .phead, :root[data-theme="light"] .top { background: transparent !important; }
+:root[data-theme="light"] .bs-ic, :root[data-theme="light"] .bio-scr.ok .bs-ic { background: #101114 !important; color: #fff !important; }
+:root[data-theme="light"] .bs-a, :root[data-theme="light"] .bs-full { stroke: #2f5bff !important; } :root[data-theme="light"] .bs-t { color: #45484f; }
+:root[data-theme="light"] .wl-p { background: #fff; box-shadow: 0 0 0 1px rgba(16, 17, 20, .1); } :root[data-theme="light"] .wl-p.safe { background: rgba(47, 91, 255, .08); box-shadow: 0 0 0 1px rgba(47, 91, 255, .3); }
+:root[data-theme="light"] .fly-d { background: linear-gradient(135deg, #9db0ff, #2f5bff); }
+#panel .pane > * { flex-shrink: 0; }
+.lz-in .big.sk { min-width: 150px; min-height: 36px; } .lz-in .big.sk::after { inset: 14% 4%; }
+.wsplit b.sk { min-width: 110px; min-height: 26px; } .wsplit b.sk::after { inset: 10% 0; } .wsplit .sp-s b.sk { justify-self: end; }

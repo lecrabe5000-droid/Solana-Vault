@@ -141,7 +141,7 @@ async function eng() {
 }
 
 async function boot() {
-  const pr = await local.get(["book", "hideSmall", "order", "recvNotify", "guard", "alertsOn", "showNfts", "goal", "cur", "palerts"]); S.palerts = pr.palerts || {}; S.showNfts = !!pr.showNfts; S.goal = pr.goal || null; S.cur = pr.cur || "USD"; Object.assign(S, { book: pr.book || {}, hideSmall: !!pr.hideSmall, order: pr.order || "value", recvNotify: pr.recvNotify, guard: { auto: 0, daily: 0, cool: 0, coolOver: 500, ...(pr.guard || {}) }, alertsOn: !!pr.alertsOn });
+  const pr = await local.get(["book", "hideSmall", "order", "recvNotify", "guard", "alertsOn", "showNfts", "goal", "cur", "palerts", "sounds"]); S.palerts = pr.palerts || {}; S.sounds = !!pr.sounds; S.showNfts = !!pr.showNfts; S.goal = pr.goal || null; S.cur = pr.cur || "USD"; Object.assign(S, { book: pr.book || {}, hideSmall: !!pr.hideSmall, order: pr.order || "value", recvNotify: pr.recvNotify, guard: { auto: 0, daily: 0, cool: 0, coolOver: 500, ...(pr.guard || {}) }, alertsOn: !!pr.alertsOn });
   const st = await local.get(["box", "net", "theme", "autolock", "hide", "nums", "range", "dev", "prices", "bio", "lang"]);
   S.lang = st.lang || (/^fr/i.test(navigator.language || "") ? "fr" : "en"); document.documentElement.lang = S.lang;
   S.bio = globalThis.ECRIN_WEB && st.bio ? st.bio : null;
@@ -347,7 +347,7 @@ function flyFx(kind) {
   const d = document.createElement("i"); d.className = "fly-d"; document.body.append(d);
   const at = (p, s) => `translate(${p.x - 7}px, ${p.y - 7}px) rotate(45deg) scale(${s})`;
   const an = d.animate([{ transform: at(p0, 0.4), opacity: 0 }, { transform: at(p0, 1), opacity: 1, offset: 0.12 }, { transform: at(mid, 1.15), offset: 0.5 }, { transform: at(p1, 0.7), opacity: 1, offset: 0.9 }, { transform: at(p1, 0.2), opacity: 0 }], { duration: 900, easing: "cubic-bezier(.5, 0, .3, 1)" });
-  an.onfinish = () => { d.remove(); const r = document.querySelector(".lz"); if (r) { r.classList.remove("beat"); void r.getBoundingClientRect(); r.classList.add("beat"); } navigator.vibrate?.(10); };
+  an.onfinish = () => { d.remove(); const r = document.querySelector(".lz"); if (r) { r.classList.remove("beat"); void r.getBoundingClientRect(); r.classList.add("beat"); } haptic("medium"); };
 }
 
 // ------------------------------------------------------------------ rolling digits
@@ -368,6 +368,25 @@ function rollDigits(el, prev) {
   }
 }
 
+/** A small physical tap: "light" for keys, "medium" for confirms, "success" / "warning" for outcomes. */
+function haptic(kind = "light") {
+  if (kind === "success" || kind === "warning") chime(kind);
+  try {
+    const H = globalThis.Capacitor?.Plugins?.Haptics;
+    if (H) return kind === "success" || kind === "warning" ? H.notification({ type: kind.toUpperCase() }) : H.impact({ style: kind === "medium" ? "MEDIUM" : "LIGHT" });
+    navigator.vibrate?.({ light: 6, medium: 12, success: [10, 40, 14], warning: [20, 60, 20] }[kind] || 6);
+  } catch (_) {}
+}
+/** Optional sound (Settings → Sounds, off by default): two soft sine notes, quiet, no samples to load. */
+let AC = null;
+function chime(kind) {
+  if (!S.sounds) return;
+  try {
+    AC ||= new (window.AudioContext || window.webkitAudioContext)(); const t = AC.currentTime;
+    const notes = kind === "warning" ? [[523.25, 0], [392, 0.11]] : [[659.25, 0], [987.77, 0.09]];
+    for (const [f, d] of notes) { const o = AC.createOscillator(), g = AC.createGain(); o.type = "sine"; o.frequency.value = f; g.gain.setValueAtTime(0, t + d); g.gain.linearRampToValueAtTime(0.06, t + d + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.45); o.connect(g).connect(AC.destination); o.start(t + d); o.stop(t + d + 0.5); }
+  } catch (_) {}
+}
 const AURA_T0 = performance.now();
 const auraT = () => `--at:${-Math.round(performance.now() - AURA_T0)}ms`;
 const TABBAR = `<nav id="tabbar" class="tabbar" aria-label="Main">
@@ -697,9 +716,9 @@ function homeView() {
       </div>
       <button class="lz-chg plain" data-act="range-next" aria-label="Change period">${chip()}</button>
     </section>
-    <section class="wsplit${loading ? " sk" : ""}" style="--s:${pct}%">
-      <button class="sp-w" data-act="panel" data-p="assets"><span>Wallet</span><b>${loading ? "&nbsp;" : mask(fig(money(w.chq)))}</b></button>
-      <button class="sp-s" data-act="panel" data-p="vault"><span>${I.lock}Safe${w.leaving ? ` <em>· ${w.leaving} leaving</em>` : ""}</span><b>${loading ? "&nbsp;" : mask(fig(money(w.sav)))}</b></button>
+    <section class="wsplit" style="--s:${pct}%">
+      <button class="sp-w" data-act="panel" data-p="assets"><span>Wallet</span><b class="${loading ? "sk" : ""}">${loading ? "&nbsp;" : mask(fig(money(w.chq)))}</b></button>
+      <button class="sp-s" data-act="panel" data-p="vault"><span>${I.lock}Safe${w.leaving ? ` <em>· ${w.leaving} leaving</em>` : ""}</span><b class="${loading ? "sk" : ""}">${loading ? "&nbsp;" : mask(fig(money(w.sav)))}</b></button>
       <i class="sp-bar"><i></i></i>
     </section>
     <nav class="acts">
@@ -732,11 +751,11 @@ function lozenge(w, loading) {
   // The opening spin lasts 2.2s; a re-render in that time picks the animation up where it was, so it never restarts or cuts.
   if (!loading && !S.lzT0) S.lzT0 = performance.now();
   const el = S.lzT0 ? performance.now() - S.lzT0 : 1e9, draw = el < 2300;
-  const L = lit(), hot = !loading && w.leaving ? " hot" : "";
+  const L = lit(), hot = !loading && w.leaving ? " hot" : "", wait = loading ? `<rect class="lz-wait" x="38" y="38" width="144" height="144" rx="30" pathLength="100"/><rect class="lz-wait in" x="51" y="51" width="118" height="118" rx="24" pathLength="100"/>` : "";
   return `<svg class="lz${draw ? " draw" : ""}${hot}" style="--lt:${-Math.round(el)}ms;--at:${-Math.round(performance.now() - AURA_T0)}ms" viewBox="0 0 220 220" aria-hidden="true">
     <defs>${litDefs(L)}</defs>
     <g transform="rotate(45 110 110)">
-    <rect class="lz-base" x="38" y="38" width="144" height="144" rx="30"/>${segs}
+    <rect class="lz-base" x="38" y="38" width="144" height="144" rx="30"/>${segs}${wait}
     <rect class="lz-base in" x="51" y="51" width="118" height="118" rx="24"/>
     <rect class="lz-safe" x="51" y="51" width="118" height="118" rx="24" pathLength="100" style="stroke-dasharray:${(safe * 100).toFixed(2)} 100"/>
     <rect class="lz-sheen" x="38" y="38" width="144" height="144" rx="30"/><rect class="lz-sheen in" x="51" y="51" width="118" height="118" rx="24"/></g></svg>`;
@@ -782,7 +801,7 @@ const MARKET = [["solana", "SOL", "sol", "Solana"], ["ethereum", "ETH", "eth", "
 function homeMore() {
   const all = S.activity || [];
   let recent = "";
-  if (all.length) { S.activity = all.slice(0, 3); try { recent = actRows(); } finally { S.activity = all; } }
+  if (all.length) recent = actRows(all.slice(0, 3));
   const sc = [["swap", "Swap", I.swap, 'data-act="panel" data-p="swap"'], ["buy", "Buy", I.card, 'data-act="panel" data-p="buy"'], ["req", "Request", I.recv, 'data-act="home-req"'],
     ["ct", "Contacts", '<svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 19.5c1.2-3.2 3.9-5 7-5s5.8 1.8 7 5"/></svg>', 'data-act="panel" data-p="contacts"'], ...(globalThis.ECRIN_WEB ? [["wc", "Apps", I.link, 'data-act="panel" data-p="wc"']] : globalThis.ECRIN_DEMO ? [] : [["sites", "Sites", I.link, 'data-act="panel" data-p="sites"']]), ["al", "Alerts", I.spark, 'data-act="panel" data-p="alerts"']];
   return `${recent ? `<div class="list-h"><b>Recent activity</b><button class="see-all" data-act="tab" data-t="activity">See all</button></div><div class="tab-body"><section class="list recent">${recent}</section></div>` : ""}
@@ -939,15 +958,8 @@ async function loadExtras(dev) {
 }
 /** Calm line drawings for empty screens, in the same thin-laser style as the Safe. */
 function emptyArt(kind) {
-  const dia = (x, y, r) => `<path d="M${x - r} ${y - r * 0.35}L${x - r * 0.55} ${y - r}H${x + r * 0.55}L${x + r} ${y - r * 0.35}L${x} ${y + r}Z M${x - r} ${y - r * 0.35}H${x + r} M${x - r * 0.55} ${y - r}L${x - r * 0.25} ${y - r * 0.35}L${x} ${y + r}L${x + r * 0.25} ${y - r * 0.35}L${x + r * 0.55} ${y - r}"/>`;
-  const rays = (x, y, n, r0, r1) => Array.from({ length: n }, (_, i) => { const a = (i / n) * Math.PI * 2; return `<path class="ray" d="M${(x + Math.cos(a) * r0).toFixed(1)} ${(y + Math.sin(a) * r0).toFixed(1)}L${(x + Math.cos(a) * r1).toFixed(1)} ${(y + Math.sin(a) * r1).toFixed(1)}"/>`; }).join("");
-  const body = {
-    nft: `<rect x="34" y="18" width="52" height="52" rx="8"/><rect x="42" y="26" width="52" height="52" rx="8" class="soft"/>${dia(60, 44, 11)}`,
-    act: `<path d="M30 60h60M30 46h44M30 32h52" class="soft"/>${dia(92, 34, 9)}`,
-    coins: `<ellipse cx="60" cy="58" rx="26" ry="7" class="soft"/><ellipse cx="60" cy="50" rx="26" ry="7" class="soft"/>${dia(60, 30, 13)}${rays(60, 30, 12, 18, 24)}`,
-    safe: `<rect x="32" y="20" width="56" height="52" rx="9"/><circle cx="60" cy="46" r="13" class="soft"/>${dia(60, 46, 7)}`,
-  }[kind] || "";
-  return `<svg class="eart" viewBox="0 0 120 90" aria-hidden="true">${body}</svg>`;
+  const ic = { coins: I.card, act: I.clock, nft: I.img, safe: I.shield, contacts: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 19.5c1.2-3.2 3.9-5 7-5s5.8 1.8 7 5"/></svg>', search: I.search }[kind] || I.shield;
+  return `<span class="eart2" aria-hidden="true"><svg viewBox="0 0 120 120"><g transform="rotate(45 60 60)"><rect class="e-o" x="24" y="24" width="72" height="72" rx="18" pathLength="100"/><rect class="e-i" x="33" y="33" width="54" height="54" rx="13"/></g></svg><i>${ic}</i></span>`;
 }
 function letterIc(t) {
   const known = { USDT: "usdt", USDC: "usdc" }[String(t.symbol || "").toUpperCase()]; if (known) return coin(known);
@@ -1107,20 +1119,21 @@ const ACT_LBL = {
   freeze: () => ["Safe frozen", I.snow, ""], auto: () => ["Protected automatically", I.protect, ""],
   ap: (e) => [{ connect: `Connected to ${host(e.origin)}`, sign: `Signed a message on ${host(e.origin)}`, solmsg: `Signed a message on ${host(e.origin)}`, typed: `${e.permit ? "Approved spending on" : "Signed for"} ${host(e.origin)}`, tx: `${e.permit ? "Approved spending on" : "Approved a transaction on"} ${host(e.origin)}`, soltx: `Approved a transaction on ${host(e.origin)}`, delegate: "Gave a token permission" }[e.kind] || `Approved on ${host(e.origin)}`, e.permit ? I.warn : I.link, e.permit ? "warn" : ""],
 };
-function actRows() {
-  const q = (S.actQ || "").trim().toLowerCase(), all = S.activity || [];
+function actRows(only) {
+  const q = only ? "" : (S.actQ || "").trim().toLowerCase(), all = only || S.activity || [];
   const when = (ms) => (ms ? new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "");
   const rows = all.map((e) => { const [title, ic, cls] = (ACT_LBL[e.t] || (() => ["Transaction", I.arrow, ""]))(e); return { e, title, ic, cls }; })
     .filter((r) => !q || `${r.title} ${r.e.to || ""} ${r.e.from || ""} ${r.e.origin || ""} ${NETS[r.e.k]?.name || ""}`.toLowerCase().includes(q));
-  if (!rows.length) return `<div class="empty">${I.search}<b>Nothing matches “${esc(q)}”</b><span>Try a name, an address or a site.</span></div>`;
-  let day = ""; S.actShown = rows.slice(0, 120);
-  return rows.slice(0, 120).map(({ e, title, ic, cls }, ix) => {
+  if (!rows.length) return `<div class="empty art">${emptyArt("search")}<b>Nothing matches “${esc(q)}”</b><span>Try a name, an address or a site.</span></div>`;
+  let day = ""; S.actShown ||= {};
+  return rows.slice(0, 120).map((row) => { const { e, title, ic, cls } = row, ix = `${e.at || 0}:${e.t}:${e.sig || e.n || ""}`.replace(/"/g, ""); S.actShown[ix] = row;
     const d = e.at ? new Date(e.at).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }) : "Earlier", head = d !== day ? `<div class="act-day">${(day = d)}</div>` : "";
     const N = NETS[e.k] || NETS.sol, unit = e.sym || (e.a === "usdc" ? "USDC" : N.unit), val = e.n ? (e.a === "usdc" ? e.n / USDC_BASE : e.t === "tsend" ? e.n : e.n / BASE) : null;
     const sign = cls === "out" ? "−" : cls === "in" ? "+" : "";
     const tag = `button data-act="txd" data-i="${ix}"`;
-    return `${head}<${tag} class="arow act-row ${e.t} ${cls}"><span class="act-ico">${ic}${e.k ? `<span class="cmini">${coin(e.k)}</span>` : ""}</span>
-      <span class="ar-t"><b>${title}</b><small>${when(e.at)}${e.k ? ` · ${N.name}` : ""}</small></span>
+    const safeEv = /^(protect|auto|withdraw|release|cancel|vault|freeze)$/.test(e.t), cu = e.a === "usdc" ? "USDC" : unit;
+    return `${head}<${tag} class="arow act-row ${e.t} ${cls}${safeEv ? " safe-ev" : ""}" style="--cc:${COIN_COL[cu] || "#9aa0b4"}"><span class="act-ico">${ic}${e.k ? `<span class="cmini">${coin(e.k)}</span>` : ""}</span>
+      <span class="ar-t"><b>${title}</b><small>${safeEv ? `<em class="sv-tag">${I.lock}Safe</em>` : ""}${when(e.at)}${e.k ? ` · ${N.name}` : ""}</small></span>
       ${val != null ? `<span class="ar-r"><b class="${cls === "out" ? "neg" : cls === "in" ? "pos" : ""}">${sign}${mask(val.toLocaleString("en-US", { maximumFractionDigits: 6 }))} ${esc(unit)}</b></span>` : ""}</${tag.split(" ")[0]}>`;
   }).join("");
 }
@@ -1180,7 +1193,7 @@ function contactsView() {
     <div class="ct-add"><input data-ctname placeholder="Name" maxlength="24" value="${esc(P.n || "")}"/><input data-ctaddr placeholder="Address (Solana, 0x… or T…)" value="${esc(P.a || "")}" spellcheck="false" autocomplete="off"/><button class="btn primary" data-act="ct-add">${I.plus}Add contact</button></div>
     <section class="list">${all.length ? all.map((c) => `<div class="arow ct">${acctIc({ name: c.n, c: [...c.a].reduce((h, ch) => h + ch.charCodeAt(0), 0) })}<span class="ar-t"><b>${esc(c.n)}</b><small class="mono">${short(c.a)} · ${FAM_NAME[c.f] || c.f}</small></span>
       <button class="ib sm" data-act="copy" data-v="${esc(c.a)}" aria-label="Copy">${I.copy}</button><button class="ib sm" data-act="ct-del" data-f="${c.f}" data-a="${esc(c.a)}" aria-label="Delete ${esc(c.n)}">${I.x}</button></div>`).join("")
-      : `<div class="empty">${I.recv}<b>No contacts yet</b><span>Save people and places you send to often. You can also save an address after you send to it.</span></div>`}</section>
+      : `<div class="empty art">${emptyArt("contacts")}<b>No contacts yet</b><span>Save people and places you send to often. You can also save an address after you send to it.</span></div>`}</section>
     <p class="fine pad">Contacts stay on this device. Sending to a contact still shows the full address to check.</p>`;
 }
 
@@ -1619,6 +1632,7 @@ function settingsView() {
       ${row("report", I.spark, "Monthly report")}`)}
     ${sec("Home screen", `
       ${row("tog", I.recv, "Notify when I receive coins", onOff(S.recvNotify !== false), 'data-k="recvNotify"')}
+      ${row("tog", I.spark, "Sounds", onOff(S.sounds), 'data-k="sounds"')}
       ${row("tog", I.img, "Show collectibles (NFTs)", onOff(S.showNfts), 'data-k="showNfts"')}
       ${row("tog", I.eyeOff, "Hide small balances", onOff(S.hideSmall), 'data-k="hideSmall"')}
       ${row("tog", I.arrow, "Order coins by", S.order === "name" ? "Name" : "Value", 'data-k="order"')}`)}
@@ -1667,7 +1681,7 @@ async function logActivity(e) { const k = actKey(), list = await readActivity();
 async function txRun(fn, after, log) {
   if (S.upd?.must) return toast("A security update is required before you can send. Update Ecrin Wallet first.", "err");
   const P = S.panel; P.step = "sending"; renderPanel();
-  try { S.lastTx = Date.now(); const sig = await fn(); S.lastTx = Date.now(); P.sig = typeof sig === "string" ? sig : null; await after?.(); if (log) await logActivity({ ...log, sig: P.sig }); P.step = "done"; await refresh(); loadActivity(); loadAll(); }
+  try { S.lastTx = Date.now(); const sig = await fn(); S.lastTx = Date.now(); P.sig = typeof sig === "string" ? sig : null; await after?.(); if (log) await logActivity({ ...log, sig: P.sig }); P.step = "done"; haptic("success"); await refresh(); loadActivity(); loadAll(); }
   catch (e) { console.warn(e); P.step = "form"; toast(errText(e), "err"); }
   renderPanel();
 }
@@ -1705,13 +1719,13 @@ const actions = {
       const { default: jsQR } = await import("jsqr"), c = document.createElement("canvas"), x = c.getContext("2d", { willReadFrequently: true });
       const tick = () => {
         if (v.videoWidth) { c.width = v.videoWidth; c.height = v.videoHeight; x.drawImage(v, 0, 0); const r = jsQR(x.getImageData(0, 0, c.width, c.height).data, c.width, c.height);
-          if (r?.data) { stop(); navigator.vibrate?.(10); onScanned(r.data.trim()); return; } }
+          if (r?.data) { stop(); haptic("success"); onScanned(r.data.trim()); return; } }
         raf = requestAnimationFrame(tick);
       };
       tick();
     } catch (_) { stop(); toast("Allow the camera to scan a QR code.", "err"); }
   },
-  txd: (el) => openPanel("txd", { i: Number(el.dataset.i) }),
+  txd: (el) => openPanel("txd", { i: el.dataset.i }),
   "txd-save": async (el) => { const n = ($("#panel [data-bookname]")?.value || "").trim(); if (!n) return toast("Give the contact a name.", "err"); const f = el.dataset.f; S.book[f] = { ...(S.book[f] || {}), [el.dataset.a]: n }; await local.set({ book: S.book }); toast(`Saved as ${n}`, "win"); renderPanel(); },
   "ct-add": async () => {
     const n = ($("[data-ctname]")?.value || "").trim(), a = ($("[data-ctaddr]")?.value || "").trim(), f = famOfAddr(a);
@@ -1955,7 +1969,7 @@ const actions = {
     if (k === "del") v = v.slice(0, -1);
     else if (k === ".") { if (!v.includes(".")) v = (v || "0") + "."; }
     else { const d = v.split(".")[1]; if (d != null && d.length >= Math.min(x.dec, 6)) return; v = v === "0" ? k : v + k; if (v.replace(".", "").length > 12) return; }
-    P.amount = v; P.pct = null; navigator.vibrate?.(4); renderPanel();
+    P.amount = v; P.pct = null; haptic("light"); renderPanel();
   },
   pct: (el) => {
     const P = S.panel, p = Number(el.dataset.v), a = P.asset;
@@ -1983,7 +1997,7 @@ const actions = {
   "do-protect": () => { const P = S.panel, units = parseAmt(P.amount, P.asset); P.sent = units; txRun(async () => (await eng()).protect(P.asset, units), null, { t: "protect", a: P.asset, n: units }); },
   "do-withdraw": () => { const P = S.panel, units = parseAmt(P.amount, P.asset); P.sent = units; txRun(async () => (await eng()).request(P.asset, ENG.address, units), null, { t: "withdraw", a: P.asset, n: units }); },
   "safe-go": async (el) => { el.disabled = true; await useNet(el.dataset.n); S.panel = null; openPanel(el.dataset.p); if (el.dataset.p === "protect") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); } },
-  "cancel-w": async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).cancel(el.dataset.a, Number(el.dataset.id)); await logActivity({ t: "cancel", a: el.dataset.a }); loadActivity(); toast("Cancelled. It stays in your Safe.", "win"); await refresh(); loadAll(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
+  "cancel-w": async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).cancel(el.dataset.a, Number(el.dataset.id)); await logActivity({ t: "cancel", a: el.dataset.a }); loadActivity(); haptic("success"); toast("Cancelled. It stays in your Safe.", "win"); await refresh(); loadAll(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
   execute: async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).execute(el.dataset.a, Number(el.dataset.id), el.dataset.d); await logActivity({ t: "release", a: el.dataset.a }); loadActivity(); toast("Released to Wallet", "win"); await refresh(); loadAll(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
   net: async (el) => { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; S.drawChart = true; closePanel(); await eng(); loadActivity(); refresh(); loadSeries(); },
   "row-send": async (el) => { if (el.dataset.n !== S.net) { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; await eng(); loadActivity(); await refresh(); } openPanel("send", { a: el.dataset.a }); const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); },
@@ -2079,7 +2093,7 @@ document.addEventListener("pointerdown", (e) => {
   const move = (ev) => { dx = Math.max(0, Math.min(max, ev.clientX - x0)); k.style.transform = `translateX(${dx}px)`; sl.style.setProperty("--p", (dx / max).toFixed(3)); };
   const up = () => {
     k.removeEventListener("pointermove", move); k.removeEventListener("pointerup", up); k.removeEventListener("pointercancel", up); sl.classList.remove("drag");
-    if (dx >= max * 0.9) { k.style.transform = `translateX(${max}px)`; sl.classList.add("done"); navigator.vibrate?.(12); setTimeout(() => actions[act](), 160); }
+    if (dx >= max * 0.9) { k.style.transform = `translateX(${max}px)`; sl.classList.add("done"); haptic("medium"); setTimeout(() => actions[act](), 160); }
     else { k.style.transform = ""; sl.style.setProperty("--p", 0); if (dx < 6) { sl.classList.remove("nudge"); void sl.offsetWidth; sl.classList.add("nudge"); } }
   };
   k.addEventListener("pointermove", move); k.addEventListener("pointerup", up); k.addEventListener("pointercancel", up);
@@ -2547,7 +2561,7 @@ if (globalThis.ECRIN_WEB) {
   document.addEventListener("touchmove", (e) => {
     if (y0 == null) return; d = Math.max(0, e.touches[0].clientY - y0);
     const p = Math.min(1.25, d / 110); ptr.classList.add("pull"); set(p);
-    if (p >= 1 && !ptr._tick) { ptr._tick = true; navigator.vibrate?.(6); } if (p < 1) ptr._tick = false;
+    if (p >= 1 && !ptr._tick) { ptr._tick = true; haptic("light"); } if (p < 1) ptr._tick = false;
   }, { passive: true });
   document.addEventListener("touchend", async () => {
     if (y0 == null) return; y0 = null;
@@ -2558,14 +2572,14 @@ if (globalThis.ECRIN_WEB) {
     }
     ptr.classList.remove("pull"); set(0); ptr._tick = false;
   }, { passive: true });
-  document.addEventListener("click", (e) => { if (e.target.closest(".btn.primary, .acts button, [data-act='ap-ok']")) navigator.vibrate?.(8); }, true);
+  document.addEventListener("click", (e) => { if (e.target.closest(".btn.primary, .acts button, .tk-acts button, #tabbar button, .sf-go, .sa-x, [data-act='ap-ok']")) haptic("light"); }, true);
 }
 
 function recvFx(label) {
   const host = document.querySelector(".device") || document.body, el = document.createElement("div");
   el.className = "fx-recv"; el.setAttribute("aria-live", "polite");
   el.innerHTML = `<svg class="fx-in" viewBox="0 0 120 120"><g class="rays"><path class="ray" style="--i:0" d="M60 60 L130.0 60.0"/><path class="ray" style="--i:1" d="M60 60 L109.5 109.5"/><path class="ray" style="--i:2" d="M60 60 L60.1 130.0"/><path class="ray" style="--i:3" d="M60 60 L10.6 109.6"/><path class="ray" style="--i:4" d="M60 60 L-10.0 60.1"/><path class="ray" style="--i:5" d="M60 60 L10.4 10.6"/><path class="ray" style="--i:6" d="M60 60 L59.8 -10.0"/><path class="ray" style="--i:7" d="M60 60 L109.4 10.4"/></g><g class="dia"><path class="d-o d-fill" pathLength="100" d="M60 22 L88 50 L60 98 L32 50 Z"/><path class="d-f" pathLength="100" d="M32 50 H88 M46 36 L60 50 L74 36 M60 50 V98 M46 36 L52 50 M74 36 L68 50"/></g></svg><b>${esc(label)}</b><small>Received</small>`;
-  host.appendChild(el); navigator.vibrate?.([10, 40, 10]);
+  host.appendChild(el); haptic("success");
   setTimeout(() => el.classList.add("out"), 2500); setTimeout(() => el.remove(), 3000);
 }
 
@@ -2635,13 +2649,12 @@ function tokenView() {
     <div class="tk-stats">
       <div><span>Price</span><b>${px != null ? money(px) : "—"}</b></div>
       <div><span>24h change</span><b class="${(pr.usd_24h_change ?? 0) >= 0 ? "up" : "dn"}">${pr.usd_24h_change != null ? `${pr.usd_24h_change >= 0 ? "+" : "−"}${Math.abs(pr.usd_24h_change).toFixed(2)}%` : "—"}</b></div>
-      <div><span>Market cap</span><b>${pr.usd_market_cap ? big(pr.usd_market_cap) : "—"}</b></div>
-      <div><span>24h volume</span><b>${pr.usd_24h_vol ? big(pr.usd_24h_vol) : "—"}</b></div>
+      ${pr.usd_market_cap && pr.usd_24h_vol ? `<div><span>Market cap</span><b>${big(pr.usd_market_cap)}</b></div><div><span>24h volume</span><b>${big(pr.usd_24h_vol)}</b></div>` : ""}
       <div><span>You hold</span><b>${mask(money(tot.usd))}</b></div>
       <div><span>In your Safe</span><b>${tot.amt ? savPct + "%" : "—"}</b></div>
     </div>
     <p class="tk-nets">${esc(nets.length ? "On " + nets.join(", ") : "")}</p>
-    ${acts.length ? `<div class="list-h"><b>Activity</b><span></span></div><section class="list">${acts.map((e) => { const [t, ic] = ACT[e.t] || ["Transaction", I.arrow]; return `<div class="arow act-row"><span class="act-ico">${ic}</span><span class="ar-t"><b>${t}</b><small>${when(e.at)}</small></span><span class="ar-r"><b>${e.t === "send" ? "−" : ""}${amt(e.n, e.a)} ${A(e.a).unit}</b></span></div>`; }).join("")}</section>` : ""}
+    ${acts.length ? `<div class="list-h"><b>Activity</b><span></span></div><div class="tab-body"><section class="list">${actRows(acts.slice(0, 5)).replace(/<div class="act-day">[^<]*<\/div>/g, "")}</section></div>` : ""}
     <div class="list-h"><b>About ${esc(name)}</b><span></span></div>
     <p class="tk-about">${ABOUT[P.u] || ""}</p></div>`;
 }
