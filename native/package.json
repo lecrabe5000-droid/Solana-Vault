@@ -1,0 +1,17 @@
+{
+  "name": "ecrin-wallet-native",
+  "private": true,
+  "version": "0.6.9",
+  "description": "Ecrin Wallet as a native iPhone (and Android) app: the phone wallet, bundled inside the app.",
+  "scripts": {
+    "web": "node build-www.mjs",
+    "ios": "node build-www.mjs && npx cap sync ios && npx cap open ios",
+    "sync": "node build-www.mjs && npx cap sync"
+  },
+  "type": "module",
+  "dependencies": {
+    "@capacitor/cli": "8.6.0",
+    "@capacitor/core": "8.6.0",
+    "@capacitor/ios": "8.6.0"
+  }
+}

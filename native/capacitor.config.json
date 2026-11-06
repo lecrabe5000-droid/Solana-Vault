@@ -1,0 +1,13 @@
+{
+  "appId": "app.ecrinprotocol.wallet",
+  "appName": "Ecrin Wallet",
+  "webDir": "www",
+  "backgroundColor": "#0c0d0f",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#0c0d0f",
+    "scrollEnabled": false,
+    "limitsNavigationsToAppBoundDomains": true
+  },
+  "server": { "iosScheme": "capacitor", "allowNavigation": [] }
+}

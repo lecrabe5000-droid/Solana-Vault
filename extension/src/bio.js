@@ -9,7 +9,8 @@ const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 const rnd = (n) => crypto.getRandomValues(new Uint8Array(n));
 
 export const bioName = () => (/iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) ? "Face ID" : "fingerprint or face unlock");
-export const bioPossible = () => !!(window.PublicKeyCredential && navigator.credentials?.create && window.isSecureContext);
+// Inside the native app (Capacitor), browser passkeys need extra Apple setup, so the option is hidden there for now.
+export const bioPossible = () => !globalThis.Capacitor?.isNativePlatform?.() && !!(window.PublicKeyCredential && navigator.credentials?.create && window.isSecureContext);
 
 async function keyFrom(secret) { return crypto.subtle.importKey("raw", secret, "AES-GCM", false, ["encrypt", "decrypt"]); }
 const prfOut = (cred) => cred.getClientExtensionResults?.()?.prf?.results?.first;
