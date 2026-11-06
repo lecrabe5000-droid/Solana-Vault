@@ -1849,3 +1849,33 @@ button.sf-tile { cursor: pointer; } button.sf-tile:active { transform: scale(.97
 .kp button { height: clamp(40px, 6.4vh, 54px); }
 .mv2 { gap: clamp(6px, 1.2vh, 12px); } .mv-amt { margin-top: 0; }
 :root[data-theme="dark"] .toast { background: #f2efe8 !important; color: #141416 !important; box-shadow: 0 14px 34px -14px rgba(0, 0, 0, .9) !important; }
+/* ---- 0.4.1: a calmer home ---- */
+.home .acct > svg { width: 14px; height: 14px; margin-left: 2px; fill: none; stroke: var(--muted); stroke-width: 2; }
+/* change: one quiet line, no pill */
+.lz-chg.plain .delta { height: auto; padding: 0 !important; background: none !important; box-shadow: none !important; gap: 6px; font-size: 13px; font-weight: 500; }
+.lz-chg.plain .delta::before { display: none; }
+.lz-chg.plain .delta .dl { height: auto; min-width: 0; padding: 0; background: none; color: var(--muted); font-size: 12px; }
+.lz-chg.plain { margin-bottom: 18px; }
+/* Wallet | Safe in one row, with one thin bar showing the split */
+.wsplit { position: relative; display: grid; grid-template-columns: 1fr 1fr; margin: 0 0 22px; padding: 14px 16px 18px; border-radius: 20px; background: rgba(255, 255, 255, .03); box-shadow: inset 0 0 0 1px var(--line-2); }
+.wsplit button { display: grid; gap: 3px; padding: 0; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.wsplit .sp-s { text-align: right; justify-items: end; padding-left: 16px; border-left: 1px solid var(--line-2); }
+.wsplit .sp-w { padding-right: 16px; }
+.wsplit span { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12px; letter-spacing: .04em; }
+.wsplit span svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; } .wsplit em { font-style: normal; color: #e0a39b; }
+.wsplit b { font: var(--num-w) 20px var(--num); }
+.sp-bar { position: absolute; left: 16px; right: 16px; bottom: 8px; height: 3px; border-radius: 2px; background: var(--line-2); overflow: hidden; }
+.sp-bar i { position: absolute; right: 0; top: 0; bottom: 0; width: var(--s); border-radius: 2px; background: var(--ink); transition: width .6s cubic-bezier(.2, .8, .2, 1); }
+.home .accts, .home .lz-leg { display: none; }
+/* three actions, evenly spaced */
+.home .acts { grid-template-columns: repeat(3, 1fr) !important; max-width: 300px; margin: 0 auto 18px !important; }
+/* tabs: plain text with a short underline */
+.home .tabs { display: flex !important; gap: 22px; padding: 0 2px !important; margin: 4px 0 12px !important; background: none !important; box-shadow: none !important; border-radius: 0; border-bottom: 1px solid var(--line) !important; }
+.home .tabs button { position: relative; flex: none; height: 38px; padding: 0; background: none; color: var(--muted); font-size: 14px; font-weight: 600; }
+.home .tabs button[aria-selected="true"] { color: var(--ink) !important; }
+.home .tabs button[aria-selected="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; border-radius: 2px; background: var(--ink); }
+.home .tabs .tab-ind { display: none !important; }
+.home .add-tok { margin-top: 4px; background: none !important; box-shadow: none !important; color: var(--muted); }
+
+:root[data-theme] .lz-chg.plain .delta.up, :root[data-theme] .lz-chg.plain .delta.dn { background: none !important; box-shadow: none !important; padding: 0 !important; }
+.home .top .acct { flex: none; width: auto; gap: 10px; } .home .top .acct .acct-n { flex: none; }

@@ -594,7 +594,7 @@ function homeView() {
   const addr = e?.address || "";
   return `<div class="home"><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i><i class="a4"></i></div>
     <header class="top">
-      <button class="acct" data-act="panel" data-p="accts" title="Your accounts">${acctIc(curAcct())}<span class="acct-n">${esc(curAcct().name)}</span><span class="top-total">${loading ? "" : mask(money(w.total))}</span><span class="acct-a">${short(addr)}${I.chev}</span></button>
+      <button class="acct" data-act="panel" data-p="accts" title="Your accounts">${acctIc(curAcct())}<span class="acct-n">${esc(curAcct().name)}</span><span class="top-total">${loading ? "" : mask(money(w.total))}</span>${I.chev}</button>
       <div class="top-r">
         <button class="ib" data-act="settings" aria-label="Settings">${I.gear}</button>
       </div>
@@ -608,29 +608,18 @@ function homeView() {
           <div class="big ${loading ? "sk" : ""}${(() => { const n = String(money(w.total ?? 0)).length; return n > 13 ? " xs" : n > 10 ? " sm" : ""; })()}">${loading ? "&nbsp;" : mask(fig(money(w.total)))}</div>
         </div>
       </div>
-      <button class="lz-chg" data-act="range-next" aria-label="Change period">${chip()}</button>
-      ${lozLegend(w, loading)}
+      <button class="lz-chg plain" data-act="range-next" aria-label="Change period">${chip()}</button>
     </section>
-    <section class="accts">
-      <button class="acard chq" data-act="panel" data-p="assets" data-tilt><i class="sheen"></i>
-        <span class="ac-k">Wallet</span>
-        <b class="ac-v ${loading ? "sk" : ""}">${loading ? "&nbsp;" : mask(fig(money(w.chq)))}</b>
-        <span class="ac-s"><i class="dot live"></i>Spend instantly</span>
-      </button>
-      <button class="acard sav${w.vaults ? " live" : ""}" data-act="panel" data-p="vault" data-tilt><i class="sheen"></i>
-        <svg class="mv-g" viewBox="0 0 200 140" preserveAspectRatio="xMidYMid slice">${Array.from({ length: 18 }, (_, i) => `<circle cx="${170 + Math.cos(i / 2.2) * 8}" cy="${20 + Math.sin(i / 2.2) * 8}" r="${10 + i * 8}"/>`).join("")}</svg>
-        ${(() => { const ws = (S.all || []).flatMap((r) => [...(r.v?.main?.withdrawals || []), ...(r.v?.usdc?.withdrawals || [])].map((x) => ({ ...x, d: r.v.main.withdrawDelay || 86400 }))); if (!ws.length) return ""; const w = ws.sort((a, b) => a.readyAt - b.readyAt)[0], left = Math.max(0, w.readyAt - now()), f = Math.min(1, left / w.d); return `<i class="cd-ring" title="Time before it can leave"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="8"/><circle class="cd-p" cx="10" cy="10" r="8" style="stroke-dashoffset:${(50.3 * (1 - f)).toFixed(1)}"/></svg></i>`; })()}
-        <span class="ac-k">${I.lock}Safe</span>
-        <b class="ac-v ${loading ? "sk" : ""}">${loading ? "&nbsp;" : mask(fig(money(w.sav)))}</b>
-        <span class="ac-s">${w.leaving ? `<i class="dot warn"></i>${w.leavingText || w.leaving} leaving` : w.vaults ? `<i class="dot"></i>${pct}% of net worth` : `<i class="dot off"></i>Not set up`}</span>
-      </button>
+    <section class="wsplit${loading ? " sk" : ""}" style="--s:${pct}%">
+      <button class="sp-w" data-act="panel" data-p="assets"><span>Wallet</span><b>${loading ? "&nbsp;" : mask(fig(money(w.chq)))}</b></button>
+      <button class="sp-s" data-act="panel" data-p="vault"><span>${I.lock}Safe${w.leaving ? ` <em>· ${w.leaving} leaving</em>` : ""}</span><b>${loading ? "&nbsp;" : mask(fig(money(w.sav)))}</b></button>
+      <i class="sp-bar"><i></i></i>
     </section>
     <nav class="acts">
-      ${[["send", "Send", I.send], ["receive", "Receive", I.recv], ["swap", "Swap", I.swap], ["protect", "Protect", I.protect], ["withdraw", "Withdraw", I.out]].map(([p, l, ic]) => `<button data-act="panel" data-p="${p}"><span>${ic}</span>${l}</button>`).join("")}
+      ${[["send", "Send", I.send], ["receive", "Receive", I.recv], ["protect", "Protect", I.protect]].map(([p, l, ic]) => `<button data-act="panel" data-p="${p}"><span>${ic}</span>${l}</button>`).join("")}
     </nav>
     <div class="tabs ${S.showNfts ? "t3" : ""}" role="tablist">${[["tokens", "Tokens"], ...(S.showNfts ? [["nfts", "Collectibles"]] : []), ["activity", "Activity"]].map(([t, l]) => `<button role="tab" data-act="tab" data-t="${t}" aria-selected="${S.tab === t}">${l}</button>`).join("")}<i class="tab-ind" style="--i:${{ tokens: 0, nfts: 1, activity: S.showNfts ? 2 : 1 }[S.tab] || 0}"></i></div>
     <div class="tab-body">${S.tab === "activity" ? activityList() : S.tab === "nfts" && S.showNfts ? nftGrid() : tokenList(w)}</div>
-    <footer class="foot">${w.all ? "Every network" : "Reading every network…"} · testnet beta</footer>
 
   </div>`;
 }
@@ -688,7 +677,7 @@ function tokenList(w) {
   });
   return `<section class="list">${hidden ? `<div class="hid-note">${hidden} small balance${hidden > 1 ? "s" : ""} hidden</div>` : ""}${out.join("")}${extraRows()}</section>
     ${netKeys().some((k) => NETS[k].fam === "evm") ? `<button class="add-tok" data-act="panel" data-p="addTok">${I.plus}Add a token</button>` : ""}
-    ${marketList()}`;
+`;
 }
 
 // Live prices for every coin Ecrin supports, held or not: something is always moving on the home screen.
