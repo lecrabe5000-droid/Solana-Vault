@@ -2385,7 +2385,7 @@ zoo`.split(`
       <div class="sf-lvl"><span class="sf-pill"><i></i>Shield ${w[1]}</span><span class="sf-pct">${a.length?`${m}% of everything you own`:"Open your Safe to raise it"}</span></div>
     </section>
     ${b?`<div class="sf-alert"><span class="sa-ic">${J.clock}</span><span class="sa-t"><b>${br(b.amount,b.a)} ${N} is leaving your Safe</b><small>to ${t(b.dest)?"your Wallet":_t(String(b.dest))} \xB7 on ${xe[b.r.k].name}</small></span><b class="sa-cd" data-until="${b.readyAt}">${U>0?R(U):"Ready"}</b>
-      <button class="sa-x" data-act="cancel-w" data-n="${b.r.k}" data-id="${b.id}" data-a="${b.a}">${J.shield}Not me \u2014 cancel it</button></div>`:""}
+      <button class="sa-x" data-act="cancel-w" data-n="${b.r.k}" data-id="${b.id}" data-a="${b.a}">${J.shield}Cancel</button></div>`:""}
     <div class="sf-tiles">
       <div class="sf-tile t-lock"><span class="st-ic">${J.lock}</span><span class="st-k">Locked</span><b>${Pe(Ne(l))}</b><small>${a.length?`${a.length} network${a.length>1?"s":""}`:"Not opened"}</small></div>
       <div class="sf-tile t-out${x?" hot":""}"><span class="st-ic">${J.out}</span><span class="st-k">Leaving</span><b>${x||"None"}</b><small>${b?`first in ${U>0?Rw(U):"now"}`:"all quiet"}</small></div>

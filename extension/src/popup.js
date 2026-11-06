@@ -1428,7 +1428,7 @@ function vaultView() {
       <div class="sf-lvl"><span class="sf-pill"><i></i>Shield ${lvl[1]}</span><span class="sf-pct">${open.length ? `${pct}% of everything you own` : "Open your Safe to raise it"}</span></div>
     </section>
     ${next ? `<div class="sf-alert"><span class="sa-ic">${I.clock}</span><span class="sa-t"><b>${amt(next.amount, next.a)} ${nextU} is leaving your Safe</b><small>to ${isMine(next.dest) ? "your Wallet" : short(String(next.dest))} · on ${NETS[next.r.k].name}</small></span><b class="sa-cd" data-until="${next.readyAt}">${nextLeft > 0 ? hms(nextLeft) : "Ready"}</b>
-      <button class="sa-x" data-act="cancel-w" data-n="${next.r.k}" data-id="${next.id}" data-a="${next.a}">${I.shield}Not me — cancel it</button></div>` : ""}
+      <button class="sa-x" data-act="cancel-w" data-n="${next.r.k}" data-id="${next.id}" data-a="${next.a}">${I.shield}Cancel</button></div>` : ""}
     <div class="sf-tiles">
       <div class="sf-tile t-lock"><span class="st-ic">${I.lock}</span><span class="st-k">Locked</span><b>${mask(money(total))}</b><small>${open.length ? `${open.length} network${open.length > 1 ? "s" : ""}` : "Not opened"}</small></div>
       <div class="sf-tile t-out${waiting ? " hot" : ""}"><span class="st-ic">${I.out}</span><span class="st-k">Leaving</span><b>${waiting || "None"}</b><small>${next ? `first in ${nextLeft > 0 ? dur(nextLeft) : "now"}` : "all quiet"}</small></div>
