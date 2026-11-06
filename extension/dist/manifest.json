@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Ecrin Wallet",
   "short_name": "Ecrin",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "A wallet for spending, a safe nobody can rush. Solana and Ethereum. Testnet beta.",
   "action": {
     "default_popup": "popup.html",

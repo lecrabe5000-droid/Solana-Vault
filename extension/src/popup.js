@@ -340,6 +340,7 @@ document.addEventListener("click", (e) => {
 // ------------------------------------------------------------------ money moves
 // After protecting or withdrawing, a small diamond travels between the Wallet side and the Safe ring, and the ring beats.
 function flyFx(kind) {
+  if (document.documentElement.dataset.rot) return; // sideways: skip the flourish
   const w = document.querySelector(".wsplit .sp-w b"), z = document.querySelector(".lz-wrap"); if (!w || !z) return;
   const a = w.getBoundingClientRect(), b = z.getBoundingClientRect();
   const from = { x: a.left + a.width / 2, y: a.top + a.height / 2 }, to = { x: b.left + b.width / 2, y: b.top + b.height / 2 };
@@ -401,7 +402,7 @@ function render() {
   translate(root, S.lang);
   // The three floating buttons live outside #root, made once, so re-renders and panels never make them blink.
   let tb = document.getElementById("tabbar");
-  if (S.screen === "home" && !tb) { document.body.insertAdjacentHTML("beforeend", TABBAR); tb = document.getElementById("tabbar"); }
+  if (S.screen === "home" && !tb) { (document.querySelector(".device") || document.body).insertAdjacentHTML("beforeend", TABBAR); tb = document.getElementById("tabbar"); }
   syncTabbar();
   const f = root.querySelector("[autofocus]"); if (f) f.focus();
   bindHolds(root);
@@ -1710,7 +1711,7 @@ const actions = {
   "wc-off": async (el) => { const c = await wcClient(); await c.disconnect(el.dataset.t); S.panel.list = c.sessions(); renderPanel(); toast("Disconnected"); },
   scan: async () => {
     // Phone app: read an address from a QR code with the camera. Nothing leaves the phone.
-    const ov = document.createElement("div"); ov.className = "scan-ov"; ov.innerHTML = `<video playsinline muted></video><div class="scan-box"></div><p>Point at a QR code</p><button class="btn">Cancel</button>`; document.body.append(ov);
+    const ov = document.createElement("div"); ov.className = "scan-ov"; ov.innerHTML = `<video playsinline muted></video><div class="scan-box"></div><p>Point at a QR code</p><button class="btn">Cancel</button>`; (document.querySelector(".device") || document.body).append(ov);
     let stream, raf, stop = () => { cancelAnimationFrame(raf); stream?.getTracks().forEach((t) => t.stop()); ov.remove(); };
     ov.querySelector("button").onclick = stop;
     try {
@@ -2555,7 +2556,7 @@ document.addEventListener("visibilitychange", playRecv);
 // and a light tap of the vibration motor on important buttons (Android).
 if (globalThis.ECRIN_WEB) {
   let y0 = null, d = 0, busy = false;
-  const ptr = document.createElement("div"); ptr.className = "ptr"; ptr.innerHTML = `<span class="ptr-ic">${LOGO}</span>`; document.body.append(ptr);
+  const ptr = document.createElement("div"); ptr.className = "ptr"; ptr.innerHTML = `<span class="ptr-ic">${LOGO}</span>`; (document.querySelector(".device") || document.body).append(ptr);
   const set = (v) => { ptr.style.setProperty("--p", v); ptr.classList.toggle("ready", v >= 1); };
   document.addEventListener("touchstart", (e) => { const r = $("#root"); y0 = !busy && S.screen === "home" && !S.panel && r.scrollTop <= 0 && !e.target.closest("[data-chart]") ? e.touches[0].clientY : null; d = 0; }, { passive: true });
   document.addEventListener("touchmove", (e) => {

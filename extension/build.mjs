@@ -65,13 +65,13 @@ html, body, #root, #panel .pane { overscroll-behavior: none; }
 * { -webkit-tap-highlight-color: transparent; }
 button, .btn, .srow, .arow, .acard { -webkit-user-select: none; user-select: none; touch-action: manipulation; }
 input, textarea, select { font-size: max(16px, 1em); }
-/* Always portrait: turned sideways, the app asks to be held upright instead of reflowing. */
-.rotate-note { display: none; }
-@media (orientation: landscape) and (max-height: 520px) {
-  .device > * { visibility: hidden; }
-  .rotate-note { display: grid; visibility: visible !important; position: fixed; inset: 0; z-index: 999; place-content: center; justify-items: center; gap: 12px; background: var(--bg); color: var(--muted); font: 500 14px var(--font); }
-  .rotate-note svg { width: 34px; height: 34px; fill: none; stroke: var(--eb); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-}
+/* Always portrait. iPhone doesn't let web apps lock the screen, so when the phone is turned sideways the whole app is
+   turned back the other way: it stays upright in your hand, exactly as if the screen were locked. */
+html[data-rot] body { overflow: hidden; }
+html[data-rot] .device { position: fixed !important; top: 50% !important; left: 50% !important; right: auto !important; bottom: auto !important; width: 100vh !important; height: 100vw !important; max-width: none !important; transform-origin: 50% 50%; }
+html[data-rot="90"] .device { transform: translate(-50%, -50%) rotate(-90deg); }
+html[data-rot="-90"] .device { transform: translate(-50%, -50%) rotate(90deg); }
+.rotate-note { display: none !important; }
 .fld input, .fld textarea, [data-to] { font-size: 16px !important; }
 `;
   fs.writeFileSync(`${D}/wallet.css`, css);

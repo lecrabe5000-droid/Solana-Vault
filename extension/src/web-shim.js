@@ -14,6 +14,13 @@ const pick = (o, k) => (k == null ? o : Object.fromEntries((Array.isArray(k) ? k
 let mem = {}, timer = 0;
 const lockNow = () => { const had = !!mem.phrase; mem = {}; clearTimeout(timer); if (had) location.reload(); };
 globalThis.ECRIN_WEB = true;
+// Keep the app upright when the phone turns sideways (see the phone stylesheet). Phones only, never a computer.
+const keepUpright = () => {
+  const touch = matchMedia("(pointer: coarse)").matches, a = typeof window.orientation === "number" ? window.orientation : screen.orientation?.angle ?? 0;
+  const side = touch && Math.min(screen.width, screen.height) < 600 && innerWidth > innerHeight ? (a === -90 || a === 270 ? "-90" : "90") : null;
+  if (side) document.documentElement.dataset.rot = side; else delete document.documentElement.dataset.rot;
+};
+keepUpright(); addEventListener("resize", keepUpright); addEventListener("orientationchange", () => setTimeout(keepUpright, 60));
 globalThis.chrome = {
   storage: {
     local: { get: async (k) => pick(read(), k), set: async (o) => write({ ...read(), ...o }), remove: async (k) => { const o = read(); [].concat(k).forEach((x) => delete o[x]); write(o); }, clear: async () => write({}) },
