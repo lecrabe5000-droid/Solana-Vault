@@ -1272,3 +1272,31 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 .tk-prev { display: flex; align-items: center; gap: 10px; min-height: 52px; margin: 2px 0 8px; padding: 0 2px; } .tk-prev .coin { width: 36px; height: 36px; }
 .tk-prev > span:not(.coin) { display: grid; } .tk-prev b { font-weight: 600; } .tk-prev small { color: var(--muted); font-size: 12.5px; }
 :root[data-theme="light"] .fld > .dd, :root[data-theme="light"] .dd-menu { background: #fff; }
+/* ---- classy motion ---- */
+/* rolling digits */
+.rd { display: inline-block; height: 1.15em; overflow: hidden; vertical-align: -0.24em; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.rs { display: flex; flex-direction: column; will-change: transform; }
+.rs > span { height: 1.15em; }
+/* living Safe card: a slow light travels along its edge */
+@property --edge { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+.acard.sav.live { position: relative; isolation: isolate; }
+.acard.sav.live::after { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 2;
+  background: conic-gradient(from var(--edge), transparent 0 70%, color-mix(in srgb, var(--eb) 80%, #fff) 82%, transparent 92%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: edge 9s linear infinite; opacity: .9; }
+@keyframes edge { to { --edge: 360deg; } }
+.cd-ring { position: absolute; top: 12px; right: 12px; width: 18px; height: 18px; } .cd-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); fill: none; stroke-width: 2; }
+.cd-ring circle { stroke: var(--line-2); } .cd-ring .cd-p { stroke: #e8a33c; stroke-dasharray: 50.3; stroke-linecap: round; transition: stroke-dashoffset 1s; }
+/* laser-line openings: a thin line traces each card once when a screen opens (the delay keeps it in step through redraws) */
+.pane.trace :is(.list, .tk-info, .ad-card, .sets, .tk-bal, .sscore, .note, .cool, .freeze-btn, .rev-l, .set-acct) { position: relative; }
+.pane.trace :is(.list, .tk-info, .ad-card, .sets, .tk-bal, .sscore, .note, .cool, .freeze-btn, .rev-l, .set-acct)::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 3;
+  border: 1px solid color-mix(in srgb, var(--eb) 85%, #fff); clip-path: inset(0 100% 100% 0 round 18px); animation: trace .75s cubic-bezier(.5, 0, .2, 1) calc(var(--tt) + 80ms) forwards, trace-out .45s ease calc(var(--tt) + 850ms) forwards; }
+@keyframes trace { 50% { clip-path: inset(0 0 100% 0 round 18px); } 100% { clip-path: inset(0 0 0 0 round 18px); } }
+@keyframes trace-out { to { opacity: 0; } }
+/* gentle light across the total: the light lives in the digits themselves */
+.home .hero .big:not(.sk) { background: linear-gradient(105deg, var(--ink) 38%, #b9c8ff 50%, var(--ink) 62%) no-repeat; background-size: 260% 100%; background-position: 140% 0;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: sheen 8s ease-in-out 1.6s infinite; }
+:root[data-theme="light"] .home .hero .big:not(.sk) { background-image: linear-gradient(105deg, var(--ink) 38%, #4f6dff 50%, var(--ink) 62%); }
+.home .hero .big .dec { -webkit-text-fill-color: var(--muted); }
+@keyframes sheen { 0% { background-position: 140% 0; } 28%, 100% { background-position: -40% 0; } }
+@media (prefers-reduced-motion: reduce) { .acard.sav.live::after, .home .hero .big { animation: none !important; } .pane.trace *::after { display: none !important; } }
+.home .hero .big .rd, .home .hero .big .rd * { -webkit-text-fill-color: var(--ink); }

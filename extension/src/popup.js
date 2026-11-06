@@ -315,13 +315,15 @@ function render() {
   if (S.screen === "home") { scrollWatch(); S.prevPx = Object.fromEntries(Object.entries(S.prices).map(([k, v]) => [k, v?.usd])); }
   // The home arrives in a cascade once per unlock.
   if (S.screen === "home" && !S.entered && S.bal) { S.entered = true; root.querySelector(".home")?.classList.add("enter"); }
-  // The total counts up the first time it shows, so the balance arrives rather than appears.
-  const big = root.querySelector(".home .big:not(.sk)");
-  if (big && !S.hide) {
-    const val = Number(big.textContent.replace(/[^\d.]/g, ""));
-    if (!S.counted) { S.counted = true; countUp(big, 0); }
-    else if (S.prevTotal != null && val !== S.prevTotal && !S.scrubbing) countUp(big, S.prevTotal);
-    S.prevTotal = val;
+  // Balances roll into place like a fine mechanical counter: only the digits that changed move.
+  if (!S.hide && !S.scrubbing) {
+    S.rollPrev ||= {};
+    for (const [key, sel] of Object.entries(ROLL_SEL)) {
+      const el = root.querySelector(sel); if (!el) continue;
+      const txt = el.textContent;
+      if (S.rollPrev[key] !== txt) { roll(key, el, S.rollPrev[key] ?? txt.replace(/\d/g, "0")); S.rollPrev[key] = txt; }
+      else if (S.rolls?.[key]) { dressRoll(key, el); rollTick(); }
+    }
   }
 }
 
@@ -345,6 +347,48 @@ function scrollWatch() {
 // Prices refresh every 30 seconds while the home screen is open.
 setInterval(() => { if (S.screen === "home" && !document.hidden && ACCT) loadPrices(); }, 30_000);
 
+// Rolling digits, driven by time rather than CSS transitions, so a redraw in the middle doesn't restart or cut them.
+const ROLL_MS = 1100, ease = (k) => 1 - Math.pow(1 - k, 4);
+function roll(key, el, prevTxt) {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  S.rolls ||= {}; S.rolls[key] = { prev: prevTxt.replace(/[^\d]/g, ""), len: prevTxt.length, at: performance.now() };
+  dressRoll(key, el); rollTick();
+}
+function dressRoll(key, el) {
+  const R = S.rolls?.[key]; if (!R || el.dataset.rolled) return; el.dataset.rolled = "1";
+  const digits = el.textContent.replace(/[^\d]/g, ""), off = R.prev.length - digits.length; let n = 0;
+  const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), nodes = []; while (walk.nextNode()) nodes.push(walk.currentNode);
+  for (const t of nodes) {
+    if (!/\d/.test(t.nodeValue)) continue;
+    const frag = document.createDocumentFragment();
+    for (const ch of t.nodeValue) {
+      if (!/\d/.test(ch)) { frag.append(ch); continue; }
+      const i = n++, from = Number(R.prev[i + off] ?? 0), to = Number(ch);
+      if (from === to && R.len === el.textContent.length) { frag.append(ch); continue; }
+      const r = document.createElement("span"); r.className = "rd"; r.dataset.f = from; r.dataset.t = to; r.dataset.i = i;
+      r.innerHTML = `<span class="rs">${"0123456789".split("").map((d) => `<span>${d}</span>`).join("")}</span>`; frag.append(r);
+    }
+    t.replaceWith(frag);
+  }
+}
+function rollTick() {
+  if (S.rollRaf) return;
+  const step = () => {
+    S.rollRaf = 0; let live = false;
+    for (const [key, R] of Object.entries(S.rolls || {})) {
+      const el = document.querySelector(ROLL_SEL[key]); if (!el) continue;
+      dressRoll(key, el);
+      el.querySelectorAll(".rd").forEach((r) => {
+        const k = Math.max(0, Math.min(1, (performance.now() - R.at - r.dataset.i * 45) / ROLL_MS)), f = +r.dataset.f, t = +r.dataset.t;
+        r.firstChild.style.transform = `translateY(${-(f + (t - f) * ease(k)) * 1.15}em)`; if (k < 1) live = true;
+      });
+      if (performance.now() - R.at > ROLL_MS + 600) delete S.rolls[key];
+    }
+    if (live) S.rollRaf = requestAnimationFrame(step);
+  };
+  S.rollRaf = requestAnimationFrame(step);
+}
+const ROLL_SEL = { total: ".home .big:not(.sk)", chq: ".home .acard.chq .ac-v:not(.sk)", sav: ".home .acard.sav .ac-v:not(.sk)" };
 function countUp(el, from = 0) {
   const to = Number(el.textContent.replace(/[^\d.]/g, "")); if (!to && !from) return;
   const t0 = performance.now();
@@ -545,8 +589,9 @@ function homeView() {
         <b class="ac-v ${loading ? "sk" : ""}">${loading ? "&nbsp;" : mask(fig(money(w.chq)))}</b>
         <span class="ac-s"><i class="dot live"></i>Spend instantly</span>
       </button>
-      <button class="acard sav" data-act="panel" data-p="vault" data-tilt><i class="sheen"></i>
+      <button class="acard sav${w.vaults ? " live" : ""}" data-act="panel" data-p="vault" data-tilt><i class="sheen"></i>
         <svg class="mv-g" viewBox="0 0 200 140" preserveAspectRatio="xMidYMid slice">${Array.from({ length: 18 }, (_, i) => `<circle cx="${170 + Math.cos(i / 2.2) * 8}" cy="${20 + Math.sin(i / 2.2) * 8}" r="${10 + i * 8}"/>`).join("")}</svg>
+        ${(() => { const ws = (S.all || []).flatMap((r) => [...(r.v?.main?.withdrawals || []), ...(r.v?.usdc?.withdrawals || [])].map((x) => ({ ...x, d: r.v.main.withdrawDelay || 86400 }))); if (!ws.length) return ""; const w = ws.sort((a, b) => a.readyAt - b.readyAt)[0], left = Math.max(0, w.readyAt - now()), f = Math.min(1, left / w.d); return `<i class="cd-ring" title="Time before it can leave"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="8"/><circle class="cd-p" cx="10" cy="10" r="8" style="stroke-dashoffset:${(50.3 * (1 - f)).toFixed(1)}"/></svg></i>`; })()}
         <span class="ac-k">${I.lock}Safe</span>
         <b class="ac-v ${loading ? "sk" : ""}">${loading ? "&nbsp;" : mask(fig(money(w.sav)))}</b>
         <span class="ac-s">${w.leaving ? `<i class="dot warn"></i>${w.leavingText || w.leaving} leaving` : w.vaults ? `<i class="dot"></i>${pct}% of net worth` : `<i class="dot off"></i>Not set up`}</span>
@@ -944,7 +989,9 @@ function renderPanel(enter = false) {
   const el = $("#panel"), P = S.panel;
   if (!P) return;
   const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
-  el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}">${body}</div>`; translate(el, S.lang);
+  if (enter || P.fresh) P.openedAt = performance.now();
+  const since = P.openedAt ? performance.now() - P.openedAt : 9999;
+  el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}${since < 1300 ? " trace" : ""}" style="--tt:${-Math.round(since)}ms">${body}</div>`; translate(el, S.lang);
   P.fresh = false;
   if (enter) requestAnimationFrame(() => { el.classList.add("in"); document.body.classList.add("stacked"); });
   bindHolds(el); depth(el); mountVault3d(el); bindTokChart(el);
