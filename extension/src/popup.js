@@ -608,6 +608,11 @@ function homeView() {
     <div class="tabs ${S.showNfts ? "t3" : ""}" role="tablist">${[["tokens", "Tokens"], ...(S.showNfts ? [["nfts", "Collectibles"]] : []), ["activity", "Activity"]].map(([t, l]) => `<button role="tab" data-act="tab" data-t="${t}" aria-selected="${S.tab === t}">${l}</button>`).join("")}<i class="tab-ind" style="--i:${{ tokens: 0, nfts: 1, activity: S.showNfts ? 2 : 1 }[S.tab] || 0}"></i></div>
     <div class="tab-body">${S.tab === "activity" ? activityList() : S.tab === "nfts" && S.showNfts ? nftGrid() : tokenList(w)}</div>
     <footer class="foot">${w.all ? "Every network" : "Reading every network…"} · testnet beta</footer>
+    <nav class="tabbar" aria-label="Main">
+      <button class="on" data-act="tb-home" aria-current="page"><span>${I.card}</span>Wallet</button>
+      <button data-act="panel" data-p="swap"><span>${I.swap}</span>Swap</button>
+      <button data-act="panel" data-p="vault"><span>${I.lock}</span>Safe</button>
+    </nav>
   </div>`;
 }
 
@@ -1484,6 +1489,7 @@ async function useNet(n) {
 
 async function saveAccts() { await local.set({ accts: S.accts }); }
 const actions = {
+  "tb-home": () => { const r = $("#root"); r.scrollTo({ top: 0, behavior: "smooth" }); },
   speed: (el) => { S.panel.speed = el.dataset.v; renderPanel(); },
   scan: async () => {
     // Phone app: read an address from a QR code with the camera. Nothing leaves the phone.
@@ -1633,7 +1639,7 @@ const actions = {
   "rc-cancel": async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).cancelChange(Number(el.dataset.id)); toast("Change cancelled", "win"); } catch (e) { toast(errText(e), "err"); } await loadAll(); },
   "al-tg": async () => { try { const r = await alertCall("/api/alerts/start", {}); if (!r.url) throw new Error(r.error || "Alerts aren't available right now."); window.open(r.url, "_blank"); S.alertsOn = true; local.set({ alertsOn: true }); toast("Telegram opened: tap Start in the chat.", "win"); } catch (e) { toast(e.message, "err"); } },
   "al-mail": async () => { const email = ($("#panel [data-mail]")?.value || "").trim(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast("Enter your email address", "err"); try { const r = await alertCall("/api/alerts/email", { email }); if (r.error) throw new Error(r.error); S.alertsOn = true; local.set({ alertsOn: true }); toast(r.already ? "Email alerts are already on." : "Check your inbox to confirm.", "win"); } catch (e) { toast(e.message, "err"); } },
-  tok: (el) => { const u = el.dataset.u, cg = u === "USDC" ? null : { SOL: "solana", ETH: "ethereum", POL: "polygon-ecosystem-token" }[u]; openPanel("tok", { u, cg, n: el.dataset.n }); if (cg) loadSeriesFor(cg).then(() => S.panel?.p === "tok" && renderPanel()); },
+  tok: (el) => { S.tkDrawKey = null; const u = el.dataset.u, cg = u === "USDC" ? null : { SOL: "solana", ETH: "ethereum", POL: "polygon-ecosystem-token", BNB: "binancecoin", AVAX: "avalanche-2", TRX: "tron" }[u]; openPanel("tok", { u, cg, n: el.dataset.n }); if (cg) loadSeriesFor(cg).then(() => S.panel?.p === "tok" && renderPanel()); },
   "tok-do": async (el) => { const P = S.panel, w = worth(), list = w.items.filter((i) => i.unit === P.u), p = el.dataset.p;
     const best = list.filter((i) => (p === "withdraw" ? i.sav : i.chq) > 0).sort((x, y) => (y.usd || 0) - (x.usd || 0))[0] || list[0];
     const k = best?.k || P.n || (P.u === "SOL" ? "sol" : P.u === "POL" ? "pol" : "eth"), a = P.u === "USDC" ? "usdc" : "native";
@@ -2151,16 +2157,18 @@ function tokenView() {
     const d = xy.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join("");
     dd = v[v.length - 1] - v[0]; pc = (dd / (v[0] || 1)) * 100;
     S.tkChart = { v, tl, xy, W };
-    chart = `<div class="tk-chart" data-tkchart><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs><linearGradient id="tkf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".16"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs><path d="${d}L${W},${H}L0,${H}Z" fill="url(#tkf)"/><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.7" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><line class="tk-x" x1="0" x2="0" y1="0" y2="${H}"/></svg><span class="ch-tip tk-tip"></span></div>`;
+    const fresh = S.tkDrawKey !== `${P.u}:${S.range}`; S.tkDrawKey = `${P.u}:${S.range}`;
+    chart = `<div class="tk-chart${fresh ? " draw" : ""}" data-tkchart><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs><linearGradient id="tkf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".16"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs><path d="${d}L${W},${H}L0,${H}Z" fill="url(#tkf)"/><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.7" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><line class="tk-x" x1="0" x2="0" y1="0" y2="${H}"/></svg><span class="ch-tip tk-tip"></span></div>`;
   }
   const rl = { 1: "today", 7: "this week", 30: "this month", 365: "this year" }[S.range];
   const ranges = `<div class="ranges">${[["1", "1D"], ["7", "1W"], ["30", "1M"], ["365", "1Y"]].map(([x, l]) => `<button data-act="range" data-d="${x}" aria-pressed="${S.range === x}">${l}</button>`).join("")}</div>`;
-  const icon = P.u === "USDC" ? coin("usdc") : P.u === "ETH" ? coin("eth") : coin(P.u === "SOL" ? "sol" : "pol");
+  const icon = coin({ USDC: "usdc", USDT: "usdt", ETH: "eth", SOL: "sol", POL: "pol", BNB: "bnb", AVAX: "avax", TRX: "tron" }[P.u] || "eth");
+  const cc = COIN_COL[P.u] || "#5b7cff";
   const nets = [...new Set(list.map((i) => NETS[i.k].name))];
   const acts = (S.activity || []).filter((e) => e.n && A(e.a).unit === P.u).slice(0, 5);
   const when = (ms) => new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric" });
   const savPct = tot.amt ? Math.round((tot.sav / tot.amt) * 100) : 0;
-  return `${phead("")}
+  return `<div class="tk-page" style="--cc:${cc}">${phead("")}
     <div class="tk-top">${icon}<span><b>${esc(name)}</b><small>${esc(P.u)}${nets.length ? ` · ${esc(nets.join(", "))}` : ""}</small></span></div>
     <div class="tk-px" data-tkpx>${px != null ? money(px) : "—"}</div>
     <div class="tk-ch ${dd >= 0 ? "up" : "dn"}" data-tkch>${P.u === "USDC" ? "Stays close to $1" : v ? `${dd >= 0 ? "+" : "−"}${money(Math.abs(dd))} (${Math.abs(pc).toFixed(2)}%) <span>${rl}</span>` : "&nbsp;"}</div>
@@ -2169,17 +2177,19 @@ function tokenView() {
     <div class="tk-bal"><span class="lbl">Your balance</span><b>${mask(money(tot.usd))}</b><small>${mask(n(tot.amt, dec))} ${esc(P.u)}${(() => { const c = pr.usd_24h_change; if (c == null || !tot.usd || P.u === "USDC") return ""; const pl = tot.usd - tot.usd / (1 + c / 100); return ` · <span class="${pl >= 0 ? "up" : "dn"}">${pl >= 0 ? "+" : "−"}${mask(money(Math.abs(pl)))} today</span>`; })()}</small>
       ${tot.amt ? `<div class="tk-split"><i style="width:${100 - savPct}%"></i><i class="s" style="width:${savPct}%"></i></div><div class="tk-leg"><span><i></i>Wallet ${mask(n(tot.chq, dec))}</span><span><i class="s"></i>${I.lock}Safe ${mask(n(tot.sav, dec))}</span></div>` : ""}</div>
     ${list.length > 1 ? `<div class="list-h"><b>By network</b><span></span></div><section class="list">${list.map((i) => `<div class="arow">${coin(i.k)}<span class="ar-t"><b>${NETS[i.k].name}</b><small>${i.sav ? `${I.lock}${mask(n(i.sav, i.dec))} in Safe` : "Wallet"}</small></span><span class="ar-r"><b>${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}</small></span></div>`).join("")}</section>` : ""}
-    <div class="list-h"><b>Info</b><span></span></div>
-    <div class="tk-info">
+    <div class="list-h"><b>Market</b><span></span></div>
+    <div class="tk-stats">
       <div><span>Price</span><b>${px != null ? money(px) : "—"}</b></div>
-      ${pr.usd_24h_change != null ? `<div><span>24h change</span><b class="${pr.usd_24h_change >= 0 ? "up" : "dn"}">${pr.usd_24h_change >= 0 ? "+" : "−"}${Math.abs(pr.usd_24h_change).toFixed(2)}%</b></div>` : ""}
-      ${pr.usd_market_cap ? `<div><span>Market cap</span><b>${big(pr.usd_market_cap)}</b></div>` : ""}
-      ${pr.usd_24h_vol ? `<div><span>24h volume</span><b>${big(pr.usd_24h_vol)}</b></div>` : ""}
-      <div><span>Networks</span><b>${esc(nets.join(", ") || "—")}</b></div>
+      <div><span>24h change</span><b class="${(pr.usd_24h_change ?? 0) >= 0 ? "up" : "dn"}">${pr.usd_24h_change != null ? `${pr.usd_24h_change >= 0 ? "+" : "−"}${Math.abs(pr.usd_24h_change).toFixed(2)}%` : "—"}</b></div>
+      <div><span>Market cap</span><b>${pr.usd_market_cap ? big(pr.usd_market_cap) : "—"}</b></div>
+      <div><span>24h volume</span><b>${pr.usd_24h_vol ? big(pr.usd_24h_vol) : "—"}</b></div>
+      <div><span>You hold</span><b>${mask(money(tot.usd))}</b></div>
+      <div><span>In your Safe</span><b>${tot.amt ? savPct + "%" : "—"}</b></div>
     </div>
+    <p class="tk-nets">${esc(nets.length ? "On " + nets.join(", ") : "")}</p>
     ${acts.length ? `<div class="list-h"><b>Activity</b><span></span></div><section class="list">${acts.map((e) => { const [t, ic] = ACT[e.t] || ["Transaction", I.arrow]; return `<div class="arow act-row"><span class="act-ico">${ic}</span><span class="ar-t"><b>${t}</b><small>${when(e.at)}</small></span><span class="ar-r"><b>${e.t === "send" ? "−" : ""}${amt(e.n, e.a)} ${A(e.a).unit}</b></span></div>`; }).join("")}</section>` : ""}
     <div class="list-h"><b>About ${esc(name)}</b><span></span></div>
-    <p class="tk-about">${ABOUT[P.u] || ""}</p>`;
+    <p class="tk-about">${ABOUT[P.u] || ""}</p></div>`;
 }
 
 /** Scrubbing the token chart: price and date follow the finger. */
