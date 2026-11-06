@@ -663,3 +663,4 @@ td:first-child { color: var(--ink); font-weight: 600; width: 44%; }
 .play.pro .pl-foot span { display: inline; }
 @media (max-width: 560px) { .play.pro .pl-foot { display: block !important; } }
 .play.pro:hover { transform: none !important; }
+.net-track .net.rv { opacity: 1 !important; transform: none !important; }

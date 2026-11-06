@@ -15,7 +15,7 @@ if (cloud) {
   const have = new Set([...cloud.querySelectorAll("i.coin")].map((i) => [...i.classList].find((c) => NAME[c])));
   const extra = [["bnb", "BNB Chain"], ["avax", "Avalanche"], ["tron", "Tron"], ["usdt", "USDT"]].filter(([k]) => !have.has(k));
   for (const [k, n] of extra) cloud.insertAdjacentHTML("beforeend", `<span class="net"><i class="coin ${k} real">${LOGOS[k]}</i>${n}</span>`);
-  if (!still) { const track = document.createElement("div"); track.className = "net-track"; track.append(...cloud.childNodes); track.insertAdjacentHTML("beforeend", track.innerHTML); cloud.append(track); cloud.classList.add("band"); }
+  if (!still) { const track = document.createElement("div"); track.className = "net-track"; track.append(...cloud.childNodes); track.insertAdjacentHTML("beforeend", track.innerHTML); track.querySelectorAll(".rv").forEach((n) => n.classList.add("in")); cloud.append(track); cloud.classList.add("band"); }
 
 }
 
