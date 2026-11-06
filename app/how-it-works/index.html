@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en" data-default-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>How it works on-chain · Ecrin</title>
+  <meta name="description" content="Exactly what the Ecrin Safe code allows: a withdrawal step by step, who can do what, and what can still change." />
+  <meta name="theme-color" content="#f3f2ee" />
+  <meta property="og:title" content="How it works on-chain · Ecrin" />
+  <meta property="og:description" content="An on-chain vault for Solana and Ethereum. Every way out takes time, and you can cancel any time." />
+  <link rel="canonical" href="https://ecrinprotocol.app/how-it-works/" />
+  <link rel="alternate" hreflang="en" href="https://ecrinprotocol.app/how-it-works/" />
+  <link rel="alternate" hreflang="fr" href="https://ecrinprotocol.app/fr/fonctionnement/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Ecrin" />
+  <meta property="og:url" content="https://ecrinprotocol.app/how-it-works/" />
+  <meta property="og:image" content="https://ecrinprotocol.app/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="How it works on-chain · Ecrin" />
+  <meta name="twitter:description" content="An on-chain vault for Solana and Ethereum. Every way out waits, and you can cancel any time." />
+  <meta name="twitter:image" content="https://ecrinprotocol.app/og.png" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ffffff'/%3E%3Crect x='5' y='5' width='22' height='22' rx='7' fill='none' stroke='%232F5BFF' stroke-width='2.2'/%3E%3Cpath d='M16 10.5l4.8 5.5L16 21.5 11.2 16z' fill='%232F5BFF'/%3E%3C/svg%3E" />
+  <link rel="preload" href="/fonts/unbounded-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/manrope-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/icon2-180.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Ecrin" />
+  <link rel="stylesheet" href="/site.css" />
+  <script src="/theme.js"></script>
+  <script src="/site.js" defer></script>
+</head>
+<body class="site sec-page">
+  <header class="nav"><div class="progress" aria-hidden="true"><i></i></div>
+    <div class="nav-in">
+      <a class="logo" href="/" aria-label="Ecrin"><svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="#2F5BFF" stroke-width="2.2"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="#2F5BFF"/></svg>Ecrin</a>
+      <nav class="nav-pill" aria-label="Sections"><a href="#withdrawal">A withdrawal</a><a href="#who">Who can do what</a><a href="#rules">Rules</a><a href="#ecrin">What Ecrin can't do</a><a href="#change">What can change</a></nav>
+      <div class="nav-cta"><a class="lang" href="/fr/fonctionnement/" hreflang="fr" lang="fr">FR</a><button class="theme" data-theme-toggle aria-label="Switch theme"><svg class="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg></button><a class="btn blue" href="/app">Open app</a></div>
+    </div>
+  </header>
+  <main class="doc onchain">
+    <section class="doc-hero">
+      <span class="kicker">How it works on-chain</span>
+      <h1>No company in the middle. Just rules in code.</h1>
+      <p>Your Safe is a program on Solana and a contract on Ethereum-style networks. This page says exactly what that code allows, who can do what, and what can still change.</p>
+    </section>
+
+    <section id="withdrawal" class="doc-sec">
+      <h2>A withdrawal, step by step</h2>
+      <ol class="steps">
+        <li><b>You ask.</b> Your Safe records the amount, where it goes, and when it may leave: after your delay (24 hours on Gentle, 72 on Strong), and never before a freeze ends.</li>
+        <li><b>You're warned.</b> The wallet shows it, and Telegram or email alerts tell you even when you're away.</li>
+        <li><b>You can cancel the whole time.</b> One tap, and the money simply stays in your Safe. Nothing is lost but a tiny network fee.</li>
+        <li><b>When the time comes, it runs.</b> Anyone may trigger it, but the money can only go to the address you chose. Nobody gains anything by triggering it.</li>
+      </ol>
+      <p class="note-s"><b>Two exceptions, both chosen by you.</b> Sends to an address you trusted earlier are instant, but still count toward your daily limit and are still blocked during a freeze. And your guardian can release early a withdrawal <i>you</i> already asked for, in an emergency. A guardian can't start a withdrawal, change its amount or change where it goes.</p>
+    </section>
+
+    <section id="who" class="doc-sec">
+      <h2>Who can do what</h2>
+      <div class="who-wrap"><table class="who">
+        <thead><tr><th></th><th>You</th><th>Your guardian</th><th>Anyone else</th><th>Ecrin</th></tr></thead>
+        <tbody>
+          <tr><td>Put money in</td><td><span class="yes">Yes</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td></tr>
+          <tr><td>Ask to withdraw</td><td><span class="yes">Yes</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td></tr>
+          <tr><td>Cancel a withdrawal</td><td><span class="yes">Yes</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td></tr>
+          <tr><td>Run a withdrawal once its time comes</td><td><span class="yes">Yes</span></td><td><span class="yes">Yes</span></td><td><span class="yes">Yes</span> <small>to your chosen address only</small></td><td><span class="yes">Yes</span> <small>same as anyone</small></td></tr>
+          <tr><td>Make rules stricter (longer delay, lower limit, freeze)</td><td><span class="yes">Yes</span> <small>instantly</small></td><td><span class="no">No</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td></tr>
+          <tr><td>Loosen rules (shorter delay, higher limit, new trusted address)</td><td><span class="yes">Yes</span> <small>after the rule delay</small></td><td><small>can approve a new trusted address early</small></td><td><span class="no">No</span></td><td><span class="no">No</span></td></tr>
+          <tr><td>Release an emergency withdrawal early</td><td><span class="no">No</span></td><td><span class="yes">Yes</span> <small>only one you asked for</small></td><td><span class="no">No</span></td><td><span class="no">No</span></td></tr>
+          <tr class="hl"><td>Take, freeze or redirect your money</td><td><span class="no">No</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="rules" class="doc-sec">
+      <h2>Rules that only loosen slowly</h2>
+      <p>Anything that makes your Safe harder to empty applies at once: a longer delay, a lower daily limit, a freeze. Anything that makes it easier waits the <b>rule delay</b>, 3 days on Gentle and 7 on Strong, and never applies before a freeze ends. You can cancel a pending change the whole time.</p>
+      <p>So a thief with your recovery phrase can't shorten your delay, add their own address or raise your limit in a hurry. Every way out takes time, and you see it coming.</p>
+    </section>
+
+    <section id="ecrin" class="doc-sec">
+      <h2>What Ecrin itself can't do</h2>
+      <div class="sgrid">
+        <div class="scell"><span class="sdot ok"></span><b>No admin key</b><p>Neither the Solana program nor the Ethereum contract has an owner, admin or operator role.</p></div>
+        <div class="scell"><span class="sdot ok"></span><b>No pause switch</b><p>Nobody can freeze everyone's funds, or yours. Only you can freeze your own Safe.</p></div>
+        <div class="scell"><span class="sdot ok"></span><b>No fees taken from the Safe</b><p>The code has no fee and no treasury. You only pay the network's own fee.</p></div>
+        <div class="scell"><span class="sdot ok"></span><b>Works without us</b><p>The website and wallet are only windows onto the chain. If they disappeared, your Safe and its rules would still work from any tool.</p></div>
+      </div>
+    </section>
+
+    <section id="change" class="doc-sec">
+      <h2>What can still change</h2>
+      <div class="sgrid">
+        <div class="scell"><span class="sdot ok"></span><b>Ethereum contract: fixed</b><p>It has no upgrade mechanism. The code deployed is the code that runs, for good.</p></div>
+        <div class="scell"><span class="sdot warn"></span><b>Solana program: upgradeable while testing</b><p>Solana programs can be upgraded by the key that deployed them. Before mainnet, after the audit, that key moves to a multi-person key, and later the program is made permanent.</p></div>
+        <div class="scell"><span class="sdot warn"></span><b>Not audited yet</b><p>An independent audit, with the report published here, comes before any real money. Test coins only until then.</p></div>
+        <div class="scell"><span class="sdot warn"></span><b>Bug bounty at mainnet</b><p>Until then, report flaws privately from the <a href="/security/#report">security page</a>.</p></div>
+      </div>
+    </section>
+
+    <section id="limits" class="doc-sec">
+      <h2>Built-in limits</h2>
+      <ul class="doc-list">
+        <li>Up to 8 trusted addresses, 4 waiting withdrawals and 4 waiting rule changes per Safe.</li>
+        <li>A freeze can last at most 10 years, so a typo or a thief can't lock your money forever.</li>
+        <li>The daily limit counts everything that leaves in one UTC day, trusted sends included.</li>
+      </ul>
+      <p>The official program and contract addresses are on the <a href="/security/#addresses">security page</a>. Check them before you sign.</p>
+    </section>
+  </main>
+  <footer class="foot-s"><div class="wrap"><div class="foot-card"><div class="foot-top"><a class="logo" href="/"><svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="#2F5BFF" stroke-width="2.2"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="#2F5BFF"/></svg>Ecrin</a><div class="foot-links"><a href="/app">App</a><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/demo">Demo</a><a href="https://github.com/lecrabe5000-droid/Solana-Vault" target="_blank" rel="noopener">GitHub</a></div></div><p>Open source · testnet beta · not audited: don't use real funds.</p></div></div></footer>
+</body>
+</html>

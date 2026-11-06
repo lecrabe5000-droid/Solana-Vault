@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="fr" data-default-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Fonctionnement on-chain · Ecrin</title>
+  <meta name="description" content="Ce que le code du Safe Ecrin permet exactement : un retrait étape par étape, qui peut faire quoi, et ce qui peut encore changer." />
+  <meta name="theme-color" content="#f3f2ee" />
+  <meta property="og:title" content="Fonctionnement on-chain · Ecrin" />
+  <meta property="og:description" content="An on-chain vault for Solana and Ethereum. Every way out takes time, and you can cancel any time." />
+  <link rel="canonical" href="https://ecrinprotocol.app/fr/fonctionnement/" />
+  <link rel="alternate" hreflang="en" href="https://ecrinprotocol.app/how-it-works/" />
+  <link rel="alternate" hreflang="fr" href="https://ecrinprotocol.app/fr/fonctionnement/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Ecrin" />
+  <meta property="og:url" content="https://ecrinprotocol.app/fr/fonctionnement/" />
+  <meta property="og:image" content="https://ecrinprotocol.app/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Fonctionnement on-chain · Ecrin" />
+  <meta name="twitter:description" content="An on-chain vault for Solana and Ethereum. Every way out waits, and you can cancel any time." />
+  <meta name="twitter:image" content="https://ecrinprotocol.app/og.png" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ffffff'/%3E%3Crect x='5' y='5' width='22' height='22' rx='7' fill='none' stroke='%232F5BFF' stroke-width='2.2'/%3E%3Cpath d='M16 10.5l4.8 5.5L16 21.5 11.2 16z' fill='%232F5BFF'/%3E%3C/svg%3E" />
+  <link rel="preload" href="/fonts/unbounded-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/manrope-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/icon2-180.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Ecrin" />
+  <link rel="stylesheet" href="/site.css" />
+  <script src="/theme.js"></script>
+  <script src="/site.js" defer></script>
+</head>
+<body class="site sec-page">
+  <header class="nav"><div class="progress" aria-hidden="true"><i></i></div>
+    <div class="nav-in">
+      <a class="logo" href="/" aria-label="Ecrin"><svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="#2F5BFF" stroke-width="2.2"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="#2F5BFF"/></svg>Ecrin</a>
+      <nav class="nav-pill" aria-label="Sections"><a href="#withdrawal">Un retrait</a><a href="#who">Qui fait quoi</a><a href="#rules">Règles</a><a href="#ecrin">Ce qu'Ecrin ne peut pas</a><a href="#change">Ce qui peut changer</a></nav>
+      <div class="nav-cta"><a class="lang" href="/how-it-works/" hreflang="en" lang="en">EN</a><button class="theme" data-theme-toggle aria-label="Switch theme"><svg class="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg></button><a class="btn blue" href="/app">Open app</a></div>
+    </div>
+  </header>
+  <main class="doc onchain">
+    <section class="doc-hero">
+      <span class="kicker">Fonctionnement on-chain</span>
+      <h1>Aucune entreprise au milieu. Seulement des règles dans le code.</h1>
+      <p>Votre Safe est un programme sur Solana et un contrat sur les réseaux de type Ethereum. Cette page dit exactement ce que ce code permet, qui peut faire quoi, et ce qui peut encore changer.</p>
+    </section>
+
+    <section id="withdrawal" class="doc-sec">
+      <h2>Un retrait, étape par étape</h2>
+      <ol class="steps">
+        <li><b>Vous le demandez.</b> Votre Safe enregistre le montant, la destination et le moment où il pourra partir : après votre délai (24 heures en Souple, 72 en Fort), et jamais avant la fin d'un gel.</li>
+        <li><b>Vous êtes prévenu.</b> Le wallet l'affiche, et les alertes Telegram ou e-mail vous préviennent même quand vous êtes absent.</li>
+        <li><b>Vous pouvez annuler pendant tout ce temps.</b> Un geste, et l'argent reste simplement dans votre Safe. Vous ne perdez qu'un minuscule frais de réseau.</li>
+        <li><b>À l'heure prévue, il s'exécute.</b> N'importe qui peut le déclencher, mais l'argent ne peut aller qu'à l'adresse que vous avez choisie. Personne n'y gagne quoi que ce soit.</li>
+      </ol>
+      <p class="note-s"><b>Deux exceptions, choisies par vous.</b> Les envois vers une adresse de confiance sont immédiats, mais comptent dans votre limite quotidienne et restent bloqués pendant un gel. Et votre gardien peut libérer plus tôt, en urgence, un retrait que <i>vous</i> avez déjà demandé. Un gardien ne peut ni lancer un retrait, ni changer son montant, ni sa destination.</p>
+    </section>
+
+    <section id="who" class="doc-sec">
+      <h2>Qui peut faire quoi</h2>
+      <div class="who-wrap"><table class="who">
+        <thead><tr><th></th><th>Vous</th><th>Votre gardien</th><th>Quelqu'un d'autre</th><th>Ecrin</th></tr></thead>
+        <tbody>
+          <tr><td>Déposer de l'argent</td><td><span class="yes">Oui</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td></tr>
+          <tr><td>Demander un retrait</td><td><span class="yes">Oui</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td></tr>
+          <tr><td>Annuler un retrait</td><td><span class="yes">Oui</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td></tr>
+          <tr><td>Exécuter un retrait arrivé à l'heure</td><td><span class="yes">Oui</span></td><td><span class="yes">Oui</span></td><td><span class="yes">Oui</span> <small>seulement vers votre adresse</small></td><td><span class="yes">Oui</span> <small>comme tout le monde</small></td></tr>
+          <tr><td>Durcir les règles (délai plus long, limite plus basse, gel)</td><td><span class="yes">Oui</span> <small>immédiatement</small></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td></tr>
+          <tr><td>Assouplir les règles (délai plus court, limite plus haute, nouvelle adresse de confiance)</td><td><span class="yes">Oui</span> <small>après le délai des règles</small></td><td><small>peut approuver plus tôt une nouvelle adresse de confiance</small></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td></tr>
+          <tr><td>Libérer plus tôt un retrait d'urgence</td><td><span class="no">Non</span></td><td><span class="yes">Oui</span> <small>seulement un retrait que vous avez demandé</small></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td></tr>
+          <tr class="hl"><td>Prendre, geler ou détourner votre argent</td><td><span class="no">Non</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="rules" class="doc-sec">
+      <h2>Des règles qui ne s'assouplissent que lentement</h2>
+      <p>Tout ce qui rend votre Safe plus difficile à vider s'applique tout de suite : un délai plus long, une limite plus basse, un gel. Tout ce qui le rend plus facile attend le <b>délai des règles</b>, 3 jours en Souple et 7 en Fort, et ne s'applique jamais avant la fin d'un gel. Vous pouvez annuler un changement en attente pendant tout ce temps.</p>
+      <p>Un voleur qui a votre phrase de récupération ne peut donc pas raccourcir votre délai, ajouter sa propre adresse ou augmenter votre limite dans la précipitation. Chaque sortie prend du temps, et vous la voyez venir.</p>
+    </section>
+
+    <section id="ecrin" class="doc-sec">
+      <h2>Ce qu'Ecrin elle-même ne peut pas faire</h2>
+      <div class="sgrid">
+        <div class="scell"><span class="sdot ok"></span><b>Aucune clé d'administration</b><p>Ni le programme Solana ni le contrat Ethereum n'ont de propriétaire, d'administrateur ou d'opérateur.</p></div>
+        <div class="scell"><span class="sdot ok"></span><b>Aucun bouton pause</b><p>Personne ne peut geler les fonds de tout le monde, ni les vôtres. Vous seul pouvez geler votre Safe.</p></div>
+        <div class="scell"><span class="sdot ok"></span><b>Aucun frais prélevé sur le Safe</b><p>Le code n'a ni frais ni trésorerie. Vous ne payez que les frais du réseau.</p></div>
+        <div class="scell"><span class="sdot ok"></span><b>Fonctionne sans nous</b><p>Le site et le wallet ne sont que des fenêtres sur la blockchain. S'ils disparaissaient, votre Safe et ses règles fonctionneraient encore depuis n'importe quel outil.</p></div>
+      </div>
+    </section>
+
+    <section id="change" class="doc-sec">
+      <h2>Ce qui peut encore changer</h2>
+      <div class="sgrid">
+        <div class="scell"><span class="sdot ok"></span><b>Contrat Ethereum : définitif</b><p>Il n'a aucun mécanisme de mise à jour. Le code déployé est celui qui tourne, pour de bon.</p></div>
+        <div class="scell"><span class="sdot warn"></span><b>Programme Solana : modifiable pendant les tests</b><p>Un programme Solana peut être mis à jour par la clé qui l'a déployé. Avant le mainnet, après l'audit, cette clé passe à une clé à plusieurs personnes, puis le programme devient définitif.</p></div>
+        <div class="scell"><span class="sdot warn"></span><b>Pas encore audité</b><p>Un audit indépendant, avec le rapport publié ici, vient avant tout argent réel. Jetons de test uniquement d'ici là.</p></div>
+        <div class="scell"><span class="sdot warn"></span><b>Prime aux bugs au mainnet</b><p>D'ici là, signalez les failles en privé depuis la <a href="/fr/securite/#report">page sécurité</a>.</p></div>
+      </div>
+    </section>
+
+    <section id="limits" class="doc-sec">
+      <h2>Limites intégrées</h2>
+      <ul class="doc-list">
+        <li>Jusqu'à 8 adresses de confiance, 4 retraits en attente et 4 changements de règles en attente par Safe.</li>
+        <li>Un gel dure au plus 10 ans, pour qu'une faute de frappe ou un voleur ne bloque pas votre argent pour toujours.</li>
+        <li>La limite quotidienne compte tout ce qui sort en une journée UTC, envois de confiance compris.</li>
+      </ul>
+      <p>Les adresses officielles du programme et des contrats sont sur la <a href="/fr/securite/#addresses">page sécurité</a>. Vérifiez-les avant de signer.</p>
+    </section>
+  </main>
+  <footer class="foot-s"><div class="wrap"><div class="foot-card"><div class="foot-top"><a class="logo" href="/"><svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="#2F5BFF" stroke-width="2.2"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="#2F5BFF"/></svg>Ecrin</a><div class="foot-links"><a href="/app">App</a><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/demo">Demo</a><a href="https://github.com/lecrabe5000-droid/Solana-Vault" target="_blank" rel="noopener">GitHub</a></div></div><p>Open source · testnet beta · not audited: don't use real funds.</p></div></div></footer>
+</body>
+</html>
