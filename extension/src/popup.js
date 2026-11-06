@@ -1501,7 +1501,7 @@ function settingsView() {
       <a class="srow" href="https://github.com/lecrabe5000-droid/Solana-Vault/issues" target="_blank"><span>${I.link}Help and feedback</span><span class="sv">${I.ext}</span></a>`)}
     <div class="sets danger-z"><button class="srow danger" data-act="forget"><span>Remove wallet from this browser</span><span></span></button></div>
     <p class="fine pad">Ecrin Wallet ${VERSION} · testnet beta · not audited</p>
-    ${globalThis.ECRIN_WEB ? (() => { const cs = getComputedStyle(document.documentElement), d = document.querySelector(".device")?.getBoundingClientRect(); return `<p class="fine pad mono scr-dbg">Screen ${screen.width}×${screen.height} · view ${innerWidth}×${innerHeight} · vv ${Math.round(visualViewport?.height || 0)} · app ${Math.round(d?.top || 0)}–${Math.round(d?.bottom || 0)} · gap ${cs.getPropertyValue("--gap") || "0"} · ${navigator.standalone ? "home screen" : "browser"}</p>`; })() : ""}`;
+    ${globalThis.ECRIN_WEB ? (() => { const cs = getComputedStyle(document.documentElement), d = document.querySelector(".device")?.getBoundingClientRect(); return `<p class="fine pad mono scr-dbg">Screen ${screen.width}×${screen.height} · view ${innerWidth}×${innerHeight} · vv ${Math.round(visualViewport?.height || 0)} · app ${Math.round(d?.top || 0)}–${Math.round(d?.bottom || 0)} · ${navigator.standalone ? "home screen" : "browser"}</p>`; })() : ""}`;
 }
 function currencyView() {
   return `${phead("Currency")}<p class="fine">Prices and totals show in this currency at today's rate. Your coins don't change.</p>
