@@ -1880,3 +1880,28 @@ button.sf-tile { cursor: pointer; } button.sf-tile:active { transform: scale(.97
 :root[data-theme] .lz-chg.plain .delta.up, :root[data-theme] .lz-chg.plain .delta.dn { background: none !important; box-shadow: none !important; padding: 0 !important; }
 .home .top .acct { flex: none; width: auto; gap: 10px; } .home .top .acct .acct-n { flex: none; }
 .scr-dbg { font-size: 10.5px; opacity: .6; word-break: break-word; }
+/* ---- 0.4.5: the account row scrolls away with the page ---- */
+.home .top { position: relative !important; background: none !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+.home .top .top-total { display: none !important; }
+/* ---- colours tuned to Obsidian & Ivory ---- */
+/* lozenge: coins in ivory to graphite by size (biggest brightest), the Safe ring in a quiet steel blue */
+.lz-seg { stroke: var(--cc); }
+:root[data-theme="dark"] .lz-seg.r0 { stroke: #f2efe8; } :root[data-theme="dark"] .lz-seg.r1 { stroke: #a9a59d; }
+:root[data-theme="dark"] .lz-seg.r2 { stroke: #75726c; } :root[data-theme="dark"] .lz-seg.r3 { stroke: #504e4a; }
+:root[data-theme="dark"] .lz-safe { stroke: #8ea2d4 !important; }
+:root[data-theme="dark"] .lz-base { stroke: rgba(242, 239, 232, .08); } :root[data-theme="dark"] .lz-base.in { stroke: rgba(142, 162, 212, .14); }
+/* account avatar: graphite tile with a hint of its colour, ivory letter */
+:root[data-theme="dark"] .acct-ic.av { background: color-mix(in srgb, var(--ac) 22%, #232326) !important; color: var(--ivory) !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ac) 35%, transparent); }
+/* amounts in the Safe, and Safe accents: steel blue instead of bright blue */
+:root[data-theme="dark"] .home .arow .sv, :root[data-theme="dark"] .arow .sv { color: #8ea2d4 !important; }
+:root[data-theme="dark"] .wsplit .sp-bar i { background: linear-gradient(90deg, #8ea2d4, #f2efe8); }
+/* gains and losses: sage and clay, no red badges */
+:root[data-theme="dark"] .home .tab-body .arow small .up { color: #9fd3b4; background: rgba(159, 211, 180, .1); }
+:root[data-theme="dark"] .home .tab-body .arow small .dn { color: #e0a39b; background: rgba(224, 163, 155, .1); }
+:root[data-theme="dark"] .up { color: #9fd3b4; } :root[data-theme="dark"] .dn { color: #e0a39b; }
+/* sparklines in ivory grey */
+:root[data-theme="dark"] .spark path, :root[data-theme="dark"] .spark polyline { stroke: #a9a59d !important; }
+:root[data-theme="dark"] .spark.up path, :root[data-theme="dark"] .spark.dn path { stroke: #a9a59d !important; }
+/* the Shield's Safe colours follow the same steel blue */
+:root[data-theme="dark"] #sfg stop:nth-child(3) { stop-color: #8ea2d4; }
+:root[data-theme="dark"] .rl-f, :root[data-theme="dark"] .rl-d { background: var(--ivory); }
