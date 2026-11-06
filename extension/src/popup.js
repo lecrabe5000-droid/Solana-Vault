@@ -861,7 +861,7 @@ function chartView() {
   </div>`;
 }
 
-const COIN_NAME = { SOL: "Solana", ETH: "Ether", POL: "Polygon", BNB: "BNB", AVAX: "Avalanche", TRX: "TRON", USDC: "USD Coin" };
+const COIN_NAME = { SOL: "Solana", ETH: "Ethereum", POL: "Polygon", BNB: "BNB", AVAX: "Avalanche", TRX: "TRON", USDC: "USD Coin" };
 function assetRow(a, chq, sav) {
   const x = A(a), u = usdOf(chq + sav, a), p = a === "usdc" ? { usd: 1, usd_24h_change: 0 } : S.prices[NETS[S.net].cg];
   const ch = p?.usd_24h_change;
