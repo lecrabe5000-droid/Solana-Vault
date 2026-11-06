@@ -53,8 +53,8 @@ if (!process.argv.includes("--watch")) {
 #tabbar { bottom: max(6px, calc(env(safe-area-inset-bottom, 0px) - 8px)) !important; }
 /* The see-through status bar: the app draws behind the clock. Where iPhone stops drawing the app near the bottom,
    it still paints the page's base colour, so the lowest part of every screen fades into that same colour. */
-html { background: #03040e !important; }
-:root[data-theme="dark"] body, :root[data-theme="dark"] .device, :root[data-theme="dark"] #root, :root[data-theme="dark"] #panel .pane { background: #03040e !important; }
+html { background: #0c0d0f !important; }
+:root[data-theme="dark"] body, :root[data-theme="dark"] .device, :root[data-theme="dark"] #root, :root[data-theme="dark"] #panel .pane { background: #0c0d0f !important; }
 /* The very top and bottom of every screen are the plain base colour (the same one iPhone paints in its status bar
    and below the app), and the atmosphere fades in between, so there is no band in either status-bar mode. */
 :root[data-theme="dark"] .aura, :root[data-theme="dark"] .sf-aura { -webkit-mask-image: linear-gradient(transparent 0, transparent calc(env(safe-area-inset-top, 0px) + 10px), #000 calc(env(safe-area-inset-top, 0px) + 160px), #000 62%, transparent 88%) !important; mask-image: linear-gradient(transparent 0, transparent calc(env(safe-area-inset-top, 0px) + 10px), #000 calc(env(safe-area-inset-top, 0px) + 160px), #000 62%, transparent 88%) !important; }

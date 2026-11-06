@@ -2168,3 +2168,33 @@ body.stacked #root, :root[data-theme] body.stacked #root { transform: translateX
     radial-gradient(40% 28% at 76% 58%, rgba(36, 62, 230, .30), rgba(36, 62, 230, .10) 45%, transparent 72%),
     radial-gradient(34% 26% at 20% 30%, rgba(52, 70, 200, .16), transparent 70%),
     radial-gradient(46% 30% at 52% 4%, rgba(70, 100, 255, .16), transparent 72%) !important; }
+
+/* =====================================================================
+   0.6.9: the website's palette. Graphite #0c0d0f, panels #131417 / #1a1b1f, warm off-white text, grey #7c7f87,
+   Ecrin blue #2f5bff (soft #7d97ff on dark). The atmosphere is the site's: a quiet blue light, never blue-black.
+   ===================================================================== */
+:root[data-theme="dark"] {
+  --bg: #0c0d0f; --s1: #131417; --s2: #1a1b1f; --s3: #23252a; --ink: #f3f3ef; --muted: #7c7f87;
+  --line: rgba(243, 243, 239, .07); --line-2: rgba(243, 243, 239, .12); --ivory: #f3f3ef; --ivory-ink: #0c0d0f;
+  --ecrin: #2f5bff; --ecrin-soft: #7d97ff; --eb: #2f5bff;
+}
+:root[data-theme="dark"] body, :root[data-theme="dark"] #root, :root[data-theme="dark"] .device, :root[data-theme="dark"] #panel .pane { background: #0c0d0f; }
+:root[data-theme="dark"] .aura::before, :root[data-theme="dark"] .sf-aura::before {
+  background:
+    radial-gradient(40% 28% at 78% 56%, rgba(47, 91, 255, .20), rgba(47, 91, 255, .06) 45%, transparent 72%),
+    radial-gradient(34% 26% at 18% 28%, rgba(125, 151, 255, .08), transparent 70%),
+    radial-gradient(46% 30% at 52% 4%, rgba(125, 151, 255, .10), transparent 72%) !important; }
+/* surfaces: the site's panels, not tinted glass */
+:root[data-theme="dark"] .home { --glass: rgba(19, 20, 23, .78); --glass-hi: rgba(243, 243, 239, .08); }
+:root[data-theme="dark"] #tabbar { --glass: rgba(19, 20, 23, .86); --glass-hi: rgba(243, 243, 239, .1); }
+:root[data-theme="dark"] .wsplit, :root[data-theme="dark"] .rt, :root[data-theme="dark"] .slide, :root[data-theme="dark"] .mv-pcts button, :root[data-theme="dark"] .shortcuts .sc,
+:root[data-theme="dark"] .sf-tile, :root[data-theme="dark"] .sf-net, :root[data-theme="dark"] .sb-r, :root[data-theme="dark"] .sb-empty, :root[data-theme="dark"] .sx-card, :root[data-theme="dark"] .sx-kv,
+:root[data-theme="dark"] .home .acts button:not([data-p="protect"]), :root[data-theme="dark"] .tk-acts button:not([data-p="protect"]) { background: rgba(19, 20, 23, .8) !important; }
+:root[data-theme="dark"] .home .tab-body .arow, :root[data-theme="dark"] .home .tab-body .mkt > .arow { background: rgba(19, 20, 23, .8) !important; }
+:root[data-theme="dark"] .tabbar button:not(.on) { background: transparent !important; }
+:root[data-theme="dark"] .acct-ic.av { background: #1a1b1f !important; }
+/* Ecrin blue as on the site */
+:root[data-theme="dark"] #tabbar button.on span, :root[data-theme="dark"] .home .acts button[data-p="protect"], :root[data-theme="dark"] .tk-acts button[data-p="protect"] { background: #2f5bff !important; box-shadow: 0 10px 24px -12px rgba(47, 91, 255, .9) !important; }
+:root[data-theme="dark"] .lz-safe { stroke: #7d97ff !important; } :root[data-theme="dark"] .wsplit .sp-bar i { background: #7d97ff; }
+:root[data-theme="dark"] .lz-seg.r0 { stroke: #f3f3ef; } :root[data-theme="dark"] .lz-seg.r1 { stroke: #b5b7bd; } :root[data-theme="dark"] .lz-seg.r2 { stroke: #7c7f87; } :root[data-theme="dark"] .lz-seg.r3 { stroke: #4a4c52; }
+:root[data-theme="dark"] .lz-base { stroke: rgba(243, 243, 239, .08); }
