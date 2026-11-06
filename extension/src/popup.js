@@ -302,11 +302,20 @@ function worth() {
 
 function go(screen, extra = {}) { Object.assign(S, { screen }, extra); render(); }
 
+const TABBAR = `<nav id="tabbar" class="tabbar" aria-label="Main">
+      <button class="on" data-act="tb-home" aria-current="page" aria-label="Wallet"><span>${I.card}</span></button>
+      <button data-act="panel" data-p="swap" aria-label="Swap"><span>${I.swap}</span></button>
+      <button data-act="panel" data-p="vault" aria-label="Safe"><span>${I.lock}</span></button>
+    </nav>`;
 function render() {
   const root = $("#root");
   root.dataset.screen = S.screen;
   root.innerHTML = ({ loading: () => `<div class="splash"><span class="spin-tile">${LOGO}</span></div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
   translate(root, S.lang);
+  // The three floating buttons live outside #root, made once, so re-renders and panels never make them blink.
+  let tb = document.getElementById("tabbar");
+  if (S.screen === "home" && !tb) { document.body.insertAdjacentHTML("beforeend", TABBAR); tb = document.getElementById("tabbar"); }
+  if (tb) tb.hidden = S.screen !== "home";
   const f = root.querySelector("[autofocus]"); if (f) f.focus();
   bindHolds(root);
   depth(root);
@@ -539,8 +548,16 @@ function importPhrase() {
 }
 
 function unlock() {
-  if (S.bioBusy === "ok") return `<div class="splash bio-done"><span class="spin-tile done"><svg class="bio-ok" viewBox="0 0 24 24"><path d="M6 12.5l4 4L18 8"/></svg></span></div>`;
-  if (S.bioBusy) return `<div class="splash"><span class="spin-tile">${LOGO}</span></div>`;
+  if (S.bioBusy) {
+    // Face ID: the Ecrin lozenge scans while the phone checks, then closes into a full diamond with a check.
+    const ok = S.bioBusy === "ok", R = (c, x, r, k) => `<rect class="${c}" x="${x}" y="${x}" width="${220 - 2 * x}" height="${220 - 2 * x}" rx="${r}" pathLength="100"${k ? ` style="${k}"` : ""}/>`;
+    return `<div class="bio-scr${ok ? " ok" : ""}"><div class="aura" aria-hidden="true"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
+      <div class="bs-stage"><svg class="bs-lz" viewBox="0 0 220 220" aria-hidden="true"><defs><linearGradient id="bsg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b6c4ff"/><stop offset=".5" stop-color="#4b74ff"/><stop offset="1" stop-color="#00c8ff"/></linearGradient></defs>
+        <g transform="rotate(45 110 110)">${R("bs-base", 38, 30)}${R("bs-a", 38, 30)}${R("bs-b", 51, 24)}${R("bs-full", 38, 30)}</g></svg>
+        <span class="bs-scan"></span>
+        <span class="bs-ic">${ok ? `<svg class="bio-ok" viewBox="0 0 24 24"><path d="M6 12.5l4 4L18 8"/></svg>` : I.face}</span></div>
+      <p class="bs-t">${ok ? "Unlocked" : `Unlocking with ${bioName()}`}</p></div>`;
+  }
   return `<div class="lock">
     <div class="lock-mark"><i class="halo"></i>${LOGO}</div>
     <h1>Welcome back</h1><p class="sub">Unlock Ecrin Wallet</p>
@@ -606,11 +623,7 @@ function homeView() {
     <div class="tabs ${S.showNfts ? "t3" : ""}" role="tablist">${[["tokens", "Tokens"], ...(S.showNfts ? [["nfts", "Collectibles"]] : []), ["activity", "Activity"]].map(([t, l]) => `<button role="tab" data-act="tab" data-t="${t}" aria-selected="${S.tab === t}">${l}</button>`).join("")}<i class="tab-ind" style="--i:${{ tokens: 0, nfts: 1, activity: S.showNfts ? 2 : 1 }[S.tab] || 0}"></i></div>
     <div class="tab-body">${S.tab === "activity" ? activityList() : S.tab === "nfts" && S.showNfts ? nftGrid() : tokenList(w)}</div>
     <footer class="foot">${w.all ? "Every network" : "Reading every network…"} · testnet beta</footer>
-    <nav class="tabbar" aria-label="Main">
-      <button class="on" data-act="tb-home" aria-current="page" aria-label="Wallet"><span>${I.card}</span></button>
-      <button data-act="panel" data-p="swap" aria-label="Swap"><span>${I.swap}</span></button>
-      <button data-act="panel" data-p="vault" aria-label="Safe"><span>${I.lock}</span></button>
-    </nav>
+
   </div>`;
 }
 
@@ -1088,7 +1101,7 @@ function dur(s) { if (s <= 0) return "ready"; const d = Math.floor(s / 86400), h
 
 // ------------------------------------------------------------------ panels (slide over the home screen)
 
-function openPanel(p, opts = {}) { S.panel = { p, step: "form", asset: opts.a || "native", amount: "", to: "", ...opts }; renderPanel(true); }
+function openPanel(p, opts = {}) { if (p === "vault") S.shT0 = 0; S.panel = { p, step: "form", asset: opts.a || "native", amount: "", to: "", ...opts }; renderPanel(true); }
 function closePanel() { const el = $("#panel"); el.classList.remove("in"); document.body.classList.remove("stacked"); setTimeout(() => { if (!S.panel) el.innerHTML = ""; }, 260); S.panel = null; render(); }
 
 function renderPanel(enter = false) {
@@ -1369,29 +1382,67 @@ function vaultView() {
   const open = live.filter((r) => r.v), closed = Object.values(NETS).filter((N) => netKeys().includes(N.key) && (N.fam === "sol" || N.contract) && !open.some((r) => r.k === N.key));
   const usdOf = (r) => ((r.v.main.balance / BASE) * (px(r.k) || 0)) + ((r.v.usdc?.balance || 0) / USDC_BASE);
   const total = open.reduce((x, r) => x + usdOf(r), 0);
+  const waiting = open.reduce((x, r) => x + r.v.main.withdrawals.length + (r.v.usdc?.withdrawals?.length || 0), 0);
+  // ---- the Shield: brighter the more of your money is in the Safe
+  const w = worth(), share = w.total ? Math.min(1, total / w.total) : 0, pct = Math.round(share * 100);
+  const lvl = !open.length ? ["off", "Not raised"] : pct >= 70 ? ["max", "Fortress"] : pct >= 40 ? ["strong", "Strong"] : pct >= 15 ? ["mid", "Building"] : ["low", "Exposed"];
+  if (!S.shT0) S.shT0 = performance.now();
+  const el = performance.now() - S.shT0, intro = el < 2600 ? " intro" : "";
+  const pend = open.flatMap((r) => [...r.v.main.withdrawals.map((x) => ({ ...x, a: "native", r })), ...(r.v.usdc?.withdrawals || []).map((x) => ({ ...x, a: "usdc", r }))]).sort((x, y) => x.readyAt - y.readyAt);
+  const next = pend[0], dl = open[0]?.v.main.withdrawDelay;
+  const blocked = (S.activity || []).filter((e) => e.t === "cancel"), saved = blocked.reduce((t, e) => t + usdOfEntry(e), 0);
+  const hms = (s) => { s = Math.max(0, Math.floor(s)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(x).padStart(2, "0")}`; };
+  const shield = `<svg class="sf-sh" viewBox="0 0 300 300" aria-hidden="true">
+    <defs><linearGradient id="sfg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b6c4ff"/><stop offset=".45" stop-color="#4b74ff"/><stop offset="1" stop-color="#00c8ff"/></linearGradient>
+      <radialGradient id="sfc" cx=".5" cy=".42" r=".7"><stop offset="0" stop-color="#3a5cff" stop-opacity=".55"/><stop offset=".6" stop-color="#1a2160" stop-opacity=".35"/><stop offset="1" stop-color="#0b0d1c" stop-opacity=".1"/></radialGradient></defs>
+    <g transform="rotate(45 150 150)">
+      <rect class="sf-tk" x="34" y="34" width="232" height="232" rx="52" pathLength="100"/>
+      <rect class="sf-base" x="52" y="52" width="196" height="196" rx="44"/>
+      <rect class="sf-arc" x="52" y="52" width="196" height="196" rx="44" pathLength="100" style="--p:${Math.max(pct, open.length ? 2 : 0)}"/>
+      <rect class="sf-run" x="52" y="52" width="196" height="196" rx="44" pathLength="100"/>
+      <rect class="sf-core" x="72" y="72" width="156" height="156" rx="34"/>
+      <rect class="sf-in" x="86" y="86" width="128" height="128" rx="28"/>
+    </g></svg>`;
+  const ring = (left, d) => { const f = Math.max(0, Math.min(1, left / (d || 86400))); return `<i class="sf-ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15"/><circle class="p" cx="18" cy="18" r="15" pathLength="100" style="stroke-dasharray:${(f * 100).toFixed(1)} 100"/></svg></i>`; };
   const section = (r) => {
     const N = NETS[r.k], v = r.v, main = v.main;
-    const list = [...main.withdrawals.map((w) => ({ ...w, a: "native" })), ...(v.usdc?.withdrawals || []).map((w) => ({ ...w, a: "usdc" }))].sort((x, y) => x.readyAt - y.readyAt);
+    const list = pend.filter((x) => x.r.k === r.k);
     const line = (a, units) => `<span class="sn-l">${a === "usdc" ? coin("usdc") : coin(r.k)}<b>${mask(fig(amt(units, a)))}</b><small>${a === "usdc" ? "USDC" : N.unit}</small></span>`;
-    return `<section class="snet">
+    return `<section class="sf-net">
       <div class="sn-h">${coin(r.k)}<span class="sn-t"><b>${N.name}</b><small>${delay(main.withdrawDelay)} delay</small></span><span class="sn-v">${px(r.k) != null || v.usdc ? mask(money(usdOf(r))) : ""}</span></div>
       <div class="sn-b">${line("native", main.balance)}${N.usdc && (N.fam === "sol" || N.tokens) ? line("usdc", v.usdc?.balance || 0) : ""}</div>
-      ${list.map((w) => { const left = w.readyAt - t, ready = left <= 0; const unit = w.a === "usdc" ? "USDC" : N.unit;
-        return `<div class="wrow ${ready ? "ready" : ""}">${w.a === "usdc" ? coin("usdc") : coin(r.k)}<span class="wr-t"><b>${amt(w.amount, w.a)} ${unit}</b><small>to ${isMine(w.dest) ? "your Wallet" : short(String(w.dest))}</small></span>
-          <span class="wr-r"><b class="cd">${ready ? "Ready" : dur(left)}</b>${ready ? `<button class="btn sm primary" data-act="execute" data-n="${r.k}" data-id="${w.id}" data-a="${w.a}" data-d="${esc(String(w.dest))}">Release</button>` : ""}<button class="btn sm danger" data-act="cancel-w" data-n="${r.k}" data-id="${w.id}" data-a="${w.a}">Cancel</button></span></div>`; }).join("")}
+      ${list.map((x) => { const left = x.readyAt - t, ready = left <= 0, unit = x.a === "usdc" ? "USDC" : N.unit;
+        return `<div class="sf-w ${ready ? "ready" : ""}">${ring(left, main.withdrawDelay)}<span class="wr-t"><b>${amt(x.amount, x.a)} ${unit}</b><small>to ${isMine(x.dest) ? "your Wallet" : short(String(x.dest))}</small></span>
+          <span class="wr-r"><b class="cd" data-until="${x.readyAt}">${ready ? "Ready" : hms(left)}</b>${ready ? `<button class="btn sm primary" data-act="execute" data-n="${r.k}" data-id="${x.id}" data-a="${x.a}" data-d="${esc(String(x.dest))}">Release</button>` : ""}<button class="btn sm danger" data-act="cancel-w" data-n="${r.k}" data-id="${x.id}" data-a="${x.a}">Cancel</button></span></div>`; }).join("")}
       <div class="sn-a"><button class="btn sm" data-act="safe-go" data-n="${r.k}" data-p="protect">${I.protect}Protect</button><button class="btn sm" data-act="safe-go" data-n="${r.k}" data-p="withdraw">${I.out}Withdraw</button></div>
     </section>`;
   };
-  const waiting = open.reduce((x, r) => x + r.v.main.withdrawals.length + (r.v.usdc?.withdrawals?.length || 0), 0);
+  const nextLeft = next ? next.readyAt - t : 0, nextU = next ? (next.a === "usdc" ? "USDC" : NETS[next.r.k].unit) : "";
   return `${phead("Safe")}
-    <div class="vcase safe-all"><div class="v3d"><canvas data-vault3d aria-hidden="true"></canvas></div><div class="mv-top"><span class="mv-mark">${LOGO}<b>ECRIN</b></span><span class="mv-lvl">Every network</span></div>
-      <div class="sa-tot"><span class="lbl">Protected</span><b>${mask(fig(money(total)))}</b><small>${open.length ? `${open.length} network${open.length > 1 ? "s" : ""} · ${waiting ? `${waiting} waiting to leave` : "nothing waiting to leave"}` : "Not opened yet"}</small></div></div>
-    <button class="earn-card rules-card" data-act="panel" data-p="rules"><span class="ec-ic">${I.shield}</span><span class="ec-t"><b>Rules and alerts</b><small>Delay, daily limit, guardian, trusted addresses, freeze, Telegram and email alerts</small></span>${I.arrow}</button>
+  <div class="sf${intro}" style="--lt:${-Math.round(el)}ms">
+    <div class="sf-aura" aria-hidden="true"><i></i><i></i><i></i></div>
+    <section class="sf-hero lv-${lvl[0]}${next ? " alert" : ""}">
+      <div class="sf-stage">${shield}
+        <div class="sf-mid"><span class="sf-ic">${I.shield}</span><span class="lbl">Protected</span><b class="sf-tot">${mask(fig(money(total)))}</b></div>
+      </div>
+      <div class="sf-lvl"><span class="sf-pill"><i></i>Shield ${lvl[1]}</span><span class="sf-pct">${open.length ? `${pct}% of everything you own` : "Open your Safe to raise it"}</span></div>
+    </section>
+    ${next ? `<div class="sf-alert"><span class="sa-ic">${I.clock}</span><span class="sa-t"><b>${amt(next.amount, next.a)} ${nextU} is leaving your Safe</b><small>to ${isMine(next.dest) ? "your Wallet" : short(String(next.dest))} · on ${NETS[next.r.k].name}</small></span><b class="sa-cd" data-until="${next.readyAt}">${nextLeft > 0 ? hms(nextLeft) : "Ready"}</b>
+      <button class="sa-x" data-act="cancel-w" data-n="${next.r.k}" data-id="${next.id}" data-a="${next.a}">${I.shield}Not me — cancel it</button></div>` : ""}
+    <div class="sf-tiles">
+      <div class="sf-tile t-lock"><span class="st-ic">${I.lock}</span><span class="st-k">Locked</span><b>${mask(money(total))}</b><small>${open.length ? `${open.length} network${open.length > 1 ? "s" : ""}` : "Not opened"}</small></div>
+      <div class="sf-tile t-out${waiting ? " hot" : ""}"><span class="st-ic">${I.out}</span><span class="st-k">Leaving</span><b>${waiting || "None"}</b><small>${next ? `first in ${nextLeft > 0 ? dur(nextLeft) : "now"}` : "all quiet"}</small></div>
+      <button class="sf-tile t-rules" data-act="panel" data-p="rules"><span class="st-ic">${I.gear}</span><span class="st-k">Rules</span><b>${dl ? delay(dl) : "—"}</b><small>delay · alerts ${I.arrow}</small></button>
+    </div>
+    <div class="sf-cta"><button class="sf-go" data-act="safe-go" data-n="${S.net}" data-p="protect">${I.protect}Protect more</button><button class="sf-go2" data-act="safe-go" data-n="${S.net}" data-p="withdraw">${I.out}Withdraw</button></div>
+    <div class="list-h"><b>Blocked</b><span>${blocked.length ? `${blocked.length} stopped${saved ? ` · ${mask(money(saved))} kept` : ""}` : "nothing yet"}</span></div>
+    <div class="sf-blocked">${blocked.length ? blocked.slice(0, 4).map((e) => `<div class="sb-r"><i class="sb-d"></i><span><b>Withdrawal stopped</b><small>${e.at ? new Date(e.at).toLocaleDateString(S.lang === "fr" ? "fr-CA" : "en-US", { month: "short", day: "numeric" }) : ""}${e.n ? ` · ${amt(e.n, e.a === "usdc" ? "usdc" : "native")} ${e.a === "usdc" ? "USDC" : NETS[e.k]?.unit || ""}` : ""}</small></span><em>Kept</em></div>`).join("")
+      : `<div class="sb-empty"><b>Nothing has tried to leave.</b><span>If anything ever does, even with your own key, it waits ${dl ? delay(dl) : "the delay"} and you can stop it right here.</span></div>`}</div>
+    ${open.length ? `<div class="list-h"><b>Your Safe on each network</b><span>${open.length}</span></div>${open.map(section).join("")}` : ""}
     <button class="earn-card" data-act="panel" data-p="earn"><span class="ec-ic">${I.spark}</span><span class="ec-t"><b>Earn on your Safe</b><small>Stake SOL without taking it out · about ${STAKE_APY_TEXT} a year</small></span><span class="soon">Coming soon</span></button>
-    ${open.map(section).join("") || `<div class="empty">${I.shield}<b>Your Safe is empty</b><span>Open it on any network below. Anything leaving it waits, and you can cancel it the whole time.</span></div>`}
     ${closed.length ? `<div class="list-h"><b>Add a network</b><span>same Safe</span></div>
       <section class="list">${closed.map((N) => `<button class="arow" data-act="safe-go" data-n="${N.key}" data-p="protect">${coin(N.key)}<span class="ar-t"><b>${N.name}</b><small>${N.net} · not opened</small></span><span class="ar-r"><b class="sn-open">Open</b></span></button>`).join("")}</section>` : ""}
-    <a class="link center" href="https://ecrinprotocol.app/app" target="_blank">Rules, guardian and alerts on ecrinprotocol.app ${I.ext}</a>`;
+  </div>`;
 }
 const vaultLine = (a, units) => `<div class="vl">${assetCoin(a)}<b>${mask(fig(amt(units, a)))}</b><span>${A(a).unit}</span></div>`;
 
@@ -1898,6 +1949,11 @@ document.addEventListener("submit", async (e) => {
 
 // Countdowns in the vault tick without a refetch.
 setInterval(() => { if (S.panel?.p === "vault") renderPanel(); }, 30_000);
+// Safe countdowns tick every second without re-rendering.
+setInterval(() => {
+  if (S.panel?.p !== "vault") return; const t = now() + (S.clockOff || 0);
+  document.querySelectorAll("[data-until]").forEach((n) => { const s = Math.floor(Number(n.dataset.until) - t); n.textContent = s <= 0 ? "Ready" : `${String(Math.floor(s / 3600)).padStart(2, "0")}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`; });
+}, 1000);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.panel) closePanel(); });
 
 boot();
