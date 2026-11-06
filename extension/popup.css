@@ -1300,3 +1300,15 @@ body, button, input, textarea, select { font-family: var(--font); letter-spacing
 @keyframes sheen { 0% { background-position: 140% 0; } 28%, 100% { background-position: -40% 0; } }
 @media (prefers-reduced-motion: reduce) { .acard.sav.live::after, .home .hero .big { animation: none !important; } .pane.trace *::after { display: none !important; } }
 .home .hero .big .rd, .home .hero .big .rd * { -webkit-text-fill-color: var(--ink); }
+/* monthly report */
+.rp-open { display: flex; align-items: center; gap: 12px; width: 100%; margin: 12px 0 0; padding: 12px 14px; border: 0; border-radius: 14px; background: color-mix(in srgb, var(--eb) 8%, var(--s1)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--eb) 22%, transparent); color: var(--ink); text-align: left; cursor: pointer; font: inherit; }
+.rp-open > svg:first-child { width: 20px; height: 20px; fill: none; stroke: var(--eb); stroke-width: 1.8; } .rp-open > span { flex: 1; display: grid; } .rp-open b { font-size: 13.5px; font-weight: 600; } .rp-open small { color: var(--muted); font-size: 12px; }
+.rp-open > svg:last-child { width: 14px; height: 14px; fill: none; stroke: var(--muted); stroke-width: 2; }
+.rp-nav { display: flex; align-items: center; justify-content: space-between; margin: -4px 0 10px; } .rp-nav b { font: 600 16px var(--font); text-transform: capitalize; } .rp-next svg { transform: rotate(180deg); } .rp-nav .ib:disabled { opacity: .3; }
+.rp-hero { display: grid; gap: 4px; padding: 20px 18px; border-radius: 20px; background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--eb) 22%, transparent), transparent 60%), var(--s1); box-shadow: 0 0 0 1px var(--line); }
+.rp-hero b { font: var(--num-w) 34px var(--num); letter-spacing: var(--num-ls); } .rp-hero small { color: var(--muted); font-size: 12.5px; }
+.rp-bar { height: 6px; margin-top: 10px; border-radius: 3px; background: var(--s3); overflow: hidden; } .rp-bar i { display: block; height: 100%; border-radius: 3px; background: var(--eb); }
+.rp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 4px; }
+.rp-grid > div { display: grid; gap: 2px; padding: 14px; border-radius: 16px; background: var(--s1); box-shadow: 0 0 0 1px var(--line); } .rp-grid span { color: var(--muted); font-size: 12px; } .rp-grid b { font: var(--num-w) 19px var(--num); } .rp-grid b small { color: var(--muted); font-size: 12px; }
+.rp-m .ar-t { flex: 1; } .rp-m .ar-t b { font-weight: 500; font-size: 13.5px; } .rp-m .ar-r b { font: 600 16px var(--num); }
+:root[data-theme="light"] .rp-hero, :root[data-theme="light"] .rp-grid > div { background-color: #fff; }

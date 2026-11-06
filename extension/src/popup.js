@@ -970,10 +970,35 @@ function actRows() {
       ${val != null ? `<span class="ar-r"><b class="${cls === "out" ? "neg" : cls === "in" ? "pos" : ""}">${sign}${mask(val.toLocaleString("en-US", { maximumFractionDigits: 6 }))} ${esc(unit)}</b></span>` : ""}</${tag.split(" ")[0]}>`;
   }).join("");
 }
+// ------------------------------------------------------------------ monthly report
+const monthKey = (ms = Date.now()) => new Date(ms).toISOString().slice(0, 7);
+async function bump(stat) { const { stats = {} } = await local.get("stats"), k = monthKey(); stats[k] = { ...(stats[k] || {}), [stat]: (stats[k]?.[stat] || 0) + 1 }; await local.set({ stats }); }
+const usdOfEntry = (e) => { if (!e.n || e.t === "tsend") return 0; if (e.a === "usdc") return e.n / USDC_BASE; const px = S.prices[NETS[e.k]?.cg]?.usd; return px ? (e.n / BASE) * px : 0; };
+function reportHTML() {
+  const P = S.panel, m = P.month || monthKey(), d = new Date(m + "-15T00:00:00Z");
+  const label = d.toLocaleDateString(S.lang === "fr" ? "fr-CA" : "en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+  const list = (S.activity || []).filter((e) => e.at && monthKey(e.at) === m);
+  const sum = (f) => list.filter(f).reduce((t, e) => t + usdOfEntry(e), 0);
+  const recv = sum((e) => e.t === "recv"), sent = sum((e) => e.t === "send"), prot = sum((e) => e.t === "protect" || e.t === "auto"), out = sum((e) => e.t === "withdraw" || e.t === "release");
+  const st = S.stats?.[m] || {}, apps = list.filter((e) => e.t === "ap").length, revokes = list.filter((e) => e.t === "revoke").length, cancels = list.filter((e) => e.t === "cancel").length;
+  const { score } = safety(), w = worth(), share = w.total ? Math.round((w.sav / w.total) * 100) : 0;
+  const months = [...new Set([monthKey(), ...(S.activity || []).filter((e) => e.at).map((e) => monthKey(e.at))])].sort().reverse().slice(0, 12), i = months.indexOf(m);
+  const big = (v) => mask(money(v));
+  const moments = [[I.clock, "Cooling-off pauses", st.cool || 0], [I.ban, "Sends stopped by your limit", st.limit || 0], [I.shield, "Withdrawals you cancelled", cancels], [I.ban, "Permissions you revoked", revokes], [I.link, "Website requests you approved", apps]];
+  return `${phead("Monthly report")}
+    <div class="rp-nav"><button class="ib" data-act="rp-m" data-v="${months[i + 1] || ""}" ${months[i + 1] ? "" : "disabled"} aria-label="Previous month">${I.back}</button><b>${label}</b><button class="ib rp-next" data-act="rp-m" data-v="${months[i - 1] || ""}" ${i > 0 ? "" : "disabled"} aria-label="Next month">${I.back}</button></div>
+    <div class="rp-hero"><span class="lbl">Moved into your Safe</span><b>${big(prot)}</b><small>${share}% of everything you hold is in your Safe today</small>
+      <div class="rp-bar"><i style="width:${share}%"></i></div></div>
+    <div class="rp-grid"><div><span>Received</span><b>${big(recv)}</b></div><div><span>Sent</span><b>${big(sent)}</b></div><div><span>Left the Safe</span><b>${big(out)}</b></div><div><span>Safety score</span><b>${score}<small>/100</small></b></div></div>
+    <div class="list-h"><b>Moments Ecrin stepped in</b><span></span></div>
+    <section class="list rp-m">${moments.map(([ic, t, n]) => `<div class="arow"><span class="act-ico">${ic}</span><span class="ar-t"><b>${t}</b></span><span class="ar-r"><b>${n}</b></span></div>`).join("")}</section>
+    <p class="fine pad">Amounts use today's prices. ${list.length ? `${list.length} event${list.length > 1 ? "s" : ""} this month.` : "No activity this month yet."}</p>`;
+}
+
 function activityList() {
   const list = S.activity || [];
   if (!list.length) return `<section class="list"><div class="empty art">${emptyArt("act")}<b>Nothing here yet</b><span>Sends, receives, Safe moves and website approvals show up here.</span><button class="btn sm primary" data-act="panel" data-p="receive">Receive your first coins</button></div></section>`;
-  return `<label class="act-q">${I.search}<input data-actq placeholder="Search names, addresses, sites" value="${esc(S.actQ || "")}" autocomplete="off" spellcheck="false"/></label><section class="list" id="actl">${actRows()}</section>`;
+  return `<button class="rp-open" data-act="report">${I.spark || I.clock}<span><b>Monthly report</b><small>${new Date().toLocaleDateString(S.lang === "fr" ? "fr-CA" : "en-US", { month: "long" })} so far</small></span>${I.arrow}</button><label class="act-q">${I.search}<input data-actq placeholder="Search names, addresses, sites" value="${esc(S.actQ || "")}" autocomplete="off" spellcheck="false"/></label><section class="list" id="actl">${actRows()}</section>`;
 }
 function paintActivity() { const el = $("#actl"); if (el) { el.innerHTML = actRows(); translate(el, S.lang); } else if (S.screen === "home" && !S.panel) render(); }
 
@@ -988,7 +1013,7 @@ function closePanel() { const el = $("#panel"); el.classList.remove("in"); docum
 function renderPanel(enter = false) {
   const el = $("#panel"), P = S.panel;
   if (!P) return;
-  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
+  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, report: reportHTML, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView })[P.p]();
   if (enter || P.fresh) P.openedAt = performance.now();
   const since = P.openedAt ? performance.now() - P.openedAt : 9999;
   el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}${since < 1300 ? " trace" : ""}" style="--tt:${-Math.round(since)}ms">${body}</div>`; translate(el, S.lang);
@@ -1056,7 +1081,7 @@ const todayKey = () => new Date().toISOString().slice(0, 10);
 async function limitCheck(usd) {
   const G = S.guard; if (!G.daily || usd == null) return null;
   const { spent = {} } = await local.get("spent"), used = spent[todayKey()] || 0;
-  if (used + usd > G.daily) return `That's over your daily spending limit (${money(G.daily)}, ${money(Math.max(0, G.daily - used))} left today). Change it in Settings → Safety.`;
+  if (used + usd > G.daily) { bump("limit"); return `That's over your daily spending limit (${money(G.daily)}, ${money(Math.max(0, G.daily - used))} left today). Change it in Settings → Safety.`; }
   return null;
 }
 async function countSpend(usd) { if (usd == null) return; const { spent = {} } = await local.get("spent"), k = todayKey(); await local.set({ spent: { [k]: (spent[k] || 0) + usd } }); }
@@ -1381,6 +1406,8 @@ async function useNet(n) {
 
 async function saveAccts() { await local.set({ accts: S.accts }); }
 const actions = {
+  report: async () => { S.stats = (await local.get("stats")).stats || {}; await loadActivity(); openPanel("report", { month: monthKey() }); },
+  "rp-m": (el) => { if (!el.dataset.v) return; S.panel.month = el.dataset.v; renderPanel(); },
   "reveal-bio": async () => { try { const words = await bioUnlock(S.bio); S.panel.words = normalize(words); renderPanel(); } catch (e) { toast(`${bioName()} didn't work. Use your password.`, "err"); } },
   cur: async (el) => { S.cur = el.dataset.v; await local.set({ cur: S.cur }); await loadFx(); toast(`Showing ${S.cur}`, "win"); renderPanel(); render(); },
   lang: async (el) => { S.lang = el.dataset.v; document.documentElement.lang = S.lang; await local.set({ lang: S.lang }); render(); renderPanel(); },
@@ -1620,7 +1647,7 @@ const actions = {
     const P = S.panel, usd = usdOf(parseAmt(P.amount, P.asset), P.asset);
     const lim = await limitCheck(usd); if (lim) return toast(lim, "err");
     P.fresh = !(await knownDest(P.to.trim())); P.step = "review"; P.anim = true;
-    const G = S.guard; P.coolUntil = G.cool && usd != null && usd >= G.coolOver ? Date.now() + G.cool * 1000 : 0;
+    const G = S.guard; P.coolUntil = G.cool && usd != null && usd >= G.coolOver ? Date.now() + G.cool * 1000 : 0; if (P.coolUntil) bump("cool");
     renderPanel(); if (P.coolUntil) coolTick();
   },
   kind: (el) => { S.panel.kind = el.dataset.k; renderPanel(); },
