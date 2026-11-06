@@ -642,3 +642,24 @@ td:first-child { color: var(--ink); font-weight: 600; width: 44%; }
 .who .yes, .who .no { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 700; }
 .who .yes { background: color-mix(in srgb, var(--blue) 14%, transparent); color: var(--blue); } .who .no { background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--muted); }
 .who tr.hl td { background: color-mix(in srgb, var(--blue) 5%, transparent); }
+/* hero example: a calm product preview, not a game */
+.play.pro { padding: 18px 20px 16px; border-radius: 22px; background: rgba(14, 15, 20, .9); }
+.play.pro .pl-k { gap: 8px; color: #c9cbe0; font-weight: 600; letter-spacing: .01em; } .play.pro .pl-k svg { color: #7d97ff; }
+.pl-ex { padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,.14); color: #8e93ad; font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.play.pro .pl-attack { gap: 10px; margin-top: 14px; }
+.play.pro .pl-amt b { font-size: 36px; letter-spacing: -.02em; } .play.pro .pl-amt small { color: #8e93ad; font-weight: 600; }
+.pl-rows { display: grid; margin: 2px 0 0; border-top: 1px solid rgba(255,255,255,.08); }
+.pl-rows div { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.08); font-size: 13px; }
+.pl-rows dt { color: #8e93ad; } .pl-rows dd { margin: 0; display: flex; align-items: center; gap: 8px; color: #f1f0ea; font-variant-numeric: tabular-nums; }
+.pl-rows code { color: #f1f0ea; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
+.pl-flag { padding: 2px 7px; border-radius: 6px; background: rgba(255, 181, 71, .12); color: #ffc46b; font-size: 11px; font-weight: 600; }
+.play.pro .pl-why { margin: 0; color: #8e93ad; font-size: 12.5px; line-height: 1.5; }
+.play.pro .pl-btn { height: 44px; margin-top: 4px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.06); color: #fff; font-weight: 600; font-size: 14px; animation: none; transition: background .15s, border-color .15s; }
+.play.pro .pl-btn:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.3); } .play.pro .pl-btn:active { transform: none; }
+.play.pro .pl-safe { animation: none; padding: 18px 0 4px; } .play.pro .pl-safe svg { width: 44px; height: 44px; } .play.pro .pl-safe svg path { animation: none; stroke-dashoffset: 0; }
+.play.pro .pl-safe span { color: #a6abc4; max-width: 300px; }
+.pl-again { margin-top: 6px; border: 0; background: none; color: #9fb2ff; font: 600 12.5px var(--font); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.play.pro .pl-foot { display: block; margin: 14px 0 0; padding-top: 12px; color: #6f748c; font-size: 11.5px; line-height: 1.5; }
+.play.pro .pl-foot span { display: inline; }
+@media (max-width: 560px) { .play.pro .pl-foot { display: block !important; } }
+.play.pro:hover { transform: none !important; }
