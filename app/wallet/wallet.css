@@ -2503,6 +2503,21 @@ html body #tabbar#tabbar.enter { animation: tb-rise 760ms cubic-bezier(.22, 1, .
 @media (prefers-reduced-motion: reduce) { .home.intro > *, .home.intro .arow, .home.tab-in > .tab-body, .home.tab-in .arow, html body #tabbar#tabbar.enter { animation: none !important; } }
 :root[data-theme="light"] .lz-seg { filter: none !important; }
 
+/* 0.13.0 — testnet chip, offline banner, What's new */
+.home .top { align-items: center; }
+.tn-chip { margin: 0 auto 0 8px; padding: 3px 9px; border-radius: 999px; font: 600 10px var(--font); letter-spacing: .12em; text-transform: uppercase;
+  color: #9db0ff; background: rgba(47, 91, 255, .13); white-space: nowrap; }
+:root[data-theme="light"] .tn-chip { color: #2f5bff; background: rgba(47, 91, 255, .08); }
+.offline { display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; padding: 11px 14px; border-radius: 16px; font: 500 13px var(--font);
+  color: var(--ink); background: var(--h1); box-shadow: var(--h-lit), var(--h-drop); }
+.offline i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #f5a524; box-shadow: 0 0 0 4px rgba(245, 165, 36, .16); }
+.news { display: grid; gap: 18px; }
+.news-v { margin: 2px 0 4px; font: 500 12px var(--font); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.news-i { display: flex; gap: 14px; align-items: flex-start; animation: hm-rise 600ms cubic-bezier(.22, 1, .36, 1) both; animation-delay: calc(120ms + var(--n, 0) * 90ms); }
+.news-i > span:last-child { display: grid; gap: 4px; } .news-i b { font: 600 15px var(--font); color: var(--ink); } .news-i small { font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+.news-d { flex: none; width: 10px; height: 10px; margin-top: 5px; border-radius: 3px; transform: rotate(45deg); background: #5b7cff; box-shadow: 0 0 12px rgba(91, 124, 255, .55); }
+@media (prefers-reduced-motion: reduce) { .news-i { animation: none; } }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
 #root, #panel { top: 0; bottom: 0; }

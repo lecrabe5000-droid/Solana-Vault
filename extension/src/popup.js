@@ -317,6 +317,11 @@ function worth() {
 
 function go(screen, extra = {}) { Object.assign(S, { screen }, extra); render(); }
 
+// Offline: say so, keep the last balances on screen, and refresh the moment the connection is back.
+S.offline = !navigator.onLine;
+addEventListener("offline", () => { S.offline = true; if (S.screen === "home") render(); });
+addEventListener("online", () => { S.offline = false; if (S.screen === "home") { render(); refresh?.(); loadPrices?.(); } });
+
 // The bar steps aside while you read down the page and comes back as soon as you scroll up (or reach the top).
 let tbY = 0;
 document.addEventListener("scroll", (ev) => {
@@ -445,7 +450,7 @@ function render() {
   S.lastScreen = S.screen;
   root.innerHTML = ({ loading: () => `<div class="splash boot"><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div></div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
   translate(root, S.lang);
-  stageHome(root);
+  stageHome(root); maybeNews();
   // The three floating buttons live outside #root, made once, so re-renders and panels never make them blink.
   let tb = document.getElementById("tabbar");
   if (S.screen === "home" && !tb) { (document.querySelector(".device") || document.body).insertAdjacentHTML("beforeend", TABBAR); tb = document.getElementById("tabbar"); tb.classList.add("enter"); setTimeout(() => tb.classList.remove("enter"), 1400); }
@@ -748,12 +753,13 @@ function homeView() {
   return `<div class="home${introCls()}"${introVar()}><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i><i class="a4"></i></div>
     <header class="top">
       <button class="acct" data-act="panel" data-p="accts" title="Your accounts">${acctIc(curAcct())}<span class="acct-n">${esc(curAcct().name)}</span><span class="top-total">${loading ? "" : mask(money(w.total))}</span>${I.chev}</button>
+      <span class="tn-chip" title="Test networks only: these coins have no value">Testnet</span>
       <div class="top-r">
         <button class="ib" data-act="settings" aria-label="Settings">${I.gear}</button>
       </div>
     </header>
     ${S.err ? `<div class="banner">${esc(S.err)}</div>` : ""}
-    ${updateBanner()}${backupCard()}
+    ${S.offline ? `<div class="offline"><i></i>You're offline · showing your last balances</div>` : ""}${updateBanner()}${backupCard()}
     <section class="hero"><svg class="hero-g" viewBox="0 0 360 230" preserveAspectRatio="xMidYMin slice" aria-hidden="true">${Array.from({ length: 30 }, (_, i) => `<ellipse cx="${180 + Math.sin(i / 2.6) * 6}" cy="${-10 + Math.cos(i / 2.6) * 4}" rx="${40 + i * 9}" ry="${22 + i * 6.2}"/>`).join("")}</svg>
       <div class="lz-wrap">${lozenge(w, loading)}
         <div class="lz-in">
@@ -1276,7 +1282,7 @@ function renderPanel(enter = false) {
   queueMicrotask(syncTabbar);
   const el = $("#panel"), P = S.panel;
   if (!P) return;
-  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, report: reportHTML, txd: txdView, contacts: contactsView, pkey: pkeyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView, wc: wcView, payreq: payreqView, alerts: alertsView })[P.p]();
+  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, news: newsView, report: reportHTML, txd: txdView, contacts: contactsView, pkey: pkeyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView, wc: wcView, payreq: payreqView, alerts: alertsView })[P.p]();
   if (enter || P.fresh) P.openedAt = performance.now();
   const since = P.openedAt ? performance.now() - P.openedAt : 9999;
   el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}${since < 1300 ? " trace" : ""}" style="--tt:${-Math.round(since)}ms">${body}</div>`; translate(el, S.lang);
@@ -1728,11 +1734,32 @@ function settingsView() {
       ${row("tog", I.eyeOff, "Hide small balances", onOff(S.hideSmall), 'data-k="hideSmall"')}
       ${row("tog", I.arrow, "Order coins by", S.order === "name" ? "Name" : "Value", 'data-k="order"')}`)}
     ${sec("About", `
+      ${row("panel", I.spark, "What's new", `${VERSION} ${I.arrow}`, 'data-p="news"')}
+      <a class="srow" href="https://ecrinprotocol.app/" target="_blank"><span>${I.globe}Website</span><span class="sv">${I.ext}</span></a>
       <a class="srow" href="https://ecrinprotocol.app/how-it-works/" target="_blank"><span>${I.shield}How the Safe works</span><span class="sv">${I.ext}</span></a>
       <a class="srow" href="https://ecrinprotocol.app/security/" target="_blank"><span>${I.check}Security and audits</span><span class="sv">${I.ext}</span></a>
-      <a class="srow" href="https://github.com/lecrabe5000-droid/Solana-Vault/issues" target="_blank"><span>${I.link}Help and feedback</span><span class="sv">${I.ext}</span></a>`)}
+      <a class="srow" href="https://github.com/lecrabe5000-droid/Solana-Vault/issues" target="_blank"><span>${I.link}Report a bug or give feedback</span><span class="sv">${I.ext}</span></a>
+      <a class="srow" href="https://ecrinprotocol.app/privacy/" target="_blank"><span>${I.lock}Privacy</span><span class="sv">${I.ext}</span></a>
+      <a class="srow" href="https://ecrinprotocol.app/terms/" target="_blank"><span>${I.card}Terms</span><span class="sv">${I.ext}</span></a>`)}
     <div class="sets danger-z"><button class="srow danger" data-act="forget"><span>Remove wallet from this browser</span><span></span></button></div>
     <p class="fine pad">Ecrin Wallet ${VERSION} · testnet beta · not audited</p>`;
+}
+// What's new: shown once after an update (never on a fresh install), and any time from Settings → About.
+const NEWS = [
+  ["A calmer, cleaner look", "No more boxes around everything, a lit diamond on home, a smaller bar that steps aside as you scroll."],
+  ["Account logos", "Every account gets its own logo drawn from its address. Change it in Accounts."],
+  ["Colours that match", "Each coin has one colour, on the diamond, next to its name and in your activity."],
+];
+function newsView() {
+  return `${phead("What's new")}<div class="pad news"><p class="news-v">Ecrin Wallet ${VERSION}</p>
+    ${NEWS.map(([t, d], i) => `<div class="news-i" style="--n:${i}"><span class="news-d"></span><span><b>${t}</b><small>${d}</small></span></div>`).join("")}
+    <div class="pfoot"><button class="btn primary xl" data-act="close">Got it</button></div></div>`;
+}
+async function maybeNews() {
+  if (S.newsChecked || S.screen !== "home") return; S.newsChecked = true;
+  const { seenVer } = await local.get("seenVer"); if (seenVer === VERSION) return;
+  await local.set({ seenVer: VERSION });
+  if (seenVer) setTimeout(() => { if (S.screen === "home" && !S.panel) openPanel("news"); }, 1700); // after the entrance
 }
 function currencyView() {
   return `${phead("Currency")}<p class="fine">Prices and totals show in this currency at today's rate. Your coins don't change.</p>

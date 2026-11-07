@@ -2,6 +2,13 @@
 // French version: exact phrases first, then patterns for phrases with numbers or names in them. Anything not
 // listed stays in English rather than being guessed.
 const FR = {
+  "Testnet": "Testnet", "Test networks only: these coins have no value": "Réseaux de test uniquement : ces jetons n'ont aucune valeur",
+  "You're offline · showing your last balances": "Hors ligne · derniers soldes affichés", "What's new": "Nouveautés",
+  "Report a bug or give feedback": "Signaler un bug ou donner un avis", "Privacy": "Confidentialité", "Terms": "Conditions", "Got it": "Compris",
+  "A calmer, cleaner look": "Un look plus calme et plus net",
+  "No more boxes around everything, a lit diamond on home, a smaller bar that steps aside as you scroll.": "Plus de cadres partout, un losange éclairé sur l'accueil, une barre plus petite qui s'efface quand vous faites défiler.",
+  "Account logos": "Logos de compte", "Every account gets its own logo drawn from its address. Change it in Accounts.": "Chaque compte a son propre logo, tiré de son adresse. Changez-le dans Comptes.",
+  "Colours that match": "Des couleurs qui correspondent", "Each coin has one colour, on the diamond, next to its name and in your activity.": "Chaque jeton a une seule couleur : sur le losange, à côté de son nom et dans votre activité.",
   "Logo": "Logo", "Facets": "Facettes", "Pixels": "Pixels", "Rings": "Anneaux", "Letter": "Lettre", "Another one": "Un autre",
   // added in 0.8: new features
   "spend now": "dépense immédiate",
