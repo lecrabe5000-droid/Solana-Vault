@@ -2413,7 +2413,7 @@ body.stacked #root, :root[data-theme] body.stacked #root { transform: translateX
 /* 3 — the lozenge: blue shares, ivory Safe, a little light on the ring */
 :root[data-theme] .lz-seg { stroke-width: 2.6 !important; }
 :root[data-theme="dark"] .lz-safe { stroke: #f3f3ef !important; } :root[data-theme="light"] .lz-safe { stroke: #101114 !important; }
-:root[data-theme="dark"] .lz-seg { filter: drop-shadow(0 0 6px rgba(47, 91, 255, .35)) !important; }
+:root[data-theme="dark"] .lz-seg { filter: drop-shadow(0 0 5px rgba(160, 175, 255, .18)) !important; }
 :root[data-theme="dark"] .lz-base { stroke: rgba(243, 243, 239, .06) !important; }
 
 /* light: controls are white on the warm page; tracks of segmented controls a step darker */
@@ -2501,6 +2501,7 @@ html body #tabbar#tabbar button { flex: 0 0 auto !important; overflow: visible; 
 /* the floating bar glides up last */
 html body #tabbar#tabbar.enter { animation: tb-rise 760ms cubic-bezier(.22, 1, .36, 1) 420ms both; }
 @media (prefers-reduced-motion: reduce) { .home.intro > *, .home.intro .arow, .home.tab-in > .tab-body, .home.tab-in .arow, html body #tabbar#tabbar.enter { animation: none !important; } }
+:root[data-theme="light"] .lz-seg { filter: none !important; }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */

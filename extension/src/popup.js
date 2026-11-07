@@ -784,10 +784,9 @@ function homeView() {
 // fills with Ecrin blue as more of it sits in your Safe. Thin lines, drawn once when you open the wallet.
 // One colour per coin, whatever network it sits on (USDC on Solana and on Base is one USDC). Picked from each coin's
 // own brand and kept apart from each other on the dark background.
-const COIN_COL = { SOL: "#14F1A0", ETH: "#8C9EFF", USDC: "#2F8CFF", USDT: "#26A17B", BNB: "#F3BA2F", AVAX: "#FF5A5F", TRX: "#FF2E63", POL: "#A66BFF" };
-// The lozenge itself stays in Ecrin blue: biggest share brightest, each next share a deeper tone. Coin colours live in the
-// small bubbles next to coin names.
-const LZ_TONES = ["#5b7cff", "#93a8ff", "#2f4fd8", "#c3cfff", "#1f3599", "#6f86e8"];
+// Ecrin's own palette: every coin a shade of blue or grey, far enough apart to tell on the diamond, readable on dark and
+// light. Tron keeps its red. The diamond, the bubble by each name and the Activity rows all use these.
+const COIN_COL = { SOL: "#5b7cff", ETH: "#9badff", USDC: "#3d9bff", POL: "#4352c4", USDT: "#5f7a92", BNB: "#a4abba", AVAX: "#767c88", TRX: "#ff3b5c" };
 const cdot = (u) => `<i class="cdot" style="--cc:${COIN_COL[u] || "#9aa0b4"}"></i>`;
 function lozShares(w) {
   const by = {}; for (const i of w.items) if (i.usd) by[i.unit] = (by[i.unit] || 0) + i.usd;
@@ -797,7 +796,7 @@ function lozShares(w) {
 function lozenge(w, loading) {
   const sh = loading ? [] : lozShares(w), safe = !loading && w.total ? w.sav / w.total : 0, G = sh.length > 1 ? 0.9 : 0;
   let at = 0;
-  const segs = sh.map(({ u, f }, i) => { const len = Math.max(0.6, f * 100 - G); const d = `<rect class="lz-seg r${Math.min(i, 3)}" x="38" y="38" width="144" height="144" rx="30" pathLength="100" style="--cc:${LZ_TONES[Math.min(i, LZ_TONES.length - 1)]};stroke-dasharray:${len.toFixed(2)} ${(100 - len).toFixed(2)};stroke-dashoffset:${(-at).toFixed(2)};--o:${(-at).toFixed(2)}"/>`; at += f * 100; return d; }).join("");
+  const segs = sh.map(({ u, f }, i) => { const len = Math.max(0.6, f * 100 - G); const d = `<rect class="lz-seg r${Math.min(i, 3)}" x="38" y="38" width="144" height="144" rx="30" pathLength="100" style="--cc:${COIN_COL[u] || "#9aa0b4"};stroke-dasharray:${len.toFixed(2)} ${(100 - len).toFixed(2)};stroke-dashoffset:${(-at).toFixed(2)};--o:${(-at).toFixed(2)}"/>`; at += f * 100; return d; }).join("");
   // The opening spin lasts 2.2s; a re-render in that time picks the animation up where it was, so it never restarts or cuts.
   if (!loading && !S.lzT0) S.lzT0 = performance.now();
   const el = S.lzT0 ? performance.now() - S.lzT0 : 1e9, draw = el < 2300;
