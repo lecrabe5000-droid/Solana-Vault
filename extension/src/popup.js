@@ -212,7 +212,7 @@ async function touch() {
 
 function readyView() {
   return `<div class="fp-ready"><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
-    <span class="fp-ok"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+    <span class="fp-dck">${dcheck()}</span>
     <h1>You're all set</h1><p>Your wallet is ready. Pin Ecrin to your toolbar, then open it as a popup from any page.</p>
     <ol class="fp-pin"><li><span class="fp-k"><svg viewBox="0 0 24 24"><path d="M10 4h4v4h3a2 2 0 0 1 2 2v3h-2.5a2 2 0 1 0 0 4H19v3a2 2 0 0 1-2 2h-3v-2.5a2 2 0 1 0-4 0V21H7a2 2 0 0 1-2-2v-3h2.5a2 2 0 1 0 0-4H5V10a2 2 0 0 1 2-2h3z"/></svg></span><span>Click the puzzle piece at the top right of Chrome</span></li>
       <li><span class="fp-k"><svg viewBox="0 0 24 24"><path d="M9 4h6l-1 5 3 3v2H7v-2l3-3zM12 14v6"/></svg></span><span>Pin <b>Ecrin Wallet</b></span></li></ol>
@@ -496,7 +496,7 @@ async function keepFx(btn) {
 }
 async function keepRun(btn, card) {
   card.classList.add("kept-card");
-  card.insertAdjacentHTML("beforeend", `<div class="kept-ov"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="kc" d="M5 12.5l4.2 4.2L19 7"/></svg><b>${trText("Kept in your Safe", S.lang)}</b></div>`);
+  card.insertAdjacentHTML("beforeend", `<div class="kept-ov">${dcheck("sm")}<b>${trText("Kept in your Safe", S.lang)}</b></div>`);
   haptic("success"); await wait(420);
   let arrive = Promise.resolve();
   const stage = document.querySelector("#panel .sf-stage"), r = card.getBoundingClientRect();
@@ -1555,12 +1555,17 @@ function hold(label, busy) {
   return `<button class="hold ${busy ? "busy" : ""}" data-hold ${busy ? "disabled" : ""}><span class="hold-fill"></span><span class="hold-t">${busy ? `<i class="spin"></i>` : I.shield}${label}</span></button>`;
 }
 
+// Every confirmation in Ecrin: the diamond draws itself, fills with Ecrin blue, a check is drawn inside, and a ring
+// pulses out once.
+const dcheck = (cls = "") => `<svg class="dck ${cls}" viewBox="0 0 120 120" aria-hidden="true"><g transform="rotate(45 60 60)">
+  <rect class="p" x="26" y="26" width="68" height="68" rx="20"/><rect class="o" x="26" y="26" width="68" height="68" rx="20" pathLength="100"/>
+  <rect class="f" x="34" y="34" width="52" height="52" rx="15"/></g><path class="t" pathLength="100" d="M47 61 L56 70 L74 51"/></svg>`;
 function doneView(title, text, extra = "") {
-  const mark = title === "Sent" ? `<svg class="fx-sent" viewBox="0 0 120 120" aria-hidden="true"><g class="streaks"><path d="M30 92 L62 60"/><path d="M40 100 L68 72"/><path d="M22 82 L52 52"/></g><g class="dia"><path class="d-o" pathLength="100" d="M60 22 L88 50 L60 98 L32 50 Z"/><path class="d-f" pathLength="100" d="M32 50 H88 M46 36 L60 50 L74 36 M60 50 V98 M46 36 L52 50 M74 36 L68 50"/></g><circle class="ring" cx="60" cy="60" r="34" pathLength="100"/><path class="tick" pathLength="100" d="M45 61 L55 71 L76 49"/></svg>` : null;
+  const mark = `<div class="done-dck">${dcheck()}</div>`;
   if (mark) return `<div class="done">${mark}<h2>${title}</h2><p>${text}</p>
     ${S.panel.sig ? `<a class="link" href="${NETS[S.net].explorer("tx", S.panel.sig)}" target="_blank">View on the explorer ${I.ext}</a>` : ""}${extra}
     <div class="pfoot"><button class="btn primary xl" data-act="close">Done</button></div></div>`;
-  return `<div class="done"><div class="done-mark"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="29"/><path d="M20 33l8 8 16-17"/></svg></div><h2>${title}</h2><p>${text}</p>
+  return `<div class="done">${mark}<h2>${title}</h2><p>${text}</p>
     ${S.panel.sig ? `<a class="link" href="${NETS[S.net].explorer("tx", S.panel.sig)}" target="_blank">View on the explorer ${I.ext}</a>` : ""}${extra}
     <div class="pfoot"><button class="btn primary xl" data-act="close">Done</button></div></div>`;
 }
