@@ -2,6 +2,8 @@
 // French version: exact phrases first, then patterns for phrases with numbers or names in them. Anything not
 // listed stays in English rather than being guessed.
 const FR = {
+  "Notifications are blocked for Ecrin. Allow them in your phone's settings, then try again.": "Les notifications sont bloquées pour Ecrin. Autorisez-les dans les réglages du téléphone, puis réessayez.",
+  "Can't reach that network right now. Check your connection and try again.": "Impossible de joindre ce réseau pour le moment. Vérifiez votre connexion et réessayez.",
   "Keeping it safe…": "Mise en sécurité…", "Kept in your Safe": "Gardé dans votre Safe",
   "Testnet": "Testnet", "Test networks only: these coins have no value": "Réseaux de test uniquement : ces jetons n'ont aucune valeur",
   "You're offline · showing your last balances": "Hors ligne · derniers soldes affichés", "What's new": "Nouveautés",

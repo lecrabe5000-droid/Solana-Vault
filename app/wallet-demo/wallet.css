@@ -2541,3 +2541,14 @@ html body #tabbar#tabbar.enter { animation: tb-rise 760ms cubic-bezier(.22, 1, .
 .sf-stage.kept .sf-ic { animation: kept-pop .6s cubic-bezier(.3, 1.6, .5, 1); }
 @keyframes kept-pop { 40% { transform: scale(1.2); } }
 @media (prefers-reduced-motion: reduce) { .btn-spin { animation-duration: 1.4s; } }
+
+/* 0.13.2 — fluidity: cheaper effects where the phone repaints most; the price change never gets cut */
+:root[data-theme="dark"] .lz-seg { filter: none !important; }
+html body #tabbar#tabbar { -webkit-backdrop-filter: blur(12px) !important; backdrop-filter: blur(12px) !important; background: rgba(24, 25, 29, .86) !important; }
+:root[data-theme="light"] body #tabbar#tabbar { background: rgba(255, 255, 255, .9) !important; }
+.home .tab-body .arow .ar-t { flex: 1 1 auto; min-width: 0; }
+.home .tab-body .arow .ar-t small { white-space: nowrap; overflow: visible; text-overflow: clip; }
+.home .tab-body .arow .spark, .home .tab-body .arow svg.spk, .home .tab-body .arow .ar-spk { flex: 0 1 64px; min-width: 0; overflow: hidden; }
+@media (max-width: 400px) { .home .tab-body .arow .spark, .home .tab-body .arow svg.spk, .home .tab-body .arow .ar-spk { flex-basis: 44px; } }
+.flash-sec { animation: flash-sec 1.4s cubic-bezier(.22, 1, .36, 1); border-radius: 12px; }
+@keyframes flash-sec { 0%, 30% { background: color-mix(in srgb, #2f5bff 22%, transparent); box-shadow: 0 0 0 8px color-mix(in srgb, #2f5bff 22%, transparent); } 100% { background: transparent; box-shadow: 0 0 0 8px transparent; } }

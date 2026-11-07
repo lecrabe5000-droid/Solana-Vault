@@ -206,6 +206,9 @@ async function refresh() {
     const [bal, vault] = await Promise.all([e.balances(), e.vault().catch((err) => (console.warn(err), null))]);
     S.bal = bal; S.vault = vault; S.err = null; autoProtect(bal); queueMicrotask(checkIncoming);
   } catch (err) { console.warn(err); S.err = `Can't reach ${NETS[S.net].name} right now. Retrying…`; setTimeout(refresh, 6000); }
+  // Redraw only when something you can see changed: a rebuild every 15s for nothing makes the page jolt.
+  let sig = Math.random(); try { sig = JSON.stringify([S.bal, S.vault, S.err, S.net, S.sel], (k, v) => (typeof v === "bigint" ? v.toString() : v && v.toBase58 ? v.toBase58() : v)); } catch (_) {}
+  if (sig === S.refreshSig && !S.forceDraw) return; S.refreshSig = sig; S.forceDraw = false;
   if (S.screen === "home") render();
   if (S.panel) renderPanel();
 }
@@ -228,9 +231,9 @@ async function spotPrices() {
 }
 
 async function loadPrices() {
-  if (S.mock) { S.prices = { solana: { usd: 172.4, usd_24h_change: 2.31 }, binancecoin: { usd: 612.5, usd_24h_change: 0.6 }, "avalanche-2": { usd: 28.4, usd_24h_change: -1.4 }, tron: { usd: 0.24, usd_24h_change: 0.9 }, ethereum: { usd: 3410, usd_24h_change: -0.84 }, "polygon-ecosystem-token": { usd: 0.42, usd_24h_change: 1.2 } }; if (S.screen === "home") render(); return loadSeries(); }
+  if (S.mock) { S.prices = { solana: { usd: 172.4, usd_24h_change: 2.31 }, binancecoin: { usd: 612.5, usd_24h_change: 0.6 }, "avalanche-2": { usd: 28.4, usd_24h_change: -1.4 }, tron: { usd: 0.24, usd_24h_change: 0.9 }, ethereum: { usd: 3410, usd_24h_change: -0.84 }, "polygon-ecosystem-token": { usd: 0.42, usd_24h_change: 1.2 } }; if (S.screen === "home" && !S.mockDrawn) { S.mockDrawn = true; render(); } return loadSeries(); }
   const p = await spotPrices().catch(() => null);
-  if (p) { S.prices = { ...S.prices, ...p }; local.set({ prices: { at: Date.now(), p: S.prices } }); if (S.screen === "home") render(); checkPriceAlerts(); }
+  if (p) { const was = JSON.stringify(S.prices); S.prices = { ...S.prices, ...p }; local.set({ prices: { at: Date.now(), p: S.prices } }); if (S.screen === "home" && JSON.stringify(S.prices) !== was) render(); checkPriceAlerts(); }
   await loadSeries();
   // No spot price anywhere: use the last point of the history instead.
   let filled = false;
@@ -317,6 +320,10 @@ function worth() {
 
 function go(screen, extra = {}) { Object.assign(S, { screen }, extra); render(); }
 
+// Anything that fails without its own message (a network out of reach, a timeout) still tells you what happened.
+addEventListener("unhandledrejection", (e) => { const m = String(e.reason?.message || e.reason || ""); if (!m) return; e.preventDefault?.();
+  toast(/fetch|network|timeout|ECONN|503|502|429/i.test(m) ? "Can't reach that network right now. Check your connection and try again." : errText(e.reason), "err"); });
+
 // Offline: say so, keep the last balances on screen, and refresh the moment the connection is back.
 S.offline = !navigator.onLine;
 addEventListener("offline", () => { S.offline = true; if (S.screen === "home") render(); });
@@ -369,9 +376,15 @@ function litDefs(L) {
     <mask id="lzgm" maskUnits="userSpaceOnUse" x="0" y="0" width="220" height="220"><rect width="220" height="220" fill="url(#lzgg)"/></mask>`;
 }
 let litRaf = 0;
+let litAt = 0;
 function setLit(x, y) {
-  const c = (v) => Math.max(-1, Math.min(1, v));
-  S.lit = { x: c(x), y: c(y) };
+  // Only while home is in front and the diamond is on screen; at most ~30 times a second; tiny tremors ignored.
+  if (S.panel || document.hidden) return;
+  const c = (v) => Math.max(-1, Math.min(1, v)), nx = c(x), ny = c(y), o = S.lit || { x: 0, y: 0 };
+  if (Math.abs(nx - o.x) < .02 && Math.abs(ny - o.y) < .02) return;
+  const now = performance.now(); if (now - litAt < 33) return; litAt = now;
+  const z = document.querySelector(".lz"); if (z) { const r = z.getBoundingClientRect(); if (r.bottom < 0 || r.top > innerHeight) return; }
+  S.lit = { x: nx, y: ny };
   if (litRaf) return;
   litRaf = requestAnimationFrame(() => {
     litRaf = 0; const L = lit(), d = document.querySelector(".lz defs"); if (d) d.innerHTML = litDefs(L);
@@ -1433,7 +1446,7 @@ function safety() {
     { ok: S.alertsOn, pts: 10, t: "Safe alerts on", tip: "Turn on Telegram or email alerts", act: "panel", p: "rules" },
     { ok: S.autolock > 0 && S.autolock <= 15, pts: 10, t: "Auto-lock in 15 minutes or less", tip: "Lock the wallet sooner", act: "settings" },
     { ok: perms === 0, pts: 10, t: "No open token permissions", tip: `Revoke ${perms} token permission${perms > 1 ? "s" : ""}`, act: "perms" },
-    { ok: !!(G.daily || G.cool), pts: 10, t: "Spending limit or cooling-off on", tip: "Add a spending limit", act: "panel", p: "safety" },
+    { ok: !!(G.daily || G.cool), pts: 10, t: "Spending limit or cooling-off on", tip: "Add a spending limit", act: "go-limit" },
   ];
   // Your answer to "What brings you to Ecrin?" decides which step is suggested first.
   const first = S.goal === "discipline" ? ["Spending limit or cooling-off on", "Safe set up"] : S.goal === "savings" ? ["Safe set up", "Safe alerts on", "No open token permissions"] : [];
@@ -1457,7 +1470,7 @@ function safetyView() {
     <div class="list-h"><b>Protect automatically</b><span>${G.auto ? `${G.auto}% of each payment` : "Off"}</span></div>
     <p class="fine">When coins arrive in your Wallet, this share goes straight into your Safe on that network (while Ecrin is open).</p>
     <span class="seg wide">${auto.map((v) => `<button data-act="guard" data-k="auto" data-v="${v}" aria-pressed="${G.auto === v}">${v ? v + "%" : "Off"}</button>`).join("")}</span>
-    <div class="list-h"><b>Daily spending limit</b><span>${G.daily ? money(G.daily) : "None"}</span></div>
+    <div class="list-h" data-sec="limit"><b>Daily spending limit</b><span>${G.daily ? money(G.daily) : "None"}</span></div>
     <p class="fine">Sends from your Wallet stop at this amount per day, on every network. Lowering it is instant; raising it waits 24 hours, so a scammer rushing you can't lift it.${G.pend ? ` <b>Changing to ${G.pend.v ? money(G.pend.v) : "no limit"} on ${new Date(G.pend.at).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" })}.</b>` : ""}</p>
     <span class="seg wide">${lim.map((v) => `<button data-act="guard" data-k="daily" data-v="${v}" aria-pressed="${G.daily === v}">${v ? money(v, { maximumFractionDigits: 0, notation: v >= 1000 ? "compact" : "standard" }) : "None"}</button>`).join("")}</span>
     <div class="list-h"><b>Cooling-off pause</b><span>${G.cool ? `over ${money(G.coolOver)}` : "Off"}</span></div>
@@ -1768,7 +1781,7 @@ function settingsView() {
       ${row("panel", I.recv, "Contacts", `${Object.values(S.book || {}).reduce((t, m) => t + Object.keys(m || {}).length, 0) || ""} ${I.arrow}`, 'data-p="contacts"')}
       ${row("report", I.spark, "Monthly report")}`)}
     ${sec("Home screen", `
-      ${row("tog", I.recv, "Notify when I receive coins", onOff(S.recvNotify !== false), 'data-k="recvNotify"')}
+      ${row("tog", I.recv, "Notify when I receive coins", onOff(S.recvNotify !== false && !(globalThis.ECRIN_WEB && window.Notification && Notification.permission === "denied")), 'data-k="recvNotify"')}
       ${row("tog", I.spark, "Sounds", onOff(S.sounds), 'data-k="sounds"')}
       ${row("tog", I.img, "Show collectibles (NFTs)", onOff(S.showNfts), 'data-k="showNfts"')}
       ${row("tog", I.eyeOff, "Hide small balances", onOff(S.hideSmall), 'data-k="hideSmall"')}
@@ -2030,10 +2043,22 @@ const actions = {
   "book-pick": (el) => { S.panel.to = el.dataset.a; renderPanel(); },
   "book-save": async () => { const n = ($("#panel [data-bookname]")?.value || "").trim(); if (!n) return; const f = NETS[S.net].fam; S.book[f] = { ...(S.book[f] || {}), [S.panel.to.trim()]: n }; await local.set({ book: S.book }); toast(`Saved as ${n}`, "win"); renderPanel(); },
   "share-addr": async () => { try { await navigator.share({ title: "My " + NETS[S.net].name + " address", text: ENG.address }); } catch (_) {} },
+  "go-limit": async () => {
+    if (S.panel?.p !== "safety") { openPanel("safety"); await wait(380); }
+    const h = document.querySelector('#panel [data-sec="limit"]'); if (!h) return;
+    h.scrollIntoView({ behavior: "smooth", block: "start" }); h.classList.remove("flash-sec"); void h.offsetWidth; h.classList.add("flash-sec");
+  },
   tog: async (el) => {
     const k = el.dataset.k;
     if (k === "order") S.order = S.order === "name" ? "value" : "name";
-    else if (k === "recvNotify") { S.recvNotify = S.recvNotify === false; if (S.recvNotify && globalThis.ECRIN_WEB && window.Notification && Notification.permission === "default") await Notification.requestPermission().catch(() => {}); }
+    else if (k === "recvNotify") {
+      const blocked = globalThis.ECRIN_WEB && window.Notification && Notification.permission === "denied";
+      S.recvNotify = !(S.recvNotify !== false && !blocked); await local.set({ recvNotify: S.recvNotify }); renderPanel(); // flips what you see, at once
+      if (S.recvNotify && globalThis.ECRIN_WEB && window.Notification) {
+        const perm = Notification.permission === "default" ? await Notification.requestPermission().catch(() => "denied") : Notification.permission;
+        if (perm !== "granted") { S.recvNotify = false; toast("Notifications are blocked for Ecrin. Allow them in your phone's settings, then try again.", "err"); }
+      }
+    }
     else S[k] = !S[k];
     if (k === "showNfts" && !S.showNfts && S.tab === "nfts") S.tab = "tokens";
     await local.set({ [k]: S[k] }); renderPanel(); render();
