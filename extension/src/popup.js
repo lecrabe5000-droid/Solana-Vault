@@ -10,7 +10,7 @@ import { makeApprovals } from "./approve.js";
 import { mountVault3d } from "./vault3d.js";
 import { bioEnable, bioUnlock, bioName, bioPossible } from "./bio.js";
 import { sealKeys, openKeys, parseKey, keysFor, COLORS, b58 } from "./accounts.js";
-import { translate, LANGS } from "./i18n.js";
+import { translate, trText, LANGS } from "./i18n.js";
 import { toTron } from "./tron.js";
 import { LOGOS } from "./logos.js";
 
@@ -1018,7 +1018,7 @@ async function loadPerms() {
     evm.push({ ...e.permit, k: e.k, origin: e.origin });
   }
   const live = await Promise.all(evm.filter((x) => NETS[x.k]).map(async (x) => {
-    try { const e = engine({ web3, ethers, acct: ACCT, net: x.k, dev: dev || {} }); const left = await e.allowance(x.token, x.spender); return left > 0n ? { ...x, left: String(left) } : null; } catch (_) { return null; }
+    try { const e = engine({ web3, ethers, acct: ACCT, net: x.k, dev: dev || {} }); const left = await Promise.race([e.allowance(x.token, x.spender), new Promise((_, no) => setTimeout(() => no(new Error("slow")), 8000))]); /* a slow network never blocks the page */ return left > 0n ? { ...x, left: String(left) } : null; } catch (_) { return null; }
   }));
   P.evm = live.filter(Boolean); P.sol = S.delegs || []; P.ready = true;
   P.permits = apLog.filter((e) => e.kind === "typed" && e.permit && e.from === mineE).length;
@@ -1026,6 +1026,7 @@ async function loadPerms() {
 }
 function permsView() {
   const P = S.panel;
+  if (!P.ready && !P.loading) { P.loading = true; setTimeout(loadPerms, 0); } // opened from anywhere, it still loads
   if (!P.ready) return `${phead("Permissions")}<div class="ap-load"><div class="sk"></div><div class="sk"></div><small>Checking every network…</small></div>`;
   const big = (v) => BigInt(v) > 10n ** 30n;
   const sol = P.sol.map((t) => `<div class="arow perm"><span class="cstack">${letterIc(t)}<span class="cmini">${coin(t.k)}</span></span>
@@ -1642,8 +1643,7 @@ function settingsView() {
       <a class="srow" href="https://ecrinprotocol.app/security/" target="_blank"><span>${I.check}Security and audits</span><span class="sv">${I.ext}</span></a>
       <a class="srow" href="https://github.com/lecrabe5000-droid/Solana-Vault/issues" target="_blank"><span>${I.link}Help and feedback</span><span class="sv">${I.ext}</span></a>`)}
     <div class="sets danger-z"><button class="srow danger" data-act="forget"><span>Remove wallet from this browser</span><span></span></button></div>
-    <p class="fine pad">Ecrin Wallet ${VERSION} · testnet beta · not audited</p>
-    ${globalThis.ECRIN_WEB ? (() => { const cs = getComputedStyle(document.documentElement), d = document.querySelector(".device")?.getBoundingClientRect(); return `<p class="fine pad mono scr-dbg">Screen ${screen.width}×${screen.height} · view ${innerWidth}×${innerHeight} · vv ${Math.round(visualViewport?.height || 0)} · app ${Math.round(d?.top || 0)}–${Math.round(d?.bottom || 0)} · ${navigator.standalone ? "home screen" : "browser"}</p>`; })() : ""}`;
+    <p class="fine pad">Ecrin Wallet ${VERSION} · testnet beta · not audited</p>`;
 }
 function currencyView() {
   return `${phead("Currency")}<p class="fine">Prices and totals show in this currency at today's rate. Your coins don't change.</p>
@@ -1667,7 +1667,7 @@ function revealView() {
 
 // ------------------------------------------------------------------ actions
 
-function toast(text, kind = "") { const t = $("#toast"); t.textContent = text; t.className = "toast show " + kind; clearTimeout(t._t); t._t = setTimeout(() => (t.className = "toast " + kind), 2600); }
+function toast(text, kind = "") { const t = $("#toast"); t.textContent = trText(text, S.lang); t.className = "toast show " + kind; clearTimeout(t._t); t._t = setTimeout(() => (t.className = "toast " + kind), 2600); }
 const errText = (e) => {
   const raw = String(e?.shortMessage || e?.message || e);
   if (/insufficient funds/i.test(raw)) return `Not enough ${NETS[S.net].unit} for this and the network fee. Use Receive to get free test coins.`;

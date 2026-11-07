@@ -2318,6 +2318,16 @@ body.stacked #root, :root[data-theme] body.stacked #root { transform: translateX
 #panel .pane > * { flex-shrink: 0; }
 .lz-in .big.sk { min-width: 150px; min-height: 36px; } .lz-in .big.sk::after { inset: 14% 4%; }
 .wsplit b.sk { min-width: 110px; min-height: 26px; } .wsplit b.sk::after { inset: 10% 0; } .wsplit .sp-s b.sk { justify-self: end; }
+/* ---- polish pass ---- */
+/* light: Swap's preview pill, percentage pills and button readable */
+:root[data-theme="light"] .sx-soon { background: #fff !important; color: var(--muted) !important; box-shadow: 0 0 0 1px rgba(16, 17, 20, .1) !important; } :root[data-theme="light"] .sx-soon i { background: #2f5bff !important; box-shadow: none !important; }
+:root[data-theme="light"] .sx-pcts button:not(.on) { background: #f1f1ed !important; color: #101114 !important; box-shadow: 0 0 0 1px rgba(16, 17, 20, .08) !important; }
+:root[data-theme="light"] .sx-go:disabled, :root[data-theme="light"] .btn.primary:disabled { background: #d9d8d3 !important; color: #8b8d93 !important; box-shadow: none !important; opacity: 1 !important; }
+:root[data-theme="light"] .preq-l, :root[data-theme="light"] .wc-paste input, :root[data-theme="light"] .act-q { background: #fff !important; box-shadow: 0 0 0 1px rgba(16, 17, 20, .1) !important; color: #101114; }
+/* done steps stay readable */
+.ss-i.ok { opacity: 1 !important; } .ss-i.ok .ar-t b, .ss-i.ok .ar-t { color: var(--muted) !important; }
+/* "also notify me" reads as a normal row */
+.pane .btn[data-act="palert-notify"] { width: 100%; justify-content: flex-start; gap: 10px; padding: 12px 16px; height: auto; text-align: left; white-space: normal; line-height: 1.35; margin-top: 12px; }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
