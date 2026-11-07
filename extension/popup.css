@@ -2517,3 +2517,27 @@ html body #tabbar#tabbar.enter { animation: tb-rise 760ms cubic-bezier(.22, 1, .
 .news-i > span:last-child { display: grid; gap: 4px; } .news-i b { font: 600 15px var(--font); color: var(--ink); } .news-i small { font-size: 13.5px; line-height: 1.45; color: var(--muted); }
 .news-d { flex: none; width: 10px; height: 10px; margin-top: 5px; border-radius: 3px; transform: rotate(45deg); background: #5b7cff; box-shadow: 0 0 12px rgba(91, 124, 255, .55); }
 @media (prefers-reduced-motion: reduce) { .news-i { animation: none; } }
+
+/* 0.13.1 — kept safe: cancelling a withdrawal */
+.btn-spin { display: inline-block; width: 14px; height: 14px; margin-right: 8px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: btn-spin .7s linear infinite; vertical-align: -2px; }
+@keyframes btn-spin { to { transform: rotate(360deg); } }
+.kept-card { position: relative; }
+.kept-ov { position: absolute; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: inherit;
+  background: color-mix(in srgb, #2f5bff 16%, var(--h1, #141518)); color: var(--ink); font: 600 15px var(--font); animation: kept-in .38s cubic-bezier(.22, 1, .36, 1) both; }
+:root[data-theme="light"] .kept-ov { background: color-mix(in srgb, #2f5bff 8%, #fff); }
+.kept-ov svg { width: 24px; height: 24px; fill: none; stroke: #8ea4ff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 6px rgba(91, 124, 255, .6)); }
+:root[data-theme="light"] .kept-ov svg { stroke: #2f5bff; filter: none; }
+.kept-ov .kc { stroke-dasharray: 24; stroke-dashoffset: 24; animation: kept-draw .5s .1s cubic-bezier(.65, 0, .35, 1) forwards; }
+.kept-ov b { animation: kept-in .45s .16s cubic-bezier(.22, 1, .36, 1) both; }
+@keyframes kept-in { from { opacity: 0; transform: translateY(4px); } }
+@keyframes kept-draw { to { stroke-dashoffset: 0; } }
+.keep-d { position: fixed; left: 0; top: 0; z-index: 9999; width: 16px; height: 16px; border-radius: 4px; pointer-events: none; will-change: transform, opacity;
+  background: linear-gradient(135deg, #fff, #b9c7ff 40%, #5b7cff); box-shadow: 0 0 18px rgba(91, 124, 255, .95), 0 0 5px #fff; }
+.kept-rip { position: absolute; left: 50%; top: 50%; z-index: 0; width: 46%; height: 46%; border-radius: 24%; pointer-events: none; border: 1.5px solid rgba(141, 164, 255, .75);
+  transform: translate(-50%, -50%) rotate(45deg) scale(.92); animation: kept-rip 1.05s cubic-bezier(.2, .7, .2, 1) forwards; }
+.kept-rip.r2 { animation-delay: .16s; border-color: rgba(141, 164, 255, .45); }
+:root[data-theme="light"] .kept-rip { border-color: rgba(47, 91, 255, .55); }
+@keyframes kept-rip { to { transform: translate(-50%, -50%) rotate(45deg) scale(1.55); opacity: 0; } }
+.sf-stage.kept .sf-ic { animation: kept-pop .6s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes kept-pop { 40% { transform: scale(1.2); } }
+@media (prefers-reduced-motion: reduce) { .btn-spin { animation-duration: 1.4s; } }

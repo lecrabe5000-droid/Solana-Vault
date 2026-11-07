@@ -399,6 +399,45 @@ function flyFx(kind) {
   an.onfinish = () => { d.remove(); const r = document.querySelector(".lz"); if (r) { r.classList.remove("beat"); void r.getBoundingClientRect(); r.classList.add("beat"); } haptic("medium"); };
 }
 
+// ------------------------------------------------------------------ kept safe
+// Cancelling a withdrawal: the card confirms with a drawn check, a diamond carries the money back up into the Safe
+// (which answers with a pulse), and the card folds away. Everything is on transforms and opacity; skipped with Reduce
+// Motion. Resolves once it's all settled, so the page refreshes only after.
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+function flyHome(p0, p1) {
+  const mid = { x: (p0.x + p1.x) / 2 + 80, y: (p0.y + p1.y) / 2 + 10 }, N = 16;
+  const pts = Array.from({ length: N + 1 }, (_, i) => { const t = i / N, u = 1 - t; return { x: u * u * p0.x + 2 * u * t * mid.x + t * t * p1.x, y: u * u * p0.y + 2 * u * t * mid.y + t * t * p1.y }; });
+  const one = (delay, size, op) => { const d = document.createElement("i"); d.className = "keep-d"; document.body.append(d);
+    const a = d.animate(pts.map((p, i) => { const k = i / N, sc = size * (k < .12 ? .4 + k * 5 : k > .9 ? 1 - (k - .9) * 7 : 1 + .2 * Math.sin(Math.PI * k));
+      return { transform: `translate(${p.x - 8}px, ${p.y - 8}px) rotate(${45 + k * 90}deg) scale(${sc})`, opacity: k === 0 ? 0 : k === 1 ? 0 : op, offset: k }; }),
+      { duration: 820, delay, easing: "cubic-bezier(.45, 0, .2, 1)", fill: "both" });
+    return a.finished.catch(() => {}).then(() => d.remove()); };
+  return Promise.all([one(0, 1, 1), one(60, .72, .45), one(120, .5, .22)]);
+}
+async function keepFx(btn) {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.dataset.rot) return false;
+  const card = btn.closest(".sf-alert, .sf-w, .arow") || btn.parentElement?.parentElement; if (!card) return false;
+  S.holdPanel = true;
+  try { return await keepRun(btn, card); } finally { S.holdPanel = false; if (S.panelDirty) { S.panelDirty = false; renderPanel(); } }
+}
+async function keepRun(btn, card) {
+  card.classList.add("kept-card");
+  card.insertAdjacentHTML("beforeend", `<div class="kept-ov"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="kc" d="M5 12.5l4.2 4.2L19 7"/></svg><b>${trText("Kept in your Safe", S.lang)}</b></div>`);
+  haptic("success"); await wait(420);
+  let arrive = Promise.resolve();
+  const stage = document.querySelector("#panel .sf-stage"), r = card.getBoundingClientRect();
+  if (stage) { const s = stage.getBoundingClientRect();
+    if (s.bottom > 40 && s.top < innerHeight - 40) arrive = flyHome({ x: r.left + r.width / 2, y: r.top + r.height / 2 }, { x: s.left + s.width / 2, y: s.top + s.height / 2 }).then(() => {
+      stage.classList.remove("kept"); void stage.offsetWidth; stage.classList.add("kept"); haptic("medium");
+      stage.insertAdjacentHTML("beforeend", `<i class="kept-rip"></i><i class="kept-rip r2"></i>`); }); }
+  await wait(300);
+  const cs = getComputedStyle(card); card.style.overflow = "hidden";
+  const fold = card.animate([{ height: `${card.offsetHeight}px`, opacity: 1, marginTop: cs.marginTop, marginBottom: cs.marginBottom, paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom },
+    { height: "0px", opacity: 0, marginTop: "0px", marginBottom: "0px", paddingTop: "0px", paddingBottom: "0px" }], { duration: 560, easing: "cubic-bezier(.65, 0, .35, 1)", fill: "forwards" });
+  await Promise.all([fold.finished.catch(() => {}), arrive]); await wait(1050);
+  return true;
+}
+
 // ------------------------------------------------------------------ rolling digits
 // When a balance changes, only the digits that changed roll into place, right to left. Plain text, no clipping tricks.
 function rollDigits(el, prev) {
@@ -1279,6 +1318,7 @@ function openPanel(p, opts = {}) { if (p === "vault") S.shT0 = 0; S.cvT0 = 0; S.
 function closePanel() { if (S.panel?.step === "done" && (S.panel.p === "protect" || S.panel.p === "withdraw")) S.fly = S.panel.p; const el = $("#panel"); el.classList.remove("in"); document.body.classList.remove("stacked"); setTimeout(() => { if (!S.panel) el.innerHTML = ""; }, 260); S.panel = null; render(); }
 
 function renderPanel(enter = false) {
+  if (S.holdPanel && !enter) { S.panelDirty = true; return; } // a moment is playing on this page: redraw right after it
   queueMicrotask(syncTabbar);
   const el = $("#panel"), P = S.panel;
   if (!P) return;
@@ -2119,7 +2159,16 @@ const actions = {
   "do-protect": () => { const P = S.panel, units = parseAmt(P.amount, P.asset); P.sent = units; txRun(async () => (await eng()).protect(P.asset, units), null, { t: "protect", a: P.asset, n: units }); },
   "do-withdraw": () => { const P = S.panel, units = parseAmt(P.amount, P.asset); P.sent = units; txRun(async () => (await eng()).request(P.asset, ENG.address, units), null, { t: "withdraw", a: P.asset, n: units }); },
   "safe-go": async (el) => { el.disabled = true; await useNet(el.dataset.n); S.panel = null; openPanel(el.dataset.p); if (el.dataset.p === "protect") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); } },
-  "cancel-w": async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).cancel(el.dataset.a, Number(el.dataset.id)); await logActivity({ t: "cancel", a: el.dataset.a }); loadActivity(); haptic("success"); toast("Cancelled. It stays in your Safe.", "win"); await refresh(); loadAll(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
+  "cancel-w": async (el) => {
+    const was = el.innerHTML;
+    try {
+      el.disabled = true; el.classList.add("busy"); el.innerHTML = `<i class="btn-spin"></i>${trText("Keeping it safe…", S.lang)}`;
+      await useNet(el.dataset.n); await (await eng()).cancel(el.dataset.a, Number(el.dataset.id)); await logActivity({ t: "cancel", a: el.dataset.a });
+      if (!(await keepFx(el))) { haptic("success"); toast("Cancelled. It stays in your Safe.", "win"); }
+      loadActivity();
+      await refresh(); loadAll();
+    } catch (e) { el.disabled = false; el.classList.remove("busy"); el.innerHTML = was; toast(errText(e), "err"); }
+  },
   execute: async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).execute(el.dataset.a, Number(el.dataset.id), el.dataset.d); await logActivity({ t: "release", a: el.dataset.a }); loadActivity(); toast("Released to Wallet", "win"); await refresh(); loadAll(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
   net: async (el) => { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; S.drawChart = true; closePanel(); await eng(); loadActivity(); refresh(); loadSeries(); },
   "row-send": async (el) => { if (el.dataset.n !== S.net) { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; await eng(); loadActivity(); await refresh(); } openPanel("send", { a: el.dataset.a }); const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); },

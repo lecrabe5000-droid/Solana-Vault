@@ -2,6 +2,7 @@
 // French version: exact phrases first, then patterns for phrases with numbers or names in them. Anything not
 // listed stays in English rather than being guessed.
 const FR = {
+  "Keeping it safe…": "Mise en sécurité…", "Kept in your Safe": "Gardé dans votre Safe",
   "Testnet": "Testnet", "Test networks only: these coins have no value": "Réseaux de test uniquement : ces jetons n'ont aucune valeur",
   "You're offline · showing your last balances": "Hors ligne · derniers soldes affichés", "What's new": "Nouveautés",
   "Report a bug or give feedback": "Signaler un bug ou donner un avis", "Privacy": "Confidentialité", "Terms": "Conditions", "Got it": "Compris",
