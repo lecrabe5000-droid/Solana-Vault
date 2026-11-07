@@ -2,6 +2,7 @@
 // French version: exact phrases first, then patterns for phrases with numbers or names in them. Anything not
 // listed stays in English rather than being guessed.
 const FR = {
+  "Logo": "Logo", "Facets": "Facettes", "Pixels": "Pixels", "Rings": "Anneaux", "Letter": "Lettre", "Another one": "Un autre",
   // added in 0.8: new features
   "spend now": "dépense immédiate",
   "72 h to leave": "72 h pour sortir",

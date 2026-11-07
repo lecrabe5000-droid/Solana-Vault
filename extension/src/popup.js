@@ -1199,7 +1199,7 @@ function contactsView() {
   const P = S.panel, all = Object.entries(S.book || {}).flatMap(([f, m]) => Object.entries(m || {}).map(([a, n]) => ({ f, a, n }))).sort((x, y) => x.n.localeCompare(y.n));
   return `${phead("Contacts")}
     <div class="ct-add"><input data-ctname placeholder="Name" maxlength="24" value="${esc(P.n || "")}"/><input data-ctaddr placeholder="Address (Solana, 0x… or T…)" value="${esc(P.a || "")}" spellcheck="false" autocomplete="off"/><button class="btn primary" data-act="ct-add">${I.plus}Add contact</button></div>
-    <section class="list">${all.length ? all.map((c) => `<div class="arow ct">${acctIc({ name: c.n, c: [...c.a].reduce((h, ch) => h + ch.charCodeAt(0), 0) })}<span class="ar-t"><b>${esc(c.n)}</b><small class="mono">${short(c.a)} · ${FAM_NAME[c.f] || c.f}</small></span>
+    <section class="list">${all.length ? all.map((c) => `<div class="arow ct">${acctIc({ name: c.n, logo: { s: "letter" }, c: [...c.a].reduce((h, ch) => h + ch.charCodeAt(0), 0) })}<span class="ar-t"><b>${esc(c.n)}</b><small class="mono">${short(c.a)} · ${FAM_NAME[c.f] || c.f}</small></span>
       <button class="ib sm" data-act="copy" data-v="${esc(c.a)}" aria-label="Copy">${I.copy}</button><button class="ib sm" data-act="ct-del" data-f="${c.f}" data-a="${esc(c.a)}" aria-label="Delete ${esc(c.n)}">${I.x}</button></div>`).join("")
       : `<div class="empty art">${emptyArt("contacts")}<b>No contacts yet</b><span>Save people and places you send to often. You can also save an address after you send to it.</span></div>`}</section>
     <p class="fine pad">Contacts stay on this device. Sending to a contact still shows the full address to check.</p>`;
@@ -1415,9 +1415,43 @@ function addrsView() {
 }
 
 /** A round account mark in the account's colour, with its first letter. */
-function acctIc(a, cls = "") {
-  const col = COLORS[(a?.c ?? 0) % COLORS.length], letter = esc((a?.name || "A").trim().charAt(0).toUpperCase());
-  return `<span class="acct-ic av ${cls}" style="--ac:${col}">${letter}</span>`;
+// Account logos: drawn from the account's own address, so every account has one nobody else has (like MetaMask's),
+// in Ecrin's shapes: Facets (a cut gem), Pixels (a mirrored 5×5 mark), Rings (the Safe's rounded rings). Or a letter.
+const LOGO_STYLES = [["facets", "Facets"], ["pixels", "Pixels"], ["rings", "Rings"], ["letter", "Letter"]];
+const addrMemo = {};
+const acctSeedAddr = (a) => { if (addrMemo[a.id]) return addrMemo[a.id]; let x = null; try { x = acctAddr(a); } catch (_) {} return x ? (addrMemo[a.id] = x) : a.id; };
+function logoRng(str) {
+  let h = 2166136261; for (const c of String(str)) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
+  return () => { h = (h + 0x6d2b79f5) >>> 0; let t = h; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+function logoSVG(style, seed) {
+  const r = logoRng(`${style}:${seed}`), id = "lg" + Math.floor(r() * 1e9).toString(36);
+  const h1 = Math.floor(r() * 360), h2 = (h1 + 40 + Math.floor(r() * 90)) % 360, h3 = (h1 + 150 + Math.floor(r() * 80)) % 360;
+  const c = (h, s, l) => `hsl(${h} ${s}% ${l}%)`;
+  if (style === "pixels") {
+    let cells = ""; for (let y = 0; y < 5; y++) for (let x = 0; x < 3; x++) { const v = r(); if (v < 0.45) continue; const col = v > 0.86 ? c(h3, 85, 66) : c(h1, 80, 62);
+      for (const xx of x === 2 ? [2] : [x, 4 - x]) cells += `<rect x="${5 + xx * 6.2}" y="${5 + y * 6.2}" width="5.4" height="5.4" rx="1.4" fill="${col}"/>`; }
+    return `<svg viewBox="0 0 41 41" aria-hidden="true"><rect width="41" height="41" fill="${c(h2, 45, 16)}"/>${cells}</svg>`;
+  }
+  if (style === "rings") {
+    const ring = (i) => { const inset = 5 + i * 6, w = 41 - inset * 2, len = 35 + Math.floor(r() * 50), off = Math.floor(r() * 100);
+      return `<rect x="${inset}" y="${inset}" width="${w}" height="${w}" rx="${Math.max(3, 10 - i * 2.5)}" pathLength="100" fill="none" stroke="${[c(h1, 85, 64), c(h2, 85, 62), c(h3, 80, 66)][i]}" stroke-width="3.2" stroke-linecap="round" stroke-dasharray="${len} ${100 - len}" stroke-dashoffset="${off}"/>`; };
+    return `<svg viewBox="0 0 41 41" aria-hidden="true"><rect width="41" height="41" fill="${c(h1, 40, 14)}"/>${ring(0)}${ring(1)}${ring(2)}<rect x="18" y="18" width="5" height="5" rx="1.2" transform="rotate(45 20.5 20.5)" fill="${c(h2, 90, 72)}"/></svg>`;
+  }
+  // facets: a cut stone on a two-tone ground; the cut moves a little with each address
+  const ang = Math.floor(r() * 360), cx = 20.5 + (r() - 0.5) * 4, cy = 20.5 + (r() - 0.5) * 4, R = 11 + r() * 3;
+  const T = [cx, cy - R], Rt = [cx + R, cy], B = [cx, cy + R], L = [cx - R, cy], M = [cx + (r() - 0.5) * 5, cy + (r() - 0.5) * 5];
+  const tri = (a, b, l) => `<path d="M${a.join(" ")}L${b.join(" ")}L${M.join(" ")}Z" fill="${c(h3, 80, l)}"/>`;
+  return `<svg viewBox="0 0 41 41" aria-hidden="true"><defs><linearGradient id="${id}" gradientTransform="rotate(${ang} .5 .5)"><stop offset="0" stop-color="${c(h1, 75, 52)}"/><stop offset="1" stop-color="${c(h2, 70, 30)}"/></linearGradient></defs>
+    <rect width="41" height="41" fill="url(#${id})"/>${tri(L, T, 82)}${tri(T, Rt, 68)}${tri(Rt, B, 50)}${tri(B, L, 60)}</svg>`;
+}
+function acctIc(a, cls = "", over) {
+  const lg = { s: "facets", v: 0, ...(a?.logo || {}), ...(over || {}) };
+  if (lg.s === "letter") {
+    const col = COLORS[(lg.c ?? a?.c ?? 0) % COLORS.length], letter = esc((a?.name || "A").trim().charAt(0).toUpperCase());
+    return `<span class="acct-ic av ${cls}" style="--ac:${col}">${letter}</span>`;
+  }
+  return `<span class="acct-ic gen ${cls}">${logoSVG(lg.s, `${a ? acctSeedAddr(a) : "x"}:${lg.v || 0}`)}</span>`;
 }
 const acctAddr = (a) => a.kind === "key" ? a.pub : a.id === S.sel ? (ACCT.sol?.publicKey.toBase58() || ACCT.evm?.address) : deriveAccount(PHRASE, { web3, ethers }, a.i).sol.publicKey.toBase58();
 
@@ -1428,7 +1462,7 @@ function acctsView() {
     <section class="list accts-l">${list.map((a) => `<div class="arow acc-row${a.id === S.sel ? " on" : ""}">
       <button class="acc-main" data-act="acct-switch" data-id="${a.id}">${acctIc(a)}<span class="ar-t"><b>${esc(a.name)}</b><small class="mono">${short(acctAddr(a))}${a.kind === "key" ? ` · <span class="tagk">${a.fam === "sol" ? "Solana key" : "Ethereum key"}</span>` : ""}</small></span>${a.id === S.sel ? `<span class="acc-ok">${I.check}</span>` : ""}</button>
       <button class="ib sm" data-act="acct-edit" data-id="${a.id}" aria-label="Rename ${esc(a.name)}">${I.pen}</button></div>
-      ${P.edit === a.id ? `<div class="acc-edit"><input data-acct-name value="${esc(a.name)}" maxlength="24" aria-label="Account name"/><button class="btn sm primary" data-act="acct-save" data-id="${a.id}">Save</button>
+      ${P.edit === a.id ? `<div class="acc-edit"><input data-acct-name value="${esc(a.name)}" maxlength="24" aria-label="Account name"/><button class="btn sm primary" data-act="acct-save" data-id="${a.id}">Save</button>${logoPick(a)}
         ${a.id !== "hd0" ? `<button class="btn sm ghost danger" data-act="acct-remove" data-id="${a.id}">${a.kind === "key" ? "Remove" : "Hide"}</button>` : ""}</div>` : ""}`).join("")}</section>
     <div class="acc-acts">
       <button class="btn" data-act="acct-add">${I.plus}Add account</button>
@@ -1436,6 +1470,13 @@ function acctsView() {
     </div>
     <button class="srow" data-act="panel" data-p="addrs"><span>${I.qr}Addresses of ${esc(curAcct().name)}</span><span class="sv">${I.arrow}</span></button>
     <p class="fine pad">Accounts you add come from your recovery phrase, so your backup covers them. Imported keys are not in your recovery phrase: keep their own backup.</p>`;
+}
+
+function logoPick(a) {
+  const cur = { s: "facets", v: 0, ...(a.logo || {}) };
+  return `<div class="lp"><span class="lp-h">Logo</span><div class="lp-row">${LOGO_STYLES.map(([st, n]) => `<button class="lp-o${cur.s === st ? " on" : ""}" data-act="acct-logo" data-id="${a.id}" data-s="${st}" aria-label="${n}" aria-pressed="${cur.s === st}">${acctIc(a, "", { s: st, v: cur.v })}<small>${n}</small></button>`).join("")}</div>
+    ${cur.s === "letter" ? `<div class="lp-cols">${COLORS.map((col, i) => `<button class="lp-c${(cur.c ?? a.c ?? 0) % COLORS.length === i ? " on" : ""}" style="--ac:${col}" data-act="acct-logo" data-id="${a.id}" data-s="letter" data-c="${i}" aria-label="Colour ${i + 1}"></button>`).join("")}</div>`
+      : `<button class="btn sm ghost lp-new" data-act="acct-logo" data-id="${a.id}" data-s="${cur.s}" data-v="${(cur.v || 0) + 1}">${I.swap || ""}Another one</button>`}</div>`;
 }
 
 function acctNewView() {
@@ -1813,6 +1854,11 @@ const actions = {
   "x-back": () => { S.panel.step = "form"; renderPanel(); },
   "acct-switch": (el) => el.dataset.id === S.sel ? closePanel() : switchAccount(el.dataset.id),
   "acct-edit": (el) => { S.panel.edit = S.panel.edit === el.dataset.id ? null : el.dataset.id; renderPanel(); setTimeout(() => $("[data-acct-name]")?.select(), 30); },
+  "acct-logo": async (el) => {
+    const d = el.dataset; haptic();
+    S.accts = (S.accts || DEF_ACCTS).map((a) => (a.id === d.id ? { ...a, logo: { ...(a.logo || {}), s: d.s, ...(d.v ? { v: +d.v } : {}), ...(d.c ? { c: +d.c } : {}) } } : a));
+    await saveAccts(); renderPanel(); render();
+  },
   "acct-save": async (el) => {
     const v = ($("[data-acct-name]")?.value || "").trim().slice(0, 24); if (!v) return toast("Give the account a name.", "err");
     S.accts = (S.accts || DEF_ACCTS).map((a) => (a.id === el.dataset.id ? { ...a, name: v } : a)); await saveAccts(); S.panel.edit = null; renderPanel(); render();
