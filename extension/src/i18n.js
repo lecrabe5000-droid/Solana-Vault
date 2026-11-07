@@ -2,6 +2,12 @@
 // French version: exact phrases first, then patterns for phrases with numbers or names in them. Anything not
 // listed stays in English rather than being guessed.
 const FR = {
+  "Leave empty to let them choose": "Laissez vide pour les laisser choisir", "Add a note (optional)": "Ajouter une note (facultatif)",
+  "Notify me outside the app": "Me prévenir hors de l'app", "No alerts yet": "Aucune alerte pour l'instant",
+  "On: alerts reach you even when Ecrin is closed.": "Activé : les alertes vous parviennent même quand Ecrin est fermé.",
+  "Blocked. Allow notifications for Ecrin in your phone's settings.": "Bloqué. Autorisez les notifications pour Ecrin dans les réglages du téléphone.",
+  "Allow notifications so alerts reach you when Ecrin is closed.": "Autorisez les notifications pour recevoir les alertes quand Ecrin est fermé.",
+  "Get a note when a coin moves more than you choose in a day. Once per coin and direction, each day.": "Recevez une note quand un jeton bouge plus que prévu dans la journée. Une fois par jeton et par sens, chaque jour.",
   "Notifications are blocked for Ecrin. Allow them in your phone's settings, then try again.": "Les notifications sont bloquées pour Ecrin. Autorisez-les dans les réglages du téléphone, puis réessayez.",
   "Can't reach that network right now. Check your connection and try again.": "Impossible de joindre ce réseau pour le moment. Vérifiez votre connexion et réessayez.",
   "Keeping it safe…": "Mise en sécurité…", "Kept in your Safe": "Gardé dans votre Safe",
@@ -177,6 +183,8 @@ const FR = {
 };
 // Phrases with numbers or names: [pattern, replacement].
 const FR_RE = [
+  [/^Requesting (.+)$/, "Demande de $1"], [/^Any amount of (.+)$/, "N'importe quel montant de $1"], [/^(\d+) alerts? on$/, (m, n) => `${n} alerte${n > 1 ? "s" : ""} active${n > 1 ? "s" : ""}`],
+  [/^Opens in any (.+) wallet that scans it\.$/, "S'ouvre dans tout portefeuille $1 qui le scanne."],
   [/^Showing ([A-Z]{3})$/, "Affichage en $1"], [/^Couldn't get today's ([A-Z]{3}) rate\. Showing USD until it loads\.$/, "Taux du jour en $1 indisponible. Affichage en USD en attendant."],
   [/^([\d.,]+) (\w+) available$/, "$1 $2 disponibles"], [/^(\d+) days?$/, (m, n) => `${n} jour${n > 1 ? "s" : ""}`], [/^(\d+) days? delay$/, (m, n) => `délai de ${n} jour${n > 1 ? "s" : ""}`],
   [/^Safe opened on (.+)$/, "Safe ouvert sur $1"], [/^([\d.,]+ \w+) is in your Safe\. Anything leaving it waits (\d+) days?\.$/, "$1 est dans votre Safe. Tout retrait attend $2 jours."],

@@ -32,6 +32,7 @@ function applyNums() { const r = document.documentElement; r.dataset.numFace = S
 // ------------------------------------------------------------------ icons and coins
 
 const I = {
+  bell: '<svg viewBox="0 0 24 24"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>',
   pen: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>',
   plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
   key: '<svg viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/></svg>',
@@ -2377,10 +2378,18 @@ async function checkPriceAlerts() {
   if (any) local.set({ palertSeen });
 }
 function alertsView() {
-  const al = S.palerts || {};
-  return `${phead("Price alerts")}<p class="sub pad">Get a note when a coin moves more than you choose in a day. Once per coin and direction each day.</p>
-    <div class="sets">${ALERT_COINS.map(([cg, unit]) => `<div class="srow"><span>${coin({ solana: "sol", ethereum: "eth", binancecoin: "bnb", "avalanche-2": "avax", tron: "tron", "polygon-ecosystem-token": "pol" }[cg], "al-c")}${unit}</span><span class="seg">${[0, 5, 10].map((v) => `<button data-act="palert" data-cg="${cg}" data-v="${v}" aria-pressed="${(al[cg] || 0) === v}">${v ? `±${v}%` : "Off"}</button>`).join("")}</span></div>`).join("")}</div>
-    ${window.Notification && Notification.permission !== "granted" ? `<button class="btn" data-act="palert-notify">${I.bell || I.check}Also notify me when the app is in the background</button>` : ""}`;
+  const al = S.palerts || {}, on = Object.values(al).filter(Boolean).length;
+  const LOGO = { solana: "sol", ethereum: "eth", binancecoin: "bnb", "avalanche-2": "avax", tron: "tron", "polygon-ecosystem-token": "pol" };
+  const canPush = !!window.Notification, pushOn = canPush && Notification.permission === "granted";
+  return `${phead("Price alerts")}
+    <div class="pa-hero"><span class="pa-ic">${I.spark}</span><b>${on ? `${on} alert${on > 1 ? "s" : ""} on` : "No alerts yet"}</b><small>Get a note when a coin moves more than you choose in a day. Once per coin and direction, each day.</small></div>
+    <section class="list pa-list">${ALERT_COINS.map(([cg, unit]) => { const p = S.prices[cg], ch = p?.usd_24h_change, v = al[cg] || 0;
+      return `<div class="arow pa-row"><span class="cstack">${coin(LOGO[cg])}</span>
+        <span class="ar-t"><b>${cdot(unit)}${COIN_NAME[unit] || unit}</b><small>${p?.usd != null ? `${money(p.usd)}${ch != null ? ` <span class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</span>` : ""}` : unit}</small></span>
+        <span class="pa-seg" role="group" aria-label="${unit} alert">${[0, 5, 10].map((x) => `<button data-act="palert" data-cg="${cg}" data-v="${x}" aria-pressed="${v === x}"${v === x ? ' class="on"' : ""}>${x ? `±${x}%` : "Off"}</button>`).join("")}</span></div>`; }).join("")}</section>
+    ${canPush ? `<section class="list pa-push"><button class="arow" data-act="palert-notify" ${pushOn ? "disabled" : ""}><span class="pa-ic sm">${I.bell || I.check}</span>
+      <span class="ar-t"><b>Notify me outside the app</b><small>${pushOn ? "On: alerts reach you even when Ecrin is closed." : Notification.permission === "denied" ? "Blocked. Allow notifications for Ecrin in your phone's settings." : "Allow notifications so alerts reach you when Ecrin is closed."}</small></span>
+      <span class="pa-sw${pushOn ? " on" : ""}" aria-hidden="true"><i></i></span></button></section>` : ""}`;
 }
 
 /* ------------------------------------------------------------------ names */
@@ -2450,16 +2459,26 @@ function payLink(k, a, amount, label) {
   return to;
 }
 function payreqView() {
-  const P = S.panel, N = NETS[S.net], a = P.asset || "native", amt0 = (P.amount || "").trim(), link = payLink(S.net, a, Number(amt0) > 0 ? amt0 : "", (P.label || "").trim());
-  const q = qrcode(0, "M"); q.addData(link); q.make();
+  const P = S.panel, N = NETS[S.net], a = P.asset || "native", amt0 = (P.amount || "").trim(), n = Number(amt0) > 0 ? Number(amt0) : 0, unit = A(a).unit, note = (P.label || "").trim();
+  const link = payLink(S.net, a, n ? amt0 : "", note);
+  const q = qrcode(0, "H"); q.addData(link); q.make(); // high correction: the coin in the middle can't break it
+  const px = a === "usdc" ? 1 : S.prices[N.cg]?.usd, fiat = n && px != null ? money(n * px) : "";
+  const m = a === "usdc" ? "usdc" : N.unit === "ETH" ? "eth" : S.net, mid = coin(m) + (m !== S.net ? `<span class="qr-b">${coin(S.net)}</span>` : "");
+  const addr = ENG?.address || "";
   return `${phead("Request a payment")}
-    <div class="recv preq">
+    <div class="rq">
       ${fromRow()}
-      <div class="mv-amt"><input data-reqamt inputmode="decimal" placeholder="0" value="${esc(P.amount || "")}" autocomplete="off"/><span>${A(a).unit}</span></div>
-      <input class="preq-l" data-reqlabel placeholder="What it's for (optional)" value="${esc(P.label || "")}" maxlength="40"/>
-      <div class="qr">${q.createSvgTag({ cellSize: 5, margin: 0, scalable: true })}</div>
-      <p class="fine">${Number(amt0) > 0 ? `Scanning this asks for <b>${esc(amt0)} ${A(a).unit}</b> on ${N.name}, paid to you.` : `Scanning this pays you on ${N.name}. Add an amount to ask for an exact sum.`} Works with ${N.fam === "sol" ? "Solana Pay wallets" : N.fam === "evm" ? "Ethereum wallets" : "Tron wallets"}.</p>
-      <div class="vacts">${navigator.share ? `<button class="btn" data-act="share-req">${I.send}Share</button>` : ""}<button class="btn" data-act="copy-req">${I.copy}Copy link</button></div>
+      <div class="rq-amt"><div class="rq-in"><input data-reqamt inputmode="decimal" placeholder="0" value="${esc(P.amount || "")}" autocomplete="off" aria-label="Amount" style="width:${Math.max(1, [...(P.amount || "")].reduce((t, c) => t + (/[.,]/.test(c) ? .45 : 1), 0)) + .12}ch"/><span>${unit}</span></div>
+        <small>${fiat ? `≈ ${fiat}` : "Leave empty to let them choose"}</small></div>
+      <label class="rq-note">${I.pen}<input data-reqlabel placeholder="Add a note (optional)" value="${esc(P.label || "")}" maxlength="40"/></label>
+      <div class="rq-card">
+        <div class="qr">${q.createSvgTag({ cellSize: 5, margin: 0, scalable: true })}<span class="qr-c">${mid}</span></div>
+        <b class="rq-what">${n ? `Requesting ${esc(amt0)} ${unit}` : `Any amount of ${unit}`}</b>
+        ${note ? `<span class="rq-for">“${esc(note)}”</span>` : ""}
+        <span class="rq-to">to <span class="mono">${short(addr)}</span> · ${N.name}</span>
+      </div>
+      <p class="fine rq-fine">Opens in any ${N.fam === "sol" ? "Solana Pay" : N.fam === "evm" ? "Ethereum" : "Tron"} wallet that scans it.</p>
+      <div class="rq-acts">${navigator.share ? `<button class="btn primary" data-act="share-req">${I.send}Share</button>` : ""}<button class="btn" data-act="copy-req">${I.copy}Copy link</button></div>
     </div>`;
 }
 
