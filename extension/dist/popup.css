@@ -2484,3 +2484,20 @@ html body #tabbar#tabbar button { flex: 0 0 auto !important; overflow: visible; 
 :root[data-theme="light"] .sf-alert { background: color-mix(in srgb, #2f5bff 6%, #fff) !important; }
 :root[data-theme] :is(.sf-w, .sf-net, .rt, .slide) { border-color: transparent !important; background: var(--h1) !important; box-shadow: var(--h-lit), var(--h-drop) !important; }
 :root[data-theme] .btn.sm.danger { border-color: transparent !important; background: color-mix(in srgb, #ff5a5f 14%, var(--h2)) !important; box-shadow: none !important; }
+
+/* =====================================================================
+   0.12.0 The entrance. Each section of home rises 8px and fades in, 55ms after the one before, on an ease-out that
+   settles without a bounce. The delay is offset by the time already spent (--ht), so a redraw mid-way continues it.
+   ===================================================================== */
+@keyframes hm-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes hm-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tb-rise { from { translate: 0 calc(100% + 34px); } to { translate: 0 0; } }
+.home.intro > :not(.aura) { animation: hm-rise 720ms cubic-bezier(.22, 1, .36, 1) both; animation-delay: calc(var(--ht, 0ms) + 40ms + var(--i, 0) * 55ms); }
+.home.intro > .top { animation-name: hm-fade; }
+.home.intro .tab-body > .list > .arow { animation: hm-rise 640ms cubic-bezier(.22, 1, .36, 1) both; animation-delay: calc(var(--ht, 0ms) + 330ms + var(--j, 0) * 45ms); }
+/* switching Tokens / Activity: the list settles in */
+.home.tab-in > .tab-body { animation: hm-fade 380ms cubic-bezier(.22, 1, .36, 1) both; animation-delay: var(--tt, 0ms); }
+.home.tab-in > .tab-body > .list > .arow { animation: hm-rise 420ms cubic-bezier(.22, 1, .36, 1) both; animation-delay: calc(var(--tt, 0ms) + var(--j, 0) * 30ms); }
+/* the floating bar glides up last */
+html body #tabbar#tabbar.enter { animation: tb-rise 760ms cubic-bezier(.22, 1, .36, 1) 420ms both; }
+@media (prefers-reduced-motion: reduce) { .home.intro > *, .home.intro .arow, .home.tab-in > .tab-body, .home.tab-in .arow, html body #tabbar#tabbar.enter { animation: none !important; } }

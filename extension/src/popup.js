@@ -325,6 +325,25 @@ document.addEventListener("scroll", (ev) => {
   const y = t.scrollTop, dy = y - tbY; if (Math.abs(dy) < 6) return;
   tb.classList.toggle("away", dy > 0 && y > 140); tbY = y;
 }, { capture: true, passive: true });
+// ------------------------------------------------------------------ the entrance
+// Opening the wallet, home arrives in order: each section rises a few pixels and fades in, 55ms after the one before,
+// on a soft ease-out. It is timed from the moment you arrived, so a redraw in the middle (balances refresh every 15s)
+// carries on where it was instead of restarting. Only opacity and position move, so it stays smooth on phones.
+const INTRO_MS = 1500, TAB_MS = 420;
+const introLeft = () => (S.homeT0 ? performance.now() - S.homeT0 : 1e9);
+const introCls = () => (introLeft() < INTRO_MS ? " intro" : "") + (S.tabT0 && performance.now() - S.tabT0 < TAB_MS ? " tab-in" : "");
+const introVar = () => ` style="--ht:${-Math.round(Math.min(introLeft(), 1e6))}ms;--tt:${-Math.round(S.tabT0 ? Math.min(performance.now() - S.tabT0, 1e6) : 1e6)}ms"`;
+function stageHome(root) {
+  const h = root.querySelector(".home.intro, .home.tab-in"); if (!h) return;
+  // The browser starts the animation when it can (the first frames after unlocking are busy). Anchor to when it really
+  // started, so a redraw later lines up frame for frame instead of jumping ahead.
+  const sync = (sel, key, flag, v) => { const a = h.querySelector(sel)?.getAnimations?.()[0]; if (!a || S[flag]) return; S[flag] = true;
+    const used = parseFloat(h.style.getPropertyValue(v)) || 0; a.ready.then(() => { if (a.startTime != null) S[key] = a.startTime + used; }).catch(() => {}); };
+  if (h.classList.contains("intro")) sync(":scope > .top", "homeT0", "homeSynced", "--ht");
+  if (h.classList.contains("tab-in")) sync(":scope > .tab-body", "tabT0", "tabSynced", "--tt");
+  let i = 0; for (const c of h.children) if (!c.classList.contains("aura")) c.style.setProperty("--i", Math.min(i++, 9));
+  h.querySelectorAll(".tab-body > .list > .arow").forEach((r, j) => r.style.setProperty("--j", Math.min(j, 6)));
+}
 function syncTabbar() {
   const tb = document.getElementById("tabbar"); if (!tb) return;
   const cur = S.panel ? S.panel.p : "home", show = S.screen === "home" && !S.panel; // only on the home screen, never over a page
@@ -422,11 +441,14 @@ const TABBAR = `<nav id="tabbar" class="tabbar" aria-label="Main">
 function render() {
   const root = $("#root");
   root.dataset.screen = S.screen;
+  if (S.screen === "home" && S.lastScreen !== "home") { S.homeT0 = performance.now(); S.homeSynced = false; } // arriving on home: the entrance plays once
+  S.lastScreen = S.screen;
   root.innerHTML = ({ loading: () => `<div class="splash boot"><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div></div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
   translate(root, S.lang);
+  stageHome(root);
   // The three floating buttons live outside #root, made once, so re-renders and panels never make them blink.
   let tb = document.getElementById("tabbar");
-  if (S.screen === "home" && !tb) { (document.querySelector(".device") || document.body).insertAdjacentHTML("beforeend", TABBAR); tb = document.getElementById("tabbar"); }
+  if (S.screen === "home" && !tb) { (document.querySelector(".device") || document.body).insertAdjacentHTML("beforeend", TABBAR); tb = document.getElementById("tabbar"); tb.classList.add("enter"); setTimeout(() => tb.classList.remove("enter"), 1400); }
   syncTabbar();
   const f = root.querySelector("[autofocus]"); if (f) f.focus();
   bindHolds(root);
@@ -723,7 +745,7 @@ function homeView() {
   const N = NETS[S.net], e = ENG, w = worth(), loading = !w.ready;
   const pct = w.total ? Math.round((w.sav / w.total) * 100) : 0;
   const addr = e?.address || "";
-  return `<div class="home"><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i><i class="a4"></i></div>
+  return `<div class="home${introCls()}"${introVar()}><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i><i class="a4"></i></div>
     <header class="top">
       <button class="acct" data-act="panel" data-p="accts" title="Your accounts">${acctIc(curAcct())}<span class="acct-n">${esc(curAcct().name)}</span><span class="top-total">${loading ? "" : mask(money(w.total))}</span>${I.chev}</button>
       <div class="top-r">
@@ -2076,7 +2098,7 @@ const actions = {
   net: async (el) => { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; S.drawChart = true; closePanel(); await eng(); loadActivity(); refresh(); loadSeries(); },
   "row-send": async (el) => { if (el.dataset.n !== S.net) { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; await eng(); loadActivity(); await refresh(); } openPanel("send", { a: el.dataset.a }); const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); },
   "net-go": async (el) => { if (el.dataset.n !== S.net) await actions.net(el); else closePanel(); },
-  tab: async (el) => { S.tab = el.dataset.t; render(); if (S.tab === "activity") loadActivity(); },
+  tab: async (el) => { if (S.tab !== el.dataset.t) { S.tabT0 = performance.now(); S.tabSynced = false; } S.tab = el.dataset.t; render(); if (S.tab === "activity") loadActivity(); },
   "range-next": async () => { const o = ["1", "7", "30", "365"]; S.range = o[(o.indexOf(S.range) + 1) % o.length]; await local.set({ range: S.range }); render(); loadSeries(); },
   range: async (el) => { S.range = el.dataset.d; await local.set({ range: S.range }); S.drawChart = true; render(); if (S.panel?.p === "tok") { renderPanel(); loadSeriesFor(S.panel.cg).then(() => S.panel?.p === "tok" && renderPanel()); } else loadSeries(); },
   num: async (el) => { S.nums[el.dataset.k] = el.dataset.v; applyNums(); await local.set({ nums: S.nums }); renderPanel(); render(); },
