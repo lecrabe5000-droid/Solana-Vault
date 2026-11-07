@@ -157,7 +157,7 @@ async function eng() {
 }
 
 async function boot() {
-  const pr = await local.get(["book", "hideSmall", "order", "recvNotify", "guard", "alertsOn", "showNfts", "goal", "cur", "palerts", "sounds"]); S.palerts = pr.palerts || {}; S.sounds = !!pr.sounds; S.showNfts = !!pr.showNfts; S.goal = pr.goal || null; S.cur = pr.cur || "USD"; Object.assign(S, { book: pr.book || {}, hideSmall: !!pr.hideSmall, order: pr.order || "value", recvNotify: pr.recvNotify, guard: { auto: 0, daily: 0, cool: 0, coolOver: 500, ...(pr.guard || {}) }, alertsOn: !!pr.alertsOn });
+  const pr = await local.get(["book", "hideSmall", "order", "recvNotify", "guard", "alertsOn", "showNfts", "goal", "cur", "palerts", "sounds", "obHide"]); S.obHide = !!pr.obHide; S.palerts = pr.palerts || {}; S.sounds = !!pr.sounds; S.showNfts = !!pr.showNfts; S.goal = pr.goal || null; S.cur = pr.cur || "USD"; Object.assign(S, { book: pr.book || {}, hideSmall: !!pr.hideSmall, order: pr.order || "value", recvNotify: pr.recvNotify, guard: { auto: 0, daily: 0, cool: 0, coolOver: 500, ...(pr.guard || {}) }, alertsOn: !!pr.alertsOn });
   const st = await local.get(["box", "net", "theme", "autolock", "hide", "nums", "range", "dev", "prices", "bio", "lang"]);
   S.lang = st.lang || (/^fr/i.test(navigator.language || "") ? "fr" : "en"); document.documentElement.lang = S.lang;
   S.bio = globalThis.ECRIN_WEB && st.bio ? st.bio : null;
@@ -325,6 +325,9 @@ function go(screen, extra = {}) { Object.assign(S, { screen }, extra); render();
 addEventListener("unhandledrejection", (e) => { const m = String(e.reason?.message || e.reason || ""); if (!m) return; e.preventDefault?.();
   toast(/fetch|network|timeout|ECONN|503|502|429/i.test(m) ? "Can't reach that network right now. Check your connection and try again." : errText(e.reason), "err"); });
 
+// The lock screen shows your account (logo and name) before anything is unlocked: only public details are kept for it.
+local.get(["accts", "acctSel", "addrCache"]).then((st) => { S.lockInfo = { ...st, addrCache: { ...(st.addrCache || {}), ...(S.lockInfo?.addrCache || {}) } }; if (S.screen === "unlock") render(); }).catch(() => {});
+
 // Offline: say so, keep the last balances on screen, and refresh the moment the connection is back.
 S.offline = !navigator.onLine;
 addEventListener("offline", () => { S.offline = true; if (S.screen === "home") render(); });
@@ -338,6 +341,19 @@ document.addEventListener("scroll", (ev) => {
   const y = t.scrollTop, dy = y - tbY; if (Math.abs(dy) < 6) return;
   tb.classList.toggle("away", dy > 0 && y > 140); tbY = y;
 }, { capture: true, passive: true });
+// ------------------------------------------------------------------ getting started
+// For a new wallet: three steps that show what Ecrin is for, with progress. Gone once done or dismissed.
+function startCard(w) {
+  if (S.obHide || !w.ready) return "";
+  const acts = S.activity || [], did = (t) => acts.some((e) => t.includes(e.t));
+  const steps = [["Get free test coins", w.total > 0, 'data-act="panel" data-p="receive"'], ["Protect some in your Safe", w.sav > 0 || did(["protect"]), 'data-act="panel" data-p="protect"'],
+    ["Start a withdrawal, then cancel it", did(["cancel", "withdraw", "release"]), 'data-act="panel" data-p="vault"']];
+  const n = steps.filter((x) => x[1]).length; if (n === 3) return "";
+  return `<section class="ob"><div class="ob-h"><b>Getting started</b><span>${n} of 3</span><button class="ob-x" data-act="ob-hide" aria-label="Hide">×</button></div>
+    <i class="ob-bar"><i style="width:${(n / 3) * 100}%"></i></i>
+    ${steps.map(([t, ok, a], i) => `<button class="ob-s${ok ? " ok" : ""}" ${ok ? "disabled" : a}><span class="ob-n">${ok ? I.check : i + 1}</span><span>${t}</span>${ok ? "" : I.arrow}</button>`).join("")}</section>`;
+}
+
 // ------------------------------------------------------------------ the entrance
 // Opening the wallet, home arrives in order: each section rises a few pixels and fades in, 55ms after the one before,
 // on a soft ease-out. It is timed from the moment you arrived, so a redraw in the middle (balances refresh every 15s)
@@ -411,6 +427,20 @@ function flyFx(kind) {
   const at = (p, s) => `translate(${p.x - 7}px, ${p.y - 7}px) rotate(45deg) scale(${s})`;
   const an = d.animate([{ transform: at(p0, 0.4), opacity: 0 }, { transform: at(p0, 1), opacity: 1, offset: 0.12 }, { transform: at(mid, 1.15), offset: 0.5 }, { transform: at(p1, 0.7), opacity: 1, offset: 0.9 }, { transform: at(p1, 0.2), opacity: 0 }], { duration: 900, easing: "cubic-bezier(.5, 0, .3, 1)" });
   an.onfinish = () => { d.remove(); const r = document.querySelector(".lz"); if (r) { r.classList.remove("beat"); void r.getBoundingClientRect(); r.classList.add("beat"); } haptic("medium"); };
+}
+
+// ------------------------------------------------------------------ sheets
+// The browser's grey confirm box, replaced by a sheet from the bottom: a handle, the question, and two clear buttons.
+function ask(text, { ok = "Continue", danger = false, title = "" } = {}) {
+  return new Promise((done) => {
+    const w = document.createElement("div"); w.className = "ask-w";
+    w.innerHTML = `<div class="ask-bg"></div><div class="ask" role="dialog" aria-modal="true"><i class="sheet-h"></i>${title ? `<b class="ask-t">${esc(trText(title, S.lang))}</b>` : ""}<p>${esc(trText(text, S.lang))}</p>
+      <button class="btn xl ${danger ? "danger danger-f" : "primary"}" data-ok>${esc(trText(ok, S.lang))}</button><button class="btn xl ghost" data-no>${esc(trText("Cancel", S.lang))}</button></div>`;
+    (document.querySelector(".device") || document.body).append(w); haptic();
+    requestAnimationFrame(() => w.classList.add("in"));
+    const end = (v) => { w.classList.remove("in"); setTimeout(() => w.remove(), 320); done(v); };
+    w.querySelector("[data-ok]").onclick = () => end(true); w.querySelector("[data-no]").onclick = () => end(false); w.querySelector(".ask-bg").onclick = () => end(false);
+  });
 }
 
 // ------------------------------------------------------------------ kept safe
@@ -777,9 +807,11 @@ function unlock() {
         <span class="bs-ic">${ok ? `<svg class="bio-ok" viewBox="0 0 24 24"><path d="M6 12.5l4 4L18 8"/></svg>` : I.face}</span></div>
       <p class="bs-t">${ok ? "Unlocked" : `Unlocking with ${bioName()}`}</p></div>`;
   }
+  const las = S.lockInfo?.accts?.length ? S.lockInfo.accts : S.lockInfo ? DEF_ACCTS : [], la = las.find((x) => x.id === S.lockInfo?.acctSel) || las[0];
   return `<div class="lock">
     <div class="lock-mark"><i class="halo"></i>${LOGO}</div>
-    <h1>Welcome back</h1><p class="sub">Unlock Ecrin Wallet</p>
+    <h1>Welcome back</h1>
+    ${la ? `<div class="lock-acct">${acctIc(la)}<span>${esc(la.name)}</span></div>` : `<p class="sub">Unlock Ecrin Wallet</p>`}
     ${S.bio ? `<button class="btn primary xl bio-btn" data-act="bio-unlock">${I.face}Unlock with ${bioName()}</button><p class="or">or use your password</p>` : ""}
     <form class="stack" data-form="unlock">
       <label class="fld"><span>Password</span><input name="pw" type="password" autocomplete="current-password" ${S.bio && globalThis.ECRIN_WEB ? "" : "autofocus"} required/></label>
@@ -827,6 +859,7 @@ function homeView() {
       <button class="sp-s" data-act="panel" data-p="vault"><span>${I.lock}Safe${w.leaving ? ` <em>· ${w.leaving} leaving</em>` : ""}</span><b class="${loading ? "sk" : ""}">${loading ? "&nbsp;" : mask(fig(money(w.sav)))}</b></button>
       <i class="sp-bar"><i></i></i>
     </section>
+    ${startCard(w)}
     <nav class="acts">
       ${[["send", "Send", I.send], ["receive", "Receive", I.recv], ["protect", "Protect", I.protect]].map(([p, l, ic]) => `<button data-act="panel" data-p="${p}"><span>${ic}</span>${l}</button>`).join("")}
     </nav>
@@ -1281,8 +1314,9 @@ function txdView() {
   return `${phead("Details")}
     <div class="txd-hero"><span class="act-ico lg ${cls}">${ic}</span><b>${title}</b>
       ${val != null ? `<span class="txd-amt ${cls}">${cls === "out" ? "−" : cls === "in" ? "+" : ""}${mask(val.toLocaleString("en-US", { maximumFractionDigits: 6 }))} ${esc(unit)}</span>${usd ? `<small>${mask(money(usd))} today</small>` : ""}` : ""}</div>
-    <div class="tk-info">
-      <div><span>Status</span><b class="up">Confirmed</b></div>
+    <div class="txd-steps"><span class="ts on"><i></i>${cls === "in" ? "Sent to you" : "Submitted"}</span><span class="ts-l"></span><span class="ts on"><i>${I.check}</i>Confirmed</span></div>
+    <div class="tk-info txd-card">
+      <div><span>Status</span><b><span class="st-pill">${I.check}Confirmed</span></b></div>
       <div><span>Date</span><b>${e.at ? new Date(e.at).toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { dateStyle: "medium", timeStyle: "short" }) : "—"}</b></div>
       <div><span>Network</span><b>${N.name} ${N.net}</b></div>
       ${e.to ? rowA("To", e.to) : ""}${e.from ? rowA("From", e.from) : ""}
@@ -1339,7 +1373,7 @@ function renderPanel(enter = false) {
   const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, news: newsView, report: reportHTML, txd: txdView, contacts: contactsView, pkey: pkeyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView, wc: wcView, payreq: payreqView, alerts: alertsView })[P.p]();
   if (enter || P.fresh) P.openedAt = performance.now();
   const since = P.openedAt ? performance.now() - P.openedAt : 9999;
-  el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}${since < 1300 ? " trace" : ""}" style="--tt:${-Math.round(since)}ms">${body}</div>`; translate(el, S.lang);
+  el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}${since < 2300 ? " trace" : ""}" style="--tt:${-Math.round(since)}ms">${body}</div>`; translate(el, S.lang);
   P.fresh = false;
   if (enter) requestAnimationFrame(() => { el.classList.add("in"); document.body.classList.add("stacked"); });
   bindHolds(el); depth(el); mountVault3d(el); bindTokChart(el);
@@ -1358,7 +1392,7 @@ function assetPick() {
 function amountBlock(max, label) {
   const P = S.panel, a = P.asset, units = parseAmt(P.amount, a), u = usdOf(units, a), over = units > max;
   return `<div class="amt ${over ? "over" : ""}">
-    <div class="amt-in"><input data-amount inputmode="decimal" placeholder="0" value="${esc(P.amount)}" autocomplete="off" autofocus/><span>${A(a).unit}</span></div>
+    <div class="amt-in"><input data-amount inputmode="decimal" placeholder="0" value="${esc(P.amount)}" autocomplete="off" autofocus style="width:${Math.max(1, [...String(P.amount || "")].reduce((t, c) => t + (/[.,]/.test(c) ? .45 : 1), 0)) + .12}ch"/><span>${A(a).unit}</span></div>
     <div class="amt-usd">${u != null && units ? money(u) : "&nbsp;"}</div>
     <div class="pcts">${[25, 50, 100].map((p) => `<button data-act="pct" data-v="${p}" class="${P.pct === p ? "on" : ""}">${p === 100 ? "Max" : p + "%"}</button>`).join("")}</div>
     <div class="avail">${label}: <b>${amt(Math.max(0, max), a)} ${A(a).unit}</b>${over ? ` <span class="bad">· not enough</span>` : ""}</div>
@@ -1373,7 +1407,7 @@ function sendView() {
   if (P.step === "review" || P.step === "sending") {
     const self = P.to.trim() === e.address;
     return `${phead("Review")}
-      <div class="rev">
+      <div class="rev rev-card"><i class="sheet-h" aria-hidden="true"></i>
         <div class="rev-amt">${assetCoin(a, "lg")}<b>${fig(amt(units, a))}</b><span>${A(a).unit}</span><small>${usdOf(units, a) != null ? money(usdOf(units, a)) : ""}</small></div>
         <dl class="rev-l">
           <div><dt>From</dt><dd>Wallet · ${short(e.address)}</dd></div>
@@ -1395,7 +1429,8 @@ function sendView() {
     ${feeNote(a)}
     <label class="fld to"><span>To</span><div class="in-btn"><input data-to placeholder="${addrHint(NETS[S.net])}" value="${esc(P.to)}" spellcheck="false" autocomplete="off"/><button type="button" class="ib sm" data-act="paste" aria-label="Paste">${I.paste}</button>${globalThis.ECRIN_WEB && navigator.mediaDevices?.getUserMedia ? `<button type="button" class="ib sm" data-act="scan" aria-label="Scan a QR code">${I.qr}</button>` : ""}</div></label>
     ${nm ? (nm.addr && !nmOk ? `<p class="err">${esc(nm.name)} is ${nm.fam === "sol" ? "a Solana" : "an Ethereum"} address. Switch to that network to send to it.</p>` : namedLine()) : P.to && !e.isAddress(P.to) ? `<p class="err">That isn't a ${NETS[S.net].name} address${NETS[S.net].fam === "sol" ? " or a .sol name" : NETS[S.net].fam === "evm" ? " or an .eth name" : ""}.</p>` : ""}
-    ${bookName(P.to.trim()) ? `<p class="book-to">${I.check}Sending to <b>${esc(bookName(P.to.trim()))}</b></p>` : ""}
+    ${(() => { const to = nmOk ? nm.addr : P.to.trim(); if (!to || !e.isAddress(to)) return ""; const bn = bookName(to) || (nmOk ? nm.name : "");
+      return `<div class="to-card"><span class="acct-ic gen">${logoSVG("facets", `${to}:0`)}</span><span class="to-t"><b>${bn ? esc(bn) : "New address"}</b><small class="mono">${short(to)} · ${NETS[S.net].name}</small></span>${bn ? `<span class="to-ok">${I.check}</span>` : ""}</div>`; })()}
     ${bookList().length ? `<div class="book">${bookList().map(([a, n]) => `<button class="${P.to.trim() === a ? "on" : ""}" data-act="book-pick" data-a="${esc(a)}"><i>${esc(n.slice(0, 1).toUpperCase())}</i>${esc(n)}</button>`).join("")}</div>` : ""}
     <div class="pfoot"><button class="btn primary xl" data-act="review" ${valid ? "" : "disabled"}>Review</button></div>`;
 }
@@ -1521,7 +1556,10 @@ function addrsView() {
 // in Ecrin's shapes: Facets (a cut gem), Pixels (a mirrored 5×5 mark), Rings (the Safe's rounded rings). Or a letter.
 const LOGO_STYLES = [["facets", "Facets"], ["pixels", "Pixels"], ["rings", "Rings"], ["letter", "Letter"]];
 const addrMemo = {};
-const acctSeedAddr = (a) => { if (addrMemo[a.id]) return addrMemo[a.id]; let x = null; try { x = acctAddr(a); } catch (_) {} return x ? (addrMemo[a.id] = x) : a.id; };
+const acctSeedAddr = (a) => { if (addrMemo[a.id]) return addrMemo[a.id]; let x = null; try { x = acctAddr(a); } catch (_) {}
+  if (!x) return S.lockInfo?.addrCache?.[a.id] || a.id; // locked: the public address remembered from last time
+  if (S.lockInfo?.addrCache?.[a.id] !== x) { const c = { ...(S.lockInfo?.addrCache || {}), [a.id]: x }; S.lockInfo = { ...(S.lockInfo || {}), addrCache: c }; local.set({ addrCache: c }); }
+  return (addrMemo[a.id] = x); };
 function logoRng(str) {
   let h = 2166136261; for (const c of String(str)) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
   return () => { h = (h + 0x6d2b79f5) >>> 0; let t = h; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -1800,9 +1838,9 @@ function settingsView() {
 }
 // What's new: shown once after an update (never on a fresh install), and any time from Settings → About.
 const NEWS = [
-  ["A calmer, cleaner look", "No more boxes around everything, a lit diamond on home, a smaller bar that steps aside as you scroll."],
-  ["Account logos", "Every account gets its own logo drawn from its address. Change it in Accounts."],
-  ["Colours that match", "Each coin has one colour, on the diamond, next to its name and in your activity."],
+  ["Send, refined", "A clearer amount, and a card that shows who you're paying, with their logo, before you review."],
+  ["A finished look everywhere", "The coin page, Settings, activity receipts and the lock screen now match the rest of Ecrin."],
+  ["Getting started", "New here? Three steps on home show you what the Safe does, with your progress."],
 ];
 function newsView() {
   return `${phead("What's new")}<div class="pad news"><p class="news-v">Ecrin Wallet ${VERSION}</p>
@@ -1837,7 +1875,7 @@ function revealView() {
 
 // ------------------------------------------------------------------ actions
 
-function toast(text, kind = "") { const t = $("#toast"); t.textContent = trText(text, S.lang); t.className = "toast show " + kind; clearTimeout(t._t); t._t = setTimeout(() => (t.className = "toast " + kind), 2600); }
+function toast(text, kind = "") { const t = $("#toast"); t.innerHTML = `<i class="t-ic" aria-hidden="true"></i><span>${esc(trText(text, S.lang))}</span>`; t.className = "toast show " + kind; clearTimeout(t._t); t._t = setTimeout(() => (t.className = "toast " + kind), 2600); }
 const errText = (e) => {
   const raw = String(e?.shortMessage || e?.message || e);
   if (/insufficient funds/i.test(raw)) return `Not enough ${NETS[S.net].unit} for this and the network fee. Use Receive to get free test coins.`;
@@ -1904,7 +1942,7 @@ const actions = {
     if (!n) return toast("Give the contact a name.", "err"); if (!f) return toast("That isn't a Solana, Ethereum or Tron address.", "err");
     S.book[f] = { ...(S.book[f] || {}), [a]: n }; await local.set({ book: S.book }); S.panel.n = S.panel.a = ""; toast(`${n} added`, "win"); renderPanel();
   },
-  "ct-del": async (el) => { const f = el.dataset.f, a = el.dataset.a, n = S.book?.[f]?.[a]; if (!confirm(`Delete ${n}?`)) return; delete S.book[f][a]; await local.set({ book: S.book }); renderPanel(); },
+  "ct-del": async (el) => { const f = el.dataset.f, a = el.dataset.a, n = S.book?.[f]?.[a]; if (!(await ask(`Delete ${n} from your contacts?`, { ok: "Delete", danger: true }))) return; delete S.book[f][a]; await local.set({ book: S.book }); renderPanel(); },
   report: async () => { S.stats = (await local.get("stats")).stats || {}; await loadActivity(); openPanel("report", { month: monthKey() }); },
   "rp-m": (el) => { if (!el.dataset.v) return; S.panel.month = el.dataset.v; renderPanel(); },
   "reveal-bio": async () => { try { const words = await bioUnlock(S.bio); S.panel.words = normalize(words); renderPanel(); } catch (e) { toast(`${bioName()} didn't work. Use your password.`, "err"); } },
@@ -1922,7 +1960,7 @@ const actions = {
   "freeze-now": async (el) => {
     const open = (S.all || []).filter((r) => r.v);
     if (!open.length) return toast("Set up your Safe first: there's nothing to freeze yet.", "err");
-    if (!confirm("Freeze your Safe on every network for 24 hours? Nothing can leave, including withdrawals already waiting. A freeze can't be ended early.")) return;
+    if (!(await ask("Nothing can leave your Safe on any network for 24 hours, including withdrawals already waiting. A freeze can't be ended early.", { title: "Freeze your Safe?", ok: "Freeze for 24 hours", danger: true }))) return;
     el.disabled = true; el.classList.add("busy");
     try { await applyEverywhere([["all", { kind: "SetLockedUntil", value: now() + 86400 + 120 }]]); await logActivity({ t: "freeze" }); toast("Frozen for 24 hours on every network", "win"); loadAll(); }
     catch (e) { toast(errText(e), "err"); }
@@ -1988,7 +2026,7 @@ const actions = {
   },
   "acct-remove": async (el) => {
     const a = S.accts.find((x) => x.id === el.dataset.id); if (!a) return;
-    if (a.kind === "key" && !confirm(`Remove ${a.name}? Its coins stay on the blockchain, but you'll need its private key to get them back.`)) return;
+    if (a.kind === "key" && !(await ask(`Its coins stay on the blockchain, but you'll need its private key to get them back.`, { title: `Remove ${a.name}?`, ok: "Remove", danger: true }))) return;
     S.accts = S.accts.filter((x) => x.id !== a.id); await saveAccts();
     if (a.kind === "key") { const st = await local.get("keysBox"); const m = await openKeys(st.keysBox, PHRASE).catch(() => ({})); delete m[a.id]; await local.set({ keysBox: await sealKeys(m, PHRASE) }); }
     if (a.id === S.sel) return switchAccount(S.accts[0].id);
@@ -2044,6 +2082,7 @@ const actions = {
   "book-pick": (el) => { S.panel.to = el.dataset.a; renderPanel(); },
   "book-save": async () => { const n = ($("#panel [data-bookname]")?.value || "").trim(); if (!n) return; const f = NETS[S.net].fam; S.book[f] = { ...(S.book[f] || {}), [S.panel.to.trim()]: n }; await local.set({ book: S.book }); toast(`Saved as ${n}`, "win"); renderPanel(); },
   "share-addr": async () => { try { await navigator.share({ title: "My " + NETS[S.net].name + " address", text: ENG.address }); } catch (_) {} },
+  "ob-hide": async () => { S.obHide = true; await local.set({ obHide: true }); render(); },
   "go-limit": async () => {
     if (S.panel?.p !== "safety") { openPanel("safety"); await wait(380); }
     const h = document.querySelector('#panel [data-sec="limit"]'); if (!h) return;
@@ -2081,7 +2120,7 @@ const actions = {
     } catch (e) { S.bioBusy = null; S.bioRun = false; render(); if (e?.name !== "NotAllowedError") toast(e?.message || `${bioName()} didn't work. Use your password.`, "err"); }
   },
   "bio-toggle": async () => {
-    if (S.bio) { if (!confirm(`Turn off ${bioName()}? You'll unlock with your password.`)) return; await local.remove("bio"); S.bio = null; toast(`${bioName()} is off`, "win"); return renderPanel(); }
+    if (S.bio) { if (!(await ask("You'll unlock with your password.", { title: `Turn off ${bioName()}?`, ok: "Turn off" }))) return; await local.remove("bio"); S.bio = null; toast(`${bioName()} is off`, "win"); return renderPanel(); }
     try { const { phrase } = await session.get("phrase"); const box = await bioEnable(phrase); await local.set({ bio: box }); S.bio = box; toast(`${bioName()} is on`, "win"); renderPanel(); }
     catch (e) { if (e?.name !== "NotAllowedError") toast(e?.message || `Couldn't turn on ${bioName()}`, "err"); }
   },
@@ -2127,7 +2166,7 @@ const actions = {
   },
   pick: (el) => { const q = S.quiz.find((x) => !x.ok), w = S.phrase.split(" ")[q.i]; if (el.dataset.w === w) { q.ok = true; S.quizErr = false; } else S.quizErr = true; render(); },
   "finish-create": async () => { S.busy = true; render(); await saveWallet(S.phrase, S.pw); await local.set({ backup: { at: Date.now(), done: false } }); S.busy = false; S.phrase = S.pw = null; home(); },
-  forgot: () => { if (confirm("Without the password, the only way back in is your recovery phrase. Remove this wallet from the browser and import it again?")) forget(); },
+  forgot: async () => { if (await ask("Without the password, the only way back in is your recovery phrase. Remove this wallet from this device and import it again?", { title: "Forgot your password?", ok: "Remove and re-import", danger: true })) forget(); },
   copy: async (el) => {
     await navigator.clipboard.writeText(el.dataset.v);
     if (el.classList.contains("ad-copy")) { const t = el.querySelector("span"); el.classList.add("ok"); t.textContent = S.lang === "fr" ? "Copiée" : "Copied"; clearTimeout(el._t); el._t = setTimeout(() => { el.classList.remove("ok"); t.textContent = S.lang === "fr" ? "Copier l'adresse" : "Copy address"; }, 1600); navigator.vibrate?.(8); }
@@ -2206,7 +2245,7 @@ const actions = {
   autolock: async (el) => { S.autolock = Number(el.dataset.v); await local.set({ autolock: S.autolock }); await touch(); renderPanel(); },
   theme: async (el) => { S.theme = el.dataset.v; document.documentElement.dataset.theme = S.theme; await local.set({ theme: S.theme }); render(); renderPanel(); },
   lock: async () => { await session.clear(); chrome.runtime.sendMessage({ type: "lock" }).catch(() => {}); ACCT = ENG = null; S.panel = null; S.counted = false; S.entered = false; $("#panel").innerHTML = ""; $("#panel").classList.remove("in"); document.body.classList.remove("stacked"); go("unlock"); },
-  forget: () => { if (confirm("Remove this wallet from the browser? You'll need your recovery phrase to use it again. Money stays on the blockchain.")) forget(); },
+  forget: async () => { if (await ask("You'll need your recovery phrase to use it again. Your money stays on the blockchain.", { title: "Remove this wallet from this device?", ok: "Remove wallet", danger: true })) forget(); },
 };
 
 async function forget() { await chrome.storage.local.clear(); await session.clear(); location.reload(); }
@@ -2853,11 +2892,11 @@ function tokenView() {
   const savPct = tot.amt ? Math.round((tot.sav / tot.amt) * 100) : 0;
   return `<div class="tk-page" style="--cc:${cc}">${phead("")}
     <div class="tk-top">${icon}<span><b>${esc(name)}</b><small>${esc(P.u)}${nets.length ? ` · ${esc(nets.join(", "))}` : ""}</small></span></div>
-    <div class="tk-px" data-tkpx>${px != null ? money(px) : "—"}</div>
+    <div class="tk-px" data-tkpx>${px != null ? fig(money(px)) : "—"}</div>
     <div class="tk-ch ${dd >= 0 ? "up" : "dn"}" data-tkch>${P.u === "USDC" ? "Stays close to $1" : v ? `${dd >= 0 ? "+" : "−"}${money(Math.abs(dd))} (${Math.abs(pc).toFixed(2)}%) <span>${rl}</span>` : "&nbsp;"}</div>
     ${chart}${ranges}
     <nav class="acts tk-acts">${[["send", "Send", I.send], ["receive", "Receive", I.recv], ["swap", "Swap", I.swap], ["protect", "Protect", I.protect]].map(([p2, l, ic]) => `<button data-act="tok-do" data-p="${p2}"><span>${ic}</span>${l}</button>`).join("")}</nav>
-    <div class="tk-bal"><span class="lbl">Your balance</span><b>${mask(money(tot.usd))}</b><small>${mask(n(tot.amt, dec))} ${esc(P.u)}${(() => { const c = pr.usd_24h_change; if (c == null || !tot.usd || P.u === "USDC") return ""; const pl = tot.usd - tot.usd / (1 + c / 100); return ` · <span class="${pl >= 0 ? "up" : "dn"}">${pl >= 0 ? "+" : "−"}${mask(money(Math.abs(pl)))} today</span>`; })()}</small>
+    <div class="tk-bal"><span class="lbl">Your balance</span><b>${S.hide ? "••••" : fig(money(tot.usd))}</b><small>${mask(n(tot.amt, dec))} ${esc(P.u)}${(() => { const c = pr.usd_24h_change; if (c == null || !tot.usd || P.u === "USDC") return ""; const pl = tot.usd - tot.usd / (1 + c / 100); return ` · <span class="${pl >= 0 ? "up" : "dn"}">${pl >= 0 ? "+" : "−"}${mask(money(Math.abs(pl)))} today</span>`; })()}</small>
       ${tot.amt ? `<div class="tk-split"><i style="width:${100 - savPct}%"></i><i class="s" style="width:${savPct}%"></i></div><div class="tk-leg"><span><i></i>Wallet ${mask(n(tot.chq, dec))}</span><span><i class="s"></i>${I.lock}Safe ${mask(n(tot.sav, dec))}</span></div>` : ""}</div>
     ${list.length > 1 ? `<div class="list-h"><b>By network</b><span></span></div><section class="list">${list.map((i) => `<div class="arow">${coin(i.k)}<span class="ar-t"><b>${NETS[i.k].name}</b><small>${i.sav ? `${I.lock}${mask(n(i.sav, i.dec))} in Safe` : "Wallet"}</small></span><span class="ar-r"><b>${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}</small></span></div>`).join("")}</section>` : ""}
     <div class="list-h"><b>Market</b><span></span></div>

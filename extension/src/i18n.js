@@ -2,6 +2,18 @@
 // French version: exact phrases first, then patterns for phrases with numbers or names in them. Anything not
 // listed stays in English rather than being guessed.
 const FR = {
+  "Send, refined": "Envoyer, en mieux", "A clearer amount, and a card that shows who you're paying, with their logo, before you review.": "Un montant plus clair, et une carte qui montre qui vous payez, avec son logo, avant de vérifier.",
+  "A finished look everywhere": "Un rendu soigné partout", "The coin page, Settings, activity receipts and the lock screen now match the rest of Ecrin.": "La page des jetons, les réglages, les reçus d'activité et l'écran de verrouillage sont maintenant assortis au reste d'Ecrin.",
+  "New here? Three steps on home show you what the Safe does, with your progress.": "Nouveau ici ? Trois étapes sur l'accueil montrent ce que fait le Safe, avec votre progression.",
+  "New address": "Nouvelle adresse", "Submitted": "Envoyée", "Sent to you": "Envoyé vers vous", "Getting started": "Pour commencer",
+  "Get free test coins": "Obtenir des jetons de test gratuits", "Protect some in your Safe": "En protéger dans votre Safe", "Start a withdrawal, then cancel it": "Lancer un retrait, puis l'annuler",
+  "Freeze your Safe?": "Geler votre Safe ?", "Freeze for 24 hours": "Geler pendant 24 heures", "Turn off": "Désactiver", "Forgot your password?": "Mot de passe oublié ?",
+  "Remove and re-import": "Retirer et réimporter", "Remove wallet": "Retirer le portefeuille", "Remove this wallet from this device?": "Retirer ce portefeuille de cet appareil ?",
+  "Nothing can leave your Safe on any network for 24 hours, including withdrawals already waiting. A freeze can't be ended early.": "Rien ne peut quitter votre Safe, sur aucun réseau, pendant 24 heures, y compris les retraits en attente. Un gel ne peut pas être levé plus tôt.",
+  "Its coins stay on the blockchain, but you'll need its private key to get them back.": "Ses jetons restent sur la blockchain, mais il vous faudra sa clé privée pour les récupérer.",
+  "You'll unlock with your password.": "Vous déverrouillerez avec votre mot de passe.",
+  "Without the password, the only way back in is your recovery phrase. Remove this wallet from this device and import it again?": "Sans le mot de passe, seule votre phrase de récupération permet de revenir. Retirer ce portefeuille de cet appareil et l'importer à nouveau ?",
+  "You'll need your recovery phrase to use it again. Your money stays on the blockchain.": "Il vous faudra votre phrase de récupération pour l'utiliser à nouveau. Votre argent reste sur la blockchain.",
   "Leave empty to let them choose": "Laissez vide pour les laisser choisir", "Add a note (optional)": "Ajouter une note (facultatif)",
   "Notify me outside the app": "Me prévenir hors de l'app", "No alerts yet": "Aucune alerte pour l'instant",
   "On: alerts reach you even when Ecrin is closed.": "Activé : les alertes vous parviennent même quand Ecrin est fermé.",
@@ -183,6 +195,7 @@ const FR = {
 };
 // Phrases with numbers or names: [pattern, replacement].
 const FR_RE = [
+  [/^(\d) of 3$/, "$1 sur 3"], [/^Delete (.+) from your contacts\?$/, "Supprimer $1 de vos contacts ?"], [/^Remove (.+)\?$/, "Retirer $1 ?"], [/^Turn off (.+)\?$/, "Désactiver $1 ?"],
   [/^Requesting (.+)$/, "Demande de $1"], [/^Any amount of (.+)$/, "N'importe quel montant de $1"], [/^(\d+) alerts? on$/, (m, n) => `${n} alerte${n > 1 ? "s" : ""} active${n > 1 ? "s" : ""}`],
   [/^Opens in any (.+) wallet that scans it\.$/, "S'ouvre dans tout portefeuille $1 qui le scanne."],
   [/^Showing ([A-Z]{3})$/, "Affichage en $1"], [/^Couldn't get today's ([A-Z]{3}) rate\. Showing USD until it loads\.$/, "Taux du jour en $1 indisponible. Affichage en USD en attendant."],
