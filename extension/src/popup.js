@@ -15,6 +15,26 @@ import { toTron } from "./tron.js";
 import { LOGOS } from "./logos.js";
 
 const VERSION = chrome.runtime.getManifest().version;
+// The browser extension can also run as a full page (set-up opens there, like other serious wallets): the same wallet,
+// framed in the middle of a lit page. Everything inside works exactly as in the popup.
+const IS_EXT = !globalThis.ECRIN_WEB && !globalThis.ECRIN_DEMO && !!globalThis.chrome?.tabs;
+const FULL = IS_EXT && new URLSearchParams(location.search).has("full");
+const openFull = () => { chrome.tabs.create({ url: chrome.runtime.getURL("popup.html?full=1") }); if (!FULL) window.close(); };
+if (FULL) {
+  document.documentElement.dataset.full = "1";
+  const box = document.createElement("div"); box.className = "device fp-frame";
+  for (const id of ["root", "panel", "toast"]) { const el = document.getElementById(id); if (el) box.append(el); }
+  document.body.prepend(box);
+  queueMicrotask(() => { // after the rest of the module has loaded (the logo is defined below)
+  document.body.insertAdjacentHTML("afterbegin", `<aside class="fp-side"><p class="fp-eyebrow">Ecrin Wallet · testnet beta</p><h2>A wallet with a Safe<br/>nobody can rush.</h2>
+    <p class="fp-lead">Spend from your Wallet like any other. Keep the rest in your Safe: anything leaving it waits for a delay you set, enforced on-chain, and you can cancel it.</p>
+    <ul class="fp-pts"><li><i>${'<svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg>'}</i><span><b>A Safe with a delay</b>Drainers and 2am impulses meet a wait they can't skip.</span></li>
+      <li><i>${'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>'}</i><span><b>Cancel any time</b>Something wrong? Stop it before it lands. Alerts by Telegram or email.</span></li>
+      <li><i>${'<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>'}</i><span><b>Every network, one wallet</b>Solana, Ethereum, Base, Arbitrum and more. Test coins only for now.</span></li></ul>
+    <p class="fp-fine">Not audited yet. Never use real funds in the beta.</p></aside>`);
+  document.body.insertAdjacentHTML("afterbegin", `<header class="fp-h"><span class="fp-logo">${LOGO}</span><b>Ecrin Wallet</b><span class="fp-tag">Testnet beta</span><nav><a href="https://ecrinprotocol.app/how-it-works/" target="_blank">How it works</a><a href="https://ecrinprotocol.app/security/" target="_blank">Security</a><a href="https://ecrinprotocol.app/" target="_blank">ecrinprotocol.app</a></nav></header>`);
+  });
+}
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const local = { get: (k) => chrome.storage.local.get(k), set: (o) => chrome.storage.local.set(o), remove: (k) => chrome.storage.local.remove(k) };
@@ -190,7 +210,17 @@ async function touch() {
   chrome.runtime.sendMessage({ type: "autolock", until }).catch(() => {});
 }
 
+function readyView() {
+  return `<div class="fp-ready"><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
+    <span class="fp-ok"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+    <h1>You're all set</h1><p>Your wallet is ready. Pin Ecrin to your toolbar, then open it as a popup from any page.</p>
+    <ol class="fp-pin"><li><span class="fp-k"><svg viewBox="0 0 24 24"><path d="M10 4h4v4h3a2 2 0 0 1 2 2v3h-2.5a2 2 0 1 0 0 4H19v3a2 2 0 0 1-2 2h-3v-2.5a2 2 0 1 0-4 0V21H7a2 2 0 0 1-2-2v-3h2.5a2 2 0 1 0 0-4H5V10a2 2 0 0 1 2-2h3z"/></svg></span><span>Click the puzzle piece at the top right of Chrome</span></li>
+      <li><span class="fp-k"><svg viewBox="0 0 24 24"><path d="M9 4h6l-1 5 3 3v2H7v-2l3-3zM12 14v6"/></svg></span><span>Pin <b>Ecrin Wallet</b></span></li></ol>
+    <button class="btn primary xl" data-act="open-popup">Open as popup</button>
+    <button class="btn ghost xl" data-act="ready-go">Keep using it in this tab</button></div>`;
+}
 async function home() {
+  if (FULL && S.setupFlow) { S.setupFlow = false; S.screen = "ready"; render(); return; }
   checkUpdate(); loadBackup(); applyPendingLimit(); loadFx();
   S.screen = "home"; await eng(); S.histAt = 0; S.hist = []; render(); loadActivity();
   loadAll();
@@ -531,7 +561,8 @@ function render() {
   root.dataset.screen = S.screen;
   if (S.screen === "home" && S.lastScreen !== "home") { S.homeT0 = performance.now(); S.homeSynced = false; } // arriving on home: the entrance plays once
   S.lastScreen = S.screen;
-  root.innerHTML = ({ loading: () => `<div class="splash boot"><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div></div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
+  if (FULL) document.documentElement.dataset.fpSetup = ["welcome", "createPw", "createPhrase", "createVerify", "importPhrase", "ready"].includes(S.screen) ? "1" : "";
+  root.innerHTML = ({ ready: readyView, loading: () => `<div class="splash boot"><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div></div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
   translate(root, S.lang);
   stageHome(root); maybeNews();
   // The three floating buttons live outside #root, made once, so re-renders and panels never make them blink.
@@ -710,12 +741,17 @@ function welcomeArt() {
       <rect class="lz-base in" x="51" y="51" width="118" height="118" rx="24"/>
       <rect class="lz-safe" x="51" y="51" width="118" height="118" rx="24" pathLength="100" style="stroke-dasharray:64 100"/>
       <rect class="lz-sheen" x="38" y="38" width="144" height="144" rx="30"/><rect class="lz-sheen in" x="51" y="51" width="118" height="118" rx="24"/></g></svg>
-      <div class="lz-in"><span class="lbl">Net worth</span><div class="big">$12,480<span class="dec cents">.00</span></div></div>
+      <div class="lz-in"><span class="lbl">Net worth</span><div class="big"><span class="cur">$</span>12,480<span class="dec cents">.00</span></div></div>
     </div>
     <div class="wl-pills"><span class="wl-p">${I.card}<b>Wallet</b><small>spend now</small></span><span class="wl-p safe">${I.lock}<b>Safe</b><small>72 h to leave</small></span></div>
   </div>`;
 }
 function welcome() {
+  if (IS_EXT && !FULL && !S.stayPopup) return `<div class="onb onb-w fp-invite"><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
+    <div class="onb-art">${welcomeArt()}</div>
+    <div class="onb-copy"><h1>Ecrin Wallet</h1><p>Set up takes a minute, in a full tab with room for your recovery phrase.</p></div>
+    <div class="onb-acts"><button class="btn primary xl" data-act="open-full">Set up in a new tab</button><button class="link center" data-act="stay-popup">Continue here instead</button></div>
+    <p class="fine">Testnet beta · not audited · test coins only</p></div>`;
   if (S.tour != null && S.tour < TOUR.length) return tourView();
   if (S.tour === TOUR.length && S.askGoal) return goalView();
   return `<div class="onb onb-w"><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
@@ -1809,7 +1845,8 @@ function settingsView() {
       ${row("perms", I.ban, "Token permissions")}
       ${globalThis.ECRIN_WEB || globalThis.ECRIN_DEMO ? "" : row("panel", I.link, "Connected sites", I.arrow, 'data-p="sites"')}
       ${globalThis.ECRIN_WEB ? row("panel", I.link, "Connected apps (WalletConnect)", I.arrow, 'data-p="wc"') : ""}
-      ${row("lock", I.lock, "Lock now", "")}`)}
+      ${row("lock", I.lock, "Lock now", "")}
+      ${IS_EXT && !FULL ? row("open-full", I.ext, "Open in a tab", I.arrow) : ""}${FULL ? row("open-popup", I.ext, "Open as popup", I.arrow) : ""}`)}
     ${sec("Preferences", `
       ${row("panel", I.card, "Currency", `${S.cur || "USD"} ${I.arrow}`, 'data-p="currency"')}
       ${row("panel", I.spark, "Price alerts", `${Object.values(S.palerts || {}).filter(Boolean).length || "Off"} ${I.arrow}`, 'data-p="alerts"')}
@@ -1838,6 +1875,7 @@ function settingsView() {
 }
 // What's new: shown once after an update (never on a fresh install), and any time from Settings → About.
 const NEWS = [
+  ["Ecrin in a full tab", "Set-up opens in its own page, and Settings → Open in a tab gives you the big view any time."],
   ["Send, refined", "A clearer amount, and a card that shows who you're paying, with their logo, before you review."],
   ["A finished look everywhere", "The coin page, Settings, activity receipts and the lock screen now match the rest of Ecrin."],
   ["Getting started", "New here? Three steps on home show you what the Safe does, with your progress."],
@@ -2145,8 +2183,16 @@ const actions = {
   "ap-risk": () => { S.req.risk = !S.req.risk; render(); },
   "site-off": async (el) => { await chrome.runtime.sendMessage({ type: "site-disconnect", origin: el.dataset.o }); toast("Disconnected", "win"); renderPanel(); loadSites(); },
   "lists-refresh": async (el) => { el.disabled = true; const r = await chrome.runtime.sendMessage({ type: "lists-refresh" }).catch(() => null); toast(r ? `Updated: ${r.count.toLocaleString("en-US")} scam sites` : "Couldn't download the lists right now", r ? "win" : "err"); loadSites(); },
-  "start-create": () => go("createPw", { phrase: newPhrase(), revealed: false, wrote: false }),
-  "start-import": () => go("importPhrase"),
+  "start-create": () => { S.setupFlow = FULL; go("createPw", { phrase: newPhrase(), revealed: false, wrote: false }); },
+  "start-import": () => { S.setupFlow = FULL; go("importPhrase"); },
+  "open-full": () => openFull(),
+  "stay-popup": () => { S.stayPopup = true; render(); },
+  "ready-go": () => home(),
+  // The toolbar popup, opened for you (Chrome 127+); older Chrome: say where it lives.
+  "open-popup": async () => {
+    try { await chrome.action.openPopup(); setTimeout(() => window.close(), 300); }
+    catch (_) { toast("Click the Ecrin icon in your toolbar to open the popup.", "win"); }
+  },
   // Web demo only: a ready wallet with pretend money, no setup.
   "demo-quick": async () => { if (!globalThis.ECRIN_DEMO) return; S.busy = true; render(); await saveWallet(newPhrase(), "demo-wallet-1"); S.busy = false; home(); },
   "to-welcome": () => go("welcome"),

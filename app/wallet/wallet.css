@@ -2723,6 +2723,64 @@ html body #tabbar#tabbar { -webkit-backdrop-filter: blur(12px) !important; backd
 .home .tab-body .arow { column-gap: 9px !important; gap: 9px !important; padding-left: 12px !important; padding-right: 12px !important; }
 @media (max-width: 400px) { .home .tab-body .arow .spark { display: none !important; } }
 
+/* =====================================================================
+   0.15.0 — the extension as a full page (set-up, and "Open in a tab")
+   The website's look: graphite page, a quiet blue light, fine grain; the wallet framed as a device.
+   ===================================================================== */
+html[data-full], html[data-full] body { width: 100% !important; height: auto !important; min-height: 100vh; overflow: auto !important; }
+html[data-full] body { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; align-content: start; gap: 0; padding: 0 24px 56px; box-sizing: border-box;
+  background: radial-gradient(60% 50% at 70% 35%, rgba(47, 91, 255, .16), transparent 70%), radial-gradient(40% 40% at 15% 80%, rgba(125, 151, 255, .07), transparent 70%), #0c0d0f !important; }
+html[data-full] body::after { content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .05; background: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNjAiIGhlaWdodD0iMTYwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iLjkiIG51bU9jdGF2ZXM9IjIiIHN0aXRjaFRpbGVzPSJzdGl0Y2giLz48ZmVDb2xvck1hdHJpeCB2YWx1ZXM9IjAgMCAwIDAgMSAgMCAwIDAgMCAxICAwIDAgMCAwIDEgIDAgMCAwIC41IDAiLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWx0ZXI9InVybCgjbikiLz48L3N2Zz4="); z-index: 0; }
+html[data-full][data-theme="light"] body { background: radial-gradient(60% 50% at 70% 35%, rgba(47, 91, 255, .09), transparent 70%), #f3f2ee !important; }
+html[data-full] .amb, html[data-full] body > .grain { display: none !important; }
+/* header */
+.fp-h { position: relative; z-index: 2; grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; width: 100%; max-width: 1080px; height: 76px; color: var(--ink); }
+.fp-h > b { font: 600 16px var(--font); letter-spacing: -.01em; }
+.fp-logo { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: #2f5bff; box-shadow: 0 8px 22px -10px rgba(47, 91, 255, .9); }
+.fp-logo svg { width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 2.2; }
+.fp-tag { padding: 3px 9px; border-radius: 999px; font: 600 10px var(--font); letter-spacing: .12em; text-transform: uppercase; color: #9db0ff; background: rgba(47, 91, 255, .13); }
+.fp-h nav { margin-left: auto; display: flex; gap: 22px; } .fp-h nav a { color: var(--muted); font: 500 13.5px var(--font); text-decoration: none; transition: color .2s; } .fp-h nav a:hover { color: var(--ink); }
+/* the device */
+.fp-frame { position: relative !important; z-index: 1; width: 400px; height: min(760px, calc(100vh - 120px)); min-height: 600px; margin-top: 8px; border-radius: 34px; overflow: hidden; transform: translateZ(0);
+  background: var(--bg); box-shadow: 0 0 0 1px rgba(243, 243, 239, .07), 0 40px 90px -30px rgba(0, 0, 0, .85), 0 0 120px -40px rgba(47, 91, 255, .5); animation: fp-in .8s cubic-bezier(.22, 1, .36, 1) both; }
+html[data-full][data-theme="light"] .fp-frame { box-shadow: 0 0 0 1px rgba(16, 17, 20, .06), 0 40px 80px -36px rgba(16, 17, 20, .35); }
+.fp-frame #root, .fp-frame #panel { width: 100% !important; height: 100% !important; }
+@keyframes fp-in { from { opacity: 0; transform: translateY(18px) scale(.985); } }
+/* the side story (set-up only, wide screens) */
+.fp-side { display: none; }
+@media (min-width: 980px) {
+  html[data-full][data-fp-setup="1"] body { grid-template-columns: minmax(0, 520px) 400px; column-gap: 90px; justify-content: center; align-items: center; }
+  html[data-full][data-fp-setup="1"] .fp-side { position: relative; z-index: 1; display: grid; gap: 18px; align-self: center; animation: fp-side .9s .1s cubic-bezier(.22, 1, .36, 1) both; }
+  html[data-full][data-fp-setup="1"] .fp-h { grid-column: 1 / -1; }
+}
+@keyframes fp-side { from { opacity: 0; transform: translateY(14px); } }
+.fp-eyebrow { margin: 0; font: 600 11px var(--font); letter-spacing: .18em; text-transform: uppercase; color: #8ea4ff; }
+.fp-side h2 { margin: 0; font: 600 48px/1.04 var(--font); letter-spacing: -.035em; color: var(--ink); }
+.fp-lead { margin: 0; max-width: 470px; font-size: 16.5px; line-height: 1.55; color: var(--muted); }
+.fp-pts { display: grid; gap: 16px; margin: 10px 0 0; padding: 0; list-style: none; }
+.fp-pts li { display: flex; gap: 14px; align-items: flex-start; } .fp-pts li > span { display: grid; gap: 3px; font-size: 14px; line-height: 1.5; color: var(--muted); } .fp-pts b { font: 600 15px var(--font); color: var(--ink); }
+.fp-pts i { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: rgba(47, 91, 255, .12); color: #8ea4ff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04); }
+.fp-pts i svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+html[data-full][data-theme="light"] .fp-pts i { color: #2f5bff; background: rgba(47, 91, 255, .08); }
+.fp-fine { margin: 6px 0 0; font-size: 12.5px; color: color-mix(in srgb, var(--muted) 80%, transparent); }
+@media (max-width: 640px) { .fp-frame { width: 100%; border-radius: 24px; } .fp-h nav { display: none; } }
+/* popup before set-up */
+.fp-invite .onb-copy p { max-width: 280px; margin-inline: auto; }
+/* all set */
+.fp-ready { position: relative; height: 100%; display: grid; align-content: center; justify-items: center; gap: 14px; padding: 32px 28px; text-align: center; isolation: isolate; }
+.fp-ready h1 { margin: 6px 0 0; font: 600 28px var(--font); letter-spacing: -.02em; color: var(--ink); } .fp-ready > p { margin: 0 0 10px; max-width: 290px; color: var(--muted); line-height: 1.5; }
+.fp-ok { display: grid; place-items: center; width: 72px; height: 72px; border-radius: 22px; transform: rotate(45deg); background: #2f5bff; box-shadow: 0 18px 40px -14px rgba(47, 91, 255, .9); animation: fp-pop .7s cubic-bezier(.3, 1.5, .5, 1) both; }
+.fp-ok svg { width: 34px; height: 34px; transform: rotate(-45deg); fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 24; stroke-dashoffset: 24; animation: kept-draw .5s .35s cubic-bezier(.65, 0, .35, 1) forwards; }
+@keyframes fp-pop { from { opacity: 0; transform: rotate(45deg) scale(.6); } }
+.fp-pin { display: grid; gap: 10px; width: 100%; margin: 0 0 14px; padding: 0; list-style: none; text-align: left; }
+.fp-pin li { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: var(--h1); box-shadow: var(--h-lit), var(--h-drop); font-size: 14px; color: var(--ink); }
+.fp-k { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: var(--h2); color: #8ea4ff; } .fp-k svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.fp-ready .btn { width: 100%; }
+@media (prefers-reduced-motion: reduce) { .fp-frame, .fp-side, .fp-ok, .fp-ok svg { animation: none !important; } .fp-ok svg { stroke-dashoffset: 0; } }
+.fp-h { max-width: 1010px; }
+.fp-logo .logo { width: 20px; height: 20px; color: #fff; }
+.wl-lz .lz-in .big { font-size: 31px !important; }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
 #root, #panel { top: 0; bottom: 0; }

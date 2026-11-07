@@ -2,6 +2,13 @@
 // French version: exact phrases first, then patterns for phrases with numbers or names in them. Anything not
 // listed stays in English rather than being guessed.
 const FR = {
+  "Pin": "Épinglez",
+  "Open as popup": "Ouvrir en popup", "Keep using it in this tab": "Continuer dans cet onglet", "Click the Ecrin icon in your toolbar to open the popup.": "Cliquez sur l'icône Ecrin dans la barre d'outils pour ouvrir la popup.",
+  "Ecrin in a full tab": "Ecrin en plein onglet", "Set-up opens in its own page, and Settings → Open in a tab gives you the big view any time.": "La configuration s'ouvre dans sa propre page, et Réglages → Ouvrir dans un onglet vous donne la grande vue à tout moment.",
+  "Set up takes a minute, in a full tab with room for your recovery phrase.": "La configuration prend une minute, dans un onglet complet avec de la place pour votre phrase de récupération.",
+  "Set up in a new tab": "Configurer dans un nouvel onglet", "Continue here instead": "Continuer ici", "You're all set": "Tout est prêt",
+  "Your wallet is ready. Pin Ecrin to your toolbar, then open it as a popup from any page.": "Votre portefeuille est prêt. Épinglez Ecrin à la barre d'outils, puis ouvrez-le en popup depuis n'importe quelle page.",
+  "Click the puzzle piece at the top right of Chrome": "Cliquez sur la pièce de puzzle en haut à droite de Chrome", "Open in a tab": "Ouvrir dans un onglet",
   "Send, refined": "Envoyer, en mieux", "A clearer amount, and a card that shows who you're paying, with their logo, before you review.": "Un montant plus clair, et une carte qui montre qui vous payez, avec son logo, avant de vérifier.",
   "A finished look everywhere": "Un rendu soigné partout", "The coin page, Settings, activity receipts and the lock screen now match the rest of Ecrin.": "La page des jetons, les réglages, les reçus d'activité et l'écran de verrouillage sont maintenant assortis au reste d'Ecrin.",
   "New here? Three steps on home show you what the Safe does, with your progress.": "Nouveau ici ? Trois étapes sur l'accueil montrent ce que fait le Safe, avec votre progression.",

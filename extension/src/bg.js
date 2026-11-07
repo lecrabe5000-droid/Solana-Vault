@@ -19,7 +19,10 @@ chrome.alarms.onAlarm.addListener(async (a) => {
 // Only the wallet's own pages may read the unlocked phrase, never a web page or content script.
 chrome.storage.session.setAccessLevel?.({ accessLevel: "TRUSTED_CONTEXTS" });
 chrome.runtime.onStartup.addListener(lock);
-chrome.runtime.onInstalled.addListener(() => { refreshLists().catch(() => {}); chrome.alarms.create("lists", { periodInMinutes: 24 * 60 }); });
+chrome.runtime.onInstalled.addListener((d) => {
+  refreshLists().catch(() => {}); chrome.alarms.create("lists", { periodInMinutes: 24 * 60 });
+  if (d?.reason === "install") chrome.tabs.create({ url: chrome.runtime.getURL("popup.html?full=1") }); // set-up opens in a full tab
+});
 
 // "Always" auto-lock: the popup keeps a connection open; when it closes, lock at once.
 chrome.runtime.onConnect.addListener((port) => {
