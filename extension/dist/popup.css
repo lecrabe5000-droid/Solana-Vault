@@ -2349,3 +2349,8 @@ body.stacked #root, :root[data-theme] body.stacked #root { transform: translateX
 .lp-new { justify-self: center; gap: 6px; }
 .lp-new svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; }
 :root[data-theme="dark"] .acct-ic.av { background: color-mix(in srgb, var(--ac) 72%, #1a1b1f) !important; color: #fff !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.1) !important; }
+
+/* 0.9.1 QR centre: the coin and its network badge both sit inside one white disc */
+.qr-c { width: 60px; height: 60px; padding: 0 !important; display: grid; place-items: center; box-shadow: none !important; box-sizing: border-box; }
+.qr-c > .coin, .qr-c > .cstack { width: 38px !important; height: 38px !important; }
+.qr-c .qr-b { right: auto; bottom: auto; left: 35px; top: 35px; }
