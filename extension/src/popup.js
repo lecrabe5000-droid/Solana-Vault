@@ -109,7 +109,16 @@ async function loadFx() {
   if (S.cur && S.cur !== "USD" && !S.fx?.[S.cur]) setTimeout(loadFx, 60_000); // nothing yet: try again in a minute
 }
 // Decimals dimmed; dollar cents also carry "cents" so the Numbers setting can hide them without touching coin amounts.
-const fig = (str) => { const usd = !/^[\d-]/.test(String(str).trim()); return esc(str).replace(/([.,]\d+)(\D*)$/, `<span class="dec${usd ? " cents" : ""}">$1</span>$2`); };
+const fig = (str) => {
+  // Splits "−$3,948.00" / "3 948,00 $ US" into sign, currency mark, whole part and decimals, so each can be styled.
+  // Decimals: the last "." (en), or a "," when it can't be a thousands comma ("1,234" in English stays whole).
+  const s = String(str), m = s.match(/^([^\d]*?)(\d(?:[\d\s\u00a0\u202f.,]*\d)?)([^\d]*)$/);
+  if (!m) return esc(s);
+  const [, pre, num, suf] = m, sg = (pre.match(/^[−-]\s?/) || [""])[0], sym = pre.slice(sg.length), money = !!(sym.trim() || suf.trim());
+  const di = num.includes(".") ? num.lastIndexOf(".") : num.includes(",") && (/[\s\u00a0\u202f]/.test(num) || !/,\d{3}$/.test(num)) ? num.lastIndexOf(",") : -1;
+  const whole = di < 0 ? num : num.slice(0, di), dec = di < 0 ? "" : num.slice(di);
+  return `${esc(sg)}${sym ? `<span class="cur">${esc(sym)}</span>` : ""}${esc(whole)}${dec ? `<span class="dec${money ? " cents" : ""}">${esc(dec)}</span>` : ""}${suf ? `<span class="cur suf">${esc(suf)}</span>` : ""}`;
+};
 const parseAmt = (s, a) => { const v = Number(String(s).replace(/,/g, "")); return Number.isFinite(v) && v > 0 ? Math.round(v * A(a).base) : 0; };
 const mask = (s) => (S.hide ? "••••" : s);
 
@@ -745,6 +754,9 @@ function homeView() {
 // One colour per coin, whatever network it sits on (USDC on Solana and on Base is one USDC). Picked from each coin's
 // own brand and kept apart from each other on the dark background.
 const COIN_COL = { SOL: "#14F1A0", ETH: "#8C9EFF", USDC: "#2F8CFF", USDT: "#26A17B", BNB: "#F3BA2F", AVAX: "#FF5A5F", TRX: "#FF2E63", POL: "#A66BFF" };
+// The lozenge itself stays in Ecrin blue: biggest share brightest, each next share a deeper tone. Coin colours live in the
+// small bubbles next to coin names.
+const LZ_TONES = ["#5b7cff", "#93a8ff", "#2f4fd8", "#c3cfff", "#1f3599", "#6f86e8"];
 const cdot = (u) => `<i class="cdot" style="--cc:${COIN_COL[u] || "#9aa0b4"}"></i>`;
 function lozShares(w) {
   const by = {}; for (const i of w.items) if (i.usd) by[i.unit] = (by[i.unit] || 0) + i.usd;
@@ -754,7 +766,7 @@ function lozShares(w) {
 function lozenge(w, loading) {
   const sh = loading ? [] : lozShares(w), safe = !loading && w.total ? w.sav / w.total : 0, G = sh.length > 1 ? 0.9 : 0;
   let at = 0;
-  const segs = sh.map(({ u, f }, i) => { const len = Math.max(0.6, f * 100 - G); const d = `<rect class="lz-seg r${Math.min(i, 3)}" x="38" y="38" width="144" height="144" rx="30" pathLength="100" style="--cc:${COIN_COL[u] || "#9aa0b4"};stroke-dasharray:${len.toFixed(2)} ${(100 - len).toFixed(2)};stroke-dashoffset:${(-at).toFixed(2)};--o:${(-at).toFixed(2)}"/>`; at += f * 100; return d; }).join("");
+  const segs = sh.map(({ u, f }, i) => { const len = Math.max(0.6, f * 100 - G); const d = `<rect class="lz-seg r${Math.min(i, 3)}" x="38" y="38" width="144" height="144" rx="30" pathLength="100" style="--cc:${LZ_TONES[Math.min(i, LZ_TONES.length - 1)]};stroke-dasharray:${len.toFixed(2)} ${(100 - len).toFixed(2)};stroke-dashoffset:${(-at).toFixed(2)};--o:${(-at).toFixed(2)}"/>`; at += f * 100; return d; }).join("");
   // The opening spin lasts 2.2s; a re-render in that time picks the animation up where it was, so it never restarts or cuts.
   if (!loading && !S.lzT0) S.lzT0 = performance.now();
   const el = S.lzT0 ? performance.now() - S.lzT0 : 1e9, draw = el < 2300;

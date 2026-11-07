@@ -2354,3 +2354,76 @@ body.stacked #root, :root[data-theme] body.stacked #root { transform: translateX
 .qr-c { width: 60px; height: 60px; padding: 0 !important; display: grid; place-items: center; box-shadow: none !important; box-sizing: border-box; }
 .qr-c > .coin, .qr-c > .cstack { width: 38px !important; height: 38px !important; }
 .qr-c .qr-b { right: auto; bottom: auto; left: 35px; top: 35px; }
+
+/* =====================================================================
+   0.10.0 High end. Three things:
+   1. No outlines. Surfaces are filled at three depths (page, card, control) with a faint top light, never a border.
+   2. The net worth as a figure: light weight, tight, the currency mark and cents small and quiet.
+   3. The lozenge in Ecrin blue (shares in blue tones) with the Safe in ivory. Coin colours stay in the name bubbles.
+   ===================================================================== */
+:root[data-theme="dark"] { --h1: #141518; --h2: #1c1d21; --h3: #25262b; --h-lit: inset 0 1px 0 rgba(243, 243, 239, .035); --h-sep: rgba(243, 243, 239, .055); --h-drop: none; }
+:root[data-theme="light"] { --h1: #ffffff; --h2: #f1f0ec; --h3: #e8e7e2; --h-lit: none; --h-sep: rgba(16, 17, 20, .06); --h-drop: 0 1px 2px rgba(16, 17, 20, .04), 0 10px 28px -16px rgba(16, 17, 20, .14); }
+
+/* 1 — cards: one depth above the page */
+:root[data-theme] :is(.wsplit, section.list, .shortcuts .sc, .sf-tile, .sf-go2, .sb-empty, .earn-card, .set-acct, .sx-card, .sx-kv, .sx-soon, .note, .from, .addr, .freeze-btn, .sf-pill, .lp-o) {
+  border-color: transparent !important; background: var(--h1) !important; box-shadow: var(--h-lit), var(--h-drop) !important; }
+:root[data-theme] :is(.wsplit, section.list, .sf-tile, .sb-empty, .earn-card, .sx-card, .set-acct) { border-radius: 22px !important; }
+:root[data-theme] .note { border-radius: 16px !important; }
+/* controls: one more depth (inside cards or on their own) */
+:root[data-theme] :is(.btn:not(.primary):not(.danger):not(.link), .preset, .seg, .seg2, .sx-flip, .sx-coin, .home .acts button:not([data-p="protect"]), .tk-acts button:not([data-p="protect"]), input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.amt-in input):not(.sx-card input):not([data-amount]), textarea, select) {
+  border-color: transparent !important; background: var(--h2) !important; box-shadow: var(--h-lit) !important; }
+:root[data-theme] :is(.btn.ghost, .btn.sm.ghost) { background: transparent !important; box-shadow: none !important; }
+:root[data-theme] :is(input, textarea):focus { box-shadow: 0 0 0 2px color-mix(in srgb, #2f5bff 55%, transparent) !important; outline: none; }
+:root[data-theme] :is(.preset.on, .seg .on, .seg2 .on, .seg button[aria-pressed="true"]) { background: var(--h3) !important; }
+:root[data-theme="light"] :is(.preset.on, .seg .on, .seg2 .on) { background: #fff !important; box-shadow: 0 1px 3px rgba(16, 17, 20, .1) !important; }
+:root[data-theme] .lp-o.on { box-shadow: 0 0 0 1.5px #2f5bff !important; }
+
+/* lists: one card, rows inside it, hairlines inset past the icon */
+:root[data-theme] section.list { padding: 4px 0 !important; overflow: hidden; }
+:root[data-theme] section.list.list.list > :is(.arow, .srow, button, a, div) { border: 0 !important; border-radius: 0 !important; margin: 0 !important; box-shadow: none !important; background-color: transparent !important; }
+:root[data-theme] section.list > :is(.arow, .srow):not(:first-child) ~ :is(.arow, .srow), :root[data-theme] section.list > :is(.arow, .srow) + :is(.arow, .srow) { background-image: linear-gradient(var(--h-sep), var(--h-sep)) !important; background-repeat: no-repeat !important; background-size: calc(100% - 78px) 1px !important; background-position: 62px 0 !important; }
+:root[data-theme] section.list > :is(.arow, button):active { background-color: var(--h2) !important; }
+:root[data-theme] .home .tab-body { gap: 0 !important; }
+:root[data-theme] .home .tab-body .arow, :root[data-theme] .home .tab-body .mkt > .arow { background-color: transparent !important; }
+
+/* the Wallet / Safe split: no rule between them, the bar does the work */
+:root[data-theme] .wsplit::before, :root[data-theme] .wsplit::after { display: none !important; }
+:root[data-theme] .wsplit .sp-s { border-left: 0 !important; }
+:root[data-theme] .wsplit .sp-bar { background: var(--h3) !important; }
+:root[data-theme="dark"] .wsplit .sp-bar i { background: #f3f3ef !important; } :root[data-theme="light"] .wsplit .sp-bar i { background: #101114 !important; }
+:root[data-theme] .wsplit b { font-weight: 500 !important; letter-spacing: -.02em; }
+:root[data-theme] .wsplit b .cur { font-size: .72em; color: var(--muted); margin-right: .05em; }
+:root[data-theme] .wsplit b .dec { color: var(--muted); }
+
+/* shortcuts: filled tiles, the icon on its own soft disc */
+:root[data-theme] .shortcuts .sc > span { background: var(--h2) !important; box-shadow: none !important; border: 0 !important; border-radius: 50% !important; }
+
+/* section labels: quieter */
+:root[data-theme] .home .list-h b { font-size: 10px !important; letter-spacing: .16em !important; font-weight: 500 !important; color: color-mix(in srgb, var(--muted) 85%, transparent) !important; }
+
+/* 2 — the net worth */
+:root[data-num-face="sans"] .lz-in .big { font-family: "Geist", var(--font) !important; font-weight: 400 !important; letter-spacing: -.04em !important; font-feature-settings: "lnum" 1, "ss01" 1; }
+.lz-in .big { font-size: 38px !important; line-height: 1 !important; } .lz-in .big.sm { font-size: 31px !important; } .lz-in .big.xs { font-size: 25px !important; }
+.lz-in .big .cur { display: inline-block; font-size: .46em; font-weight: 400; letter-spacing: 0; color: var(--muted) !important; -webkit-text-fill-color: var(--muted) !important; transform: translateY(-.82em); margin-right: .1em; }
+.lz-in .big .cur.suf { margin: 0 0 0 .12em; }
+.lz-in .big .dec { font-size: .5em; letter-spacing: -.01em; color: var(--muted) !important; -webkit-text-fill-color: var(--muted) !important; }
+.lz-in .hero-l .lbl { font-size: 9.5px !important; letter-spacing: .22em !important; font-weight: 500 !important; color: color-mix(in srgb, var(--muted) 85%, transparent) !important; }
+.lz-in .big .rd .rs span { -webkit-text-fill-color: currentColor; }
+
+/* 3 — the lozenge: blue shares, ivory Safe, a little light on the ring */
+:root[data-theme] .lz-seg { stroke-width: 2.6 !important; }
+:root[data-theme="dark"] .lz-safe { stroke: #f3f3ef !important; } :root[data-theme="light"] .lz-safe { stroke: #101114 !important; }
+:root[data-theme="dark"] .lz-seg { filter: drop-shadow(0 0 6px rgba(47, 91, 255, .35)) !important; }
+:root[data-theme="dark"] .lz-base { stroke: rgba(243, 243, 239, .06) !important; }
+
+/* light: controls are white on the warm page; tracks of segmented controls a step darker */
+:root[data-theme="light"] :is(.btn:not(.primary):not(.danger):not(.link):not(.ghost), .preset, .sx-flip, .home .acts button:not([data-p="protect"]), .tk-acts button:not([data-p="protect"]), input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.amt-in input):not(.sx-card input):not([data-amount]), textarea, select) {
+  background: #fff !important; box-shadow: 0 1px 2px rgba(16, 17, 20, .05), 0 6px 16px -12px rgba(16, 17, 20, .18) !important; }
+:root[data-theme="light"] :is(.seg, .seg2) { background: var(--h3) !important; box-shadow: none !important; }
+:root[data-theme="light"] :is(.wsplit, section.list, .sf-tile, .sx-card, .set-acct, .note, .from, .addr) :is(.btn:not(.primary), input, .preset, .sx-coin) { background: var(--h2) !important; box-shadow: none !important; }
+:root[data-theme] :is(.amt-in input, [data-amount], .sx-card input) { background: transparent !important; box-shadow: none !important; border: 0 !important; }
+:root[data-theme] :is(.pcts, .mv-pcts, .sx-pcts) button { border-color: transparent !important; background: var(--h2) !important; box-shadow: var(--h-lit) !important; }
+:root[data-theme="light"] :is(.pcts, .mv-pcts) button { background: #fff !important; box-shadow: 0 1px 2px rgba(16, 17, 20, .05), 0 6px 16px -12px rgba(16, 17, 20, .18) !important; }
+:root[data-theme] .sets { border-color: transparent !important; background: var(--h1) !important; box-shadow: var(--h-lit), var(--h-drop) !important; }
+:root[data-theme="light"] .sx-card .sx-pcts button:not(.on) { background: var(--h2) !important; box-shadow: none !important; border: 0 !important; color: var(--ink) !important; }
+:root[data-theme] .lz-chg .delta .dl { background: transparent !important; box-shadow: none !important; }
