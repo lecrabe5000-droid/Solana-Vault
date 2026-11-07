@@ -2427,3 +2427,60 @@ body.stacked #root, :root[data-theme] body.stacked #root { transform: translateX
 :root[data-theme] .sets { border-color: transparent !important; background: var(--h1) !important; box-shadow: var(--h-lit), var(--h-drop) !important; }
 :root[data-theme="light"] .sx-card .sx-pcts button:not(.on) { background: var(--h2) !important; box-shadow: none !important; border: 0 !important; color: var(--ink) !important; }
 :root[data-theme] .lz-chg .delta .dl { background: transparent !important; box-shadow: none !important; }
+
+/* =====================================================================
+   0.11.0 High end, part two: shortcuts in one row, a lighter floating bar that steps aside, a lit hero.
+   ===================================================================== */
+/* 4 — shortcuts: one row of round buttons, label underneath */
+:root[data-theme] .home .shortcuts { display: flex !important; justify-content: space-between; gap: 4px !important; padding: 4px 2px 0; }
+:root[data-theme] .home .shortcuts .sc { flex: 1 1 0; min-width: 0; display: grid !important; justify-items: center; gap: 8px !important; padding: 0 !important;
+  background: transparent !important; box-shadow: none !important; border: 0 !important; font: 500 11.5px var(--font) !important; color: var(--muted) !important; white-space: nowrap; }
+:root[data-theme] .home .shortcuts .sc > span { display: grid !important; place-items: center; width: 52px !important; height: 52px !important; border-radius: 50% !important;
+  background: var(--h1) !important; box-shadow: var(--h-lit), var(--h-drop) !important; color: var(--ink) !important; transition: transform .18s cubic-bezier(.3, .7, .4, 1.4), background .2s; }
+:root[data-theme] .home .shortcuts .sc > span svg { width: 21px !important; height: 21px !important; stroke: currentColor !important; }
+:root[data-theme] .home .shortcuts .sc:active > span { transform: scale(.9); background: var(--h2) !important; }
+
+/* 5 — the floating bar: a small glass capsule; the current place is a blue pill with its name */
+html body #tabbar#tabbar { left: 50% !important; right: auto !important; width: auto !important; transform: translateX(-50%) !important; display: flex !important; gap: 2px !important; padding: 5px !important;
+  border-radius: 999px !important; border: 0 !important; pointer-events: auto !important;
+  background: rgba(24, 25, 29, .72) !important; -webkit-backdrop-filter: blur(22px) saturate(1.6); backdrop-filter: blur(22px) saturate(1.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), inset 0 0 0 .5px rgba(255, 255, 255, .06), 0 18px 40px -14px rgba(0, 0, 0, .75) !important;
+  transition: transform .42s cubic-bezier(.2, .8, .2, 1), opacity .3s !important; }
+:root[data-theme="light"] body #tabbar#tabbar { background: rgba(255, 255, 255, .78) !important; box-shadow: inset 0 0 0 .5px rgba(16, 17, 20, .08), 0 16px 36px -16px rgba(16, 17, 20, .3) !important; }
+html body #tabbar#tabbar.away { transform: translate(-50%, calc(100% + 40px)) !important; opacity: 0 !important; pointer-events: none !important; }
+html body #tabbar#tabbar button { display: flex !important; align-items: center; justify-content: center; gap: 7px; width: auto !important; min-width: 50px; height: 44px !important; min-height: 0 !important; max-height: 44px; padding: 0 15px !important; margin: 0 !important;
+  border: 0 !important; border-radius: 999px !important; background: transparent !important; box-shadow: none !important; color: var(--muted) !important; pointer-events: auto !important;
+  transition: background .3s, color .3s, padding .3s; }
+html body #tabbar#tabbar button span { display: grid !important; place-items: center; width: auto !important; height: auto !important; background: none !important; box-shadow: none !important; border-radius: 0 !important; }
+html body #tabbar#tabbar button span svg { width: 20px !important; height: 20px !important; }
+html body #tabbar#tabbar button b { display: none !important; position: static !important; font: 600 13px var(--font); letter-spacing: -.005em; }
+html body #tabbar#tabbar button.on { background: #2f5bff !important; color: #fff !important; padding: 0 17px 0 15px !important; box-shadow: 0 8px 20px -10px rgba(47, 91, 255, .9) !important; }
+html body #tabbar#tabbar button.on b { display: inline !important; }
+html body #tabbar#tabbar button:not(.on):active { background: rgba(255, 255, 255, .06) !important; }
+@media (prefers-reduced-motion: reduce) { html body #tabbar#tabbar { transition: none !important; } }
+
+html body #tabbar#tabbar[hidden] { display: none !important; }
+html body #tabbar#tabbar button span::before, html body #tabbar#tabbar button span::after, html body #tabbar#tabbar button::before, html body #tabbar#tabbar button::after { display: none !important; }
+/* 6 — material: the hero is lit (a quiet blue light behind the lozenge and a fine grain); the page below stays plain */
+.home .hero { position: relative; isolation: isolate; }
+.home .hero::before { content: ""; position: absolute; z-index: -1; left: 50%; top: 46%; width: 460px; height: 420px; transform: translate(-50%, -50%); pointer-events: none;
+  background: radial-gradient(closest-side, rgba(47, 91, 255, .22), rgba(47, 91, 255, .07) 55%, transparent 100%); }
+.home .hero::after { content: ""; position: absolute; z-index: -1; inset: -60px -16px -20px; pointer-events: none; opacity: .05;
+  background: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNjAiIGhlaWdodD0iMTYwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iLjkiIG51bU9jdGF2ZXM9IjIiIHN0aXRjaFRpbGVzPSJzdGl0Y2giLz48ZmVDb2xvck1hdHJpeCB2YWx1ZXM9IjAgMCAwIDAgMSAgMCAwIDAgMCAxICAwIDAgMCAwIDEgIDAgMCAwIC41NSAwIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsdGVyPSJ1cmwoI24pIi8+PC9zdmc+"); -webkit-mask: radial-gradient(closest-side, #000 30%, transparent); mask: radial-gradient(closest-side, #000 30%, transparent); }
+:root[data-theme="light"] .home .hero::before { background: radial-gradient(closest-side, rgba(47, 91, 255, .13), rgba(47, 91, 255, .04) 55%, transparent 100%); }
+:root[data-theme="light"] .home .hero::after { opacity: .07; filter: invert(1); }
+:root[data-theme] .home > .aura { -webkit-mask: linear-gradient(#000 0, #000 360px, transparent 720px); mask: linear-gradient(#000 0, #000 360px, transparent 720px); }
+
+/* Shield pill clears the tick ring (the rotated ring reaches ~15px below its box) */
+.sf .sf-lvl { margin-top: 40px !important; }
+html body #tabbar#tabbar { height: auto !important; max-width: none !important; min-width: 0 !important; align-items: center !important; }
+html body #tabbar#tabbar button { flex: 0 0 auto !important; overflow: visible; }
+/* the Safe's total reads like the net worth */
+:root[data-num-face="sans"] .sf-tot { font-family: "Geist", var(--font) !important; font-weight: 400 !important; letter-spacing: -.035em !important; }
+.sf-tot .cur { display: inline-block; font-size: .5em; color: var(--muted) !important; -webkit-text-fill-color: var(--muted) !important; transform: translateY(-.72em); margin-right: .08em; letter-spacing: 0; }
+.sf-tot .dec { font-size: .66em; color: var(--muted) !important; -webkit-text-fill-color: var(--muted) !important; }
+/* "leaving your Safe": a lit card, not an outlined one */
+:root[data-theme] .sf-alert { border-color: transparent !important; background: color-mix(in srgb, #2f5bff 11%, var(--h1)) !important; box-shadow: var(--h-lit), var(--h-drop) !important; }
+:root[data-theme="light"] .sf-alert { background: color-mix(in srgb, #2f5bff 6%, #fff) !important; }
+:root[data-theme] :is(.sf-w, .sf-net, .rt, .slide) { border-color: transparent !important; background: var(--h1) !important; box-shadow: var(--h-lit), var(--h-drop) !important; }
+:root[data-theme] .btn.sm.danger { border-color: transparent !important; background: color-mix(in srgb, #ff5a5f 14%, var(--h2)) !important; box-shadow: none !important; }

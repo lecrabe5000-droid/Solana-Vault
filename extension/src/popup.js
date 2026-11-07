@@ -317,9 +317,18 @@ function worth() {
 
 function go(screen, extra = {}) { Object.assign(S, { screen }, extra); render(); }
 
+// The bar steps aside while you read down the page and comes back as soon as you scroll up (or reach the top).
+let tbY = 0;
+document.addEventListener("scroll", (ev) => {
+  const tb = document.getElementById("tabbar"); if (!tb || tb.hidden) return;
+  const t = ev.target === document ? document.scrollingElement : ev.target; if (!t || !t.closest?.("#root, html")) return;
+  const y = t.scrollTop, dy = y - tbY; if (Math.abs(dy) < 6) return;
+  tb.classList.toggle("away", dy > 0 && y > 140); tbY = y;
+}, { capture: true, passive: true });
 function syncTabbar() {
   const tb = document.getElementById("tabbar"); if (!tb) return;
   const cur = S.panel ? S.panel.p : "home", show = S.screen === "home" && !S.panel; // only on the home screen, never over a page
+  if (tb.hidden !== !show) tb.classList.remove("away");
   tb.hidden = !show;
   tb.querySelectorAll("button").forEach((b) => { const on = b.dataset.tab === cur; b.classList.toggle("on", on); if (on) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
 }
@@ -406,9 +415,9 @@ function chime(kind) {
 const AURA_T0 = performance.now();
 const auraT = () => `--at:${-Math.round(performance.now() - AURA_T0)}ms`;
 const TABBAR = `<nav id="tabbar" class="tabbar" aria-label="Main">
-      <button class="on" data-tab="home" data-act="tb-home" aria-label="Wallet"><span>${I.card}</span></button>
-      <button data-tab="swap" data-act="tb-go" data-p="swap" aria-label="Swap"><span>${I.swap}</span></button>
-      <button data-tab="vault" data-act="tb-go" data-p="vault" aria-label="Safe"><span>${I.lock}</span></button>
+      <button class="on" data-tab="home" data-act="tb-home" aria-label="Wallet"><span>${I.card}</span><b>Wallet</b></button>
+      <button data-tab="swap" data-act="tb-go" data-p="swap" aria-label="Swap"><span>${I.swap}</span><b>Swap</b></button>
+      <button data-tab="vault" data-act="tb-go" data-p="vault" aria-label="Safe"><span>${I.lock}</span><b>Safe</b></button>
     </nav>`;
 function render() {
   const root = $("#root");
