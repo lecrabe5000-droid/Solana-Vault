@@ -681,8 +681,8 @@ function renderView() {
       <div class="wallets">${list.length ? list.map(([n], i) => `<button class="btn primary lg" data-act="connect" data-i="${i}">Connect ${esc(n)}</button>`).join("")
         : isPhone() ? walletLinks().map(([n, href], i) => `<a class="btn ${i ? "" : "primary "}lg" href="${esc(href)}">Open in ${n}</a>`).join("")
         : `<a class="btn primary lg" href="${C.getWallet[1]}" target="_blank" rel="noopener">${C.getWallet[0]}</a>`}</div>
-      ${!list.length && isPhone() ? `<p class="hint">Phone browsers can't reach wallet apps directly, so Ecrin opens inside your wallet's own browser. Don't have it yet? <a href="${C.getWallet[1]}" target="_blank" rel="noopener">${C.getWallet[0]}</a>.</p>
-        <div class="viewmode"><span class="label">Or just watch your vault</span><div class="lookup"><input id="view-addr" class="input" placeholder="Your ${C.name} wallet address" spellcheck="false" autocomplete="off"/><button class="btn" data-act="view-start">View</button></div><p class="hint">View mode shows your vault, countdowns and alerts. Signing opens your wallet app.</p></div>` : ""}
+      ${!list.length && isPhone() ? `<p class="hint">Phone browsers can't reach wallet apps directly, so Ecrin opens inside your wallet's own browser. Don't have it yet? <a href="${C.getWallet[1]}" target="_blank" rel="noopener">${C.getWallet[0]}</a>.</p>` : ""}
+        <div class="viewmode"><span class="label">Or just watch your vault</span><div class="lookup"><input id="view-addr" class="input" placeholder="Your ${C.name} wallet address" spellcheck="false" autocomplete="off"/><button class="btn" data-act="view-start">View</button></div><p class="hint">View mode shows your vault, countdowns and alerts. Signing opens your wallet app.</p></div>
       <ol class="steps"><li><b>1</b><span><span>${C.setup}</span></span></li><li><b>2</b><span><span>Get free test ${C.unit} at <a href="${C.faucet}" target="_blank" rel="noopener">${C.faucetName}</a>.</span></span></li><li><b>3</b><span><span>Create your vault and try a withdrawal. Watch the clock, then cancel it.</span></span></li></ol>
     </section>`, { nav: false });
     return;
@@ -988,7 +988,7 @@ function vaultView(full) {
         <div class="v-stats">
           <div><span class="label">Available</span><b class="num m">${fig(sol(v.available, a))}</b><small>${a.unit}</small></div>
           <div><span class="label">Leaving</span><b class="num m">${fig(sol(queued, a))}</b><small>${a.unit}</small></div>
-          <div><span class="label">Daily limit</span><b class="num">${v.dailyLimit ? fig(sol(v.dailyLimit, a)) : "None"}</b><small>${v.dailyLimit ? a.unit : ""}</small></div>
+          <div><span class="label">Daily limit</span><b class="num">${v.dailyLimit ? fig(sol(v.dailyLimit, a)) : "No limit"}</b><small>${v.dailyLimit ? a.unit : ""}</small></div>
         </div>
         <div class="chips">${v.guardian ? `<span class="chip">${I.people}Guardian ${label(v.guardian)}</span>` : `<button class="chip" data-act="rule" data-k="guardian">${I.people}No guardian · add one</button>`}<a class="chip" href="${explorer("address", (a.id === "native" ? v.address : full.tokens?.[a.id]?.holds || v.address).toBase58())}" target="_blank" rel="noopener">${I.ext}View on-chain</a></div>
       </div>
@@ -1270,7 +1270,7 @@ function rowsWithdrawals(v, asGuardian) {
     const ids = `data-id="${w.id}" data-asset="${a.id}"`;
     const guard = asGuardian
       ? (S.wallet && v.guardian?.equals(S.wallet) ? `<div class="row-acts"><button class="btn sm good" data-act="release" ${ids} data-dest="${w.dest.toBase58()}" ${S.busy ? "disabled" : ""}>Approve emergency release</button></div>` : "")
-      : `<button class="keep" data-act="cancel-w" ${ids} data-amt="${w.amount}" ${S.busy ? "disabled" : ""}>${I.shield}<span>Cancel and keep ${sol(w.amount, a)} ${a.unit} safe</span></button>
+      : `<button class="keep" data-act="cancel-w" ${ids} data-amt="${w.amount}" ${S.busy ? "disabled" : ""}>${I.shield}<span>Keep ${sol(w.amount, a)} ${a.unit} safe</span></button>
         <div class="keep-note">Free, instant, and nobody else is told. <button class="link" data-act="freeze">Not you? Freeze everything</button>${ready ? ` <button class="link danger" data-act="run" ${ids} data-dest="${w.dest.toBase58()}" ${S.busy ? "disabled" : ""}>Send it now</button>` : ""}</div>`;
     return `<div class="row wd${ready ? " is-ready" : ""}">
       <div class="row-top"><b><span class="m">${sol(w.amount, a)}</span> ${a.unit} <span class="muted">leaving</span></b><span class="muted">to <a href="${explorer("address", w.dest.toBase58())}" target="_blank" rel="noopener">${label(w.dest)}</a></span></div>

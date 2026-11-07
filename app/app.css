@@ -753,7 +753,7 @@ body { background: radial-gradient(1200px 600px at 80% -10%, color-mix(in srgb, 
 .al-tile.on { border-color: color-mix(in srgb, var(--pos) 35%, var(--line)); background: color-mix(in srgb, var(--pos) 6%, var(--surface)); }
 .al-ti { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
 .al-ti svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.al-tt { flex: 1; display: grid; min-width: 0; } .al-tt b { color: var(--ink); font-size: 14.5px; } .al-tt span { color: var(--muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.al-tt { flex: 1; display: grid; min-width: 0; } .al-tt b { color: var(--ink); font-size: 14.5px; } .al-tt span { color: var(--muted); font-size: 12.5px; line-height: 1.35; }
 .al-tile.on .al-tt span { color: var(--pos); font-weight: 600; }
 
 /* trusted addresses */
@@ -1009,3 +1009,6 @@ body { background: radial-gradient(1200px 600px at 80% -10%, color-mix(in srgb, 
 .coin.sol svg { width: 56%; height: 56%; }
 .al-all { display: flex; align-items: center; gap: 8px; margin: 12px 2px 0; color: var(--muted); font-size: 12.5px; }
 .al-all svg { flex: none; width: 14px; height: 14px; fill: none; stroke: var(--pos, #1a9e6a); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+/* polish: keep countdowns in one piece */
+.count { white-space: nowrap; }
