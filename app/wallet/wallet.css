@@ -2780,6 +2780,8 @@ html[data-full][data-theme="light"] .fp-pts i { color: #2f5bff; background: rgba
 .fp-h { max-width: 1010px; }
 .fp-logo .logo { width: 20px; height: 20px; color: #fff; }
 .wl-lz .lz-in .big { font-size: 31px !important; }
+:root[data-theme="dark"] .lv-max .sf-pill { background: #f3f3ef !important; color: #0c0d0f !important; } :root[data-theme="dark"] .lv-max .sf-pill i { background: #2f5bff !important; }
+:root[data-theme="light"] .lv-max .sf-pill { background: #101114 !important; color: #fff !important; }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
