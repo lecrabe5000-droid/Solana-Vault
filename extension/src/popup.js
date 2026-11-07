@@ -93,14 +93,20 @@ const curRate = () => (S.cur && S.cur !== "USD" && S.fx?.[S.cur] ? S.fx[S.cur] :
 const curCode = () => (curRate() === 1 && S.cur !== "USD" ? "USD" : S.cur || "USD");
 const money = (n, opt = {}) => (n * curRate()).toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { style: "currency", currency: curCode(), ...opt });
 async function loadFx() {
-  const { fx } = await local.get("fx"); if (fx && Date.now() - fx.at < 12 * 3600_000) { S.fx = fx.r; return; }
   if (S.mock) { S.fx = { EUR: 0.92, CAD: 1.37, GBP: 0.79, CHF: 0.88, AUD: 1.52, JPY: 152 }; return; }
-  try {
-    const j = await getJSON(`https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=${CURS.map(([c]) => c.toLowerCase()).join(",")}`);
-    const t = j?.tether, u = t?.usd; if (!u) return;
-    S.fx = Object.fromEntries(CURS.slice(1).map(([c]) => [c, t[c.toLowerCase()] / u]).filter(([, v]) => v > 0));
-    await local.set({ fx: { at: Date.now(), r: S.fx } }); if (S.screen === "home") render();
-  } catch (_) {}
+  const { fx } = await local.get("fx"); if (fx?.r) S.fx = fx.r; // last known rates at once, even if old
+  if (fx && Date.now() - fx.at < 12 * 3600_000 && CURS.slice(1).every(([c]) => fx.r?.[c] > 0)) return;
+  // Three free sources, one after the other: CoinGecko is often busy (it also serves prices and charts).
+  const want = CURS.slice(1).map(([c]) => c), pick = (get) => Object.fromEntries(want.map((c) => [c, Number(get(c))]).filter(([, v]) => v > 0));
+  const srcs = [
+    async () => { const t = (await getJSON(`https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=usd,${want.join(",").toLowerCase()}`))?.tether; return t?.usd ? pick((c) => t[c.toLowerCase()] / t.usd) : {}; },
+    async () => { const r = (await getJSON("https://api.coinbase.com/v2/exchange-rates?currency=USD"))?.data?.rates || {}; return pick((c) => r[c]); },
+    async () => { const r = (await getJSON("https://open.er-api.com/v6/latest/USD"))?.rates || {}; return pick((c) => r[c]); },
+  ];
+  for (const src of srcs) {
+    try { const r = await src(); if (Object.keys(r).length >= want.length - 1) { S.fx = r; await local.set({ fx: { at: Date.now(), r } }); if (S.screen === "home") render(); return; } } catch (_) {}
+  }
+  if (S.cur && S.cur !== "USD" && !S.fx?.[S.cur]) setTimeout(loadFx, 60_000); // nothing yet: try again in a minute
 }
 // Decimals dimmed; dollar cents also carry "cents" so the Numbers setting can hide them without touching coin amounts.
 const fig = (str) => { const usd = !/^[\d-]/.test(String(str).trim()); return esc(str).replace(/([.,]\d+)(\D*)$/, `<span class="dec${usd ? " cents" : ""}">$1</span>$2`); };
@@ -1738,7 +1744,7 @@ const actions = {
   report: async () => { S.stats = (await local.get("stats")).stats || {}; await loadActivity(); openPanel("report", { month: monthKey() }); },
   "rp-m": (el) => { if (!el.dataset.v) return; S.panel.month = el.dataset.v; renderPanel(); },
   "reveal-bio": async () => { try { const words = await bioUnlock(S.bio); S.panel.words = normalize(words); renderPanel(); } catch (e) { toast(`${bioName()} didn't work. Use your password.`, "err"); } },
-  cur: async (el) => { S.cur = el.dataset.v; await local.set({ cur: S.cur }); await loadFx(); toast(`Showing ${S.cur}`, "win"); renderPanel(); render(); },
+  cur: async (el) => { S.cur = el.dataset.v; await local.set({ cur: S.cur }); await loadFx(); toast(S.cur === "USD" || S.fx?.[S.cur] ? `Showing ${S.cur}` : `Couldn't get today's ${S.cur} rate. Showing USD until it loads.`, S.cur === "USD" || S.fx?.[S.cur] ? "win" : ""); renderPanel(); render(); },
   lang: async (el) => { S.lang = el.dataset.v; document.documentElement.lang = S.lang; await local.set({ lang: S.lang }); render(); renderPanel(); },
   "tour-next": () => { S.tour = (S.tour || 0) + 1; if (S.tour >= TOUR.length) { local.set({ toured: true }); S.askGoal = true; } render(); },
   "tour-skip": () => { S.tour = TOUR.length; S.askGoal = true; local.set({ toured: true }); render(); },
@@ -2612,7 +2618,7 @@ function tokenView() {
   const P = S.panel, w = worth(), list = w.items.filter((i) => i.unit === P.u), f = list[0];
   const name = f?.name || COIN_NAME[P.u] || P.u, pr = P.u === "USDC" ? { usd: 1 } : S.prices[P.cg] || {}, px = pr.usd;
   const tot = list.reduce((a, i) => ({ amt: a.amt + i.chq + i.sav, chq: a.chq + i.chq, sav: a.sav + i.sav, usd: a.usd + (i.usd || 0) }), { amt: 0, chq: 0, sav: 0, usd: 0 }), dec = f?.dec ?? 4;
-  const n = (v, d) => v.toLocaleString("en-US", { maximumFractionDigits: d }), big = (v) => (v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : money(v));
+  const n = (v, d) => v.toLocaleString("en-US", { maximumFractionDigits: d }), big = (v) => (v >= 1e6 ? money(v, { notation: "compact", maximumFractionDigits: v >= 1e9 ? 2 : 1 }) : money(v));
   // Price history for the range: the change shown is over that range, like the home chart.
   const h = P.cg ? S.series[`${P.cg}:${S.range}`] : null, W = 328, H = 110;
   const v = P.u === "USDC" ? Array(40).fill(1) : h ? h.pts.filter((_, i, a) => i % Math.max(1, Math.floor(a.length / 120)) === 0).map((x) => x[1]) : null;

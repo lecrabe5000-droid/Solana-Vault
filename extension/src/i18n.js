@@ -166,6 +166,7 @@ const FR = {
 };
 // Phrases with numbers or names: [pattern, replacement].
 const FR_RE = [
+  [/^Showing ([A-Z]{3})$/, "Affichage en $1"], [/^Couldn't get today's ([A-Z]{3}) rate\. Showing USD until it loads\.$/, "Taux du jour en $1 indisponible. Affichage en USD en attendant."],
   [/^([\d.,]+) (\w+) available$/, "$1 $2 disponibles"], [/^(\d+) days?$/, (m, n) => `${n} jour${n > 1 ? "s" : ""}`], [/^(\d+) days? delay$/, (m, n) => `délai de ${n} jour${n > 1 ? "s" : ""}`],
   [/^Safe opened on (.+)$/, "Safe ouvert sur $1"], [/^([\d.,]+ \w+) is in your Safe\. Anything leaving it waits (\d+) days?\.$/, "$1 est dans votre Safe. Tout retrait attend $2 jours."],
   [/^([\d.,]+ \w+) reaches your Wallet in (\d+) days?\. You can cancel it until then\.$/, "$1 arrive dans votre Wallet dans $2 jours. Vous pouvez l'annuler d'ici là."],
