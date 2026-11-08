@@ -2879,6 +2879,13 @@ html:root[data-theme] #panel .sx .sx-live i { background: #2f5bff; box-shadow: 0
 .sx .sx-route { color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { .sx .sx-flip.spun svg { animation: none; } }
 
+/* 0.18.2 coin chart: the line ends on the live dot; a pin follows your finger */
+.tk-page .tk-dot { margin: -4px 0 0 -4px; }
+.tk-pin { position: absolute; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px var(--bg), 0 0 0 7px color-mix(in srgb, currentColor 18%, transparent); opacity: 0; pointer-events: none; transition: opacity .15s; }
+.tk-chart.scrub .tk-pin { opacity: 1; }
+.tk-chart svg { touch-action: pan-y; cursor: crosshair; }
+.tk-chart .tk-x { stroke-dasharray: 3 4; }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
 #root, #panel { top: 0; bottom: 0; }

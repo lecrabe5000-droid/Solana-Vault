@@ -3000,16 +3000,18 @@ function tokenView() {
   const v = P.u === "USDC" ? Array(40).fill(1) : h ? h.pts.filter((_, i, a) => i % Math.max(1, Math.floor(a.length / 120)) === 0).map((x) => x[1]) : null;
   const tl = P.u === "USDC" ? null : h ? h.pts.filter((_, i, a) => i % Math.max(1, Math.floor(a.length / 120)) === 0).map((x) => x[0]) : null;
   let chart = `<div class="tk-chart"><div class="ch-sk"></div></div>`, dd = 0, pc = 0;
+  // the line always ends at the price shown above it
+  if (v && tl && px != null && P.u !== "USDC") { v.push(px); tl.push(Date.now()); }
   if (v) {
     // Headroom above the highest point and below the lowest, and a light moving average so one spike never looks clipped.
     const sm = v.map((_, i) => { const a = Math.max(0, i - 1), b = Math.min(v.length - 1, i + 1); let t = 0; for (let j = a; j <= b; j++) t += v[j]; return t / (b - a + 1); }); sm[0] = v[0]; sm[sm.length - 1] = v[v.length - 1];
-    const lo = Math.min(...sm), hi = Math.max(...sm), sp = hi - lo || 1, xy = sm.map((y, i) => [(i / (sm.length - 1)) * W, 18 + (1 - (y - lo) / sp) * (H - 30)]);
+    const XR = W - 16, lo = Math.min(...sm), hi = Math.max(...sm), sp = hi - lo || 1, xy = sm.map((y, i) => [(i / (sm.length - 1)) * XR, 18 + (1 - (y - lo) / sp) * (H - 30)]);
     let d = `M${xy[0][0].toFixed(1)},${xy[0][1].toFixed(1)}`;
     for (let i = 0; i < xy.length - 1; i++) { const p0 = xy[i - 1] || xy[i], p1 = xy[i], p2 = xy[i + 1], p3 = xy[i + 2] || p2; d += `C${(p1[0] + (p2[0] - p0[0]) / 6).toFixed(1)},${(p1[1] + (p2[1] - p0[1]) / 6).toFixed(1)} ${(p2[0] - (p3[0] - p1[0]) / 6).toFixed(1)},${(p2[1] - (p3[1] - p1[1]) / 6).toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`; }
     dd = v[v.length - 1] - v[0]; pc = (dd / (v[0] || 1)) * 100;
-    S.tkChart = { v, tl, xy, W };
+    S.tkChart = { v, tl, xy, W, H };
     const fresh = S.tkDrawKey !== `${P.u}:${S.range}`; S.tkDrawKey = `${P.u}:${S.range}`;
-    chart = `<div class="tk-chart${fresh ? " draw" : ""}" data-tkchart><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs><linearGradient id="tkf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".16"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs><path d="${d}L${W},${H}L0,${H}Z" fill="url(#tkf)"/><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.7" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><line class="tk-x" x1="0" x2="0" y1="0" y2="${H}"/></svg><i class="tk-dot" style="left:calc(${((xy[xy.length - 1][0] / W) * 100).toFixed(2)}% - 13px);top:${((xy[xy.length - 1][1] / H) * 100).toFixed(2)}%"></i><span class="ch-tip tk-tip"></span></div>`;
+    chart = `<div class="tk-chart${fresh ? " draw" : ""}" data-tkchart><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs><linearGradient id="tkf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".16"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient><linearGradient id="tkmg" x1="0" x2="1" y1="0" y2="0"><stop offset=".8" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><mask id="tkm" maskContentUnits="objectBoundingBox"><rect width="1" height="1" fill="url(#tkmg)"/></mask></defs><path d="${d}L${XR},${H}L0,${H}Z" fill="url(#tkf)" mask="url(#tkm)"/><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.7" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><line class="tk-x" x1="0" x2="0" y1="0" y2="${H}"/></svg><i class="tk-dot" style="left:${((xy[xy.length - 1][0] / W) * 100).toFixed(2)}%;top:${((xy[xy.length - 1][1] / H) * 100).toFixed(2)}%"></i><i class="tk-pin"></i><span class="ch-tip tk-tip"></span></div>`;
   }
   const rl = { 1: "today", 7: "this week", 30: "this month", 365: "this year" }[S.range];
   const ranges = `<div class="ranges">${[["1", "1D"], ["7", "1W"], ["30", "1M"], ["365", "1Y"]].map(([x, l]) => `<button data-act="range" data-d="${x}" aria-pressed="${S.range === x}">${l}</button>`).join("")}</div>`;
@@ -3045,13 +3047,22 @@ function tokenView() {
 /** Scrubbing the token chart: price and date follow the finger. */
 function bindTokChart(el) {
   const c = el.querySelector("[data-tkchart]"); if (!c || !S.tkChart) return;
-  const svg = c.querySelector("svg"), x = c.querySelector(".tk-x"), tip = c.querySelector(".tk-tip"), pxEl = el.querySelector("[data-tkpx]"), keep = pxEl?.innerHTML;
-  const fmtT = (ms) => new Date(ms).toLocaleString("en-US", S.range === "1" ? { hour: "numeric", minute: "2-digit" } : { month: "short", day: "numeric" });
-  const move = (e) => { const r = svg.getBoundingClientRect(), k = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), { v, tl, xy, W } = S.tkChart, i = Math.round(k * (v.length - 1));
-    c.classList.add("scrub"); x.setAttribute("x1", xy[i][0]); x.setAttribute("x2", xy[i][0]);
-    tip.innerHTML = `<b>${money(v[i])}</b>${tl ? fmtT(tl[i]) : ""}`; tip.style.left = `${Math.max(14, Math.min(86, (xy[i][0] / W) * 100))}%`; if (pxEl) pxEl.innerHTML = money(v[i]); };
+  const svg = c.querySelector("svg"), x = c.querySelector(".tk-x"), pin = c.querySelector(".tk-pin"), pxEl = el.querySelector("[data-tkpx]"), chEl = el.querySelector("[data-tkch]");
+  const keep = { px: pxEl?.innerHTML, ch: chEl?.innerHTML, cls: chEl?.className };
+  const fmtT = (ms) => new Date(ms).toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", S.range === "1" ? { hour: "numeric", minute: "2-digit" } : { month: "short", day: "numeric", ...(S.range === "365" ? { year: "numeric" } : {}) });
+  let last = -1;
+  const move = (e) => {
+    const r = svg.getBoundingClientRect(), { v, tl, xy, W, H } = S.tkChart, xr = xy[xy.length - 1][0];
+    const k = Math.max(0, Math.min(1, ((e.clientX - r.left) / r.width) * (W / xr))), i = Math.round(k * (v.length - 1));
+    c.classList.add("scrub"); if (i === last) return; last = i;
+    x.setAttribute("x1", xy[i][0]); x.setAttribute("x2", xy[i][0]);
+    pin.style.left = `${(xy[i][0] / W) * 100}%`; pin.style.top = `${(xy[i][1] / H) * 100}%`;
+    if (pxEl && !S.hide) pxEl.innerHTML = fig(money(v[i]));
+    if (chEl) { const dd = v[i] - v[0], pc = (dd / (v[0] || 1)) * 100; chEl.className = `tk-ch ${dd >= 0 ? "up" : "dn"}`; chEl.innerHTML = `${dd >= 0 ? "+" : "−"}${money(Math.abs(dd))} (${Math.abs(pc).toFixed(2)}%) <span>${tl ? fmtT(tl[i]) : ""}</span>`; }
+  };
+  const leave = () => { last = -1; c.classList.remove("scrub"); if (pxEl) pxEl.innerHTML = keep.px; if (chEl) { chEl.innerHTML = keep.ch; chEl.className = keep.cls; } };
   svg.addEventListener("pointermove", move); svg.addEventListener("pointerdown", move);
-  svg.addEventListener("pointerleave", () => { c.classList.remove("scrub"); if (pxEl) pxEl.innerHTML = keep; });
+  ["pointerleave", "pointerup", "pointercancel"].forEach((ev) => svg.addEventListener(ev, leave));
 }
 
 /* ------------------------------------------------------------------ Safe rules and alerts, for every network at once */
