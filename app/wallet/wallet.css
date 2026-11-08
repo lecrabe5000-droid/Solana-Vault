@@ -2848,6 +2848,23 @@ html body #tabbar#tabbar button .tb-logo .logo { width: 20px; height: 20px; }
 /* "Saved by Ecrin" share sheet */
 .share-s { padding-top: 28px; } .sc-img { display: block; width: 100%; border-radius: 16px; margin: 4px 0 8px; box-shadow: 0 16px 40px -18px rgba(0, 0, 0, .7), 0 0 0 1px rgba(255, 255, 255, .06); }
 
+/* 0.18.0 calm price motion: digits roll, the figure warms briefly toward green or red and settles; no flashing boxes */
+.px.flash-up, .px.flash-dn { animation: none !important; background: none !important; }
+.tk-up { animation: tk-up 1.8s ease; } .tk-dn { animation: tk-dn 1.8s ease; }
+@keyframes tk-up { 0%, 30% { color: #5fa98c; } }
+@keyframes tk-dn { 0%, 30% { color: #c9737a; } }
+/* coin page: the line draws in, then a slow pulse marks the latest price */
+.tk-dot { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 0; border-radius: 50%; background: currentColor; pointer-events: none; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent); transition: opacity .2s; }
+.tk-dot::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: currentColor; animation: tk-pulse 2.6s cubic-bezier(.2, .7, .3, 1) infinite; }
+@keyframes tk-pulse { 0% { transform: scale(1); opacity: .45; } 70%, 100% { transform: scale(3.6); opacity: 0; } }
+.tk-chart.draw .tk-dot { animation: tk-dot-in .45s 1s cubic-bezier(.3, 1.4, .5, 1) both; }
+@keyframes tk-dot-in { from { transform: scale(0); opacity: 0; } }
+.tk-chart.scrub .tk-dot { opacity: 0; }
+/* Safe: the cooldown ring drains continuously */
+.sf-ring .p[data-ru] { transition: stroke-dasharray 1s linear; }
+@media (prefers-reduced-motion: reduce) { .tk-up, .tk-dn, .tk-dot::after, .tk-chart.draw .tk-dot { animation: none !important; } .sf-ring .p[data-ru] { transition: none; } }
+.ptr .wm-mark { width: 22px; height: 22px; display: block; }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
 #root, #panel { top: 0; bottom: 0; }

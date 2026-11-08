@@ -630,6 +630,15 @@ function render() {
   if (S.screen === "home" && S.recvQ) setTimeout(playRecv, 600);
   if (S.screen === "home" && !S.wcTried) { S.wcTried = true; wcResume(); }
   if (S.screen === "home" && S.fly) { const k = S.fly; S.fly = null; setTimeout(() => flyFx(k), 320); }
+  // Prices and row values: changed digits roll, and the figure warms briefly toward green or red, then settles.
+  if (S.screen === "home" && !S.hide && !S.scrubbing) {
+    S.pxTxt ||= {}; const num = (t) => Number(String(t).replace(/\D/g, ""));
+    root.querySelectorAll("[data-pk]").forEach((el) => {
+      const k = el.dataset.pk + curCode(), t = el.textContent, was = S.pxTxt[k]; S.pxTxt[k] = t;
+      if (!was || was === t || !/\d/.test(t) || num(was) === num(t)) return;
+      el.classList.add(num(t) > num(was) ? "tk-up" : "tk-dn"); rollDigits(el, was);
+    });
+  }
   // Balances roll into place like a fine mechanical counter: only the digits that changed move.
   if (!S.hide && !S.scrubbing) {
     S.rollPrev ||= {};
@@ -1007,8 +1016,8 @@ function tokenList(w) {
   const row = (i, sub) => {
     const p = i.a === "usdc" ? { usd: 1 } : S.prices[i.cg], ch = i.a === "usdc" ? null : p?.usd_24h_change;
     return `<button class="arow" data-act="tok" data-u="${i.unit}" data-n="${i.k}"><span class="cstack">${coin(i.coin)}${i.coin !== i.k ? `<span class="cmini">${coin(i.k)}</span>` : ""}</span>
-      <span class="ar-t"><b>${cdot(i.unit)}${i.name}</b><small>${i.a === "usdc" ? i.net : p?.usd != null ? `<span class="px${S.prevPx?.[i.cg] != null && S.prevPx[i.cg] !== p.usd ? (p.usd > S.prevPx[i.cg] ? " flash-up" : " flash-dn") : ""}">${money(p.usd)}</span>` : i.net}${ch != null ? ` <span class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</span>` : ""}</small></span>
-      ${spark(i.cg)}<span class="ar-r"><b>${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}${i.sav ? ` <span class="sv">${I.lock}${mask(n(i.sav, i.dec))}</span>` : ""}</small></span></button>`.replace('class="arow"', `class="arow${sub ? " sub" : ""}"`);
+      <span class="ar-t"><b>${cdot(i.unit)}${i.name}</b><small>${i.a === "usdc" ? i.net : p?.usd != null ? `<span data-pk="p:${i.cg}" class="px${S.prevPx?.[i.cg] != null && S.prevPx[i.cg] !== p.usd ? (p.usd > S.prevPx[i.cg] ? " flash-up" : " flash-dn") : ""}">${money(p.usd)}</span>` : i.net}${ch != null ? ` <span class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</span>` : ""}</small></span>
+      ${spark(i.cg)}<span class="ar-r"><b data-pk="v:${i.unit}:${i.k}">${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}${i.sav ? ` <span class="sv">${I.lock}${mask(n(i.sav, i.dec))}</span>` : ""}</small></span></button>`.replace('class="arow"', `class="arow${sub ? " sub" : ""}"`);
   };
   const out = Object.values(groups).map((g) => {
     if (g.length === 1) return row(g[0]);
@@ -1042,7 +1051,7 @@ function marketList() {
   return `<div class="list-h mkt-h"><b>Market</b><span><i class="live-dot"></i>Live</span></div>
     <section class="list mkt">${rows.map(([cg, unit, logo, name]) => { const p = S.prices[cg], ch = p.usd_24h_change, was = S.prevPx?.[cg], fl = was != null && was !== p.usd ? (p.usd > was ? " flash-up" : " flash-dn") : "";
       return `<button class="arow" data-act="tok" data-u="${unit}">${coin(logo)}<span class="ar-t"><b>${name}</b><small>${unit}</small></span>${spark(cg)}
-        <span class="ar-r"><b class="px${fl}">${money(p.usd)}</b><small class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch ?? 0).toFixed(2)}%</small></span></button>`; }).join("")}</section>`;
+        <span class="ar-r"><b data-pk="m:${cg}" class="px${fl}">${money(p.usd)}</b><small class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch ?? 0).toFixed(2)}%</small></span></button>`; }).join("")}</section>`;
 }
 
 /** The change over the chart's range, as plain text: "+$122.17 (4.48%) · 1W". */
@@ -1834,7 +1843,7 @@ function vaultView() {
       <rect class="sf-run" x="52" y="52" width="196" height="196" rx="44" pathLength="100"/>
       <rect class="sf-core" x="66" y="66" width="168" height="168" rx="36"/>
     </g></svg>`;
-  const ring = (left, d) => { const f = Math.max(0, Math.min(1, left / (d || 86400))); return `<i class="sf-ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15"/><circle class="p" cx="18" cy="18" r="15" pathLength="100" style="stroke-dasharray:${(f * 100).toFixed(1)} 100"/></svg></i>`; };
+  const ring = (left, d, until) => { const f = Math.max(0, Math.min(1, left / (d || 86400))); return `<i class="sf-ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15"/><circle class="p" cx="18" cy="18" r="15" pathLength="100" data-ru="${until}" data-rd="${d || 86400}" style="stroke-dasharray:${(f * 100).toFixed(2)} 100"/></svg></i>`; };
   const section = (r) => {
     const N = NETS[r.k], v = r.v, main = v.main;
     const list = pend.filter((x) => x.r.k === r.k);
@@ -1843,7 +1852,7 @@ function vaultView() {
       <div class="sn-h">${coin(r.k)}<span class="sn-t"><b>${N.name}</b><small>${delay(main.withdrawDelay)} delay</small></span><span class="sn-v">${px(r.k) != null || v.usdc ? mask(money(usdOf(r))) : ""}</span></div>
       <div class="sn-b">${line("native", main.balance)}${N.usdc && (N.fam === "sol" || N.tokens) ? line("usdc", v.usdc?.balance || 0) : ""}</div>
       ${list.map((x) => { const left = x.readyAt - t, ready = left <= 0, unit = x.a === "usdc" ? "USDC" : N.unit;
-        return `<div class="sf-w ${ready ? "ready" : ""}">${ring(left, main.withdrawDelay)}<span class="wr-t"><b>${amt(x.amount, x.a)} ${unit}</b><small>to ${isMine(x.dest) ? "your Wallet" : short(String(x.dest))}</small></span>
+        return `<div class="sf-w ${ready ? "ready" : ""}">${ring(left, main.withdrawDelay, x.readyAt)}<span class="wr-t"><b>${amt(x.amount, x.a)} ${unit}</b><small>to ${isMine(x.dest) ? "your Wallet" : short(String(x.dest))}</small></span>
           <span class="wr-r"><b class="cd" data-until="${x.readyAt}">${ready ? "Ready" : hms(left)}</b>${ready ? `<button class="btn sm primary" data-act="execute" data-n="${r.k}" data-id="${x.id}" data-a="${x.a}" data-d="${esc(String(x.dest))}">Release</button>` : ""}<button class="btn sm danger" data-act="cancel-w" data-n="${r.k}" data-id="${x.id}" data-a="${x.a}">Cancel</button></span></div>`; }).join("")}
       <div class="sn-a"><button class="btn sm" data-act="safe-go" data-n="${r.k}" data-p="protect">${I.protect}Protect</button><button class="btn sm" data-act="safe-go" data-n="${r.k}" data-p="withdraw">${I.out}Withdraw</button></div>
     </section>`;
@@ -1930,10 +1939,10 @@ function settingsView() {
 }
 // What's new: shown once after an update (never on a fresh install), and any time from Settings → About.
 const NEWS = [
+  ["Calm price moves", "When a price updates, its digits roll and the figure warms gently toward green or red, then settles."],
+  ["A living chart", "On a coin's page the line draws itself, and a slow pulse marks the latest price."],
+  ["A cooldown you can watch", "The ring on a pending withdrawal drains continuously, and pull-to-refresh turns the Ecrin mark."],
   ["The Ecrin mark, everywhere", "The same diamond and wordmark as our website, on home, at start-up and in Settings."],
-  ["Instant confirmations", "Send and Protect show the result the moment it lands, and your balance updates right away."],
-  ["Saved by Ecrin", "Cancel a withdrawal and you can share a card of what you kept, or save it as an image."],
-  ["Ecrin in a full tab", "Set-up opens in its own page, and Settings → Open in a tab gives you the big view any time."],
 ];
 function newsView() {
   return `${phead("What's new")}<div class="pad news"><p class="news-v">Ecrin Wallet ${VERSION}</p>
@@ -2484,6 +2493,8 @@ setInterval(() => { if (S.panel?.p === "vault") renderPanel(); }, 30_000);
 setInterval(() => {
   if (S.panel?.p !== "vault") return; const t = now() + (S.clockOff || 0);
   document.querySelectorAll("[data-until]").forEach((n) => { const s = Math.floor(Number(n.dataset.until) - t); n.textContent = s <= 0 ? "Ready" : `${String(Math.floor(s / 3600)).padStart(2, "0")}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`; });
+  // the ring drains a little each second; a one-second linear transition joins the steps into one smooth motion
+  document.querySelectorAll("[data-ru]").forEach((c) => { const f = Math.max(0, Math.min(1, (Number(c.dataset.ru) - t - 1) / Number(c.dataset.rd))); c.style.strokeDasharray = `${(f * 100).toFixed(3)} 100`; });
 }, 1000);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.panel) closePanel(); });
 
@@ -2916,7 +2927,7 @@ document.addEventListener("visibilitychange", playRecv);
 // and a light tap of the vibration motor on important buttons (Android).
 if (globalThis.ECRIN_WEB) {
   let y0 = null, d = 0, busy = false;
-  const ptr = document.createElement("div"); ptr.className = "ptr"; ptr.innerHTML = `<span class="ptr-ic">${LOGO}</span>`; (document.querySelector(".device") || document.body).append(ptr);
+  const ptr = document.createElement("div"); ptr.className = "ptr"; ptr.innerHTML = `<span class="ptr-ic">${MARK}</span>`; (document.querySelector(".device") || document.body).append(ptr);
   const set = (v) => { ptr.style.setProperty("--p", v); ptr.classList.toggle("ready", v >= 1); };
   document.addEventListener("touchstart", (e) => { const r = $("#root"); y0 = !busy && S.screen === "home" && !S.panel && r.scrollTop <= 0 && !e.target.closest("[data-chart]") ? e.touches[0].clientY : null; d = 0; }, { passive: true });
   document.addEventListener("touchmove", (e) => {
@@ -2987,7 +2998,7 @@ function tokenView() {
     dd = v[v.length - 1] - v[0]; pc = (dd / (v[0] || 1)) * 100;
     S.tkChart = { v, tl, xy, W };
     const fresh = S.tkDrawKey !== `${P.u}:${S.range}`; S.tkDrawKey = `${P.u}:${S.range}`;
-    chart = `<div class="tk-chart${fresh ? " draw" : ""}" data-tkchart><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs><linearGradient id="tkf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".16"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs><path d="${d}L${W},${H}L0,${H}Z" fill="url(#tkf)"/><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.7" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><line class="tk-x" x1="0" x2="0" y1="0" y2="${H}"/></svg><span class="ch-tip tk-tip"></span></div>`;
+    chart = `<div class="tk-chart${fresh ? " draw" : ""}" data-tkchart><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs><linearGradient id="tkf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".16"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs><path d="${d}L${W},${H}L0,${H}Z" fill="url(#tkf)"/><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.7" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><line class="tk-x" x1="0" x2="0" y1="0" y2="${H}"/></svg><i class="tk-dot" style="left:calc(${((xy[xy.length - 1][0] / W) * 100).toFixed(2)}% - 13px);top:${((xy[xy.length - 1][1] / H) * 100).toFixed(2)}%"></i><span class="ch-tip tk-tip"></span></div>`;
   }
   const rl = { 1: "today", 7: "this week", 30: "this month", 365: "this year" }[S.range];
   const ranges = `<div class="ranges">${[["1", "1D"], ["7", "1W"], ["30", "1M"], ["365", "1Y"]].map(([x, l]) => `<button data-act="range" data-d="${x}" aria-pressed="${S.range === x}">${l}</button>`).join("")}</div>`;
