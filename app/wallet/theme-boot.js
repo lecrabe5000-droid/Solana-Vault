@@ -1,0 +1,2 @@
+// set the light theme before first paint so the iPhone status bar never flashes black
+try{if(localStorage.getItem("ecrin-theme")==="light"||/"theme":"light"/.test(localStorage.getItem("ecrin-wallet-web")||"")){document.documentElement.dataset.theme="light";document.getElementById("boot-bg").textContent="html,body{background:#f3f2ee;height:100%}";document.querySelector('meta[name="theme-color"]').content="#f3f2ee"}}catch(e){}

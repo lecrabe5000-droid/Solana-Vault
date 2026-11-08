@@ -196,7 +196,7 @@ async function boot() {
   S.autolock = st.autolock ?? 15;
   try { chrome.runtime.connect?.({ name: "popup" }); } catch (_) {}
   S.hide = !!st.hide;
-  document.documentElement.dataset.theme = S.theme;
+  document.documentElement.dataset.theme = S.theme; syncChrome();
   if (!st.box) { if (AP.id) { S.req = { gone: true, nowallet: true }; return go("approve"); } if (!(await local.get("toured")).toured && !globalThis.ECRIN_DEMO) S.tour = 0; return go("welcome"); }
   const ses = await session.get(["phrase", "until"]);
   if (ses.phrase && ses.until > Date.now()) { await useAccount(ses.phrase); await touch(); return AP.id ? startApproval() : home(); }
@@ -478,6 +478,13 @@ function ask(text, { ok = "Continue", danger = false, title = "" } = {}) {
 
 // ------------------------------------------------------------------ "Saved by Ecrin"
 // After a cancel: a card worth posting. Drawn on the spot in Ecrin's own type, nothing leaves the device unless you share.
+function syncChrome() {
+  // keep the iPhone status-bar area and browser tint in step with the theme
+  const light = S.theme === "light", c = light ? "#f3f2ee" : "#0c0d0f";
+  const bb = document.getElementById("boot-bg"); if (bb) bb.textContent = `html,body{background:${c};height:100%}`;
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute("content", c));
+  try { const raw = localStorage.getItem("ecrin-theme"); if (raw !== S.theme) localStorage.setItem("ecrin-theme", S.theme); } catch (_) {}
+}
 async function shareCard(amt) {
   try { await Promise.all(['500 46px "Unbounded"', '400 150px "Geist"', '600 50px "IBM Plex Sans"', '500 28px "IBM Plex Sans"'].map((f) => document.fonts.load(f))); } catch (_) {}
   const c = document.createElement("canvas"); c.width = 1200; c.height = 675; const x = c.getContext("2d");
@@ -2343,7 +2350,7 @@ const actions = {
   range: async (el) => { S.range = el.dataset.d; await local.set({ range: S.range }); S.drawChart = true; render(); if (S.panel?.p === "tok") { renderPanel(); loadSeriesFor(S.panel.cg).then(() => S.panel?.p === "tok" && renderPanel()); } else loadSeries(); },
   num: async (el) => { S.nums[el.dataset.k] = el.dataset.v; applyNums(); await local.set({ nums: S.nums }); renderPanel(); render(); },
   autolock: async (el) => { S.autolock = Number(el.dataset.v); await local.set({ autolock: S.autolock }); await touch(); renderPanel(); },
-  theme: async (el) => { S.theme = el.dataset.v; document.documentElement.dataset.theme = S.theme; await local.set({ theme: S.theme }); render(); renderPanel(); },
+  theme: async (el) => { S.theme = el.dataset.v; document.documentElement.dataset.theme = S.theme; syncChrome(); await local.set({ theme: S.theme }); render(); renderPanel(); },
   lock: async () => { await session.clear(); chrome.runtime.sendMessage({ type: "lock" }).catch(() => {}); ACCT = ENG = null; S.panel = null; S.counted = false; S.entered = false; $("#panel").innerHTML = ""; $("#panel").classList.remove("in"); document.body.classList.remove("stacked"); go("unlock"); },
   forget: async () => { if (await ask("You'll need your recovery phrase to use it again. Your money stays on the blockchain.", { title: "Remove this wallet from this device?", ok: "Remove wallet", danger: true })) forget(); },
 };
