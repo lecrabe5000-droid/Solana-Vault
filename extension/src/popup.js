@@ -1480,6 +1480,8 @@ function renderPanel(enter = false) {
   P.fresh = false;
   if (enter) requestAnimationFrame(() => { el.classList.add("in"); document.body.classList.add("stacked"); });
   bindHolds(el); depth(el); mountVault3d(el); bindTokChart(el);
+  // the top bar turns frosted once the page scrolls under it
+  const pane = el.querySelector(".pane"); if (pane) { const sync = () => pane.classList.toggle("scrolled", pane.scrollTop > 6); pane.addEventListener("scroll", sync, { passive: true }); sync(); }
   const f = el.querySelector("[autofocus]"); if (f && enter) setTimeout(() => f.focus(), 200);
 }
 
@@ -3038,7 +3040,6 @@ function tokenView() {
       <div><span>You hold</span><b>${mask(money(tot.usd))}</b></div>
       <div><span>In your Safe</span><b>${tot.amt ? savPct + "%" : "—"}</b></div>
     </div>
-    <p class="tk-nets">${esc(nets.length ? "On " + nets.join(", ") : "")}</p>
     ${acts.length ? `<div class="list-h"><b>Activity</b><span></span></div><div class="tab-body"><section class="list">${actRows(acts.slice(0, 5)).replace(/<div class="act-day">[^<]*<\/div>/g, "")}</section></div>` : ""}
     <div class="list-h"><b>About ${esc(name)}</b><span></span></div>
     <p class="tk-about">${ABOUT[P.u] || ""}</p></div>`;

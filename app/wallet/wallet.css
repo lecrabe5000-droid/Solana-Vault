@@ -2886,6 +2886,11 @@ html:root[data-theme] #panel .sx .sx-live i { background: #2f5bff; box-shadow: 0
 .tk-chart svg { touch-action: pan-y; cursor: crosshair; }
 .tk-chart .tk-x { stroke-dasharray: 3 4; }
 
+/* coin page: frosted top bar once scrolled, so the back arrow never sits on the buttons */
+#panel .pane .tk-page .phead { transition: background-color .2s, box-shadow .2s; }
+html:root[data-theme="light"] #panel .pane.scrolled .tk-page .phead { background: rgba(243, 242, 238, .82) !important; -webkit-backdrop-filter: blur(16px) saturate(1.4) !important; backdrop-filter: blur(16px) saturate(1.4) !important; box-shadow: 0 1px 0 rgba(16, 17, 20, .06); z-index: 6; }
+html:root[data-theme="dark"] #panel .pane.scrolled .tk-page .phead { background: rgba(12, 13, 15, .8) !important; -webkit-backdrop-filter: blur(16px) saturate(1.4) !important; backdrop-filter: blur(16px) saturate(1.4) !important; box-shadow: 0 1px 0 rgba(242, 239, 232, .06); z-index: 6; }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
 #root, #panel { top: 0; bottom: 0; }
