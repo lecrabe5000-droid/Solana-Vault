@@ -2892,7 +2892,7 @@ html:root[data-theme="light"] #panel .pane.scrolled .tk-page .phead { background
 html:root[data-theme="dark"] #panel .pane.scrolled .tk-page .phead { background: rgba(12, 13, 15, .8) !important; -webkit-backdrop-filter: blur(16px) saturate(1.4) !important; backdrop-filter: blur(16px) saturate(1.4) !important; box-shadow: 0 1px 0 rgba(242, 239, 232, .06); z-index: 6; }
 
 /* 0.19.0 Ecrin mode: deep ink blue, white and ivory accents, coins in beige / white / grey / black (built on dark mode) */
-html:root[data-skin="ecrin"] { --bg: #070b1d; --s1: rgba(255,255,255,.07); --s2: rgba(255,255,255,.1); --line: rgba(255,255,255,.1); --line-2: rgba(255,255,255,.16); --ink: #ffffff; --muted: #a8b6ea; --dim: #7d8cc4; --h1: rgba(255,255,255,.07); --h2: rgba(255,255,255,.1); --h3: rgba(255,255,255,.14); }
+html:root[data-skin="ecrin"] { --bg: #070b1d; --s1: #10162c; --s2: #161e38; --s3: #1e2746; --line: rgba(255,255,255,.1); --line-2: rgba(255,255,255,.16); --ink: #ffffff; --muted: #a8b6ea; --dim: #7d8cc4; --h1: rgba(255,255,255,.07); --h2: rgba(255,255,255,.1); --h3: rgba(255,255,255,.14); }
 html:root[data-skin="ecrin"], html:root[data-skin="ecrin"] body { background: #070b1d !important; }
 html:root[data-skin="ecrin"] :is(body, .device, #root, #panel .pane) { background: #070b1d !important; }
 /* the glow is light on top of one solid base colour, faded out before the status bar and the home bar, so no edge can show a seam */
@@ -2927,6 +2927,13 @@ html:root[data-skin="ecrin"] :is(.sf-arc, .sf-run) { stroke: #ffffff !important;
 .care-host { display: inline-block; margin: 6px auto 4px; padding: 6px 12px; border-radius: 999px; background: var(--h2, rgba(127, 127, 127, .1)); color: var(--muted); font: 500 13.5px var(--font); }
 .ask-w.care .ask p { text-align: center; }
 .care-fine { margin-top: 12px !important; color: var(--dim) !important; font-size: 12.5px !important; line-height: 1.45; }
+
+/* Ecrin mode: anything that floats over the screen (sheets, menus, toasts) is solid, never see-through */
+html:root[data-skin="ecrin"] :is(.ask, .share-s) { background: #0f1530 !important; box-shadow: 0 -1px 0 rgba(127, 149, 255, .22), 0 -30px 80px -30px rgba(47, 91, 255, .35) !important; }
+html:root[data-skin="ecrin"] .ask-bg { background: rgba(3, 5, 14, .62) !important; }
+html:root[data-skin="ecrin"] .ask .btn.ghost { background: rgba(255, 255, 255, .07) !important; color: #fff !important; }
+html:root[data-skin="ecrin"] .care-ic { background: rgba(127, 149, 255, .14); color: #c9d3ff; }
+html:root[data-skin="ecrin"] .care-host { background: rgba(255, 255, 255, .08); color: #b8c2e6; }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
