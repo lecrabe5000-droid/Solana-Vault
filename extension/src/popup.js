@@ -180,7 +180,7 @@ async function eng() {
 }
 
 async function boot() {
-  const pr = await local.get(["book", "hideSmall", "order", "recvNotify", "guard", "alertsOn", "showNfts", "goal", "cur", "palerts", "sounds", "obHide"]); S.obHide = !!pr.obHide; S.palerts = pr.palerts || {}; S.sounds = !!pr.sounds; S.showNfts = !!pr.showNfts; S.goal = pr.goal || null; S.cur = pr.cur || "USD"; Object.assign(S, { book: pr.book || {}, hideSmall: !!pr.hideSmall, order: pr.order || "value", recvNotify: pr.recvNotify, guard: { auto: 0, daily: 0, cool: 0, coolOver: 500, ...(pr.guard || {}) }, alertsOn: !!pr.alertsOn });
+  const pr = await local.get(["book", "hideSmall", "order", "recvNotify", "guard", "alertsOn", "showNfts", "goal", "cur", "palerts", "sounds", "obHide"]); S.obHide = !!pr.obHide; S.palerts = pr.palerts || {}; S.sounds = !!pr.sounds; S.showNfts = !!pr.showNfts; S.goal = pr.goal || null; S.cur = pr.cur || "USD"; Object.assign(S, { book: pr.book || {}, hideSmall: !!pr.hideSmall, order: pr.order || "value", recvNotify: pr.recvNotify, guard: { auto: 0, daily: 0, cool: 0, coolOver: 500, late: 1, bet: 0, ...(pr.guard || {}) }, alertsOn: !!pr.alertsOn });
   const st = await local.get(["box", "net", "theme", "autolock", "hide", "nums", "range", "dev", "prices", "bio", "lang"]);
   S.lang = st.lang || (/^fr/i.test(navigator.language || "") ? "fr" : "en"); document.documentElement.lang = S.lang;
   S.bio = globalThis.ECRIN_WEB && st.bio ? st.bio : null;
@@ -464,6 +464,33 @@ function flyFx(kind) {
 
 // ------------------------------------------------------------------ sheets
 // The browser's grey confirm box, replaced by a sheet from the bottom: a handle, the question, and two clear buttons.
+/** A gentle sheet: the calm choice is the big button, the other is always one tap away. Resolves "safe" or "go". */
+function choose({ icon = "", title, text = "", safe, go, fine = "" }) {
+  return new Promise((done) => {
+    const w = document.createElement("div"); w.className = "ask-w care";
+    w.innerHTML = `<div class="ask-bg"></div><div class="ask" role="dialog" aria-modal="true"><i class="sheet-h"></i>${icon ? `<span class="care-ic">${icon}</span>` : ""}<b class="ask-t">${esc(trText(title, S.lang))}</b>${text}
+      <button class="btn xl primary" data-safe>${esc(trText(safe, S.lang))}</button><button class="btn xl ghost" data-go>${esc(trText(go, S.lang))}</button>${fine ? `<p class="care-fine">${esc(trText(fine, S.lang))}</p>` : ""}</div>`;
+    (document.querySelector(".device") || document.body).append(w); haptic();
+    requestAnimationFrame(() => w.classList.add("in"));
+    const end = (v) => { w.classList.remove("in"); setTimeout(() => w.remove(), 320); done(v); };
+    w.querySelector("[data-safe]").onclick = () => end("safe"); w.querySelector("[data-go]").onclick = () => end("go"); w.querySelector(".ask-bg").onclick = () => end("safe");
+  });
+}
+const careP = (t) => `<p>${esc(trText(t, S.lang))}</p>`;
+// Late-night pause: between midnight and 6 AM, starting a withdrawal from the Safe first offers to sleep on it.
+const isLate = () => new Date().getHours() < 6;
+// Betting sites: a short list of the big crypto casinos plus the words they use. Only checked when you turn the warning on.
+const BET_HOSTS = ["stake.com", "stake.us", "rollbit.com", "bc.game", "roobet.com", "shuffle.com", "gamdom.com", "duelbits.com", "bets.io", "sportsbet.io", "cloudbet.com", "bitstarz.com", "fortunejack.com", "bitcasino.io", "metaspins.com", "betfury.io", "betpanda.io", "wild.io", "lucky.io", "bustabit.com", "primedice.com", "winr.games"];
+const isBetting = (host) => { const h = String(host || "").toLowerCase().replace(/^www\./, ""); return BET_HOSTS.some((d) => h === d || h.endsWith("." + d)) || /casino|poker|slots?\b|roulette|blackjack|sportsbook|gambl|jackpot|plinko|(^|[.-])bet(s|ting|way|fair|365|online)?([.-]|$)/.test(h); };
+const I_DICE = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="9" cy="9" r="1.1"/><circle cx="15" cy="15" r="1.1"/><circle cx="15" cy="9" r="1.1"/><circle cx="9" cy="15" r="1.1"/></svg>';
+async function betCheck(host) {
+  const { betWait = {} } = await local.get("betWait"), left = (betWait[host] || 0) - Date.now();
+  const text = `<div class="care-host">${esc(host)}</div>` + careP(left > 0 ? `You chose to wait before connecting. ${Math.ceil(left / 60000)} min left.` : "You asked Ecrin to warn you about betting sites. Take 10 minutes before connecting? If you still want to, it'll be one tap.");
+  const c = await choose({ icon: I_DICE, title: left > 0 ? "Still waiting on this one" : "This looks like a betting site", text, safe: left > 0 ? "Keep waiting" : "Wait 10 minutes", go: "Connect anyway", fine: "Betting-site warnings are on. Change it in Settings → Safety." });
+  if (c === "go") return true;
+  if (left <= 0) { betWait[host] = Date.now() + 600_000; await local.set({ betWait }); }
+  return false;
+}
 function ask(text, { ok = "Continue", danger = false, title = "" } = {}) {
   return new Promise((done) => {
     const w = document.createElement("div"); w.className = "ask-w";
@@ -1623,6 +1650,12 @@ function safetyView() {
     <div class="list-h"><b>Cooling-off pause</b><span>${G.cool ? `over ${money(G.coolOver)}` : "Off"}</span></div>
     <p class="fine">A short wait before any send over ${money(G.coolOver)}. Scams work by rushing you; the pause gives you time to notice.</p>
     <span class="seg wide">${cool.map(([v, l]) => `<button data-act="guard" data-k="cool" data-v="${v}" aria-pressed="${G.cool === v}">${l}</button>`).join("")}</span>
+    <div class="list-h"><b>Late-night pause</b><span>${G.late ? "On" : "Off"}</span></div>
+    <p class="fine">Between midnight and 6 AM, starting a withdrawal from your Safe first asks if you'd rather sleep on it. You can always continue.</p>
+    <span class="seg wide">${[[1, "On"], [0, "Off"]].map(([v, l]) => `<button data-act="guard" data-k="late" data-v="${v}" aria-pressed="${G.late === v}">${l}</button>`).join("")}</span>
+    <div class="list-h"><b>Betting-site warning</b><span>${G.bet ? "On" : "Off"}</span></div>
+    <p class="fine">When a casino or betting site asks to connect, Ecrin suggests waiting 10 minutes first. You can always connect anyway.</p>
+    <span class="seg wide">${[[1, "On"], [0, "Off"]].map(([v, l]) => `<button data-act="guard" data-k="bet" data-v="${v}" aria-pressed="${G.bet === v}">${l}</button>`).join("")}</span>
     <p class="fine pad">The limit and the pause protect this device. Your Safe's own rules protect your money even from someone who has your recovery phrase.</p>`;
 }
 
@@ -1955,6 +1988,8 @@ function settingsView() {
 }
 // What's new: shown once after an update (never on a fresh install), and any time from Settings → About.
 const NEWS = [
+  ["Late-night pause", "Between midnight and 6 AM, starting a withdrawal from your Safe first offers to sleep on it. You can always continue."],
+  ["Betting-site warning", "Turn it on in Settings → Safety: when a casino or betting site asks to connect, Ecrin suggests waiting 10 minutes first."],
   ["Ecrin mode", "A third look in Settings → Appearance: deep Ecrin blue, white and ivory, with your coins in beige, white, grey and black."],
   ["Calm price moves", "When a price updates, its digits roll and the figure warms gently toward green or red, then settles."],
   ["A living chart", "On a coin's page the line draws itself, and a slow pulse marks the latest price."],
@@ -2253,6 +2288,7 @@ const actions = {
   "swap-sol": async () => { await useNet("sol"); S.panel = null; openPanel("swap"); const e = await eng(); S.panel.reserve = await e.reserve("native"); renderPanel(); },
   "ap-ok": async (el) => {
     const R = S.req; if (!R || R.busy) return;
+    if (R.kind === "connect" && S.guard.bet && isBetting(R.site?.host) && !(await betCheck(R.site.host))) return actions["ap-no"]();
     if (S.upd?.must) { R.err = "A security update is required before you can sign. Update Ecrin Wallet first."; return render(); }
     R.busy = true; render();
     if (R.wc) { try { await wcOk(R); } catch (e) { R.busy = false; R.err = e?.shortMessage || e?.message || String(e); render(); } return; }
@@ -2355,7 +2391,13 @@ const actions = {
     if (back === "protect" && S.panel === P && P.step === "done") { P.step = "form"; toast(`Safe opened on ${NETS[S.net].name}`, "win"); const e = await eng(); P.reserve = await e.reserve(P.asset); renderPanel(); }
   },
   "do-protect": () => { const P = S.panel, units = parseAmt(P.amount, P.asset); P.sent = units; txRun(async () => (await eng()).protect(P.asset, units), null, { t: "protect", a: P.asset, n: units }); },
-  "do-withdraw": () => { const P = S.panel, units = parseAmt(P.amount, P.asset); P.sent = units; txRun(async () => (await eng()).request(P.asset, ENG.address, units), null, { t: "withdraw", a: P.asset, n: units }); },
+  "do-withdraw": async () => { const P = S.panel;
+    if (S.guard.late && isLate() && !P.lateOk) {
+      const c = await choose({ icon: I.moon, title: "It's late.", text: careP("Your Safe will hold this until you're sure. If you still want it in the morning, it'll be here."), safe: "Sleep on it", go: "Start anyway", fine: "Shown between midnight and 6 AM. Change it in Settings → Safety." });
+      if (c !== "go") { closePanel(); toast("Your Safe has it. Sleep well.", "win"); return; }
+      P.lateOk = true;
+    }
+    const units = parseAmt(P.amount, P.asset); P.sent = units; txRun(async () => (await eng()).request(P.asset, ENG.address, units), null, { t: "withdraw", a: P.asset, n: units }); },
   "safe-go": async (el) => { el.disabled = true; await useNet(el.dataset.n); S.panel = null; openPanel(el.dataset.p); if (el.dataset.p === "protect") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); } },
   "cancel-w": async (el) => {
     const was = el.innerHTML;
@@ -2747,6 +2789,7 @@ function approveView() {
   if (site.phish) banners.push(["bad", `<b>Known scam site.</b> ${esc(site.host)} is on a phishing list. Sites like this copy real apps to steal money. Ecrin strongly advises you to reject.`]);
   if (site.like) banners.push(["bad", site.like.kind === "chars" ? `<b>Look-alike address.</b> ${esc(site.host)} uses letters that imitate other letters, a common phishing trick.` : `<b>Look-alike site.</b> ${esc(site.host)} looks like <b>${esc(site.like.like)}</b>, but it isn't. Check the address bar carefully.`]);
   if (!site.https) banners.push(["warn", "This site isn't secure (no https). Anyone on your network could change what it shows you."]);
+  if (kind === "connect" && S.guard?.bet && isBetting(site.host)) banners.push(["warn", "This looks like a betting site. You asked Ecrin to warn you about these."]);
   if (kind === "connect" && site.first && !site.phish && !site.like) banners.push(["note", "You haven't connected to this site before. Only connect to sites you trust."]);
   for (const d of pv?.danger || []) banners.push(["bad", esc(d)]);
   if (pv?.fail) banners.push(["warn", esc(pv.fail)]);

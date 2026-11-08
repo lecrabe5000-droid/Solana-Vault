@@ -2919,6 +2919,15 @@ html:root[data-skin="ecrin"] .lz-seg.r2 { stroke: #8f9abd !important; } html:roo
 html:root[data-skin="ecrin"] .cdot { background: #efe4cf !important; box-shadow: none !important; }
 html:root[data-skin="ecrin"] :is(.sf-arc, .sf-run) { stroke: #ffffff !important; filter: drop-shadow(0 0 10px rgba(255, 255, 255, .45)); }
 
+/* 0.20.0 care sheets: late-night pause and betting-site warning */
+.ask-w.care .ask { text-align: center; }
+.care-ic { display: grid; place-items: center; width: 58px; height: 58px; margin: 6px auto 12px; border-radius: 19px; background: rgba(127, 149, 255, .12); color: #9db0ff; }
+.care-ic svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+:root[data-theme="light"] .care-ic { background: rgba(47, 91, 255, .08); color: #2f5bff; }
+.care-host { display: inline-block; margin: 6px auto 4px; padding: 6px 12px; border-radius: 999px; background: var(--h2, rgba(127, 127, 127, .1)); color: var(--muted); font: 500 13.5px var(--font); }
+.ask-w.care .ask p { text-align: center; }
+.care-fine { margin-top: 12px !important; color: var(--dim) !important; font-size: 12.5px !important; line-height: 1.45; }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
 #root, #panel { top: 0; bottom: 0; }
