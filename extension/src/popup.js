@@ -612,7 +612,9 @@ function render() {
   if (S.screen === "home" && S.lastScreen !== "home") { S.homeT0 = performance.now(); S.homeSynced = false; } // arriving on home: the entrance plays once
   S.lastScreen = S.screen;
   if (FULL) document.documentElement.dataset.fpSetup = ["welcome", "createPw", "createPhrase", "createVerify", "importPhrase", "ready"].includes(S.screen) ? "1" : "";
-  root.innerHTML = ({ ready: readyView, loading: () => `<div class="splash boot"><div class="boot-mark">${WORDMARK("lg")}</div><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div></div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
+  const html = ({ ready: readyView, loading: () => `<div class="splash boot"><div class="boot-mark">${WORDMARK("lg")}</div><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div></div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
+  S.homeSig = S.screen === "home" ? viewSig(html) : null;
+  root.innerHTML = html;
   translate(root, S.lang);
   stageHome(root); maybeNews();
   // The three floating buttons live outside #root, made once, so re-renders and panels never make them blink.
@@ -1458,7 +1460,13 @@ function dur(s) { if (s <= 0) return "ready"; const d = Math.floor(s / 86400), h
 // ------------------------------------------------------------------ panels (slide over the home screen)
 
 function openPanel(p, opts = {}) { if (p === "vault") S.shT0 = 0; S.cvT0 = 0; S.panel = { p, step: "form", asset: opts.a || "native", amount: "", to: "", ...opts }; renderPanel(true); }
-function closePanel() { if (S.panel?.step === "done" && (S.panel.p === "protect" || S.panel.p === "withdraw")) S.fly = S.panel.p; const el = $("#panel"); el.classList.remove("in"); document.body.classList.remove("stacked"); setTimeout(() => { if (!S.panel) el.innerHTML = ""; }, 260); S.panel = null; render(); }
+function closePanel() { if (S.panel?.step === "done" && (S.panel.p === "protect" || S.panel.p === "withdraw")) S.fly = S.panel.p; const el = $("#panel"); el.classList.remove("in"); document.body.classList.remove("stacked"); setTimeout(() => { if (!S.panel) el.innerHTML = ""; }, 260); S.panel = null;
+  // Coming back to home: if nothing on it changed, keep the screen as it is instead of rebuilding it mid-slide
+  // (a rebuild re-decodes every coin logo and the rows visibly settle for a moment).
+  if (S.screen === "home" && !S.fly && S.homeSig && viewSig(homeView()) === S.homeSig) { syncTabbar(); return; }
+  render(); }
+// The home markup minus anything that only encodes the passing time (animation offsets), to tell real changes apart.
+const viewSig = (h) => String(h).replace(/-?\d+(\.\d+)?ms/g, "").replace(/ (intro|draw|enter|fresh)(?=["\s])/g, "").replace(/ (?:[xy][12]|c[xy]|f[xy])="-?\d+\.\d{3}"/g, "");
 
 function renderPanel(enter = false) {
   if (S.holdPanel && !enter) { S.panelDirty = true; return; } // a moment is playing on this page: redraw right after it
@@ -2229,7 +2237,10 @@ const actions = {
     try { const { phrase } = await session.get("phrase"); const box = await bioEnable(phrase); await local.set({ bio: box }); S.bio = box; toast(`${bioName()} is on`, "win"); renderPanel(); }
     catch (e) { if (e?.name !== "NotAllowedError") toast(e?.message || `Couldn't turn on ${bioName()}`, "err"); }
   },
-  "swap-flip": async () => { const P = S.panel; P.asset = P.asset === "usdc" ? "native" : "usdc"; P.amount = ""; P.pct = null; P.reserve = await (await eng()).reserve(P.asset); renderPanel(); },
+  "swap-flip": async () => { const P = S.panel, px = S.prices.solana?.usd, v = Number(String(P.amount || "").replace(/,/g, ""));
+    // what you would have received becomes what you pay, like every swap screen
+    P.amount = px && v > 0 ? String(+(P.asset === "usdc" ? v / px : v * px).toFixed(P.asset === "usdc" ? 4 : 2)) : "";
+    P.asset = P.asset === "usdc" ? "native" : "usdc"; P.pct = null; P.flipped = true; P.reserve = await (await eng()).reserve(P.asset); renderPanel(); },
   "swap-sol": async () => { await useNet("sol"); S.panel = null; openPanel("swap"); const e = await eng(); S.panel.reserve = await e.reserve("native"); renderPanel(); },
   "ap-ok": async (el) => {
     const R = S.req; if (!R || R.busy) return;
@@ -2803,7 +2814,7 @@ function swapView() {
   const a = P.asset, b = a === "usdc" ? "native" : "usdc", units = parseAmt(P.amount, a), px = S.prices.solana?.usd;
   const fee = SWAP.feeBps / 10_000, inAmt = units / A(a).base;
   const out = px && inAmt ? (a === "native" ? inAmt * px : inAmt / px) * (1 - fee) : 0;
-  const rate = px ? (a === "native" ? `1 SOL ≈ ${money(px)}` : `1 USDC ≈ ${(1 / px).toFixed(6)} SOL`) : "—";
+  const rate = px ? `1 SOL ≈ ${money(px)}` : "—";
   const max = sendMax(), over = units > max, usdIn = usdOf(units, a), usdOut = out && px ? (b === "usdc" ? out : out * px) : null;
   const bal = (x) => amt(Math.max(0, x === a ? max : (S.bal?.[x] || 0)), x);
   const chip = (x) => `<span class="sx-coin">${assetCoin(x)}<b>${A(x).unit}</b><small>${x === "usdc" ? "USD Coin" : N.name}</small></span>`;
@@ -2813,21 +2824,21 @@ function swapView() {
     <div class="sx-soon"><i></i>Preview · swaps open with mainnet</div>
     <div class="sx-pair">
       <div class="sx-card${over ? " over" : ""}">
-        <div class="sx-top"><span class="sx-k">You pay</span><span class="sx-bal">${I.card}${bal(a)} ${A(a).unit}</span></div>
+        <div class="sx-top"><span class="sx-k">You pay</span><span class="sx-bal">Balance ${bal(a)} ${A(a).unit}</span></div>
         <div class="sx-row">${chip(a)}<input class="sx-in" data-amount inputmode="decimal" placeholder="0" value="${esc(P.amount)}" autocomplete="off" autofocus/></div>
         <div class="sx-foot"><span class="sx-pcts">${[25, 50, 100].map((v) => `<button data-act="pct" data-v="${v}" class="${P.pct === v ? "on" : ""}">${v === 100 ? "Max" : v + "%"}</button>`).join("")}</span><span class="sx-usd">${over ? `<span class="bad">Not enough</span>` : usdIn != null && units ? money(usdIn) : ""}</span></div>
       </div>
-      <button class="sx-flip" data-act="swap-flip" aria-label="Swap direction"><svg viewBox="0 0 24 24"><path d="M8 4v15M8 19l-4-4M8 19l4-4M16 20V5M16 5l-4 4M16 5l4 4"/></svg></button>
+      <button class="sx-flip${P.flipped ? " spun" : ""}" data-act="swap-flip" aria-label="Swap direction"><svg viewBox="0 0 24 24"><path d="M8 4v15M8 19l-4-4M8 19l4-4M16 20V5M16 5l-4 4M16 5l4 4"/></svg></button>
       <div class="sx-card to">
-        <div class="sx-top"><span class="sx-k">You receive</span><span class="sx-bal">${I.card}${bal(b)} ${A(b).unit}</span></div>
+        <div class="sx-top"><span class="sx-k">You receive</span><span class="sx-bal">Balance ${bal(b)} ${A(b).unit}</span></div>
         <div class="sx-row">${chip(b)}<b class="sx-out${out ? "" : " zero"}">${out ? out.toLocaleString("en-US", { maximumFractionDigits: b === "usdc" ? 2 : 4 }) : "0"}</b></div>
-        <div class="sx-foot"><span class="sx-est">Best price across every exchange</span><span class="sx-usd">${usdOut != null ? money(usdOut) : ""}</span></div>
+        <div class="sx-foot"><span class="sx-est">Estimate</span><span class="sx-usd">${usdOut != null ? money(usdOut) : ""}</span></div>
       </div>
     </div>
-    <div class="sx-rate"><span class="sx-live"><i></i>${rate}</span><span class="sx-route">via Jupiter</span></div>
+    <div class="sx-rate"><span class="sx-live"><i></i>${rate}</span><span class="sx-route">Best price via Jupiter</span></div>
     <div class="sx-kv"><div><span>Ecrin fee</span><b>${(SWAP.feeBps / 100).toFixed(1)}%</b></div><div><span>Network fee</span><b>${N.unit === "SOL" ? "< 0.001 SOL" : "—"}</b></div><div><span>Price protection</span><b>0.5% max slippage</b></div></div>
     <div class="sx-note">${I.lock}<span>Swaps use your Wallet only. Money in your Safe never moves without its delay.</span></div>
-    <button class="sx-go" ${SWAP.live && units && !over ? "" : "disabled"}>${SWAP.live ? (units ? (over ? "Not enough " + A(a).unit : "Swap") : "Enter an amount") : "Coming soon"}</button>
+    ${(P.flipped = false, "")}<button class="sx-go" ${SWAP.live && units && !over ? "" : "disabled"}>${SWAP.live ? (units ? (over ? "Not enough " + A(a).unit : "Swap") : "Enter an amount") : "Coming soon"}</button>
   </div>`;
 }
 

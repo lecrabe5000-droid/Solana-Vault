@@ -2864,3 +2864,17 @@ html body #tabbar#tabbar button .tb-logo .logo { width: 20px; height: 20px; }
 .sf-ring .p[data-ru] { transition: stroke-dasharray 1s linear; }
 @media (prefers-reduced-motion: reduce) { .tk-up, .tk-dn, .tk-dot::after, .tk-chart.draw .tk-dot { animation: none !important; } .sf-ring .p[data-ru] { transition: none; } }
 .ptr .wm-mark { width: 22px; height: 22px; display: block; }
+
+/* 0.18.1 Swap polish: a solid flip diamond in both themes, no input box, calm rate dot, button always in reach */
+html:root[data-theme] #panel .sx .sx-flip.sx-flip { transform: rotate(45deg) !important; border-radius: 15px !important; width: 46px; height: 46px; border: 0 !important; transition: transform .2s !important; }
+html:root[data-theme="light"] #panel .sx .sx-flip.sx-flip { background: #101114 !important; color: #fff !important; box-shadow: 0 0 0 5px #f3f2ee, 0 10px 22px -12px rgba(16, 17, 20, .55) !important; }
+html:root[data-theme="dark"] #panel .sx .sx-flip.sx-flip { background: var(--ivory) !important; color: var(--ivory-ink) !important; box-shadow: 0 0 0 5px var(--bg) !important; }
+html:root[data-theme] #panel .sx .sx-flip.sx-flip:active { transform: rotate(45deg) scale(.9) !important; }
+.sx .sx-flip svg { transform: rotate(-45deg); }
+.sx .sx-flip.spun svg { animation: sx-spun .5s cubic-bezier(.3, 1.3, .5, 1); }
+@keyframes sx-spun { from { transform: rotate(-225deg); } to { transform: rotate(-45deg); } }
+html:root[data-theme] #panel .sx .sx-card input.sx-in { background: transparent !important; box-shadow: none !important; border: 0 !important; padding: 0 !important; border-radius: 0 !important; height: auto !important; }
+.sx .sx-bal { font-variant-numeric: tabular-nums; }
+html:root[data-theme] #panel .sx .sx-live i { background: #2f5bff; box-shadow: 0 0 0 3px rgba(47, 91, 255, .18); animation: none; }
+.sx .sx-route { color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .sx .sx-flip.spun svg { animation: none; } }
