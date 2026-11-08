@@ -2,6 +2,7 @@
 // French version: exact phrases first, then patterns for phrases with numbers or names in them. Anything not
 // listed stays in English rather than being guessed.
 const FR = {
+  "Saved by Ecrin": "Sauvé par Ecrin", "Share on X": "Partager sur X", "Save image": "Enregistrer l'image", "Not now": "Plus tard", "Image saved": "Image enregistrée",
   "Pin": "Épinglez",
   "Open as popup": "Ouvrir en popup", "Keep using it in this tab": "Continuer dans cet onglet", "Click the Ecrin icon in your toolbar to open the popup.": "Cliquez sur l'icône Ecrin dans la barre d'outils pour ouvrir la popup.",
   "Ecrin in a full tab": "Ecrin en plein onglet", "Set-up opens in its own page, and Settings → Open in a tab gives you the big view any time.": "La configuration s'ouvre dans sa propre page, et Réglages → Ouvrir dans un onglet vous donne la grande vue à tout moment.",

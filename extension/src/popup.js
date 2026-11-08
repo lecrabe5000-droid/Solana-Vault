@@ -32,7 +32,7 @@ if (FULL) {
       <li><i>${'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>'}</i><span><b>Cancel any time</b>Something wrong? Stop it before it lands. Alerts by Telegram or email.</span></li>
       <li><i>${'<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>'}</i><span><b>Every network, one wallet</b>Solana, Ethereum, Base, Arbitrum and more. Test coins only for now.</span></li></ul>
     <p class="fp-fine">Not audited yet. Never use real funds in the beta.</p></aside>`);
-  document.body.insertAdjacentHTML("afterbegin", `<header class="fp-h"><span class="fp-logo">${LOGO}</span><b>Ecrin Wallet</b><span class="fp-tag">Testnet beta</span><nav><a href="https://ecrinprotocol.app/how-it-works/" target="_blank">How it works</a><a href="https://ecrinprotocol.app/security/" target="_blank">Security</a><a href="https://ecrinprotocol.app/" target="_blank">ecrinprotocol.app</a></nav></header>`);
+  document.body.insertAdjacentHTML("afterbegin", `<header class="fp-h">${WORDMARK("md")}<b class="fp-sub">Wallet</b><span class="fp-tag">Testnet beta</span><nav><a href="https://ecrinprotocol.app/how-it-works/" target="_blank">How it works</a><a href="https://ecrinprotocol.app/security/" target="_blank">Security</a><a href="https://ecrinprotocol.app/" target="_blank">ecrinprotocol.app</a></nav></header>`);
   });
 }
 const $ = (s, r = document) => r.querySelector(s);
@@ -89,6 +89,9 @@ const I = {
   sun: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>',
   moon: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>',
 };
+// The website's lockup: the blue outlined mark and "Ecrin" in Unbounded (the curved E).
+const MARK = '<svg viewBox="0 0 32 32" class="wm-mark" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="#2F5BFF" stroke-width="2.2"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="#2F5BFF"/></svg>';
+const WORDMARK = (cls = "") => `<span class="wm ${cls}">${MARK}<b>Ecrin</b></span>`;
 const LOGO = '<svg viewBox="0 0 32 32" class="logo"><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="currentColor"/></svg>';
 const SOLP = "M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1zM64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1zM333.1 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H6.5c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1z";
 let gid = 0;
@@ -473,6 +476,46 @@ function ask(text, { ok = "Continue", danger = false, title = "" } = {}) {
   });
 }
 
+// ------------------------------------------------------------------ "Saved by Ecrin"
+// After a cancel: a card worth posting. Drawn on the spot in Ecrin's own type, nothing leaves the device unless you share.
+async function shareCard(amt) {
+  try { await Promise.all(['500 46px "Unbounded"', '400 150px "Geist"', '600 50px "IBM Plex Sans"', '500 28px "IBM Plex Sans"'].map((f) => document.fonts.load(f))); } catch (_) {}
+  const c = document.createElement("canvas"); c.width = 1200; c.height = 675; const x = c.getContext("2d");
+  x.fillStyle = "#0c0d0f"; x.fillRect(0, 0, 1200, 675);
+  let g = x.createRadialGradient(900, 330, 20, 900, 330, 520); g.addColorStop(0, "rgba(47,91,255,.42)"); g.addColorStop(.55, "rgba(47,91,255,.08)"); g.addColorStop(1, "rgba(47,91,255,0)"); x.fillStyle = g; x.fillRect(0, 0, 1200, 675);
+  const rr = (X, Y, W, H, R) => { x.beginPath(); x.moveTo(X + R, Y); x.arcTo(X + W, Y, X + W, Y + H, R); x.arcTo(X + W, Y + H, X, Y + H, R); x.arcTo(X, Y + H, X, Y, R); x.arcTo(X, Y, X + W, Y, R); x.closePath(); };
+  // the lockup, as on the website
+  x.strokeStyle = "#2F5BFF"; x.lineWidth = 3.4; rr(76, 70, 46, 46, 13); x.stroke();
+  x.fillStyle = "#2F5BFF"; x.beginPath(); x.moveTo(99, 80); x.lineTo(108, 93); x.lineTo(99, 106); x.lineTo(90, 93); x.closePath(); x.fill();
+  x.fillStyle = "#f3f3ef"; x.font = '500 40px "Unbounded", sans-serif'; x.textBaseline = "middle"; x.fillText("Ecrin", 138, 95);
+  // the moment
+  x.textBaseline = "alphabetic"; let fs = 132; do { x.font = `400 ${fs}px "Geist", sans-serif`; } while (x.measureText(amt).width > 700 && (fs -= 6) > 60); x.fillStyle = "#f3f3ef"; x.fillText(amt, 72, 330);
+  x.font = '600 50px "IBM Plex Sans", sans-serif'; x.fillStyle = "#8ea4ff"; x.fillText("kept in my Safe.", 76, 400);
+  x.font = '500 28px "IBM Plex Sans", sans-serif'; x.fillStyle = "#9a9da6"; x.fillText("A withdrawal was cancelled before it ever left.", 76, 460);
+  x.font = '500 22px "IBM Plex Sans", sans-serif'; x.fillStyle = "#6f727a"; x.fillText("ecrinprotocol.app  ·  the on-chain Safe for your crypto", 76, 600);
+  // the confirmation diamond
+  x.save(); x.translate(960, 330); x.rotate(Math.PI / 4); x.shadowColor = "rgba(47,91,255,.8)"; x.shadowBlur = 60;
+  x.fillStyle = "#2f5bff"; rr(-92, -92, 184, 184, 48); x.fill(); x.shadowBlur = 0; x.strokeStyle = "#7d97ff"; x.lineWidth = 4; rr(-112, -112, 224, 224, 58); x.stroke(); x.restore();
+  x.strokeStyle = "#fff"; x.lineWidth = 16; x.lineCap = "round"; x.lineJoin = "round"; x.beginPath(); x.moveTo(918, 334); x.lineTo(948, 364); x.lineTo(1006, 302); x.stroke();
+  return await new Promise((r) => c.toBlob(r, "image/png"));
+}
+async function offerShare(amt) {
+  const blob = await shareCard(amt); if (!blob) return; const url = URL.createObjectURL(blob);
+  const post = `Just stopped a withdrawal with @ecrinprotocol: ${amt} kept in my Safe.\n\nAn on-chain Safe where money waits before it leaves, and you can cancel. ecrinprotocol.app`;
+  const w = document.createElement("div"); w.className = "ask-w";
+  w.innerHTML = `<div class="ask-bg"></div><div class="ask share-s"><i class="sheet-h"></i><b class="ask-t">${esc(trText("Saved by Ecrin", S.lang))}</b><img class="sc-img" src="${url}" alt=""/>
+    <button class="btn xl primary" data-x>${esc(trText("Share on X", S.lang))}</button><button class="btn xl" data-save>${esc(trText("Save image", S.lang))}</button><button class="btn xl ghost" data-no>${esc(trText("Not now", S.lang))}</button></div>`;
+  (document.querySelector(".device") || document.body).append(w); requestAnimationFrame(() => w.classList.add("in"));
+  const end = () => { w.classList.remove("in"); setTimeout(() => { w.remove(); URL.revokeObjectURL(url); }, 320); };
+  w.querySelector(".ask-bg").onclick = end; w.querySelector("[data-no]").onclick = end;
+  w.querySelector("[data-x]").onclick = () => { window.open(`https://x.com/intent/post?text=${encodeURIComponent(post)}`, "_blank"); end(); };
+  w.querySelector("[data-save]").onclick = async () => {
+    const file = new File([blob], "saved-by-ecrin.png", { type: "image/png" });
+    try { if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], text: post }); return end(); } } catch (_) { return; }
+    const a = document.createElement("a"); a.href = url; a.download = "saved-by-ecrin.png"; a.click(); toast("Image saved", "win"); setTimeout(end, 300);
+  };
+}
+
 // ------------------------------------------------------------------ kept safe
 // Cancelling a withdrawal: the card confirms with a drawn check, a diamond carries the money back up into the Safe
 // (which answers with a pulse), and the card folds away. Everything is on transforms and opacity; skipped with Reduce
@@ -562,7 +605,7 @@ function render() {
   if (S.screen === "home" && S.lastScreen !== "home") { S.homeT0 = performance.now(); S.homeSynced = false; } // arriving on home: the entrance plays once
   S.lastScreen = S.screen;
   if (FULL) document.documentElement.dataset.fpSetup = ["welcome", "createPw", "createPhrase", "createVerify", "importPhrase", "ready"].includes(S.screen) ? "1" : "";
-  root.innerHTML = ({ ready: readyView, loading: () => `<div class="splash boot"><div class="boot-mark"><span>${LOGO}</span><b>ECRIN</b></div><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div></div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
+  root.innerHTML = ({ ready: readyView, loading: () => `<div class="splash boot"><div class="boot-mark">${WORDMARK("lg")}</div><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div></div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
   translate(root, S.lang);
   stageHome(root); maybeNews();
   // The three floating buttons live outside #root, made once, so re-renders and panels never make them blink.
@@ -880,7 +923,7 @@ function homeView() {
     </header>
     ${S.err ? `<div class="banner">${esc(S.err)}</div>` : ""}
     ${S.offline ? `<div class="offline"><i></i>You're offline · showing your last balances</div>` : ""}${updateBanner()}${backupCard()}
-    <div class="brand-sig" title="Test networks only: these coins have no value"><span class="bs-logo">${LOGO}</span><b>ECRIN</b><i>Testnet</i></div>
+    <div class="brand-sig" title="Test networks only: these coins have no value">${WORDMARK()}<i>Testnet</i></div>
     <section class="hero"><svg class="hero-g" viewBox="0 0 360 230" preserveAspectRatio="xMidYMin slice" aria-hidden="true">${Array.from({ length: 30 }, (_, i) => `<ellipse cx="${180 + Math.sin(i / 2.6) * 6}" cy="${-10 + Math.cos(i / 2.6) * 4}" rx="${40 + i * 9}" ry="${22 + i * 6.2}"/>`).join("")}</svg>
       <div class="lz-wrap">${lozenge(w, loading)}
         <div class="lz-in">
@@ -1876,7 +1919,7 @@ function settingsView() {
       <a class="srow" href="https://ecrinprotocol.app/privacy/" target="_blank"><span>${I.lock}Privacy</span><span class="sv">${I.ext}</span></a>
       <a class="srow" href="https://ecrinprotocol.app/terms/" target="_blank"><span>${I.card}Terms</span><span class="sv">${I.ext}</span></a>`)}
     <div class="sets danger-z"><button class="srow danger" data-act="forget"><span>Remove wallet from this browser</span><span></span></button></div>
-    <div class="set-sig"><span class="ss-logo">${LOGO}</span><b>Ecrin Wallet</b><small>Version ${VERSION} · testnet beta · not audited</small></div>`;
+    <div class="set-sig">${WORDMARK("md")}<b>Wallet</b><small>Version ${VERSION} · testnet beta · not audited</small></div>`;
 }
 // What's new: shown once after an update (never on a fresh install), and any time from Settings → About.
 const NEWS = [
@@ -1933,7 +1976,10 @@ async function logActivity(e) { const k = actKey(), list = await readActivity();
 async function txRun(fn, after, log) {
   if (S.upd?.must) return toast("A security update is required before you can send. Update Ecrin Wallet first.", "err");
   const P = S.panel; P.step = "sending"; renderPanel();
-  try { S.lastTx = Date.now(); const sig = await fn(); S.lastTx = Date.now(); P.sig = typeof sig === "string" ? sig : null; await after?.(); if (log) await logActivity({ ...log, sig: P.sig }); P.step = "done"; haptic("success"); await refresh(); loadActivity(); loadAll(); }
+  try { S.lastTx = Date.now(); const sig = await fn(); S.lastTx = Date.now(); P.sig = typeof sig === "string" ? sig : null; await after?.(); if (log) await logActivity({ ...log, sig: P.sig }); P.step = "done"; haptic("success");
+    // Show it done now and move the numbers on screen at once; the network's own numbers replace them a moment later.
+    if (log && S.bal && (log.t === "send" || log.t === "protect") && log.n) { const k = log.a === "usdc" ? "usdc" : "native"; S.bal = { ...S.bal, [k]: Math.max(0, Number(S.bal[k] || 0) - Number(log.n)) }; }
+    renderPanel(); refresh().then(() => { loadActivity(); loadAll(); }); return; }
   catch (e) { console.warn(e); P.step = "form"; toast(errText(e), "err"); }
   renderPanel();
 }
@@ -2278,10 +2324,13 @@ const actions = {
   "cancel-w": async (el) => {
     const was = el.innerHTML;
     try {
+      const keptAmt = (el.closest(".sf-alert, .sf-w")?.textContent.match(/([\d.,]+)\s+([A-Z]{2,6})/) || []).slice(1, 3).join(" ");
       el.disabled = true; el.classList.add("busy"); el.innerHTML = `<i class="btn-spin"></i>${trText("Keeping it safe…", S.lang)}`;
       await useNet(el.dataset.n); await (await eng()).cancel(el.dataset.a, Number(el.dataset.id)); await logActivity({ t: "cancel", a: el.dataset.a });
-      if (!(await keepFx(el))) { haptic("success"); toast("Cancelled. It stays in your Safe.", "win"); }
+      const played = await keepFx(el);
+      if (!played) { haptic("success"); toast("Cancelled. It stays in your Safe.", "win"); }
       loadActivity();
+      if (played && keptAmt) setTimeout(() => offerShare(keptAmt), 400);
       await refresh(); loadAll();
     } catch (e) { el.disabled = false; el.classList.remove("busy"); el.innerHTML = was; toast(errText(e), "err"); }
   },
