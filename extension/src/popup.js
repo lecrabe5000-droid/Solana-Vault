@@ -1923,10 +1923,10 @@ function settingsView() {
 }
 // What's new: shown once after an update (never on a fresh install), and any time from Settings → About.
 const NEWS = [
+  ["The Ecrin mark, everywhere", "The same diamond and wordmark as our website, on home, at start-up and in Settings."],
+  ["Instant confirmations", "Send and Protect show the result the moment it lands, and your balance updates right away."],
+  ["Saved by Ecrin", "Cancel a withdrawal and you can share a card of what you kept, or save it as an image."],
   ["Ecrin in a full tab", "Set-up opens in its own page, and Settings → Open in a tab gives you the big view any time."],
-  ["Send, refined", "A clearer amount, and a card that shows who you're paying, with their logo, before you review."],
-  ["A finished look everywhere", "The coin page, Settings, activity receipts and the lock screen now match the rest of Ecrin."],
-  ["Getting started", "New here? Three steps on home show you what the Safe does, with your progress."],
 ];
 function newsView() {
   return `${phead("What's new")}<div class="pad news"><p class="news-v">Ecrin Wallet ${VERSION}</p>
