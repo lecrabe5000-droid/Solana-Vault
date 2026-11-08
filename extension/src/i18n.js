@@ -202,6 +202,7 @@ const FR = {
 };
 // Phrases with numbers or names: [pattern, replacement].
 const FR_RE = [
+  [/^Version (.+) · testnet beta · not audited$/, "Version $1 · bêta testnet · non audité"],
   [/^(\d) of 3$/, "$1 sur 3"], [/^Delete (.+) from your contacts\?$/, "Supprimer $1 de vos contacts ?"], [/^Remove (.+)\?$/, "Retirer $1 ?"], [/^Turn off (.+)\?$/, "Désactiver $1 ?"],
   [/^Requesting (.+)$/, "Demande de $1"], [/^Any amount of (.+)$/, "N'importe quel montant de $1"], [/^(\d+) alerts? on$/, (m, n) => `${n} alerte${n > 1 ? "s" : ""} active${n > 1 ? "s" : ""}`],
   [/^Opens in any (.+) wallet that scans it\.$/, "S'ouvre dans tout portefeuille $1 qui le scanne."],

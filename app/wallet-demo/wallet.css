@@ -2798,3 +2798,31 @@ html[data-full][data-theme="light"] .fp-pts i { color: #2f5bff; background: rgba
 .fp-dck { display: grid; place-items: center; margin-bottom: 4px; }
 .done .done-mark { display: none; }
 @media (prefers-reduced-motion: reduce) { .dck .o, .dck .t { animation: none; stroke-dashoffset: 0; } .dck .f { animation: none; opacity: 1; transform: none; } .dck .p { display: none; } }
+
+/* =====================================================================
+   0.16.0 — Ecrin, signed: the name and mark where they belong
+   ===================================================================== */
+/* home: a quiet signature above the diamond */
+.brand-sig { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 2px 0 -6px; color: var(--ink); }
+.brand-sig .bs-logo { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; background: #2f5bff; box-shadow: 0 6px 16px -6px rgba(47, 91, 255, .9); }
+.brand-sig .bs-logo .logo { width: 14px; height: 14px; color: #fff; }
+.brand-sig b { font: 600 12px var(--font); letter-spacing: .32em; margin-right: -.32em; }
+.brand-sig i { font-style: normal; margin-left: 4px; padding: 2px 8px; border-radius: 999px; font: 600 9.5px var(--font); letter-spacing: .14em; text-transform: uppercase; color: #9db0ff; background: rgba(47, 91, 255, .13); }
+:root[data-theme="light"] .brand-sig i { color: #2f5bff; background: rgba(47, 91, 255, .08); }
+.home.intro > .brand-sig { animation-name: hm-fade; }
+/* tab bar: the Wallet tab is the Ecrin mark */
+html body #tabbar#tabbar button .tb-logo .logo { width: 20px; height: 20px; }
+/* opening: the mark breathes in a blue glow */
+.splash.boot { display: grid; place-items: center; }
+.boot-mark { position: relative; z-index: 2; display: grid; justify-items: center; gap: 18px; color: var(--ink); animation: boot-in .7s cubic-bezier(.22, 1, .36, 1) both; }
+.boot-mark span { display: grid; place-items: center; width: 76px; height: 76px; border-radius: 23px; background: #2f5bff; box-shadow: 0 0 0 0 rgba(47, 91, 255, .5), 0 22px 50px -16px rgba(47, 91, 255, .95); animation: boot-breathe 2.4s ease-in-out .7s infinite; }
+.boot-mark span .logo { width: 44px; height: 44px; color: #fff; }
+.boot-mark b { font: 600 14px var(--font); letter-spacing: .42em; margin-right: -.42em; color: color-mix(in srgb, var(--ink) 80%, transparent); }
+@keyframes boot-in { from { opacity: 0; transform: translateY(10px) scale(.96); } }
+@keyframes boot-breathe { 50% { box-shadow: 0 0 0 14px rgba(47, 91, 255, 0), 0 22px 60px -12px rgba(47, 91, 255, 1); transform: scale(1.03); } }
+/* settings: signed at the bottom */
+.set-sig { display: grid; justify-items: center; gap: 6px; margin: 26px 0 30px; text-align: center; color: var(--ink); }
+.set-sig .ss-logo { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: #2f5bff; box-shadow: 0 10px 26px -10px rgba(47, 91, 255, .9); }
+.set-sig .ss-logo .logo { width: 24px; height: 24px; color: #fff; }
+.set-sig b { margin-top: 4px; font: 600 15px var(--font); } .set-sig small { font-size: 12px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .boot-mark, .boot-mark span { animation: none; } }

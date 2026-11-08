@@ -552,7 +552,7 @@ function chime(kind) {
 const AURA_T0 = performance.now();
 const auraT = () => `--at:${-Math.round(performance.now() - AURA_T0)}ms`;
 const TABBAR = `<nav id="tabbar" class="tabbar" aria-label="Main">
-      <button class="on" data-tab="home" data-act="tb-home" aria-label="Wallet"><span>${I.card}</span><b>Wallet</b></button>
+      <button class="on" data-tab="home" data-act="tb-home" aria-label="Wallet"><span class="tb-logo">${LOGO}</span><b>Wallet</b></button>
       <button data-tab="swap" data-act="tb-go" data-p="swap" aria-label="Swap"><span>${I.swap}</span><b>Swap</b></button>
       <button data-tab="vault" data-act="tb-go" data-p="vault" aria-label="Safe"><span>${I.lock}</span><b>Safe</b></button>
     </nav>`;
@@ -562,7 +562,7 @@ function render() {
   if (S.screen === "home" && S.lastScreen !== "home") { S.homeT0 = performance.now(); S.homeSynced = false; } // arriving on home: the entrance plays once
   S.lastScreen = S.screen;
   if (FULL) document.documentElement.dataset.fpSetup = ["welcome", "createPw", "createPhrase", "createVerify", "importPhrase", "ready"].includes(S.screen) ? "1" : "";
-  root.innerHTML = ({ ready: readyView, loading: () => `<div class="splash boot"><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div></div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
+  root.innerHTML = ({ ready: readyView, loading: () => `<div class="splash boot"><div class="boot-mark"><span>${LOGO}</span><b>ECRIN</b></div><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div></div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
   translate(root, S.lang);
   stageHome(root); maybeNews();
   // The three floating buttons live outside #root, made once, so re-renders and panels never make them blink.
@@ -874,13 +874,13 @@ function homeView() {
   return `<div class="home${introCls()}"${introVar()}><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i><i class="a4"></i></div>
     <header class="top">
       <button class="acct" data-act="panel" data-p="accts" title="Your accounts">${acctIc(curAcct())}<span class="acct-n">${esc(curAcct().name)}</span><span class="top-total">${loading ? "" : mask(money(w.total))}</span>${I.chev}</button>
-      <span class="tn-chip" title="Test networks only: these coins have no value">Testnet</span>
       <div class="top-r">
         <button class="ib" data-act="settings" aria-label="Settings">${I.gear}</button>
       </div>
     </header>
     ${S.err ? `<div class="banner">${esc(S.err)}</div>` : ""}
     ${S.offline ? `<div class="offline"><i></i>You're offline · showing your last balances</div>` : ""}${updateBanner()}${backupCard()}
+    <div class="brand-sig" title="Test networks only: these coins have no value"><span class="bs-logo">${LOGO}</span><b>ECRIN</b><i>Testnet</i></div>
     <section class="hero"><svg class="hero-g" viewBox="0 0 360 230" preserveAspectRatio="xMidYMin slice" aria-hidden="true">${Array.from({ length: 30 }, (_, i) => `<ellipse cx="${180 + Math.sin(i / 2.6) * 6}" cy="${-10 + Math.cos(i / 2.6) * 4}" rx="${40 + i * 9}" ry="${22 + i * 6.2}"/>`).join("")}</svg>
       <div class="lz-wrap">${lozenge(w, loading)}
         <div class="lz-in">
@@ -1876,7 +1876,7 @@ function settingsView() {
       <a class="srow" href="https://ecrinprotocol.app/privacy/" target="_blank"><span>${I.lock}Privacy</span><span class="sv">${I.ext}</span></a>
       <a class="srow" href="https://ecrinprotocol.app/terms/" target="_blank"><span>${I.card}Terms</span><span class="sv">${I.ext}</span></a>`)}
     <div class="sets danger-z"><button class="srow danger" data-act="forget"><span>Remove wallet from this browser</span><span></span></button></div>
-    <p class="fine pad">Ecrin Wallet ${VERSION} · testnet beta · not audited</p>`;
+    <div class="set-sig"><span class="ss-logo">${LOGO}</span><b>Ecrin Wallet</b><small>Version ${VERSION} · testnet beta · not audited</small></div>`;
 }
 // What's new: shown once after an update (never on a fresh install), and any time from Settings → About.
 const NEWS = [
