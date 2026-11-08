@@ -5,6 +5,7 @@
 //   Durable Object; a cron runs its check every minute once a channel's secret is set.
 import { AlertHub } from "./hub.js";
 import { handleSwap } from "./swap.js";
+import { handleRpc } from "./rpc.js";
 
 export { AlertHub };
 
@@ -21,7 +22,8 @@ export default {
       return Response.redirect(url.toString(), 301);
     }
     if (url.pathname === "/api/swap" || url.pathname === "/api/swap/status") return handleSwap(request, env);
-    const route = { "/api/alerts/start": "/start", "/api/alerts/status": "/status", "/api/alerts/email": "/email", "/api/alerts/confirm": "/confirm", "/api/alerts/unsub": "/unsub", "/api/telegram": "/telegram", "/api/waitlist": "/waitlist", "/api/waitlist/confirm": "/wconfirm", "/api/stats": "/stats", "/api/push/key": "/pushkey", "/api/push/subscribe": "/pushsub", "/api/push/unsubscribe": "/pushunsub" }[url.pathname];
+    if (url.pathname === "/api/rpc/sol") return handleRpc(request, env);
+    const route = { "/api/faucet": "/faucet", "/api/alerts/start": "/start", "/api/alerts/status": "/status", "/api/alerts/email": "/email", "/api/alerts/confirm": "/confirm", "/api/alerts/unsub": "/unsub", "/api/telegram": "/telegram", "/api/waitlist": "/waitlist", "/api/waitlist/confirm": "/wconfirm", "/api/stats": "/stats", "/api/push/key": "/pushkey", "/api/push/subscribe": "/pushsub", "/api/push/unsubscribe": "/pushunsub" }[url.pathname];
     if (route) return hub(env).fetch(new Request("https://hub" + route + url.search, request));
     // Pages, scripts and styles change with every deploy: browsers and Cloudflare must check for a newer copy each
     // time (a quick 304 when nothing changed). Fonts and images can stay cached.

@@ -9,6 +9,41 @@ import { SOL_USDC } from "../../app/config-tokens.js";
 import { EVM_NETS } from "../../app/config-evm.js";
 import { TRON, tronEngine } from "./tron.js";
 
+// When a network's public server is busy or down, try the next one. Only connection problems (refused, timed out,
+// rate limited, 5xx) move on to a backup; an answer from the network, even an error, is final.
+export const SOL_RPC_BACKUPS = ["https://ecrinprotocol.app/api/rpc/sol"];
+const busy = (r) => r.status === 429 || r.status >= 500;
+export function solConnection(web3, url, local = false) {
+  const urls = local ? [url] : [url, ...SOL_RPC_BACKUPS.filter((u) => u !== url)];
+  let at = 0;
+  const failover = async (input, init) => {
+    let last;
+    for (let k = 0; k < urls.length; k++) {
+      const u = urls[(at + k) % urls.length];
+      try { const r = await fetch(u, init); if (busy(r) && k < urls.length - 1) { last = new Error(`HTTP ${r.status}`); continue; } at = (at + k) % urls.length; return r; }
+      catch (e) { last = e; }
+    }
+    throw last;
+  };
+  return new web3.Connection(url, { commitment: "confirmed", fetch: local ? undefined : failover });
+}
+export function evmProvider(ethers, E, rpcOverride) {
+  const urls = rpcOverride ? [rpcOverride] : [E.rpc, E.rpc2].filter(Boolean);
+  class Failover extends ethers.JsonRpcProvider {
+    constructor() { super(urls[0], E.chainId, { staticNetwork: true }); this.at = 0; }
+    async _send(payload) {
+      let last;
+      for (let k = 0; k < urls.length; k++) {
+        const i = (this.at + k) % urls.length, req = new ethers.FetchRequest(urls[i]);
+        req.body = JSON.stringify(payload); req.setHeader("content-type", "application/json"); req.timeout = 12_000; req.setThrottleParams({ maxAttempts: 1 });
+        try { const res = await req.send(); res.assertOk(); this.at = i; const out = res.bodyJson; return Array.isArray(out) ? out : [out]; } catch (e) { last = e; }
+      }
+      throw last;
+    }
+  }
+  return new Failover();
+}
+
 export const NETS = {
   sol: { key: "sol", fam: "sol", name: "Solana", net: "Devnet", unit: "SOL", cg: "solana", explorer: (k, id) => `https://explorer.solana.com/${k}/${id}?cluster=devnet`, usdc: SOL_USDC.devnet, contract: CONFIG.programId, rpc: CONFIG.rpc, faucet: "https://faucet.solana.com" },
   tron: TRON,
@@ -35,7 +70,7 @@ export function engine({ web3, ethers, acct, net, dev = {} }) {
 }
 
 function solEngine({ web3, acct, N, dev }) {
-  const conn = new web3.Connection(dev.solRpc || N.rpc, "confirmed");
+  const conn = solConnection(web3, dev.solRpc || N.rpc, !!dev.solRpc);
   const programId = dev.programId || N.contract, mintAddr = dev.usdcMint || N.usdc;
   const client = createClient({ web3, connection: conn, programId });
   const me = acct.sol.publicKey, kp = acct.sol;
@@ -153,7 +188,7 @@ function solEngine({ web3, acct, N, dev }) {
 
 function evmEngine({ ethers, acct, N, dev }) {
   const E = { ...N.E, ...(dev.evm?.[N.key] || {}) };
-  const provider = new ethers.JsonRpcProvider(E.rpc, E.chainId, { staticNetwork: true });
+  const provider = evmProvider(ethers, E, dev.evm?.[N.key]?.rpc);
   const wallet = acct.evm.connect(provider);
   const client = E.address ? createEvmClient({ ethers, EVM: E, readProvider: provider, getSigner: async () => wallet }) : null;
   const usdc = E.usdc && new ethers.Contract(E.usdc, ["function balanceOf(address) view returns (uint256)", "function transfer(address,uint256) returns (bool)"], wallet);

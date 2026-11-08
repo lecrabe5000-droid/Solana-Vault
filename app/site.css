@@ -703,3 +703,19 @@ td:first-child { color: var(--ink); font-weight: 600; width: 44%; }
 }
 /* phone menu: covers the page from the very top (under the header), so no sliver of the hero peeks through */
 @media (max-width: 900px) { html.menu-open .mmenu:not([hidden]) { inset: 0; padding-top: calc(66px + 22px); } html.menu-open .nav { z-index: 31; } }
+
+/* "Check it yourself": links anyone can verify, and an honest status line */
+.verify { margin-top: 56px; }
+.verify h3 { margin-bottom: 16px; font-size: 20px; }
+.vf-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.vf-t { position: relative; display: flex; flex-direction: column; gap: 14px; min-height: 148px; padding: 20px; border-radius: 22px; text-decoration: none; color: inherit;
+  background: rgba(255, 255, 255, .055); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .09); transition: background .2s, transform .2s, box-shadow .2s; }
+.vf-t:hover { background: rgba(255, 255, 255, .09); transform: translateY(-2px); box-shadow: inset 0 0 0 1px rgba(127, 151, 255, .45); }
+.vf-i { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: rgba(47, 91, 255, .18); color: #9db0ff; }
+.vf-i svg, .vf-t > svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.vf-t > svg { position: absolute; top: 20px; right: 18px; width: 18px; height: 18px; opacity: .5; }
+.vf-x { display: flex; flex-direction: column; gap: 4px; margin-top: auto; } .vf-x b { font-size: 17px; font-weight: 600; } .vf-x small { font-size: 14px; opacity: .65; line-height: 1.4; }
+.vf-status { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 18px; font-size: 14px; opacity: .85; }
+.vf-status span { display: inline-flex; align-items: center; gap: 8px; } .vf-dot { width: 8px; height: 8px; border-radius: 50%; background: #f5b54a; } .vf-dot.ok { background: #7d97ff; }
+@media (max-width: 900px) { .vf-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .vf-grid { grid-template-columns: 1fr; } .vf-t { min-height: 0; flex-direction: row; align-items: center; } .vf-x { margin-top: 0; } }

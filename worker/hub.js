@@ -5,6 +5,7 @@ import { DurableObject } from "cloudflare:workers";
 import { CONFIG } from "../app/config.js";
 import { EVM_NETS } from "../app/config-evm.js";
 import { SOL_USDC } from "../app/config-tokens.js";
+import { faucetSend } from "./faucet.js";
 import { newVapidKeys, vapidPublic, sendPush, allowedEndpoint } from "./push.js";
 import { alertLinks, base58, b64, decodeSolVault, decodeSolTokenVault, emptyTokenSnap, tokenVaultAddresses, tokenAmount, diffSol, decodeEvmLog, message, ownerTopic, short, esc, NETS, USDC } from "./alerts.js";
 
@@ -80,6 +81,7 @@ export class AlertHub extends DurableObject {
       INSERT OR IGNORE INTO push_subs SELECT endpoint, net, owner, vault, p256dh, auth, lang, created FROM pushes;
       DELETE FROM pushes;`);
     try { this.sql.exec("ALTER TABLE pending ADD COLUMN also TEXT"); } catch (_) {}
+    this.sql.exec("CREATE TABLE IF NOT EXISTS faucet (addr TEXT, ip TEXT, at INTEGER)");
   }
 
   get(k) { return this.sql.exec("SELECT v FROM kv WHERE k = ?", k).toArray()[0]?.v ?? null; }
@@ -135,6 +137,22 @@ export class AlertHub extends DurableObject {
     }
   }
 
+  // Test coins: one claim per wallet a day, three per connection a day, and a daily cap for the whole faucet.
+  async faucet(request) {
+    const { address } = await request.json().catch(() => ({})), addr = String(address || "").trim();
+    const ip = request.headers.get("cf-connecting-ip") || "?", now = Date.now(), day = now - 86400_000;
+    this.sql.exec("DELETE FROM faucet WHERE at < ?", day);
+    const last = this.sql.exec("SELECT MAX(at) AS at FROM faucet WHERE addr = ?", addr).one().at;
+    if (last) return json({ error: "You already got test coins today. Come back tomorrow.", retryAt: last + 86400_000 }, 429);
+    if (this.sql.exec("SELECT COUNT(*) AS n FROM faucet WHERE ip = ?", ip).one().n >= 3) return json({ error: "Too many claims from this connection today. Try again tomorrow." }, 429);
+    if (this.sql.exec("SELECT COUNT(*) AS n FROM faucet").one().n >= 400) return json({ error: "The faucet has given out today's test coins. Try again tomorrow." }, 429);
+    try {
+      const r = await faucetSend(this.env, CONFIG.rpc, addr);
+      this.sql.exec("INSERT INTO faucet (addr, ip, at) VALUES (?, ?, ?)", addr, ip, now);
+      return json({ ok: true, sig: r.sig, sol: r.lamports / 1e9 });
+    } catch (e) { return json({ error: e.status ? e.message : "The test network is busy. Try again in a minute." }, e.status || 502); }
+  }
+
   async fetch(request) {
     const url = new URL(request.url), tg = !!this.env.TELEGRAM_BOT_TOKEN, mail = !!this.env.RESEND_API_KEY;
     try {
@@ -148,6 +166,7 @@ export class AlertHub extends DurableObject {
       if (url.pathname === "/waitlist" && request.method === "POST") return mail ? await this.joinWaitlist(await request.json()) : json({ error: "The waitlist isn't open yet." }, 503);
       if (url.pathname === "/wconfirm") return this.confirmWaitlist(url.searchParams.get("t") || "");
       if (url.pathname === "/stats") return this.stats();
+      if (url.pathname === "/faucet" && request.method === "POST") return await this.faucet(request);
       if (url.pathname === "/pushkey") return json({ key: vapidPublic((await this.vapid()).publicJwk) });
       if (url.pathname === "/pushsub" && request.method === "POST") return this.pushSubscribe(await request.json());
       if (url.pathname === "/pushunsub" && request.method === "POST") { const { endpoint } = await request.json(); this.sql.exec("DELETE FROM push_subs WHERE endpoint = ?", String(endpoint || "")); return json({ ok: true }); }

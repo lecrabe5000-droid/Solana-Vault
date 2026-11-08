@@ -39,8 +39,10 @@ After any change to the wallet: `cd extension && node build.mjs`, then `cd ../na
 
 ## Known limits in this first version
 
-- **Face ID** is hidden in the native app for now. The web version uses browser passkeys, which need extra Apple setup
-  inside an app. The next step is the native Face ID plugin, which also makes unlocking faster.
+- **Face ID** uses iOS directly in the native app (plugin `@capgo/capacitor-native-biometric`): turning it on stores the
+  recovery phrase in the iPhone's Keychain (encrypted by the phone, this device only), and unlocking asks Face ID or the
+  passcode first. Turning it off deletes the Keychain copy. Run `npm install` in `native/` before `npm run ios` so the
+  plugin is included. It has not been tried on a real iPhone yet: test turning it on, unlocking, and turning it off.
 - **WalletConnect** needs the app's origin allowed on cloud.reown.com (project settings → allowed domains). If
   connecting to a site fails in the native app, add it there.
 - **Push notifications** (money arriving, something leaving the Safe while the app is closed) need the Push plugin and

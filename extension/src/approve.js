@@ -1,3 +1,4 @@
+import { solConnection, evmProvider } from "./chains.js";
 // Requests from websites: what Ecrin shows before you approve, and how it signs once you do.
 // The rule: show exactly what would leave your wallet, in plain words, before anything is signed. Solana
 // transactions are simulated against the network (your balances before and after); Ethereum transactions and
@@ -25,7 +26,7 @@ export function makeApprovals({ web3, ethers, getAcct, getDev }) {
   async function evmProvider(chainId) {
     const N = byChain(chainId), dev = await getDev();
     const rpc = dev?.evm?.[N.key]?.rpc || N.rpc;
-    return { N, provider: new ethers.JsonRpcProvider(rpc, N.chainId, { staticNetwork: true }) };
+    return { N, provider: evmProvider(ethers, N, dev?.evm?.[N.key]?.rpc) };
   }
   async function tokenMeta(provider, addr) {
     const c = new ethers.Contract(addr, ["function symbol() view returns (string)", "function decimals() view returns (uint8)", "function name() view returns (string)"], provider);
@@ -140,7 +141,7 @@ export function makeApprovals({ web3, ethers, getAcct, getDev }) {
 
   async function solConn(chain) {
     const dev = await getDev();
-    return new web3.Connection(dev?.solRpc || "https://api.devnet.solana.com", "confirmed");
+    return solConnection(web3, dev?.solRpc || "https://api.devnet.solana.com", !!dev?.solRpc);
   }
 
   /** Simulates the transaction and compares your balances before and after. */

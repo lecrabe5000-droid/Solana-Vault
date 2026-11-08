@@ -6,44 +6,44 @@ import { DEPLOYED } from "./deployments-evm.js";
 const NETWORKS = {
   eth: {
     hardhat: "sepolia", name: "Ethereum", net: "Sepolia", chainId: 11155111, unit: "ETH", cg: "ethereum",
-    rpc: "https://ethereum-sepolia-rpc.publicnode.com", explorer: "https://sepolia.etherscan.io",
+    rpc: "https://ethereum-sepolia-rpc.publicnode.com", rpc2: "https://sepolia.drpc.org", explorer: "https://sepolia.etherscan.io",
     usdc: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
     faucet: "https://sepolia-faucet.pk910.de", faucetName: "the pk910 Sepolia faucet (no balance needed)",
   },
   base: {
     hardhat: "baseSepolia", name: "Base", net: "Sepolia", chainId: 84532, unit: "ETH", cg: "ethereum",
-    rpc: "https://base-sepolia-rpc.publicnode.com", explorer: "https://sepolia.basescan.org",
+    rpc: "https://base-sepolia-rpc.publicnode.com", rpc2: "https://sepolia.base.org", explorer: "https://sepolia.basescan.org",
     usdc: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
     faucet: "https://docs.base.org/base-chain/tools/network-faucets", faucetName: "a Base Sepolia faucet",
   },
   arb: {
     hardhat: "arbitrumSepolia", name: "Arbitrum", net: "Sepolia", chainId: 421614, unit: "ETH", cg: "ethereum",
-    rpc: "https://arbitrum-sepolia-rpc.publicnode.com", explorer: "https://sepolia.arbiscan.io",
+    rpc: "https://arbitrum-sepolia-rpc.publicnode.com", rpc2: "https://sepolia-rollup.arbitrum.io/rpc", explorer: "https://sepolia.arbiscan.io",
     usdc: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
     faucet: "https://bridge.arbitrum.io/?destinationChain=arbitrum-sepolia&sourceChain=sepolia", faucetName: "the Arbitrum bridge (move Sepolia ETH over)",
   },
   op: {
     hardhat: "optimismSepolia", name: "Optimism", net: "Sepolia", chainId: 11155420, unit: "ETH", cg: "ethereum",
-    rpc: "https://optimism-sepolia-rpc.publicnode.com", explorer: "https://sepolia-optimism.etherscan.io",
+    rpc: "https://optimism-sepolia-rpc.publicnode.com", rpc2: "https://sepolia.optimism.io", explorer: "https://sepolia-optimism.etherscan.io",
     usdc: "0x5fd84259d66Cd46123540766Be93DFE6D43130D7",
     faucet: "https://console.optimism.io/faucet", faucetName: "the OP Sepolia faucet",
   },
   pol: {
     hardhat: "polygonAmoy", name: "Polygon", net: "Amoy", chainId: 80002, unit: "POL", cg: "polygon-ecosystem-token",
-    rpc: "https://polygon-amoy-bor-rpc.publicnode.com", explorer: "https://amoy.polygonscan.com",
+    rpc: "https://polygon-amoy-bor-rpc.publicnode.com", rpc2: "https://rpc-amoy.polygon.technology", explorer: "https://amoy.polygonscan.com",
     usdc: "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582",
     faucet: "https://faucet.polygon.technology", faucetName: "the Polygon faucet",
   },
   // Circle has no official test USDC on BNB Chain, so that network shows BNB only.
   bnb: {
     hardhat: "bscTestnet", name: "BNB Chain", net: "Testnet", chainId: 97, unit: "BNB", cg: "binancecoin",
-    rpc: "https://bsc-testnet-rpc.publicnode.com", explorer: "https://testnet.bscscan.com",
+    rpc: "https://bsc-testnet-rpc.publicnode.com", rpc2: "https://data-seed-prebsc-1-s1.bnbchain.org:8545", explorer: "https://testnet.bscscan.com",
     usdc: null,
     faucet: "https://www.bnbchain.org/en/testnet-faucet", faucetName: "the BNB Chain faucet",
   },
   avax: {
     hardhat: "avalancheFuji", name: "Avalanche", net: "Fuji", chainId: 43113, unit: "AVAX", cg: "avalanche-2",
-    rpc: "https://avalanche-fuji-c-chain-rpc.publicnode.com", explorer: "https://testnet.snowtrace.io",
+    rpc: "https://avalanche-fuji-c-chain-rpc.publicnode.com", rpc2: "https://api.avax-test.network/ext/bc/C/rpc", explorer: "https://testnet.snowtrace.io",
     usdc: "0x5425890298aed601595a70AB815c96711a31Bc65",
     faucet: "https://core.app/tools/testnet-faucet/?subnet=c&token=c", faucetName: "the Avalanche faucet",
   },

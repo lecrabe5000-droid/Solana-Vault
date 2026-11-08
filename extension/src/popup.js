@@ -8,7 +8,7 @@ import { newPhrase, isPhrase, normalize, seal, open, deriveAccount, strength, WO
 import { NETS, BASE, USDC_BASE, engine } from "./chains.js";
 import { makeApprovals } from "./approve.js";
 import { mountVault3d } from "./vault3d.js";
-import { bioEnable, bioUnlock, bioName, bioPossible } from "./bio.js";
+import { bioEnable, bioUnlock, bioName, bioPossible, bioForget } from "./bio.js";
 import { sealKeys, openKeys, parseKey, keysFor, COLORS, b58 } from "./accounts.js";
 import { translate, trText, LANGS } from "./i18n.js";
 import { toTron } from "./tron.js";
@@ -376,10 +376,13 @@ document.addEventListener("scroll", (ev) => {
 }, { capture: true, passive: true });
 // ------------------------------------------------------------------ getting started
 // For a new wallet: three steps that show what Ecrin is for, with progress. Gone once done or dismissed.
+// Test coins straight from Ecrin's faucet on Solana devnet; other networks link to their public faucet.
+const FAUCET_URL = "https://ecrinprotocol.app/api/faucet";
+const faucetBtn = (N, cls = "link", label = `Get free test ${N.unit}`) => N.key === "sol" ? `<button class="${cls} fau-b" data-act="faucet">${label}</button>` : `<a class="${cls}" href="${N.faucet}" target="_blank">${label} ${I.ext}</a>`;
 function startCard(w) {
   if (S.obHide || !w.ready) return "";
   const acts = S.activity || [], did = (t) => acts.some((e) => t.includes(e.t));
-  const steps = [["Get free test coins", w.total > 0, 'data-act="panel" data-p="receive"'], ["Protect some in your Safe", w.sav > 0 || did(["protect"]), 'data-act="panel" data-p="protect"'],
+  const steps = [["Get free test coins", w.total > 0, S.net === "sol" ? 'data-act="faucet"' : 'data-act="panel" data-p="receive"'], ["Protect some in your Safe", w.sav > 0 || did(["protect"]), 'data-act="panel" data-p="protect"'],
     ["Start a withdrawal, then cancel it", did(["cancel", "withdraw", "release"]), 'data-act="panel" data-p="vault"']];
   const n = steps.filter((x) => x[1]).length; if (n === 3) return "";
   return `<section class="ob"><div class="ob-h"><b>Getting started</b><span>${n} of 3</span><button class="ob-x" data-act="ob-hide" aria-label="Hide">×</button></div>
@@ -843,14 +846,14 @@ function welcomeArt() {
 function welcome() {
   if (IS_EXT && !FULL && !S.stayPopup) return `<div class="onb onb-w fp-invite"><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
     <div class="onb-art">${welcomeArt()}</div>
-    <div class="onb-copy"><h1>Ecrin Wallet</h1><p>Set up takes a minute, in a full tab with room for your recovery phrase.</p></div>
+    <div class="onb-copy"><h1 class="onb-wm">${WORDMARK("lg")}<span class="sr-only">Ecrin Wallet</span></h1><p>Set up takes a minute, in a full tab with room for your recovery phrase.</p></div>
     <div class="onb-acts"><button class="btn primary xl" data-act="open-full">Set up in a new tab</button><button class="link center" data-act="stay-popup">Continue here instead</button></div>
     <p class="fine">Testnet beta · not audited · test coins only</p></div>`;
   if (S.tour != null && S.tour < TOUR.length) return tourView();
   if (S.tour === TOUR.length && S.askGoal) return goalView();
   return `<div class="onb onb-w"><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
     <div class="onb-art">${welcomeArt()}</div>
-    <div class="onb-copy"><h1>Ecrin Wallet</h1><p>A wallet for spending.<br/>A safe nobody can rush.</p></div>
+    <div class="onb-copy"><h1 class="onb-wm">${WORDMARK("lg")}<span class="sr-only">Ecrin Wallet</span></h1><p>A wallet for spending.<br/>A safe nobody can rush.</p></div>
     <div class="onb-acts">
       <button class="btn primary xl" data-act="start-create">Create a new wallet</button>
       <button class="btn ghost xl" data-act="start-import">I have a recovery phrase</button>
@@ -1789,7 +1792,7 @@ function receiveView() {
       ${navigator.share ? `<button class="btn sm share" data-act="share-addr">${I.send}Share address</button>` : ""}
       <button class="addr" data-act="copy-addr"><span class="mono">${esc(e.address)}</span>${I.copy}</button>
       <p class="fine">Only send ${N.name} ${N.net} coins${N.usdc ? " or USDC" : ""} to this address. ${N.fam === "tron" ? "Tron addresses start with T. Test USDT on Nile shows with your tokens." : ""}${N.fam === "evm" ? "The same address works on every Ethereum-style network." : ""}</p>
-      <a class="link" href="${N.faucet}" target="_blank">Get free test ${N.unit} ${I.ext}</a>
+      ${faucetBtn(N)}
       <button class="btn sm buy-b" data-act="payreq">${I.recv}Request an amount</button>
       <button class="btn sm buy-b" data-act="panel" data-p="buy">${I.card}Buy with a card</button>
     </div>`;
@@ -1856,7 +1859,7 @@ function createVaultView(title) {
         ${[["gentle", "Gentle", "24 h", "Lighter protection"], ["strong", "Strong", "72 h", "Recommended"]].map(([k, n, d, s]) => `<button class="preset ${P.kind === k || (!P.kind && k === "strong") ? "on" : ""}" data-act="kind" data-k="${k}"><b>${n}</b><span class="pd">${d}</span><small>${s}</small></button>`).join("")}
       </div>
     </div>
-    ${S.bal && !S.bal.native ? `<p class="note">${I.recv}<span>Your Wallet has no ${NETS[S.net].unit} yet. Opening your Safe costs a tiny network fee. <a class="link" href="${NETS[S.net].faucet}" target="_blank">Get free test ${NETS[S.net].unit} ${I.ext}</a></span></p>` : ""}
+    ${S.bal && !S.bal.native ? `<p class="note">${I.recv}<span>Your Wallet has no ${NETS[S.net].unit} yet. Opening your Safe costs a tiny network fee. ${faucetBtn(NETS[S.net])}</span></p>` : ""}
     ${same}<div class="pfoot">${P.step === "sending" ? hold("Opening…", true) : `<button class="btn primary xl" data-act="create-vault" ${S.bal && !S.bal.native ? "disabled" : ""}>Open my Safe</button>`}</div>`;
 }
 
@@ -1988,6 +1991,9 @@ function settingsView() {
 }
 // What's new: shown once after an update (never on a fresh install), and any time from Settings → About.
 const NEWS = [
+  ["Free test coins, built in", "On Solana, \"Get free test SOL\" now sends test coins straight to your Wallet. No outside faucet, no sign-in."],
+  ["Steadier on busy networks", "When a network's main server is busy, Ecrin quietly switches to a backup, and tells you plainly if something needs a retry."],
+  ["A calmer look", "Quieter Settings icons, the Ecrin mark on the welcome screen, and cleaner badges for tokens without a logo."],
   ["Late-night pause", "Between midnight and 6 AM, starting a withdrawal from your Safe first offers to sleep on it. You can always continue."],
   ["Betting-site warning", "Turn it on in Settings → Safety: when a casino or betting site asks to connect, Ecrin suggests waiting 10 minutes first."],
   ["Ecrin mode", "A third look in Settings → Appearance: deep Ecrin blue, white and ivory, with your coins in beige, white, grey and black."],
@@ -2032,6 +2038,7 @@ function revealView() {
 function toast(text, kind = "") { const t = $("#toast"); t.innerHTML = `<i class="t-ic" aria-hidden="true"></i><span>${esc(trText(text, S.lang))}</span>`; t.className = "toast show " + kind; clearTimeout(t._t); t._t = setTimeout(() => (t.className = "toast " + kind), 2600); }
 const errText = (e) => {
   const raw = String(e?.shortMessage || e?.message || e);
+  if (/429|too many requests|failed to fetch|fetch failed|networkerror|network error|timed? ?out|ECONN|\b50[234]\b|block height exceeded|blockhash not found|server error/i.test(raw)) return "The test network is busy right now. Check Activity in a minute, and try again if it didn't go through.";
   if (/insufficient funds/i.test(raw)) return `Not enough ${NETS[S.net].unit} for this and the network fee. Use Receive to get free test coins.`;
   let m; try { m = ENG?.explain?.(e)?.message || raw; } catch (_) { m = raw; }
   return m.length > 160 ? m.slice(0, 157) + "…" : m;
@@ -2277,7 +2284,7 @@ const actions = {
     } catch (e) { S.bioBusy = null; S.bioRun = false; render(); if (e?.name !== "NotAllowedError") toast(e?.message || `${bioName()} didn't work. Use your password.`, "err"); }
   },
   "bio-toggle": async () => {
-    if (S.bio) { if (!(await ask("You'll unlock with your password.", { title: `Turn off ${bioName()}?`, ok: "Turn off" }))) return; await local.remove("bio"); S.bio = null; toast(`${bioName()} is off`, "win"); return renderPanel(); }
+    if (S.bio) { if (!(await ask("You'll unlock with your password.", { title: `Turn off ${bioName()}?`, ok: "Turn off" }))) return; await local.remove("bio"); await bioForget(); S.bio = null; toast(`${bioName()} is off`, "win"); return renderPanel(); }
     try { const { phrase } = await session.get("phrase"); const box = await bioEnable(phrase); await local.set({ bio: box }); S.bio = box; toast(`${bioName()} is on`, "win"); renderPanel(); }
     catch (e) { if (e?.name !== "NotAllowedError") toast(e?.message || `Couldn't turn on ${bioName()}`, "err"); }
   },
@@ -2391,6 +2398,19 @@ const actions = {
     if (back === "protect" && S.panel === P && P.step === "done") { P.step = "form"; toast(`Safe opened on ${NETS[S.net].name}`, "win"); const e = await eng(); P.reserve = await e.reserve(P.asset); renderPanel(); }
   },
   "do-protect": () => { const P = S.panel, units = parseAmt(P.amount, P.asset); P.sent = units; txRun(async () => (await eng()).protect(P.asset, units), null, { t: "protect", a: P.asset, n: units }); },
+  faucet: async (el) => {
+    const N = NETS[S.net]; if (N.key !== "sol" || !ENG?.address) return window.open(N.faucet, "_blank");
+    if (S.fauBusy) return; S.fauBusy = true;
+    const btn = el?.closest("button"), was = btn?.innerHTML; if (btn) { btn.classList.add("busy"); btn.innerHTML = `<i class="spin"></i>${esc(trText("Sending test coins…", S.lang))}`; }
+    try {
+      const r = await fetch(FAUCET_URL, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address: String(ENG.address) }) });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j.ok) { haptic("success"); toast(`${j.sol} test SOL is on its way`, "win"); setTimeout(refresh, 2500); setTimeout(() => { refresh(); loadAll(); }, 8000); }
+      else if (r.status === 503 && /switched on/i.test(j.error || "")) window.open(N.faucet, "_blank");
+      else toast(j.error || "Couldn't get test coins. Try again in a minute.", "err");
+    } catch (_) { toast("Couldn't reach Ecrin. Check your connection and try again.", "err"); }
+    finally { S.fauBusy = false; if (btn?.isConnected) { btn.classList.remove("busy"); btn.innerHTML = was; } }
+  },
   "do-withdraw": async () => { const P = S.panel;
     if (S.guard.late && isLate() && !P.lateOk) {
       const c = await choose({ icon: I.moon, title: "It's late.", text: careP("Your Safe will hold this until you're sure. If you still want it in the morning, it'll be here."), safe: "Sleep on it", go: "Start anyway", fine: "Shown between midnight and 6 AM. Change it in Settings → Safety." });
@@ -2578,7 +2598,7 @@ function feeNeed(N, P) { return N.fam === "sol" ? 10_000 : N.fam === "tron" ? 15
 function feeNote(a) {
   const N = NETS[S.net], P = S.panel;
   if (a === "native" || !S.bal || (S.bal.native || 0) >= feeNeed(N, P)) return "";
-  return `<div class="fee-n">${I.warn}<span>Sending ${A(a).unit} on ${N.name} costs a little <b>${N.unit}</b> for the network fee, and this Wallet has ${S.bal.native ? "too little" : "none"}. <a href="${N.faucet}" target="_blank">Get free test ${N.unit} ${I.ext}</a></span></div>`;
+  return `<div class="fee-n">${I.warn}<span>Sending ${A(a).unit} on ${N.name} costs a little <b>${N.unit}</b> for the network fee, and this Wallet has ${S.bal.native ? "too little" : "none"}. ${faucetBtn(N, "")}</span></div>`;
 }
 
 /* ------------------------------------------------------------------ price alerts */
@@ -2855,7 +2875,7 @@ function buyView() {
     <div class="cv"><div class="cv-art">${I.card}</div><h2>Buy crypto with a card</h2>
       <p class="sub">Soon you'll buy SOL, ETH and USDC with a card or Apple Pay, through a licensed partner. The coins land straight in your Wallet, and you can protect them in your Safe right away.</p>
       <div class="note">${I.shield}<span>Ecrin never sees your card details: the partner handles payment and identity checks.</span></div>
-      <a class="btn xl" href="${N.faucet}" target="_blank">Get free test ${N.unit} for now ${I.ext}</a></div>`;
+      ${faucetBtn(N, "btn xl", `Get free test ${N.unit} for now`)}</div>`;
 }
 const SWAP = { live: false, feeBps: 50, api: "https://ecrinprotocol.app/api/swap" };
 const STAKE_APY = 0.065, STAKE_APY_TEXT = "6–7%";
