@@ -486,7 +486,7 @@ function applyTheme() {
 }
 function syncChrome() {
   // keep the iPhone status-bar area and browser tint in step with the theme
-  const c = { light: "#f3f2ee", ecrin: "#0b1848" }[S.theme] || "#0c0d0f";
+  const c = { light: "#f3f2ee", ecrin: "#0b1433" }[S.theme] || "#0c0d0f";
   const bb = document.getElementById("boot-bg"); if (bb) bb.textContent = `html,body{background:${c};height:100%}`;
   document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute("content", c));
   try { const raw = localStorage.getItem("ecrin-theme"); if (raw !== S.theme) localStorage.setItem("ecrin-theme", S.theme); } catch (_) {}

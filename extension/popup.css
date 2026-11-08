@@ -2892,10 +2892,13 @@ html:root[data-theme="light"] #panel .pane.scrolled .tk-page .phead { background
 html:root[data-theme="dark"] #panel .pane.scrolled .tk-page .phead { background: rgba(12, 13, 15, .8) !important; -webkit-backdrop-filter: blur(16px) saturate(1.4) !important; backdrop-filter: blur(16px) saturate(1.4) !important; box-shadow: 0 1px 0 rgba(242, 239, 232, .06); z-index: 6; }
 
 /* 0.19.0 Ecrin mode: deep ink blue, white and ivory accents, coins in beige / white / grey / black (built on dark mode) */
-html:root[data-skin="ecrin"] { --bg: #0d1c56; --s1: rgba(255,255,255,.07); --s2: rgba(255,255,255,.1); --line: rgba(255,255,255,.1); --line-2: rgba(255,255,255,.16); --ink: #ffffff; --muted: #a8b6ea; --dim: #7d8cc4; --h1: rgba(255,255,255,.07); --h2: rgba(255,255,255,.1); --h3: rgba(255,255,255,.14); }
-html:root[data-skin="ecrin"], html:root[data-skin="ecrin"] body { background: #0b1848 !important; }
-html:root[data-skin="ecrin"] :is(body, .device, #root, #panel .pane) { background: radial-gradient(120% 55% at 50% -8%, #2f5bff 0%, #1a3299 32%, #0f205f 62%, #0b1848 100%) fixed !important; }
-html:root[data-skin="ecrin"] :is(.aura, .sf-aura) { opacity: .25 !important; }
+html:root[data-skin="ecrin"] { --bg: #0b1433; --s1: rgba(255,255,255,.07); --s2: rgba(255,255,255,.1); --line: rgba(255,255,255,.1); --line-2: rgba(255,255,255,.16); --ink: #ffffff; --muted: #a8b6ea; --dim: #7d8cc4; --h1: rgba(255,255,255,.07); --h2: rgba(255,255,255,.1); --h3: rgba(255,255,255,.14); }
+html:root[data-skin="ecrin"], html:root[data-skin="ecrin"] body { background: #0b1433 !important; }
+html:root[data-skin="ecrin"] :is(body, .device, #root, #panel .pane) { background: #0b1433 !important; }
+/* the glow is light on top of one solid base colour, faded out before the status bar and the home bar, so no edge can show a seam */
+html:root[data-skin="ecrin"] .aura { opacity: 1 !important; background: radial-gradient(75% 42% at 50% 24%, rgba(70, 108, 255, .42), rgba(47, 91, 255, .14) 48%, transparent 76%) !important; }
+html:root[data-skin="ecrin"] .aura > i { opacity: .35 !important; }
+html:root[data-skin="ecrin"] .sf-aura { opacity: .55 !important; }
 html:root[data-skin="ecrin"] :is(.wsplit, section.list, .shortcuts .sc, .sf-tile, .sf-net, .sf-go2, .sb-empty, .tk-bal, .tk-stats > div, .sx-card, .sx-kv, .note, .from, .addr, .sf-w, .sf-alert, .set-acct) { background: rgba(255,255,255,.075) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.1) !important; backdrop-filter: blur(10px); }
 html:root[data-skin="ecrin"] :is(.btn.primary, .sf-go, .sx-go, .home .acts button[data-p="protect"], .tk-acts button[data-p="protect"], .btn.primary.xl) { background: #f4f2ea !important; color: #1f3fd6 !important; box-shadow: 0 12px 28px -14px rgba(0,0,0,.6) !important; }
 html:root[data-skin="ecrin"] :is(.btn.primary, .home .acts button[data-p="protect"], .tk-acts button[data-p="protect"]) svg { stroke: #1f3fd6 !important; }
