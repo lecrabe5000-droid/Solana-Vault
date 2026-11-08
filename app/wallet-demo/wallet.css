@@ -2890,3 +2890,28 @@ html:root[data-theme] #panel .sx .sx-live i { background: #2f5bff; box-shadow: 0
 #panel .pane .tk-page .phead { transition: background-color .2s, box-shadow .2s; }
 html:root[data-theme="light"] #panel .pane.scrolled .tk-page .phead { background: rgba(243, 242, 238, .82) !important; -webkit-backdrop-filter: blur(16px) saturate(1.4) !important; backdrop-filter: blur(16px) saturate(1.4) !important; box-shadow: 0 1px 0 rgba(16, 17, 20, .06); z-index: 6; }
 html:root[data-theme="dark"] #panel .pane.scrolled .tk-page .phead { background: rgba(12, 13, 15, .8) !important; -webkit-backdrop-filter: blur(16px) saturate(1.4) !important; backdrop-filter: blur(16px) saturate(1.4) !important; box-shadow: 0 1px 0 rgba(242, 239, 232, .06); z-index: 6; }
+
+/* 0.19.0 Ecrin mode: deep ink blue, white and ivory accents, coins in beige / white / grey / black (built on dark mode) */
+html:root[data-skin="ecrin"] { --bg: #0d1c56; --s1: rgba(255,255,255,.07); --s2: rgba(255,255,255,.1); --line: rgba(255,255,255,.1); --line-2: rgba(255,255,255,.16); --ink: #ffffff; --muted: #a8b6ea; --dim: #7d8cc4; --h1: rgba(255,255,255,.07); --h2: rgba(255,255,255,.1); --h3: rgba(255,255,255,.14); }
+html:root[data-skin="ecrin"], html:root[data-skin="ecrin"] body { background: #0b1848 !important; }
+html:root[data-skin="ecrin"] :is(body, .device, #root, #panel .pane) { background: radial-gradient(120% 55% at 50% -8%, #2f5bff 0%, #1a3299 32%, #0f205f 62%, #0b1848 100%) fixed !important; }
+html:root[data-skin="ecrin"] :is(.aura, .sf-aura) { opacity: .25 !important; }
+html:root[data-skin="ecrin"] :is(.wsplit, section.list, .shortcuts .sc, .sf-tile, .sf-net, .sf-go2, .sb-empty, .tk-bal, .tk-stats > div, .sx-card, .sx-kv, .note, .from, .addr, .sf-w, .sf-alert, .set-acct) { background: rgba(255,255,255,.075) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.1) !important; backdrop-filter: blur(10px); }
+html:root[data-skin="ecrin"] :is(.btn.primary, .sf-go, .sx-go, .home .acts button[data-p="protect"], .tk-acts button[data-p="protect"], .btn.primary.xl) { background: #f4f2ea !important; color: #1f3fd6 !important; box-shadow: 0 12px 28px -14px rgba(0,0,0,.6) !important; }
+html:root[data-skin="ecrin"] :is(.btn.primary, .home .acts button[data-p="protect"], .tk-acts button[data-p="protect"]) svg { stroke: #1f3fd6 !important; }
+html:root[data-skin="ecrin"] :is(.home .acts button:not([data-p="protect"]), .tk-acts button:not([data-p="protect"]), .btn:not(.primary):not(.danger), .preset, .sx-coin, .ranges button) { background: rgba(255,255,255,.1) !important; color: #fff !important; box-shadow: none !important; }
+html:root[data-skin="ecrin"] .ranges button[aria-pressed="true"] { background: #fff !important; color: #1f3fd6 !important; }
+html:root[data-skin="ecrin"] body #tabbar#tabbar { background: rgba(9, 20, 70, .72) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 18px 40px -18px rgba(0,0,0,.7) !important; }
+html:root[data-skin="ecrin"] body #tabbar#tabbar button.on { background: #f4f2ea !important; color: #1f3fd6 !important; }
+html:root[data-skin="ecrin"] .tn-chip, html:root[data-skin="ecrin"] .brand-sig i { background: rgba(255,255,255,.14) !important; color: #fff !important; }
+html:root[data-skin="ecrin"] .wm-mark rect { stroke: #fff; } html:root[data-skin="ecrin"] .wm-mark path { fill: #fff; }
+html:root[data-skin="ecrin"] :is(.tk-page .tk-chart, .tk-page .tk-chart *) { color: #fff !important; }
+html:root[data-skin="ecrin"] .tk-page { --cc: #ffffff !important; }
+html:root[data-skin="ecrin"] :is(.up, .pos) { color: #7ee0b5 !important; } html:root[data-skin="ecrin"] :is(.dn, .neg) { color: #ff9a9a !important; }
+html:root[data-skin="ecrin"] .wsplit .sp-s, html:root[data-skin="ecrin"] .wsplit .sp-s * { color: #fff !important; }
+html:root[data-skin="ecrin"] .lz .lz-safe, html:root[data-skin="ecrin"] .lz-safe { stroke: #ffffff !important; filter: drop-shadow(0 0 10px rgba(255,255,255,.55)); }
+/* coin ring: beige, white, grey, black; the Safe ring is the one bright white line */
+html:root[data-skin="ecrin"] .lz-seg.r0 { stroke: #efe4cf !important; } html:root[data-skin="ecrin"] .lz-seg.r1 { stroke: #ffffff !important; }
+html:root[data-skin="ecrin"] .lz-seg.r2 { stroke: #8f9abd !important; } html:root[data-skin="ecrin"] .lz-seg.r3 { stroke: #070b1c !important; }
+html:root[data-skin="ecrin"] .cdot { background: #efe4cf !important; box-shadow: none !important; }
+html:root[data-skin="ecrin"] :is(.sf-arc, .sf-run) { stroke: #ffffff !important; filter: drop-shadow(0 0 10px rgba(255, 255, 255, .45)); }

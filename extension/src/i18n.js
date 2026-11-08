@@ -5,6 +5,7 @@ const FR = {
   "Saved by Ecrin": "Sauvé par Ecrin", "Share on X": "Partager sur X", "Save image": "Enregistrer l'image", "Not now": "Plus tard", "Image saved": "Image enregistrée",
   "Pin": "Épinglez",
   "Open as popup": "Ouvrir en popup", "Keep using it in this tab": "Continuer dans cet onglet", "Click the Ecrin icon in your toolbar to open the popup.": "Cliquez sur l'icône Ecrin dans la barre d'outils pour ouvrir la popup.",
+  "Ecrin mode": "Mode Ecrin", "A third look in Settings → Appearance: deep Ecrin blue, white and ivory, with your coins in beige, white, grey and black.": "Un troisième style dans Réglages → Apparence : bleu Ecrin profond, blanc et ivoire, avec vos cryptos en beige, blanc, gris et noir.",
   "Calm price moves": "Des prix tout en douceur", "When a price updates, its digits roll and the figure warms gently toward green or red, then settles.": "Quand un prix change, ses chiffres défilent et il se teinte doucement de vert ou de rouge, puis revient au calme.",
   "A living chart": "Un graphique vivant", "On a coin's page the line draws itself, and a slow pulse marks the latest price.": "Sur la page d'une crypto, la courbe se dessine et une pulsation lente marque le dernier prix.",
   "A cooldown you can watch": "Un délai que l'on voit passer", "The ring on a pending withdrawal drains continuously, and pull-to-refresh turns the Ecrin mark.": "L'anneau d'un retrait en attente se vide en continu, et tirer pour actualiser fait tourner la marque Ecrin.",

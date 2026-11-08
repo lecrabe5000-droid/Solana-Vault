@@ -192,11 +192,11 @@ async function boot() {
   S.mock = !!st.dev?.mockPrices;
   applyNums();
   S.net = NETS[st.net] ? st.net : "sol";
-  S.theme = st.theme === "light" ? "light" : "dark";
+  S.theme = ["light", "ecrin"].includes(st.theme) ? st.theme : "dark";
   S.autolock = st.autolock ?? 15;
   try { chrome.runtime.connect?.({ name: "popup" }); } catch (_) {}
   S.hide = !!st.hide;
-  document.documentElement.dataset.theme = S.theme; syncChrome();
+  applyTheme();
   if (!st.box) { if (AP.id) { S.req = { gone: true, nowallet: true }; return go("approve"); } if (!(await local.get("toured")).toured && !globalThis.ECRIN_DEMO) S.tour = 0; return go("welcome"); }
   const ses = await session.get(["phrase", "until"]);
   if (ses.phrase && ses.until > Date.now()) { await useAccount(ses.phrase); await touch(); return AP.id ? startApproval() : home(); }
@@ -478,9 +478,15 @@ function ask(text, { ok = "Continue", danger = false, title = "" } = {}) {
 
 // ------------------------------------------------------------------ "Saved by Ecrin"
 // After a cancel: a card worth posting. Drawn on the spot in Ecrin's own type, nothing leaves the device unless you share.
+// Ecrin mode is built on dark mode (white text, same contrast rules) with its own skin on top.
+function applyTheme() {
+  const r = document.documentElement; r.dataset.theme = S.theme === "light" ? "light" : "dark";
+  if (S.theme === "ecrin") r.dataset.skin = "ecrin"; else delete r.dataset.skin;
+  syncChrome();
+}
 function syncChrome() {
   // keep the iPhone status-bar area and browser tint in step with the theme
-  const light = S.theme === "light", c = light ? "#f3f2ee" : "#0c0d0f";
+  const c = { light: "#f3f2ee", ecrin: "#0b1848" }[S.theme] || "#0c0d0f";
   const bb = document.getElementById("boot-bg"); if (bb) bb.textContent = `html,body{background:${c};height:100%}`;
   document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute("content", c));
   try { const raw = localStorage.getItem("ecrin-theme"); if (raw !== S.theme) localStorage.setItem("ecrin-theme", S.theme); } catch (_) {}
@@ -1925,7 +1931,7 @@ function settingsView() {
       ${row("panel", I.card, "Currency", `${S.cur || "USD"} ${I.arrow}`, 'data-p="currency"')}
       ${row("panel", I.spark, "Price alerts", `${Object.values(S.palerts || {}).filter(Boolean).length || "Off"} ${I.arrow}`, 'data-p="alerts"')}
       <div class="srow"><span>${I.globe}Language</span><span class="seg">${LANGS.map(([k, l]) => `<button data-act="lang" data-v="${k}" aria-pressed="${S.lang === k}">${l}</button>`).join("")}</span></div>
-      <div class="srow"><span>${S.theme === "dark" ? I.moon : I.sun}Appearance</span><span class="seg">${["light", "dark"].map((t) => `<button data-act="theme" data-v="${t}" aria-pressed="${S.theme === t}">${t === "light" ? "Light" : "Dark"}</button>`).join("")}</span></div>
+      <div class="srow"><span>${S.theme === "light" ? I.sun : I.moon}Appearance</span><span class="seg">${["light", "dark", "ecrin"].map((t) => `<button data-act="theme" data-v="${t}" aria-pressed="${S.theme === t}">${{ light: "Light", dark: "Dark", ecrin: "Ecrin" }[t]}</button>`).join("")}</span></div>
       ${row("panel", '<b class="nf-ico">1.2</b>', "Numbers", `${NUM_FACES.find(([k]) => k === S.nums.face)[1]} ${I.arrow}`, 'data-p="numbers"')}`)}
     ${sec("Wallet", `
       ${row("panel", I.recv, "Contacts", `${Object.values(S.book || {}).reduce((t, m) => t + Object.keys(m || {}).length, 0) || ""} ${I.arrow}`, 'data-p="contacts"')}
@@ -1949,6 +1955,7 @@ function settingsView() {
 }
 // What's new: shown once after an update (never on a fresh install), and any time from Settings → About.
 const NEWS = [
+  ["Ecrin mode", "A third look in Settings → Appearance: deep Ecrin blue, white and ivory, with your coins in beige, white, grey and black."],
   ["Calm price moves", "When a price updates, its digits roll and the figure warms gently toward green or red, then settles."],
   ["A living chart", "On a coin's page the line draws itself, and a slow pulse marks the latest price."],
   ["A cooldown you can watch", "The ring on a pending withdrawal drains continuously, and pull-to-refresh turns the Ecrin mark."],
@@ -2372,7 +2379,7 @@ const actions = {
   range: async (el) => { S.range = el.dataset.d; await local.set({ range: S.range }); S.drawChart = true; render(); if (S.panel?.p === "tok") { renderPanel(); loadSeriesFor(S.panel.cg).then(() => S.panel?.p === "tok" && renderPanel()); } else loadSeries(); },
   num: async (el) => { S.nums[el.dataset.k] = el.dataset.v; applyNums(); await local.set({ nums: S.nums }); renderPanel(); render(); },
   autolock: async (el) => { S.autolock = Number(el.dataset.v); await local.set({ autolock: S.autolock }); await touch(); renderPanel(); },
-  theme: async (el) => { S.theme = el.dataset.v; document.documentElement.dataset.theme = S.theme; syncChrome(); await local.set({ theme: S.theme }); render(); renderPanel(); },
+  theme: async (el) => { S.theme = el.dataset.v; applyTheme(); await local.set({ theme: S.theme }); render(); renderPanel(); },
   lock: async () => { await session.clear(); chrome.runtime.sendMessage({ type: "lock" }).catch(() => {}); ACCT = ENG = null; S.panel = null; S.counted = false; S.entered = false; $("#panel").innerHTML = ""; $("#panel").classList.remove("in"); document.body.classList.remove("stacked"); go("unlock"); },
   forget: async () => { if (await ask("You'll need your recovery phrase to use it again. Your money stays on the blockchain.", { title: "Remove this wallet from this device?", ok: "Remove wallet", danger: true })) forget(); },
 };
