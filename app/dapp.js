@@ -460,6 +460,19 @@ function installGuide() {
   $("#sheet-form").querySelector('button[value="ok"]').hidden = true;
 }
 
+// The button was pressed but this page can't see Ecrin Wallet. Either it isn't installed, or Chrome isn't letting it run
+// here (site access set to "On click" or to other sites, the extension turned off, or this tab was open before it was
+// installed or updated). Say so plainly instead of sending someone who has it to the store.
+function ecrinMissing() {
+  sheet(`<div class="rule-h"><span class="pol-ico">${ECRIN_MARK}</span><div><h3>Ecrin Wallet isn't reachable here</h3><span class="muted small">This page can't see the extension yet</span></div></div>
+    <p class="note"><b>Already installed?</b> Chrome may not be letting it run on this site.</p>
+    <ol class="guide"><li><b>1</b><span>Click the puzzle piece at the top right of Chrome, then the <b>⋮</b> next to Ecrin Wallet.</span></li>
+      <li><b>2</b><span>Under <b>This can read and change site data</b>, choose <b>On all sites</b> (or at least ecrinprotocol.app).</span></li>
+      <li><b>3</b><span>Check it's switched on in <b>chrome://extensions</b>, then reload this page.</span></li></ol>
+    <div class="alt-row"><button type="button" class="btn primary" data-act="reload">Reload this page</button><a class="btn" href="${ECRIN_GET}" target="_blank" rel="noopener">Get Ecrin Wallet</a></div>`, () => true);
+  $("#sheet-form").querySelector('button[value="ok"]').hidden = true;
+}
+
 // View mode: watch a Safe by address, with no wallet connected (what the home-screen app uses on phones).
 const viewKey = () => "ecrin-view-" + S.net;
 function startView(addr) {
@@ -1485,9 +1498,9 @@ const actions = {
     const i = providers().findIndex(([n]) => /Ecrin/.test(n));
     if (i >= 0) return connect(providers()[i][1]);
     if (isPhone()) { location.href = ECRIN_PHONE; return; }
-    window.open(ECRIN_GET, "_blank", "noopener");
-    toast("Install Ecrin Wallet for Chrome, then come back here and connect.");
+    ecrinMissing();
   },
+  reload: () => location.reload(),
   "view-start": () => startView($("#view-addr")?.value),
   copy: async (el) => { try { await navigator.clipboard.writeText(el.dataset.v); toast("Link copied"); } catch (_) { toast("Copy failed: press and hold the link", "err"); } },
   privacy: () => { S.hide = !S.hide; try { localStorage.setItem("ecrin-hide", S.hide ? "1" : "0"); } catch (_) {} render(); if ($("#sheet").open) { $("#sheet").close(); accountMenu(); } },

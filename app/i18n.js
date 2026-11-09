@@ -121,6 +121,11 @@ const EXACT = {
   "Guardians can approve an emergency release of a withdrawal the owner requested, or a trusted address the owner proposed. Nothing else.": "Les gardiens peuvent approuver la sortie d'urgence d'un retrait demandé par le propriétaire, ou une adresse de confiance qu'il a proposée. Rien d'autre.",
   "You're the guardian": "Vous êtes le gardien", "You're not this Safe's guardian": "Vous n'êtes pas le gardien de ce Coffre", "Nothing waiting to leave.": "Rien en attente de sortie.",
   // sign elsewhere, install
+  "Ecrin Wallet isn't reachable here": "Ecrin Wallet n'est pas accessible ici", "This page can't see the extension yet": "Cette page ne voit pas encore l'extension",
+  "Already installed?": "Déjà installée ?", " Chrome may not be letting it run on this site.": " Chrome ne la laisse peut-être pas fonctionner sur ce site.",
+  "Click the puzzle piece at the top right of Chrome, then the ": "Cliquez sur la pièce de puzzle en haut à droite de Chrome, puis sur le ", " next to Ecrin Wallet.": " à côté d'Ecrin Wallet.",
+  "Under ": "Sous ", "This can read and change site data": "Peut lire et modifier les données des sites", ", choose ": ", choisissez ", "On all sites": "Sur tous les sites", " (or at least ecrinprotocol.app).": " (ou au moins ecrinprotocol.app).",
+  "Check it's switched on in ": "Vérifiez qu'elle est activée dans ", ", then reload this page.": ", puis rechargez cette page.", "Reload this page": "Recharger cette page", "Get Ecrin Wallet": "Obtenir Ecrin Wallet",
   "You're in view mode": "Vous êtes en mode lecture", "Connect with WalletConnect": "Se connecter avec WalletConnect", "Install Ecrin": "Installer Ecrin", "Takes ten seconds": "Ça prend dix secondes", "Copy link": "Copier le lien",
   // toasts
   "Add a trusted address first": "Ajoutez d'abord une adresse de confiance", "That address isn't valid": "Cette adresse n'est pas valide", "That guardian address isn't valid": "L'adresse du gardien n'est pas valide",
