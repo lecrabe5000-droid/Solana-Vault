@@ -1323,21 +1323,38 @@ function permsView() {
 function addTokView() {
   const P = S.panel, evm = netKeys().filter((k) => NETS[k].fam === "evm"), k = evm.includes(P.net) ? P.net : evm.includes(S.net) ? S.net : evm[0], N = NETS[k];
   const pv = P.info;
+  if (P.res === undefined && !P.addr) setTimeout(searchTok, 0); // suggestions for this network as soon as the screen opens
   return `${phead("Add a token")}<div class="pad">
-    <p class="fine">Ethereum-style networks don't list every token an address holds. Pick the network, then paste the token's contract address.</p>
+    <p class="fine">Search a token by name, or paste its contract address. Several tokens can share a name: the price tells you which one is real.</p>
     <div class="fld"><span>Network</span>
       <button type="button" class="dd" data-act="dd" aria-expanded="${!!P.dd}">${coin(k)}<b>${N.name}</b><small>${N.net}</small>${I.chev}</button>
       ${P.dd ? `<div class="dd-menu" role="listbox">${evm.map((n) => `<button type="button" role="option" class="dd-o${n === k ? " on" : ""}" data-act="dd-pick" data-n="${n}">${coin(n)}<b>${NETS[n].name}</b><small>${NETS[n].net}</small>${n === k ? I.check : ""}</button>`).join("")}</div>` : ""}
     </div>
-    <label class="fld"><span>Token contract</span><input data-taddr placeholder="0x…" value="${esc(P.addr || "")}" autocomplete="off" spellcheck="false"/></label>
+    <label class="fld"><span>Token</span><input data-taddr placeholder="Name, symbol or 0x… address" value="${esc(P.addr || "")}" autocomplete="off" spellcheck="false"/></label>
     <div class="tk-prev" data-tprev>${tokPrevHTML(P)}</div>
     <div class="pfoot"><button class="btn primary xl" data-act="tok-add" ${pv?.symbol && !P.busy ? "" : "disabled"}>${P.busy ? `<i class="spin"></i>` : ""}Add ${pv?.symbol ? esc(pv.symbol) : "token"}</button></div></div>`;
 }
+const tokPx = (n) => (n == null ? "" : n >= 1 ? money(n) : n >= 0.01 ? money(n, { maximumFractionDigits: 4 }) : money(n, { maximumSignificantDigits: 3 }));
+const tokBig = (n) => (n >= 1e9 ? `${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}K` : String(Math.round(n)));
+const tokFace = (t) => (t.logo ? coin(t.logo) : t.icon ? `<span class="coin img" aria-hidden="true"><img src="${esc(t.icon)}" alt="" loading="lazy" referrerpolicy="no-referrer"/></span>`
+  : `<span class="coin letter" style="--h:${[...t.address].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7)}">${esc((t.symbol || "?").charAt(0))}</span>`);
 function tokPrevHTML(P) {
   const pv = P.info;
   if (P.looking) return `<span class="coin sk"></span><span><b class="sk-t">Looking up the token…</b><small>Reading it from ${esc(NETS[addTokNet(P)].name)}</small></span>`;
   if (pv?.err) return `<span class="err">${esc(pv.err)}</span>`;
-  if (pv?.symbol) return `<span class="coin letter" style="--h:${[...pv.mint].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7)}">${esc(pv.symbol.charAt(0))}</span><span><b>${esc(pv.name)}</b><small>${esc(pv.symbol)} · ${pv.dec} decimals</small></span>`;
+  if (pv?.symbol) { const pk = P.picked?.address?.toLowerCase() === pv.mint.toLowerCase() ? P.picked : null;
+    return `${pk ? tokFace(pk) : `<span class="coin letter" style="--h:${[...pv.mint].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7)}">${esc(pv.symbol.charAt(0))}</span>`}<span><b>${esc(pv.name)}</b><small>${esc(pv.symbol)} · ${pv.dec} decimals · ${short(pv.mint)}</small></span>${pk?.price != null ? `<span class="tk-p"><b>${tokPx(pk.price)}</b><small>${pk.test ? "Test token" : `Liquidity $${tokBig(pk.liq)}`}</small></span>` : ""}`; }
+  if (P.searching && !P.res?.length) return `<div class="tk-res">${[1, 2, 3].map(() => `<div class="tk-r sk-r"><span class="coin sk"></span><span class="tk-n"><b class="sk-t">&nbsp;</b></span></div>`).join("")}</div>`;
+  if (P.res) {
+    if (!P.res.length) return `<span class="tk-none">${P.resErr ? esc(P.resErr) : P.q ? `No token called “${esc(P.q)}” on ${esc(NETS[addTokNet(P)].name)} ${esc(NETS[addTokNet(P)].net)}. Paste its contract address instead.` : ""}</span>`;
+    const same = {}; P.res.forEach((t) => { const s = t.symbol.toUpperCase(); same[s] = (same[s] || 0) + 1; });
+    const seen = new Set();
+    return `<div class="tk-res">${P.q ? "" : `<span class="tk-h">On ${esc(NETS[addTokNet(P)].name)} ${esc(NETS[addTokNet(P)].net)}</span>`}${P.res.map((t) => {
+      const s = t.symbol.toUpperCase(), first = !seen.has(s); seen.add(s);
+      const tag = t.have ? `<i class="tk-tag">Added</i>` : t.test ? "" : same[s] > 1 && first ? `<i class="tk-tag ok">Most traded</i>` : t.liq < 10_000 ? `<i class="tk-tag warn">Low liquidity</i>` : "";
+      return `<button type="button" class="tk-r" data-act="tok-pick" data-a="${esc(t.address)}" ${t.have ? "disabled" : ""}>${tokFace(t)}<span class="tk-n"><b>${esc(t.name)}${tag}</b><small>${esc(t.symbol)} · ${short(t.address)}</small></span><span class="tk-p"><b>${t.price != null ? tokPx(t.price) : "—"}</b><small>${t.test ? "Test token" : `Liq. $${tokBig(t.liq)}`}</small></span></button>`;
+    }).join("")}</div>${P.res.some((t) => t.test) ? `<p class="tk-note">Test networks have no markets: test tokens show the price of the real coin they stand for.</p>` : ""}`;
+  }
   return "";
 }
 const addTokNet = (P) => { const evm = netKeys().filter((k) => NETS[k].fam === "evm"); return evm.includes(P.net) ? P.net : evm.includes(S.net) ? S.net : evm[0]; };
@@ -1350,19 +1367,80 @@ function paintTokPrev() {
 async function previewTok() {
   const P = S.panel; if (!P || P.p !== "addTok") return;
   const k = addTokNet(P), addr = (P.addr || "").trim(), key = `${k}:${addr.toLowerCase()}`;
+  if (!addr || !/^0x[0-9a-fA-F]*$/.test(addr)) { P.info = null; P.looking = false; P.lastKey = null; return searchTok(); } // a name: search
+  P.res = null;
   if (key === P.lastKey && (P.info || P.looking)) return; // nothing changed
   P.lastKey = key; P.info = null; P.looking = false;
   // only judge the address once it's complete: no error while it's still being typed or pasted
-  if (!ethers.isAddress(addr)) { if (/^0x[0-9a-fA-F]{40,}$/.test(addr) || (addr.length >= 42) || (addr.length > 2 && !/^0x?[0-9a-fA-F]*$/.test(addr))) P.info = { err: "That isn't a contract address." }; return paintTokPrev(); }
+  if (!ethers.isAddress(addr)) { if (/^0x[0-9a-fA-F]{40,}$/.test(addr) || addr.length >= 42) P.info = { err: "That isn't a contract address." }; return paintTokPrev(); }
   S.tokCache ||= {}; if (S.tokCache[key]) { P.info = S.tokCache[key]; return paintTokPrev(); }
   P.looking = true; paintTokPrev(); const ticket = (P.ticket = (P.ticket || 0) + 1);
   try {
-    const { dev } = await local.get("dev");
-    const info = await Promise.race([engine({ web3, ethers, acct: ACCT, net: k, dev: dev || {} }).tokenInfo(addr), new Promise((_, no) => setTimeout(() => no(new Error("slow")), 10_000))]);
+    const info = await tokInfoAt(k, addr);
     if (ticket !== P.ticket || S.panel !== P) return;
     S.tokCache[key] = info; P.info = info;
   } catch (e) { if (ticket !== P.ticket || S.panel !== P) return; P.info = { err: e?.message === "slow" ? `${NETS[k].name} is slow to answer. Try again in a moment.` : `No token at that address on ${NETS[k].name}.` }; P.lastKey = null; }
   P.looking = false; paintTokPrev();
+}
+async function tokInfoAt(k, addr) {
+  const key = `${k}:${addr.toLowerCase()}`; S.tokCache ||= {}; if (S.tokCache[key]) return S.tokCache[key];
+  const { dev } = await local.get("dev");
+  const info = await Promise.race([engine({ web3, ethers, acct: ACCT, net: k, dev: dev || {} }).tokenInfo(addr), new Promise((_, no) => setTimeout(() => no(new Error("slow")), 10_000))]);
+  return (S.tokCache[key] = info);
+}
+
+// ---- token search by name
+// Mainnets: live market search (name → contract, price, liquidity) via ecrinprotocol.app/api/tokens.
+// Test networks have no markets, so a short list of well-known test tokens. Each one is read from the chain before
+// it is shown and must answer with the symbol expected, so a wrong or retired address is never offered.
+const TOKENS_API = "https://ecrinprotocol.app/api/tokens";
+const DEX_CHAIN = { 1: "ethereum", 8453: "base", 42161: "arbitrum", 10: "optimism", 137: "polygon", 56: "bsc", 43114: "avalanche" };
+const TT = (a, sym, cg, words, logo) => ({ a, sym: [].concat(sym), cg, words, logo });
+const TEST_TOKENS = {
+  eth: [TT("0x08210F9170F89Ab7658F0B5E3fF39b0E03C594D4", "EURC", "euro-coin", "euro coin circle"), TT("0x779877A7B0D9E8603169DdbD7836e478b4624789", "LINK", "chainlink", "chainlink"),
+    TT("0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14", "WETH", "ethereum", "wrapped ether ethereum", "eth"), TT("0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984", "UNI", "uniswap", "uniswap")],
+  base: [TT("0x808456652fdb597867f38412077A9182bf77359F", "EURC", "euro-coin", "euro coin circle"), TT("0x4200000000000000000000000000000000000006", "WETH", "ethereum", "wrapped ether ethereum", "eth"),
+    TT("0xE4aB69C077896252FAFBD49EFD26B5D171A32410", "LINK", "chainlink", "chainlink")],
+  arb: [TT("0x980B62Da83eFf3D4576C647993b0c1D7faf17c73", "WETH", "ethereum", "wrapped ether ethereum", "eth"), TT("0xb1D4538B4571d411F07960EF2838Ce337FE1E80E", "LINK", "chainlink", "chainlink")],
+  op: [TT("0x4200000000000000000000000000000000000006", "WETH", "ethereum", "wrapped ether ethereum", "eth"), TT("0xE4aB69C077896252FAFBD49EFD26B5D171A32410", "LINK", "chainlink", "chainlink")],
+  pol: [TT("0x0Fd9e8d3aF1aaee056EB9e802c3A762a667b1904", "LINK", "chainlink", "chainlink"), TT("0x360ad4f9a9A8EFe9A8DCB5f461c4Cc1047E1Dcf9", ["WPOL", "WMATIC"], "polygon-ecosystem-token", "wrapped pol polygon matic")],
+  bnb: [TT("0x84b9B910527Ad5C03A9Ca831909E21e236EA7b06", "LINK", "chainlink", "chainlink"), TT("0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd", "WBNB", "binancecoin", "wrapped bnb binance")],
+  avax: [TT("0x5E44db7996c682E92a960b65AC713a54AD815c6B", "EURC", "euro-coin", "euro coin circle"), TT("0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846", "LINK", "chainlink", "chainlink"),
+    TT("0xd00ae08403B9bbb9124bB305C09058E32C39A48c", "WAVAX", "avalanche-2", "wrapped avax avalanche")],
+};
+async function cgPrices(ids) {
+  S.cgPx ||= {}; const want = [...new Set(ids)].filter((id) => !(id in S.cgPx));
+  if (want.length) { try { const j = await getJSON(`https://api.coingecko.com/api/v3/simple/price?ids=${want.join(",")}&vs_currencies=usd`); for (const id of want) S.cgPx[id] = j?.[id]?.usd ?? null; } catch (_) {} }
+  return (id) => S.cgPx[id] ?? S.prices?.[id]?.usd ?? null;
+}
+async function testTokens(k, q) {
+  const N = NETS[k], have = new Set((S.tokList[k] || []).map((t) => t.mint.toLowerCase()));
+  const all = [...(N.usdc ? [TT(N.usdc, "USDC", "usd-coin", "usd coin circle dollar", "usdc")] : []), ...(TEST_TOKENS[k] || [])];
+  const ql = q.toLowerCase(), hits = all.filter((t) => !ql || t.sym.some((s) => s.toLowerCase().startsWith(ql)) || t.words.includes(ql));
+  const px = await cgPrices(hits.map((t) => t.cg));
+  const rows = await Promise.all(hits.map(async (t) => {
+    try { const info = await tokInfoAt(k, ethers.getAddress(t.a.toLowerCase())); if (!t.sym.includes(info.symbol.toUpperCase())) return null;
+      const isUsdc = N.usdc && info.mint.toLowerCase() === N.usdc.toLowerCase();
+      return { address: info.mint, name: info.name, symbol: info.symbol, price: px(t.cg), test: true, logo: t.logo, have: isUsdc || have.has(info.mint.toLowerCase()) };
+    } catch (_) { return null; }
+  }));
+  return rows.filter(Boolean);
+}
+async function marketTokens(k, q) {
+  const chain = DEX_CHAIN[NETS[k].E?.chainId]; if (!chain || q.length < 2) return [];
+  const j = await getJSON(`${TOKENS_API}?chain=${chain}&q=${encodeURIComponent(q)}`), have = new Set((S.tokList[k] || []).map((t) => t.mint.toLowerCase()));
+  return (j?.tokens || []).filter((t) => ethers.isAddress(t.address)).map((t) => ({ ...t, address: ethers.getAddress(t.address.toLowerCase()), have: have.has(t.address.toLowerCase()) }));
+}
+async function searchTok() {
+  const P = S.panel; if (!P || P.p !== "addTok") return;
+  const k = addTokNet(P), q = (P.addr || "").trim(), key = `${k}|${q.toLowerCase()}`;
+  if (key === P.sKey && (P.res || P.searching)) return;
+  P.sKey = key; P.q = q; P.searching = true; P.resErr = null; if (!P.res) P.res = null; paintTokPrev();
+  const ticket = (P.sTicket = (P.sTicket || 0) + 1);
+  let res = [], err = null;
+  try { const [a, b] = await Promise.all([testTokens(k, q), marketTokens(k, q).catch(() => { err = "Market prices are unreachable right now. You can still paste a contract address."; return []; })]); res = [...a, ...b]; } catch (_) {}
+  if (ticket !== P.sTicket || S.panel !== P) return;
+  P.searching = false; P.res = res; P.resErr = res.length ? null : err; paintTokPrev();
 }
 
 function allView() {
@@ -2204,10 +2282,12 @@ const actions = {
     toast(tokHidden(t) ? "Hidden from your list" : "Shown in your list"); renderPanel(); render();
   },
   dd: () => { S.panel.dd = !S.panel.dd; renderPanel(); },
-  "dd-pick": (el) => { S.panel.net = el.dataset.n; S.panel.dd = false; S.panel.lastKey = null; renderPanel(); previewTok(); },
+  "dd-pick": (el) => { S.panel.net = el.dataset.n; S.panel.dd = false; S.panel.lastKey = null; S.panel.sKey = null; S.panel.res = null; S.panel.info = null; renderPanel(); previewTok(); },
+  "tok-pick": (el) => { const P = S.panel, t = (P.res || []).find((x) => x.address === el.dataset.a); if (!t) return;
+    P.picked = t; P.addr = t.address; const inp = $("#panel [data-taddr]"); if (inp) inp.value = t.address; previewTok(); },
   "tok-add": async () => {
     const P = S.panel, evm = netKeys().filter((n) => NETS[n].fam === "evm"), k = evm.includes(P.net) ? P.net : evm.includes(S.net) ? S.net : evm[0];
-    if (!P.info?.symbol) return toast("Paste a token contract address first.", "err");
+    if (!P.info?.symbol) return toast("Pick a token or paste its contract address first.", "err");
     P.busy = true; P.net = k; renderPanel();
     try {
       const { dev } = await local.get("dev");
@@ -2560,7 +2640,7 @@ document.addEventListener("input", (e) => {
     sync(); return;
     function sync() { const ta = document.querySelector('textarea[name="phrase"]'); if (ta) ta.value = [...document.querySelectorAll("[data-w]")].map((b) => b.value.trim().toLowerCase()).filter(Boolean).join(" "); }
   }
-  if (t.matches("[data-taddr]")) { S.panel.addr = t.value; clearTimeout(S.tokT); S.tokT = setTimeout(previewTok, ethers.isAddress(t.value.trim()) ? 60 : 450); return; }
+  if (t.matches("[data-taddr]")) { S.panel.addr = t.value; S.panel.picked = null; clearTimeout(S.tokT); const v = t.value.trim(); S.tokT = setTimeout(previewTok, ethers.isAddress(v) ? 60 : /^0x/i.test(v) ? 450 : 280); return; }
   if (t.matches("[data-actq]")) { S.actQ = t.value; const el = $("#actl"); if (el) { el.innerHTML = actRows(); translate(el, S.lang); } return; }
   if (t.matches("[data-amount]")) {
     const v = t.value.replace(/[^\d.,]/g, "").replace(",", "."), parts = v.split(".");

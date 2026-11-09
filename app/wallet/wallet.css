@@ -2957,6 +2957,23 @@ html:root[data-theme="light"] .coin.letter, html:root[data-theme="light"] .coin.
 .fp-side h2 { text-wrap: balance; max-width: 560px; }
 .tk-prev .coin.sk { border-radius: 50%; } .tk-prev .sk-t { color: var(--muted); font-weight: 500; }
 
+/* Add a token: search by name, prices to pick the real one */
+.tk-prev:has(.tk-res), .tk-prev:has(.tk-none) { display: block; min-height: 0; }
+.tk-res { display: grid; gap: 2px; margin: 0 -6px; }
+.tk-h { padding: 2px 8px 6px; color: var(--muted); font-size: 10.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+.tk-r { display: flex; align-items: center; gap: 11px; width: 100%; padding: 9px 8px; border: 0; border-radius: 14px; background: transparent; color: inherit; text-align: left; cursor: pointer; transition: background-color .15s, transform .15s; }
+.tk-r:hover, .tk-r:focus-visible { background: var(--h2, var(--s2)); outline: none; } .tk-r:active { transform: scale(.985); }
+.tk-r:disabled { cursor: default; opacity: .55; } .tk-r:disabled:hover { background: transparent; }
+.tk-r .coin, .tk-prev .coin.img { flex: none; width: 34px; height: 34px; }
+.coin.img { overflow: hidden; border-radius: 50%; background: var(--h2, var(--s2)); } .coin.img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tk-n { display: grid; flex: 1; min-width: 0; } .tk-n b { display: flex; align-items: center; gap: 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 600; font-size: 14px; }
+.tk-n small, .tk-p small { color: var(--muted); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tk-p { display: grid; justify-items: end; margin-left: auto; text-align: right; } .tk-p b { font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums; }
+.tk-tag { flex: none; padding: 1px 7px; border-radius: 99px; background: var(--h3, var(--s3)); color: var(--muted); font: 600 10px/1.6 var(--font); font-style: normal; letter-spacing: .02em; }
+.tk-tag.ok { background: color-mix(in srgb, #10915c 16%, transparent); color: #1fa36b; } .tk-tag.warn { background: color-mix(in srgb, #d97706 16%, transparent); color: #d58a16; }
+.tk-r.sk-r .sk-t { display: block; width: 60%; height: 12px; border-radius: 6px; background: var(--h2, var(--s2)); }
+.tk-note, .tk-none { display: block; margin: 8px 2px 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
 #root, #panel { top: 0; bottom: 0; }
