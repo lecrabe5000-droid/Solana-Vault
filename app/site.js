@@ -9,7 +9,7 @@
   // Theme switch (theme.js already applied the saved or device theme before paint).
   document.querySelectorAll("[data-theme-toggle]").forEach((b) => b.addEventListener("click", () => {
     const t = root.dataset.theme === "dark" ? "light" : "dark";
-    root.dataset.theme = t;
+    root.dataset.theme = t; delete root.dataset.skin;
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "dark" ? "#0c0d0f" : "#f3f2ee");
     try { localStorage.setItem("ecrin-theme", t); } catch (_) {}
   }));
@@ -67,6 +67,19 @@
     };
     addEventListener("scroll", () => { if (!tq) { tq = true; requestAnimationFrame(tone); } }, { passive: true });
     tone();
+  }
+
+  // The Wall of Time: the 3D hero loads after the page is up; without WebGL the still poster stays.
+  const wot = document.querySelector("[data-wot]");
+  if (wot) {
+    const ok = (() => { try { return !!document.createElement("canvas").getContext("webgl2"); } catch (_) { return false; } })();
+    const go = () => import("/hero3d.js").then(({ mountWall }) => {
+      const n = document.querySelector("[data-wot-n]");
+      mountWall({ canvas: wot, labels: document.querySelector("[data-wot-labels]"), lang: root.lang === "fr" ? "fr" : "en", still: matchMedia("(prefers-reduced-motion: reduce)").matches, onCount: (c) => { if (n) n.textContent = c; } });
+      requestAnimationFrame(() => setTimeout(() => wot.parentElement.classList.add("ready"), 120));
+    }).catch(() => {});
+    // phones get the still image (lighter, and the Safe sits above the headline); the live scene is for larger screens
+    if (ok && matchMedia("(min-width: 861px)").matches) (window.requestIdleCallback || ((f) => setTimeout(f, 300)))(go, { timeout: 1200 });
   }
 
   // The playable vault in the hero: an attack arrives with a countdown; Cancel keeps the money, then the next one comes.

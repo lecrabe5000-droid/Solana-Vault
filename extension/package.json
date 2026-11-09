@@ -17,7 +17,8 @@
     "@walletconnect/utils": "2.26.0",
     "ethers": "6.13.4",
     "jsqr": "^1.4.0",
-    "qrcode-generator": "1.4.4"
+    "qrcode-generator": "1.4.4",
+    "three": "0.186.1"
   },
   "devDependencies": {
     "esbuild": "0.25.11"

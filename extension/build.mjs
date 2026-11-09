@@ -22,6 +22,8 @@ else {
   // The page scripts: plain IIFEs (content scripts can't be modules), no shims, tiny.
   // The website's motion layer (logos, 3D Safe), from the same code as the wallet.
   await build({ entryPoints: { "site-fx": "src/site-fx.js" }, bundle: true, format: "iife", outdir: "../app", minify: true, target: "es2020", legalComments: "none", logLevel: "warning" });
+  // the landing page hero (WebGL): loaded by site.js after the page has appeared
+  await build({ entryPoints: { hero3d: "src/hero3d.js" }, bundle: true, format: "esm", outdir: "../app", minify: true, target: "es2020", legalComments: "none", logLevel: "warning" });
   await build({ entryPoints: { inpage: "src/inpage.js", content: "src/content.js" }, bundle: true, format: "iife", outdir: out, minify: true, target: "chrome116", legalComments: "none", logLevel: "warning" });
   console.log("built", fs.readdirSync(out).join(" "));
 }

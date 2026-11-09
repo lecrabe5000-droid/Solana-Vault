@@ -1012,3 +1012,34 @@ body { background: radial-gradient(1200px 600px at 80% -10%, color-mix(in srgb, 
 
 /* polish: keep countdowns in one piece */
 .count { white-space: nowrap; }
+
+/* ===== 2026 refresh: Ecrin Wallet first, the wallet's look, three themes ===== */
+[data-skin="ecrin"] {
+  --bg: #070b1d; --surface: #10162c; --sunken: #161e38; --line: rgba(255, 255, 255, .09); --line-2: rgba(255, 255, 255, .16);
+  --ink: #ffffff; --text: #c3cbe6; --muted: #8e98bd; --accent: #9db0ff; --on-accent: #070b1d; --on-ink: #1f3fd6;
+}
+[data-skin="ecrin"] body { background: radial-gradient(70% 45% at 50% 0%, rgba(47, 91, 255, .18), transparent 70%), var(--bg) fixed; }
+[data-skin="ecrin"] .btn.primary { background: #f4f2ea; border-color: #f4f2ea; color: #1f3fd6; }
+[data-theme="dark"]:not([data-skin]) .btn.primary { background: #f2efe8; border-color: #f2efe8; color: #101114; }
+.ec-mark { width: 18px; height: 18px; color: #2f5bff; }
+[data-theme="dark"] .btn.primary .ec-mark { color: #2f5bff; } [data-skin="ecrin"] .btn.primary .ec-mark { color: #1f3fd6; }
+.btn.primary .ec-mark { color: #8ea4ff; }
+/* three-way look switch */
+.tsw3 { position: relative; display: inline-flex; padding: 3px; border-radius: 999px; background: var(--sunken); box-shadow: inset 0 0 0 1px var(--line); }
+.tsw3 { --w: 32px; --h: 30px; }
+.tsw3 button { position: relative; z-index: 1; display: grid; place-items: center; width: var(--w); height: var(--h); border: 0; border-radius: 999px; background: none; color: var(--muted); transition: color .25s; }
+.tsw3 button[aria-checked="true"] { color: var(--ink); }
+.tsw3 button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; } .tsw3 .ec-mark { width: 16px; height: 16px; color: currentColor; }
+.tsw3-k { position: absolute; top: 3px; left: 3px; width: var(--w); height: var(--h); border-radius: 999px; background: var(--surface); box-shadow: 0 1px 2px rgba(0, 0, 0, .12), inset 0 0 0 1px var(--line); transform: translateX(calc(var(--i) * var(--w))); transition: transform .35s cubic-bezier(.3, 1.2, .5, 1); }
+/* the first screen */
+.hello .hello-mark { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 20px; background: var(--sunken); box-shadow: inset 0 0 0 1px var(--line); }
+.hello .hello-mark .ec-mark { width: 30px; height: 30px; color: #2f5bff; } [data-skin="ecrin"] .hello .hello-mark .ec-mark { color: #fff; }
+.hello h1 { text-wrap: balance; }
+.hello .wallets .btn.primary { min-width: 260px; height: 52px; font-size: 16px; }
+.alt-wallets { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 18px; }
+.alt-wallets .label { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.alt-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; } .alt-row .btn { height: 40px; font-size: 14px; }
+.protected { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 18px 0 0; font-size: 13px; color: var(--muted); }
+.protected b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.protected i { width: 7px; height: 7px; border-radius: 50%; background: #2f5bff; box-shadow: 0 0 0 4px rgba(47, 91, 255, .16); }
+@media (pointer: coarse), (max-width: 860px) { .tsw3 { --w: 42px; --h: 40px; } }

@@ -59,35 +59,18 @@
   <main>
     <!-- Hero: an obsidian card with drifting ribbons -->
     <section class="hero-s" data-tone="base">
-      <div class="hero-card">
-        <svg class="ribbons" viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-          <g class="rb rb1"><path d="M-120 620 C 160 520, 260 760, 520 640 S 900 300, 1320 420" stroke="#2f5bff"/></g>
-          <g class="rb rb2"><path d="M-80 120 C 220 260, 360 40, 640 150 S 1000 420, 1300 260" stroke="#ffb547"/></g>
-          <g class="rb rb3"><path d="M-100 380 C 200 300, 300 520, 560 470 S 940 620, 1320 560" stroke="#f1f0ea"/></g>
-          <g class="rb rb4"><path d="M120 -60 C 260 160, 120 300, 300 420 S 380 700, 260 860" stroke="#7d97ff"/></g>
-          <g class="rb rb5"><path d="M1080 -80 C 940 140, 1120 260, 980 420 S 900 640, 1060 860" stroke="#e2603f"/></g>
-        </svg>
-        <div class="hero-shade" aria-hidden="true"></div>
+      <div class="hero-card wot">
+        <div class="wot-stage"><img class="wot-img" src="/hero-safe.webp" alt="Le Coffre Ecrin : un diamant de verre dans son Coffre, entouré d'attaques gelées" width="900" height="900" decoding="async"/><canvas data-wot aria-hidden="true"></canvas><div class="wot-labels" data-wot-labels></div></div>
         <div class="hero-copy">
           <span class="hero-k">Le portefeuille avec un Coffre · Tous les grands réseaux</span>
           <h1>Protégez votre argent des autres, et de vous-même.</h1>
           <p class="lede">Rien ne sort sans un délai que vous choisissez. Un drainer, une signature d'hameçonnage, une clé volée ou une mauvaise soirée frappent le même mur : le temps. Vous le voyez venir, et vous annulez.</p>
           <div class="hero-cta"><a class="btn ivory lg" href="/app"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 2.5l7.5 3v6c0 4.6-3.2 8.6-7.5 10-4.3-1.4-7.5-5.4-7.5-10v-6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 12.2l2.4 2.4 4.6-4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ouvrir l'app</a><a class="btn glass lg" href="/demo">Essayer la démo</a></div>
-          <div class="play" data-play aria-live="polite">
-            <div class="pl-top"><span class="pl-k"><i class="pl-dot"></i><span data-pl-title>Quelqu'un vient de demander un retrait</span></span><span class="pl-try">Essayez</span></div>
-            <div class="pl-attack">
-              <div class="pl-amt"><b class="num" data-pl-amt>24,00</b><small data-pl-unit>SOL</small></div>
-              <span class="pl-why">vers <code data-pl-to>9cRt…X2pa</code> · <span data-pl-why>un drainer signé par erreur</span></span>
-              <div class="pl-clock"><span>peut sortir dans</span><b class="num" data-pl-clock>71:59:48</b></div>
-              <button type="button" class="pl-btn" data-pl-cancel><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 2.5l7.5 3v6c0 4.6-3.2 8.6-7.5 10-4.3-1.4-7.5-5.4-7.5-10v-6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 12.2l2.4 2.4 4.6-4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Annuler et le garder</button>
-            </div>
-            <div class="pl-safe" hidden><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29"/><path d="M20 33l8 8 16-17"/></svg><b data-pl-safe>En sécurité. Les 24 SOL ne sont jamais sortis.</b><span>Le voleur a obtenu une demande en attente, rien d'autre.</span></div>
-            <div class="pl-foot"><span data-pl-count>0 attaque bloquée</span><span>Les vrais coffres fonctionnent exactement comme ça.</span></div>
-          </div>
         </div>
+        <div class="wot-hud" aria-live="polite"><span class="wot-count"><i class="wot-dot"></i><b data-wot-n>0</b> attaques stoppées · <b>0</b> passée</span><span class="wot-hint">Touchez n'importe où pour attaquer le Coffre</span></div>
         <span class="hero-note">Bêta sur testnet · pas encore audité · jetons de test seulement</span>
       </div>
-      <div class="live" data-stats hidden><i class="live-dot"></i><span>En direct sur les réseaux de test</span><span><b data-st="vaults">0</b> coffres</span><span><b data-st="sol">0</b> SOL protégés</span><span><b data-st="networks">0</b> réseaux</span></div>
+      <div class="live" data-stats hidden><i class="live-dot"></i><span>En direct sur les réseaux de test</span><span><b data-st="vaults">0</b> Coffres</span><span><b data-st="sol">0</b> SOL protégés</span><span><b data-st="networks">0</b> réseaux</span></div>
     </section>
 
     <!-- Ticker: every threat hits the same wall -->

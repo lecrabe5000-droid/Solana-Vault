@@ -7,9 +7,9 @@ const OWNER = "you", GUARDIAN = "alex";
 const UNIT = 1000; // 1 SOL = 1000 units in the rules
 const PLACES = { bank: "My bank off-ramp", rent: "Landlord (rent)", unknown: "Unknown address" };
 const MESSAGES = {
-  NotOwner: "Only the vault owner can do that.", NotGuardian: "Only the guardian can do that.", NoGuardian: "This vault has no guardian.",
+  NotOwner: "Only the Safe owner can do that.", NotGuardian: "Only the guardian can do that.", NoGuardian: "This Safe has no guardian.",
   ZeroAmount: "Enter an amount above zero.", InsufficientFunds: "Not enough funds that aren't already queued.",
-  NotTrusted: "That address isn't trusted yet.", Locked: "The vault is locked until its date.", TooEarly: "Not yet: the waiting time hasn't passed.",
+  NotTrusted: "That address isn't trusted yet.", Locked: "The Safe is locked until its date.", TooEarly: "Not yet: the waiting time hasn't passed.",
   DailyLimit: "That's over today's limit.", NotFound: "That item is gone.", TooManyPending: "Too many things are already waiting.",
   TooManyTrusted: "You can trust up to 8 addresses.", InvalidValue: "That value isn't allowed.",
 };
@@ -60,7 +60,7 @@ function renderIntro() {
     <section class="intro">
       ${logo(44)}
       <h1 style="margin-top:18px">Where your crypto <span>is kept.</span></h1>
-      <p>Ecrin is a Solana vault with a built-in cooldown. Every way out takes time, so no impulse, scam or bad night can empty it, and you can cancel any time.</p>
+      <p>Ecrin is a wallet with a Safe built in. Anything leaving the Safe waits a delay you choose. Every way out takes time, so no impulse, scam or bad night can empty it, and you can cancel any time.</p>
     </section>
     <div class="presets" role="radiogroup" aria-label="Protection level">
       ${presets.map(([k, n, d]) => `<button type="button" class="preset" data-act="pick" data-k="${k}" aria-pressed="${pick === k}"><i class="dot"></i><b>${n}</b><span>${d}</span></button>`).join("")}
@@ -77,7 +77,7 @@ function start() {
   const v = new Vault(OWNER, policy);
   v.deposit(10 * UNIT);
   S = { v, now, role: "owner", preset: pick, log: [], wins: 0, meta: {} };
-  log(`Vault created with the ${pick} preset and 10 SOL`);
+  log(`Safe created with the ${pick} preset and 10 SOL`);
   save(); render();
 }
 
@@ -103,7 +103,7 @@ function render() {
       <div class="bar"><i style="width:${pct}%"></i></div>
       <div class="row-acts">${guardian
         ? `<button class="btn sm good" data-act="release" data-id="${w.id}">Approve emergency release</button>`
-        : `<button class="btn sm" data-act="cancel-w" data-id="${w.id}">Cancel, keep it in the vault</button>${ready ? `<button class="btn sm danger" data-act="run" data-id="${w.id}">Send it now</button>` : ""}`}</div>
+        : `<button class="btn sm" data-act="cancel-w" data-id="${w.id}">Cancel, keep it in the Safe</button>${ready ? `<button class="btn sm danger" data-act="run" data-id="${w.id}">Send it now</button>` : ""}`}</div>
     </div>`;
   }).join("") || `<div class="empty">Nothing waiting to leave.</div>`;
 
@@ -123,13 +123,13 @@ function render() {
       <div class="brand">${logo()}Ecrin</div><div class="spacer"></div>
       <div class="seg" role="group" aria-label="View as">
         <button data-act="role" data-r="owner" aria-pressed="${!guardian}">You</button>
-        <button data-act="role" data-r="guardian" aria-pressed="${guardian}" ${p.guardian ? "" : "disabled title='This vault has no guardian'"}>Guardian</button>
+        <button data-act="role" data-r="guardian" aria-pressed="${guardian}" ${p.guardian ? "" : "disabled title='This Safe has no guardian'"}>Guardian</button>
       </div>
     </header>
 
     <div class="layout"><div class="col-main">
     <section class="card hero o-hero">
-      <div class="kicker">${guardian ? "Alex's view · guardian" : "In your vault"}</div>
+      <div class="kicker">${guardian ? "Alex's view · guardian" : "In your Safe"}</div>
       <div class="bal">${sol(v.balance)}<small>SOL</small></div>
       <div class="bal-sub">${sol(v.available())} SOL available${queued ? ` · ${sol(queued)} SOL waiting to leave` : ""}</div>
       <div class="chips">

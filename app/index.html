@@ -59,35 +59,18 @@
   <main>
     <!-- Hero: an obsidian card with drifting ribbons -->
     <section class="hero-s" data-tone="base">
-      <div class="hero-card">
-        <svg class="ribbons" viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-          <g class="rb rb1"><path d="M-120 620 C 160 520, 260 760, 520 640 S 900 300, 1320 420" stroke="#2f5bff"/></g>
-          <g class="rb rb2"><path d="M-80 120 C 220 260, 360 40, 640 150 S 1000 420, 1300 260" stroke="#ffb547"/></g>
-          <g class="rb rb3"><path d="M-100 380 C 200 300, 300 520, 560 470 S 940 620, 1320 560" stroke="#f1f0ea"/></g>
-          <g class="rb rb4"><path d="M120 -60 C 260 160, 120 300, 300 420 S 380 700, 260 860" stroke="#7d97ff"/></g>
-          <g class="rb rb5"><path d="M1080 -80 C 940 140, 1120 260, 980 420 S 900 640, 1060 860" stroke="#e2603f"/></g>
-        </svg>
-        <div class="hero-shade" aria-hidden="true"></div>
+      <div class="hero-card wot">
+        <div class="wot-stage"><img class="wot-img" src="/hero-safe.webp" alt="The Ecrin Safe: a glass diamond inside its Safe, with attacks frozen around it" width="900" height="900" decoding="async"/><canvas data-wot aria-hidden="true"></canvas><div class="wot-labels" data-wot-labels></div></div>
         <div class="hero-copy">
           <span class="hero-k">The wallet with a Safe · Every major network</span>
           <h1>Protect your money from others, and from yourself.</h1>
           <p class="lede">Nothing leaves without a delay you choose. A drainer, a phishing signature, a stolen key or a bad night all hit the same wall: time. You see it coming, and you cancel.</p>
           <div class="hero-cta"><a class="btn ivory lg" href="/app"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 2.5l7.5 3v6c0 4.6-3.2 8.6-7.5 10-4.3-1.4-7.5-5.4-7.5-10v-6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 12.2l2.4 2.4 4.6-4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Open the app</a><a class="btn glass lg" href="/demo">Try the demo</a></div>
-          <div class="play" data-play aria-live="polite">
-            <div class="pl-top"><span class="pl-k"><i class="pl-dot"></i><span data-pl-title>Someone just asked to withdraw</span></span><span class="pl-try">Try it</span></div>
-            <div class="pl-attack">
-              <div class="pl-amt"><b class="num" data-pl-amt>24.00</b><small data-pl-unit>SOL</small></div>
-              <span class="pl-why">to <code data-pl-to>9cRt…X2pa</code> · <span data-pl-why>a drainer you signed by mistake</span></span>
-              <div class="pl-clock"><span>can leave in</span><b class="num" data-pl-clock>71:59:48</b></div>
-              <button type="button" class="pl-btn" data-pl-cancel><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 2.5l7.5 3v6c0 4.6-3.2 8.6-7.5 10-4.3-1.4-7.5-5.4-7.5-10v-6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 12.2l2.4 2.4 4.6-4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Cancel and keep it</button>
-            </div>
-            <div class="pl-safe" hidden><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29"/><path d="M20 33l8 8 16-17"/></svg><b data-pl-safe>Kept safe. 24 SOL never left.</b><span>The thief got a queued request and nothing else.</span></div>
-            <div class="pl-foot"><span data-pl-count>0 attacks stopped</span><span>Real vaults work exactly like this.</span></div>
-          </div>
         </div>
+        <div class="wot-hud" aria-live="polite"><span class="wot-count"><i class="wot-dot"></i><b data-wot-n>0</b> attacks stopped · <b>0</b> got through</span><span class="wot-hint">Tap anywhere to attack the Safe</span></div>
         <span class="hero-note">Testnet beta · not audited · test coins only</span>
       </div>
-      <div class="live" data-stats hidden><i class="live-dot"></i><span>Live on test networks</span><span><b data-st="vaults">0</b> vaults</span><span><b data-st="sol">0</b> SOL protected</span><span><b data-st="networks">0</b> networks</span></div>
+      <div class="live" data-stats hidden><i class="live-dot"></i><span>Live on test networks</span><span><b data-st="vaults">0</b> Safes</span><span><b data-st="sol">0</b> SOL protected</span><span><b data-st="networks">0</b> networks</span></div>
     </section>
 
     <!-- Ticker: every threat hits the same wall -->

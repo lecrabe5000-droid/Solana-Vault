@@ -39,7 +39,7 @@ const ERC20 = ["function balanceOf(address) view returns (uint256)", "function a
 const KINDS = ["SetWithdrawDelay", "SetRuleDelay", "SetDailyLimit", "SetLockedUntil", "SetGuardian", "AddTrusted", "RemoveTrusted"];
 const PRESETS = { gentle: 0, strong: 1, locked: 2 };
 const GWEI = 1_000_000_000n;
-const EXTRA_ERRORS = { VaultExists: "This wallet already has a vault.", TransferFailed: "The destination refused the transfer.", Reentered: "That call was refused." };
+const EXTRA_ERRORS = { VaultExists: "This wallet already has a Safe.", TransferFailed: "The destination refused the transfer.", Reentered: "That call was refused." };
 
 /** Turns a failed call into { code, message }. */
 export function explainEvmError(err, iface) {
@@ -119,7 +119,7 @@ export function createEvmClient({ ethers, EVM, readProvider, getSigner }) {
     return t.hash;
   }
 
-  /** One token's side of the vault. Amounts are the token's base units (1e6 per USDC), no conversion. */
+  /** One token's side of the Safe. Amounts are the token's base units (1e6 per USDC), no conversion. */
   function token(tokenAddr) {
     const t = String(tokenAddr), erc = new ethers.Contract(t, ERC20, read);
     async function fetch(owner) {
@@ -138,7 +138,7 @@ export function createEvmClient({ ethers, EVM, readProvider, getSigner }) {
       fetch,
       walletBalance: async (owner) => Number(await erc.balanceOf(String(owner))),
       ops: {
-        // The vault pulls the coins, so the wallet approves the amount first when it hasn't already.
+        // The Safe pulls the coins, so the wallet approves the amount first when it hasn't already.
         deposit: async (amount) => {
           const signer = await getSigner(), me = await signer.getAddress();
           if ((await erc.allowance(me, EVM.address)) < BigInt(amount)) {

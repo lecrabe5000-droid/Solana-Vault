@@ -1,11 +1,20 @@
+/* The demo, in the app's look: Manrope and Unbounded (self-hosted), ink and ivory buttons, Ecrin blue only for
+   what matters, and the same Light / Dark / Ecrin looks (theme.js sets data-theme and data-skin). */
+@font-face { font-family: "Manrope"; font-weight: 400; font-display: swap; src: url("fonts/manrope-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Manrope"; font-weight: 500; font-display: swap; src: url("fonts/manrope-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Manrope"; font-weight: 600; font-display: swap; src: url("fonts/manrope-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Manrope"; font-weight: 700; font-display: swap; src: url("fonts/manrope-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "Unbounded"; font-weight: 600; font-display: swap; src: url("fonts/unbounded-latin-600-normal.woff2") format("woff2"); }
 :root {
-  /* Ecrin: white, ink and one electric blue. Minimal: thin lines, lots of space, no decoration. */
-  --bg: #fafafa; --panel: #ffffff; --panel-2: #f6f7f9; --line: #ececf0; --line-2: #e0e1e6;
-  --ink: #0d0f14; --text: #3a3f4b; --muted: #8a8f9a;
-  --blue: #2f5bff; --blue-soft: #eef2ff;
-  --good: #12a36b; --warn: #c8860f; --bad: #d6455d;
-  --r: 16px; --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --bg: #f6f6f3; --panel: #ffffff; --panel-2: #f1f1ed; --line: #e6e6e1; --line-2: #d6d6cf;
+  --ink: #101114; --text: #45484f; --muted: #8b8d93;
+  --blue: #2f5bff; --blue-soft: #eef2ff; --pri: #101114; --on-pri: #ffffff;
+  --good: #10915c; --warn: #b7700a; --bad: #d33d55;
+  --r: 18px; --font: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; --num: "Unbounded", "Manrope", sans-serif;
 }
+[data-theme="dark"] { --bg: #0c0d0f; --panel: #131417; --panel-2: #1a1b1f; --line: #23252a; --line-2: #33363c; --ink: #f3f3ef; --text: #b5b7bd; --muted: #7c7f87; --blue: #7d97ff; --blue-soft: rgba(125, 151, 255, .12); --pri: #f2efe8; --on-pri: #101114; color-scheme: dark; }
+[data-skin="ecrin"] { --bg: #070b1d; --panel: #10162c; --panel-2: #161e38; --line: rgba(255, 255, 255, .09); --line-2: rgba(255, 255, 255, .16); --ink: #fff; --text: #c3cbe6; --muted: #8e98bd; --blue: #9db0ff; --pri: #f4f2ea; --on-pri: #1f3fd6; }
+[data-skin="ecrin"] body { background: radial-gradient(70% 45% at 50% 0%, rgba(47, 91, 255, .18), transparent 70%), var(--bg) fixed; }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--text); font: 400 15px/1.55 var(--font); -webkit-font-smoothing: antialiased; }
 body { min-height: 100vh; }
@@ -50,7 +59,7 @@ main { max-width: 640px; margin: 0 auto; padding: 32px 20px 96px; }
 
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 44px; padding: 0 16px; border: 1px solid var(--line-2); border-radius: 999px; background: var(--panel); color: var(--ink); font-weight: 500; font-size: 14px; transition: border-color .15s ease, background .15s ease; }
 .btn:hover { border-color: var(--ink); }
-.btn.primary { border-color: var(--blue); background: var(--blue); color: #fff; }
+.btn.primary { border-color: var(--pri); background: var(--pri); color: var(--on-pri); }
 .btn.primary:hover { background: #2450f0; border-color: #2450f0; }
 .btn.good { border-color: #bfe8d6; color: #0b7a50; }
 .btn.danger { border-color: #f3c6cf; color: #b8324a; }
@@ -95,7 +104,7 @@ main { max-width: 640px; margin: 0 auto; padding: 32px 20px 96px; }
 .preset { display: grid; grid-template-columns: auto 1fr; gap: 2px 14px; align-items: start; padding: 18px; border-radius: var(--r); border: 1px solid var(--line-2); background: var(--panel); text-align: left; }
 .preset[aria-pressed="true"] { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
 .preset .dot { grid-row: span 2; width: 20px; height: 20px; margin-top: 2px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--line-2); }
-.preset[aria-pressed="true"] .dot { background: var(--blue); box-shadow: inset 0 0 0 5px #fff, 0 0 0 1.5px var(--blue); }
+.preset[aria-pressed="true"] .dot { background: var(--blue); box-shadow: inset 0 0 0 5px var(--panel), 0 0 0 1.5px var(--blue); }
 .preset b { color: var(--ink); font-size: 16px; font-weight: 600; }
 .preset span { color: var(--muted); font-size: 14px; }
 .toggle { display: flex; align-items: center; gap: 12px; padding: 16px 18px; margin-bottom: 20px; border-radius: var(--r); border: 1px solid var(--line-2); background: var(--panel); font-size: 14px; }
@@ -219,3 +228,6 @@ a.chip { text-decoration: none; }
 /* Network switch (Solana / Ethereum) next to the brand. */
 .netsw { margin-left: 6px; }
 @media (max-width: 560px) { .top .netsw { order: 2; } .top .seg:not(.netsw) { order: 4; } }
+
+h1, h2 { font-family: var(--num); font-weight: 600; letter-spacing: -.03em; }
+.intro h1 { text-wrap: balance; }

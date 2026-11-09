@@ -1,8 +1,8 @@
-// Ecrin app: your real vault on Solana devnet or an Ethereum-style test network (Sepolia, Base, Arbitrum, Optimism,
+// Ecrin app: your real Safe on Solana devnet or an Ethereum-style test network (Sepolia, Base, Arbitrum, Optimism,
 // Polygon), through the wallet you already use. Solana: reads with app/chain.js, signs in the wallet, sends through our
 // own devnet RPC (so it works whichever network the wallet is set to). Ethereum-style: app/evm.js reads through a
-// public RPC and signs with MetaMask. Both return the same vault shape, so every view below is shared.
-// Each vault holds the network's own coin and USDC: one set of rules, a balance, a queue and a daily limit per coin.
+// public RPC and signs with MetaMask. Both return the same Safe shape, so every view below is shared.
+// Each Safe holds the network's own coin and USDC: one set of rules, a balance, a queue and a daily limit per coin.
 // Nothing here holds keys or funds.
 import { createClient, explainError } from "./chain.js";
 import { isStricter } from "./vault.js";
@@ -119,7 +119,7 @@ function evmNet(E) {
     faucet: E.faucet, faucetName: E.faucetName, lowBal: E.unit === "POL" ? 0.05 : E.key === "eth" ? 0.002 : 0.0005,
     setup: `In MetaMask: Settings → Advanced → turn on <b>Show test networks</b>. Ecrin asks MetaMask to switch to <b>${E.name} ${E.net}</b> for you.`,
     getWallet: ["Get MetaMask", "https://metamask.io/download/"],
-    createCost: `Creating the vault costs a little test ${E.unit} in gas.`,
+    createCost: `Creating the Safe costs a little test ${E.unit} in gas.`,
     usdc: E.v >= 2 && E.usdc ? E.usdc : null,
   };
 }
@@ -131,7 +131,7 @@ const NETS = {
     faucet: "https://faucet.solana.com", faucetName: "faucet.solana.com", lowBal: 0.01,
     setup: "In Phantom: Settings → Developer Settings → turn on <b>Testnet Mode</b> and pick <b>Solana Devnet</b>.",
     getWallet: ["Get Phantom", "https://phantom.com/download"],
-    createCost: "Creating the vault costs a small amount of devnet SOL for the account's rent.",
+    createCost: "Creating the Safe costs a small amount of devnet SOL for the account's rent.",
     usdc: CONFIG.tokens ? SOL_USDC[CONFIG.cluster] || null : null,
   },
   ...Object.fromEntries(Object.values(EVM_NETS).map((E) => [E.key, evmNet(E)])),
@@ -151,7 +151,7 @@ function switchNet(n) {
 // ------------------------------------------------------------------ assets: the network's own coin, and USDC
 
 const USDC = { id: "usdc", unit: "USDC", base: 1e6, stable: true };
-/** What a vault on this network can hold. USDC shows once the deployed program or contract supports tokens. */
+/** What a Safe on this network can hold. USDC shows once the deployed program or contract supports tokens. */
 const assets = () => [{ id: "native", unit: C.unit, base: LAMPORTS }, ...(C.usdc && C.x ? [USDC] : [])];
 const A = (id = S.asset) => assets().find((a) => a.id === id) || assets()[0];
 let tokCache = null;
@@ -161,7 +161,7 @@ function tc() {
   return tokCache.t;
 }
 
-/** The vault as seen for one asset: the shared rules, with that asset's balance, queue, limit and limit changes. */
+/** The Safe as seen for one asset: the shared rules, with that asset's balance, queue, limit and limit changes. */
 function assetView(v, id = S.asset) {
   if (!v || id === "native") return v && { ...v, asset: "native" };
   const t = v.tokens?.[id];
@@ -181,7 +181,7 @@ function assetOps(id = S.asset) {
   if (isEvm()) return { ...t.ops, proposeChange: limitOr(t.ops.proposeLimit) };
   const b = t.build, me = () => S.wallet;
   return {
-    // The first USDC deposit also opens the vault's USDC account, in the same transaction.
+    // The first USDC deposit also opens the Safe's USDC account, in the same transaction.
     deposit: (u) => solTx(...(S.vault?.tokens?.[id] ? [] : [b.open(me())]), b.deposit(me(), u)),
     sendToTrusted: (dest, u) => solTx(...b.sendToTrusted(me(), dest, u)),
     requestWithdrawal: (dest, u) => solTx(b.requestWithdrawal(me(), dest, u)),
@@ -194,7 +194,7 @@ function assetOps(id = S.asset) {
   };
 }
 
-/** Reads a vault and its USDC side together. */
+/** Reads a Safe and its USDC side together. */
 async function readVault(owner) {
   const v = await C.x.fetchVault(owner);
   if (v && C.usdc) v.tokens = { usdc: await tc().fetch(owner).catch(() => null) };
@@ -224,18 +224,47 @@ window.addEventListener("eip6963:announceProvider", (e) => {
 });
 window.dispatchEvent(new Event("eip6963:requestProvider"));
 
+// Ecrin Wallet speaks Wallet Standard on Solana; this gives it the shape the rest of the app uses.
+function ecrinSol() {
+  const w = window.__ecrinWallet?.solana, f = w?.features; if (!f) return null;
+  const ad = {
+    isEcrin: true, publicKey: null,
+    async connect() { const { accounts } = await f["standard:connect"].connect(); if (!accounts?.[0]) throw new Error("Ecrin Wallet didn't share an account."); ad.publicKey = new web3.PublicKey(accounts[0].address); return { publicKey: ad.publicKey }; },
+    async disconnect() { try { await f["standard:disconnect"]?.disconnect(); } catch (_) {} },
+    async signTransaction(tx) {
+      const [out] = await f["solana:signTransaction"].signTransaction({ transaction: tx.serialize({ requireAllSignatures: false, verifySignatures: false }), account: w.accounts[0], chain: "solana:devnet" });
+      return web3.Transaction.from(out.signedTransaction);
+    },
+    on(ev, fn) { if (ev === "accountChanged") f["standard:events"]?.on("change", ({ accounts }) => fn(accounts?.[0] ? new web3.PublicKey(accounts[0].address) : null)); },
+  };
+  return ad;
+}
+const ECRIN_GET = "/#wallet", ECRIN_PHONE = "/wallet/";
+const ECRIN_MARK = '<svg class="ec-mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="currentColor"/></svg>';
+// The same live numbers as the landing page: how much is sitting in Ecrin Safes on the test networks right now.
+function loadProtected() {
+  fetch("/api/stats").then((r) => (r.ok ? r.json() : null)).then((st) => {
+    const el = document.querySelector("[data-protected]"); if (!el || !st?.vaults) return;
+    const fr = document.documentElement.lang === "fr", loc = fr ? "fr-CA" : "en-US", sol = (Number(BigInt(st.sol || "0") / 10_000_000n) / 100).toLocaleString(loc, { maximumFractionDigits: 2 });
+    el.innerHTML = fr ? `<i></i><b>${sol} SOL</b> protégés dans <b>${st.vaults.toLocaleString(loc)}</b> Coffres sur les réseaux de test` : `<i></i><b>${sol} SOL</b> protected in <b>${st.vaults.toLocaleString(loc)}</b> Safes on the test networks`;
+    el.hidden = false;
+  }).catch(() => {});
+}
+
 function providers() {
   if (isEvm()) {
-    const list = [...evmWallets.entries()].sort(([a], [b]) => (b === "io.metamask") - (a === "io.metamask")).map(([, w]) => w);
+    const rank = (r) => (r === "app.ecrinprotocol.wallet" ? 2 : r === "io.metamask" ? 1 : 0);
+    const list = [...evmWallets.entries()].sort(([a], [b]) => rank(b) - rank(a)).map(([, w]) => w);
     if (list.length) return list;
     const e = window.ethereum;
     return e ? [[e.isPhantom ? "Phantom" : e.isMetaMask ? "MetaMask" : "Wallet", e]] : [];
   }
   const out = [];
+  const ec = ecrinSol(); if (ec) out.push(["Ecrin Wallet", ec]);
   const ph = window.phantom?.solana; if (ph?.isPhantom) out.push(["Phantom", ph]);
   if (window.solflare?.isSolflare) out.push(["Solflare", window.solflare]);
   if (window.backpack?.isBackpack) out.push(["Backpack", window.backpack]);
-  if (!out.length && window.solana) out.push(["Wallet", window.solana]);
+  if (!out.length && window.solana && !window.solana.isEcrin) out.push(["Wallet", window.solana]);
   return out;
 }
 let connecting = false;
@@ -273,12 +302,12 @@ function seal() {
   navigator.vibrate?.([14, 40, 22]);
   const el = document.createElement("div");
   el.className = "seal";
-  el.innerHTML = `<div class="seal-in"><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29"/><path d="M20 33l8 8 16-17"/></svg><b>Kept safe</b><span>It never left your vault.</span></div>`;
+  el.innerHTML = `<div class="seal-in"><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29"/><path d="M20 33l8 8 16-17"/></svg><b>Kept safe</b><span>It never left your Safe.</span></div>`;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 1900);
 }
 
-/** Runs one signed operation, then logs it, tells the person, and reloads the vault. */
+/** Runs one signed operation, then logs it, tells the person, and reloads the Safe. */
 async function send(label, op) {
   if (S.busy) return null;
   S.busy = true; render();
@@ -317,9 +346,9 @@ async function refresh() {
 function openGoto() {
   const g = S.goto; S.goto = null;
   try { history.replaceState(null, "", location.pathname + "?net=" + S.net + "&tab=vault"); } catch (_) {}
-  // Ids count per vault, so the link only applies to the vault it was about.
-  if (g.owner && S.wallet && S.wallet.toBase58().toLowerCase() !== g.owner.toLowerCase()) return toast(`That alert is about vault ${esc(short(g.owner))}. Connect that wallet to cancel it.`, "err");
-  if (!S.vault) return toast("This wallet has no vault on " + C.name + ". Connect the wallet that owns it.", "err");
+  // Ids count per Safe, so the link only applies to the Safe it was about.
+  if (g.owner && S.wallet && S.wallet.toBase58().toLowerCase() !== g.owner.toLowerCase()) return toast(`That alert is about Safe ${esc(short(g.owner))}. Connect that wallet to cancel it.`, "err");
+  if (!S.vault) return toast("This wallet has no Safe on " + C.name + ". Connect the wallet that owns it.", "err");
   if (g.act === "freeze") { S.tab = "vault"; render(); return S.readOnly ? signElsewhere() : freezeSheet(); }
   if (g.asset !== "native" && !assets().some((a) => a.id === g.asset)) return;
   S.asset = g.asset; S.tab = "vault"; render();
@@ -331,7 +360,7 @@ function openGoto() {
   if (row) { row.scrollIntoView({ behavior: "smooth", block: "center" }); row.classList.add("flash"); setTimeout(() => row.classList.remove("flash"), 4000); }
   const what = g.act === "cancel-w" ? `<b>${sol(item.amount, a)} ${a.unit}</b> to <code>${esc(short(item.dest))}</code>` : `<b>${esc(changeWords(item.change, item.asset))}</b>`;
   sheet(`<div class="rule-h"><span class="pol-ico">${I.shield}</span><div><h3>Cancel this ${g.act === "cancel-w" ? "withdrawal" : "rule change"}?</h3><span class="muted small">From your alert</span></div></div>
-    <p class="note">${what}. ${g.act === "cancel-w" ? "Cancelling is free and instant, and the money stays in your vault." : "Cancelling is free and instant; your rules stay as they are."}</p>`, () => { btn?.click(); return true; });
+    <p class="note">${what}. ${g.act === "cancel-w" ? "Cancelling is free and instant, and the money stays in your Safe." : "Cancelling is free and instant; your rules stay as they are."}</p>`, () => { btn?.click(); return true; });
   $("#sheet-form").querySelector('button[value="ok"]').textContent = g.act === "cancel-w" ? "Cancel and keep it safe" : "Cancel the change";
 }
 
@@ -390,7 +419,7 @@ addEventListener("ecrin-theme", () => { wcMod?.walletConnectTheme(document.docum
 function installCard() {
   if (!isPhone() || standalone()) return "";
   try { if (localStorage.getItem("ecrin-install-off") === "1") return ""; } catch (_) {}
-  return `<section class="glass install"><span class="in-ico">${logo}</span><div class="in-t"><b>Add Ecrin to your home screen</b><span>Your vault, one tap away. Opens like an app.</span></div><button class="btn primary sm" data-act="install">Install</button><button class="in-x" data-act="install-off" aria-label="Hide">×</button></section>`;
+  return `<section class="glass install"><span class="in-ico">${logo}</span><div class="in-t"><b>Add Ecrin to your home screen</b><span>Your Safe, one tap away. Opens like an app.</span></div><button class="btn primary sm" data-act="install">Install</button><button class="in-x" data-act="install-off" aria-label="Hide">×</button></section>`;
 }
 
 function installGuide() {
@@ -402,11 +431,11 @@ function installGuide() {
       ? `<ol class="guide"><li><b>1</b><span>Tap <b>Share</b> at the bottom of Safari (the square with an arrow).</span></li><li><b>2</b><span>Scroll and tap <b>Add to Home Screen</b>.</span></li><li><b>3</b><span>Tap <b>Add</b>. Ecrin appears with your other apps.</span></li></ol>`
       : `<ol class="guide"><li><b>1</b><span>Open Chrome's menu <b>⋮</b> at the top right.</span></li><li><b>2</b><span>Tap <b>Install app</b> (or <b>Add to Home screen</b>).</span></li><li><b>3</b><span>Confirm. Ecrin appears with your other apps.</span></li></ol>`;
   sheet(`<div class="rule-h"><span class="pol-ico">${logo}</span><div><h3>Install Ecrin</h3><span class="muted small">Takes ten seconds</span></div></div>${steps}
-    <p class="note">On the home screen, Ecrin opens in view mode: your vault, balance, countdowns and alerts. To sign something, it hands you to your wallet app.</p>`, () => true);
+    <p class="note">On the home screen, Ecrin opens in view mode: your Safe, balance, countdowns and alerts. To sign something, it hands you to your wallet app.</p>`, () => true);
   $("#sheet-form").querySelector('button[value="ok"]').hidden = true;
 }
 
-// View mode: watch a vault by address, with no wallet connected (what the home-screen app uses on phones).
+// View mode: watch a Safe by address, with no wallet connected (what the home-screen app uses on phones).
 const viewKey = () => "ecrin-view-" + S.net;
 function startView(addr) {
   const k = keyOf(addr);
@@ -419,7 +448,7 @@ function startView(addr) {
 function signElsewhere() {
   const [name, href] = walletLinks()[0];
   sheet(`<div class="rule-h"><span class="pol-ico">${I.lock}</span><div><h3>Sign in ${name}</h3><span class="muted small">You're in view mode</span></div></div>
-    <p class="note">The home-screen app can watch your vault but can't sign. ${name} opens Ecrin in its own browser, already on your vault, where you can confirm this.</p>
+    <p class="note">The home-screen app can watch your Safe but can't sign. ${name} opens Ecrin in its own browser, already on your Safe, where you can confirm this.</p>
     ${wcOn() ? `<button type="button" class="btn primary wide wc-btn" data-act="wc">${WC_ICON}<span>Connect with WalletConnect</span></button>` : ""}
     <a class="btn ${wcOn() ? "" : "primary "}wide" href="${esc(href)}">Open in ${name}</a>`, () => true);
   $("#sheet-form").querySelector('button[value="ok"]').hidden = true;
@@ -545,7 +574,7 @@ document.addEventListener("pointermove", (e) => {
 }, { passive: true });
 document.addEventListener("pointerout", (e) => { const el = e.target.closest?.("[data-chart]"); if (el && !el.contains(e.relatedTarget)) el.querySelector(".cross").hidden = true; });
 
-/** Donut: share of the balance that is protected in the vault. */
+/** Donut: share of the balance that is protected in the Safe. */
 function ring(pct) {
   const r = 52, c = 2 * Math.PI * r, on = (pct / 100) * c;
   return `<div class="ring" role="img" aria-label="${pct}% protected"><svg viewBox="0 0 128 128">
@@ -577,21 +606,24 @@ function avatar(addr) {
 
 // ------------------------------------------------------------------ shell
 
-const TABS = [["portfolio", "Portfolio", I.home], ["vault", "Vault", I.shield], ["activity", "Activity", I.list], ["guardian", "Guardian", I.people]];
+const TABS = [["portfolio", "Portfolio", I.home], ["vault", "Safe", I.shield], ["activity", "Activity", I.list], ["guardian", "Guardian", I.people]];
 
 function privacyBtn() {
   return `<button class="theme" data-act="privacy" aria-pressed="${S.hide}" aria-label="${S.hide ? "Show" : "Hide"} balances" title="${S.hide ? "Show" : "Hide"} balances">${S.hide ? I.eyeOff : I.eye}</button>`;
 }
 
+// Light → Dark → Ecrin, the same three looks as the wallet (and the same saved choice).
+const curTheme = () => (document.documentElement.dataset.skin === "ecrin" ? "ecrin" : document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+const NEXT_THEME = { light: "dark", dark: "ecrin", ecrin: "light" };
 function themeBtn() {
-  const dark = document.documentElement.dataset.theme === "dark";
-  return `<button class="theme" data-act="theme" aria-label="Switch to ${dark ? "light" : "dark"} mode" title="Switch to ${dark ? "light" : "dark"} mode">${dark ? I.sun : I.moon}</button>`;
+  const nx = NEXT_THEME[curTheme()], label = { light: "light", dark: "dark", ecrin: "Ecrin" }[nx];
+  return `<button class="theme" data-act="theme" aria-label="Switch to ${label} mode" title="Switch to ${label} mode">${nx === "light" ? I.sun : nx === "dark" ? I.moon : ECRIN_MARK}</button>`;
 }
 
 /** Light | dark in one tap: a small switch with the sun and the moon, the knob slides to the one in use. */
 function themeSwitch() {
-  const dark = document.documentElement.dataset.theme === "dark";
-  return `<button class="tsw" data-act="theme" role="switch" aria-checked="${dark}" aria-label="Dark mode" title="Switch to ${dark ? "light" : "dark"} mode"><i class="tsw-k"></i><span class="tsw-s">${I.sun}</span><span class="tsw-m">${I.moon}</span></button>`;
+  const cur = curTheme(), opts = [["light", I.sun, "Light"], ["dark", I.moon, "Dark"], ["ecrin", ECRIN_MARK, "Ecrin"]];
+  return `<div class="tsw3" role="radiogroup" aria-label="Appearance" style="--i:${opts.findIndex(([k]) => k === cur)}"><i class="tsw3-k"></i>${opts.map(([k, ic, l]) => `<button role="radio" aria-checked="${k === cur}" aria-label="${l}" title="${l}" data-act="theme" data-t="${k}">${ic}</button>`).join("")}</div>`;
 }
 
 function netSwitch() {
@@ -623,7 +655,7 @@ function netMenu() {
     return `<button type="button" class="net-row${on ? " on" : ""}" data-act="net" data-n="${k}" ${live || on ? "" : "disabled"}>${coin(k)}<span class="nr-t"><b>${n.name}</b><span>${n.net} testnet</span></span>
       <span class="nr-r">${live ? `<span class="nr-a">${n.unit}${n.usdc ? " · USDC" : ""}</span>` : `<span class="nr-soon">Coming soon</span>`}${on ? `<i class="nr-on">${I.check}</i>` : ""}</span></button>`;
   };
-  sheet(`<h3>Network</h3><p class="note">Each network has its own vault with the same rules. Test coins only.</p>
+  sheet(`<h3>Network</h3><p class="note">Each network has its own Safe with the same rules. Test coins only.</p>
     <div class="net-list">${row("sol")}<span class="label nl-h">Ethereum and its networks</span>${Object.keys(EVM_NETS).map(row).join("")}</div>`, () => true);
   $("#sheet-form").querySelector('button[value="ok"]').hidden = true;
 }
@@ -673,22 +705,29 @@ function renderView() {
   }
   if (!S.wallet) {
     const list = providers();
+    const ecrin = list.find(([n]) => /Ecrin/.test(n)), others = list.filter(([n]) => !/Ecrin/.test(n));
+    const btn = ([n], cls) => `<button class="btn ${cls} lg" data-act="connect" data-i="${list.findIndex(([m]) => m === n)}">${/Ecrin/.test(n) ? `${ECRIN_MARK}<span>Connect Ecrin Wallet</span>` : `Connect ${esc(n)}`}</button>`;
+    const lead = ecrin ? btn(ecrin, "primary")
+      : isPhone() ? `<a class="btn primary lg" href="${ECRIN_PHONE}">${ECRIN_MARK}<span>Open Ecrin Wallet</span></a>`
+      : `<a class="btn primary lg" href="${ECRIN_GET}">${ECRIN_MARK}<span>Get Ecrin Wallet</span></a>`;
+    const alt = [...others.map((w) => btn(w, "")), wcOn() ? `<button class="btn wc-btn" data-act="wc">${WC_ICON}<span>WalletConnect</span></button>` : "",
+      !others.length && isPhone() ? walletLinks().map(([n, href]) => `<a class="btn" href="${esc(href)}">Open in ${n}</a>`).join("") : ""].filter(Boolean).join("");
     app.innerHTML = shell(`<section class="glass hello">
-      <div class="mark">${I.shield}</div>
+      <div class="mark hello-mark">${ECRIN_MARK}</div>
       <h1>Your crypto, out of reach of anyone in a hurry.</h1>
-      <p>Connect the wallet you already use. Ecrin never holds your keys: your wallet signs, the ${C.name} ${C.contractWord} enforces the rules.</p>
-      ${wcOn() ? `<button class="btn lg wc-btn" data-act="wc">${WC_ICON}<span>WalletConnect</span></button>` : ""}
-      <div class="wallets">${list.length ? list.map(([n], i) => `<button class="btn primary lg" data-act="connect" data-i="${i}">Connect ${esc(n)}</button>`).join("")
-        : isPhone() ? walletLinks().map(([n, href], i) => `<a class="btn ${i ? "" : "primary "}lg" href="${esc(href)}">Open in ${n}</a>`).join("")
-        : `<a class="btn primary lg" href="${C.getWallet[1]}" target="_blank" rel="noopener">${C.getWallet[0]}</a>`}</div>
-      ${!list.length && isPhone() ? `<p class="hint">Phone browsers can't reach wallet apps directly, so Ecrin opens inside your wallet's own browser. Don't have it yet? <a href="${C.getWallet[1]}" target="_blank" rel="noopener">${C.getWallet[0]}</a>.</p>` : ""}
-        <div class="viewmode"><span class="label">Or just watch your vault</span><div class="lookup"><input id="view-addr" class="input" placeholder="Your ${C.name} wallet address" spellcheck="false" autocomplete="off"/><button class="btn" data-act="view-start">View</button></div><p class="hint">View mode shows your vault, countdowns and alerts. Signing opens your wallet app.</p></div>
-      <ol class="steps"><li><b>1</b><span><span>${C.setup}</span></span></li><li><b>2</b><span><span>Get free test ${C.unit} at <a href="${C.faucet}" target="_blank" rel="noopener">${C.faucetName}</a>.</span></span></li><li><b>3</b><span><span>Create your vault and try a withdrawal. Watch the clock, then cancel it.</span></span></li></ol>
+      <p>Connect your wallet. Ecrin never holds your keys: your wallet signs, the ${C.name} ${C.contractWord} enforces the rules.</p>
+      <div class="wallets">${lead}</div>
+      ${alt ? `<div class="alt-wallets"><span class="label">Or use another wallet</span><div class="alt-row">${alt}</div></div>` : ""}
+      ${isPhone() && !ecrin ? `<p class="hint">Using Ecrin Wallet on your phone? Open it, go to Settings, then Connected apps, and scan the WalletConnect code.</p>` : ""}
+      <div class="viewmode"><span class="label">Or just watch your Safe</span><div class="lookup"><input id="view-addr" class="input" placeholder="Your ${C.name} wallet address" spellcheck="false" autocomplete="off"/><button class="btn" data-act="view-start">View</button></div><p class="hint">View mode shows your Safe, countdowns and alerts. Signing opens your wallet app.</p></div>
+      <ol class="steps"><li><b>1</b><span><span>Get <a href="${ECRIN_GET}">Ecrin Wallet</a> for Chrome or your phone.</span></span></li><li><b>2</b><span><span>${S.net === "sol" ? `In the wallet, tap Get free test SOL. It arrives in seconds.` : `Get free test ${C.unit} at <a href="${C.faucet}" target="_blank" rel="noopener">${C.faucetName}</a>.`}</span></span></li><li><b>3</b><span><span>Create your Safe and try a withdrawal. Watch the clock, then cancel it.</span></span></li></ol>
+      <p class="protected" data-protected hidden></p>
     </section>`, { nav: false });
+    loadProtected();
     return;
   }
   if (S.tab === "guardian") { app.innerHTML = shell(guardianView()); return; }
-  if (S.vault === undefined) { app.innerHTML = shell(`<div class="skel" aria-label="Reading your vault from ${C.name} ${C.net}…"><i class="sk sk-l"></i><i class="sk sk-xl"></i><i class="sk sk-m"></i><div class="sk-row"><i class="sk sk-case"></i><i class="sk sk-card"></i></div></div>`); return; }
+  if (S.vault === undefined) { app.innerHTML = shell(`<div class="skel" aria-label="Reading your Safe from ${C.name} ${C.net}…"><i class="sk sk-l"></i><i class="sk sk-xl"></i><i class="sk sk-m"></i><div class="sk-row"><i class="sk sk-case"></i><i class="sk sk-card"></i></div></div>`); return; }
   if (S.vault === null) { app.innerHTML = shell(createView(), { nav: false }); return; }
   const v = S.vault;
   app.innerHTML = shell((S.tab === "portfolio" ? installCard() : "") + (S.readOnly ? `<div class="viewbar">${I.eye}<span><b>View mode</b> · signing opens your wallet app</span><button class="link" data-act="disconnect">Exit</button></div>` : "") + (S.tab === "vault" ? vaultView(v) : S.tab === "activity" ? activityView() : portfolioView(v)));
@@ -702,13 +741,13 @@ function createView() {
     ["locked", "Locked", "Must not move", ["Nothing leaves before your date", "Emergency exit with your guardian", "Guardian required"], I.lock],
   ];
   return `<section class="create">
-    <div class="create-h"><h1>Create your vault</h1><p>One vault per wallet on ${C.name}. You can make it stricter any time; loosening it always waits.</p></div>
+    <div class="create-h"><h1>Create your Safe</h1><p>One Safe per wallet on ${C.name}. You can make it stricter any time; loosening it always waits.</p></div>
     ${S.walletSol < C.lowBal * LAMPORTS ? `<div class="notice">Your wallet has ${sol(S.walletSol, A("native"))} ${C.unit} on ${C.net}. Get free test ${C.unit} at <a href="${C.faucet}" target="_blank" rel="noopener">${C.faucetName}</a> for <b>${short(S.wallet)}</b>, then come back.</div>` : ""}
     <div class="presets">${presets.map(([k, n, tag, pts, icon]) => `<button type="button" class="preset glass" data-act="pick" data-k="${k}" aria-pressed="${S.pick === k}"><span class="p-ico">${icon}</span><span class="p-tag">${tag}</span><b>${n}</b><ul>${pts.map((x) => `<li>${x}</li>`).join("")}</ul></button>`).join("")}</div>
     <div class="glass create-f">
       <label class="field">Guardian wallet address ${S.pick === "locked" ? "(required)" : "(optional)"}<input id="g-addr" placeholder="A friend's ${C.name} address" autocomplete="off" spellcheck="false"/></label>
       ${S.pick === "locked" ? `<label class="field">Locked until<input id="lock-date" type="date"/></label>` : ""}
-      <button class="btn primary lg wide" data-act="create" ${S.busy ? "disabled" : ""}>${S.busy ? "Confirm in your wallet…" : "Create vault"}</button>
+      <button class="btn primary lg wide" data-act="create" ${S.busy ? "disabled" : ""}>${S.busy ? "Confirm in your wallet…" : "Create Safe"}</button>
       <p class="hint">${C.createCost}</p>
     </div></section>`;
 }
@@ -732,7 +771,7 @@ function actionsRow() {
 }
 
 
-// ------------------------------------------------------------------ the vault card and its looks
+// ------------------------------------------------------------------ the Safe card and its looks
 
 /** How the owner dressed their card. Kept on this device, per wallet; nothing about it goes on-chain. */
 const CARD_DEF = { mat: "obsidian", pat: "guilloche", acc: "#7d97ff", name: "", font: "display", corner: "soft", emblem: "ecrin", patOp: 60, shine: true, light: true, tilt: true, foil: false, grain: false, mask: false, edge: false };
@@ -769,7 +808,7 @@ function cardEmblem(st) {
   return `<svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="currentColor"/></svg>`;
 }
 
-/** The vault as an object: a card with the protected balance and its state, dressed the owner's way. With `total`,
+/** The Safe as an object: a card with the protected balance and its state, dressed the owner's way. With `total`,
  *  it shows everything protected (every coin, in dollars when prices are in) and the soonest withdrawal of any coin. */
 function caseCard(v, { link = true, total = false, style = null } = {}) {
   const st = style || cardStyle();
@@ -848,7 +887,7 @@ function cardStudio() {
   paint(true);
 }
 
-/** The wallet, drawn like the vault case but open: what can move right now, with one signature. */
+/** The wallet, drawn like the Safe case but open: what can move right now, with one signature. */
 function walletCase(v) {
   const list = assets().map((a) => [a, a.id === "native" ? S.walletSol || 0 : S.walletTok[a.id] || 0]);
   const vals = list.map(([a, n]) => usdOf(n, a)), total = vals.some((x) => x == null) ? null : vals.reduce((x, y) => x + y, 0);
@@ -863,7 +902,7 @@ function walletCase(v) {
   </div>`;
 }
 
-/** What the vault protects across its coins: dollars (when prices are in) and a short "1.2 SOL · 300 USDC" line. */
+/** What the Safe protects across its coins: dollars (when prices are in) and a short "1.2 SOL · 300 USDC" line. */
 function protectedTotals(v) {
   const list = assets().map((a) => [a, a.id === "native" ? v.balance : v.tokens?.[a.id]?.balance || 0]);
   const vals = list.map(([a, n]) => usdOf(n, a));
@@ -883,7 +922,7 @@ function assetsCard(v) {
     }).join("")}</section>`;
 }
 
-/** How well this vault is set up: five checks, each with the one tap that fixes it. */
+/** How well this Safe is set up: five checks, each with the one tap that fixes it. */
 function protectionCard(v) {
   const pushed = (() => { try { return alertsOn() || pushOn() || !!(localStorage.getItem(alertsKey() + "-mail") || localStorage.getItem(legacyKey("alerts") + "-mail")); } catch (_) { return false; } })();
   const checks = [
@@ -903,7 +942,7 @@ function protectionCard(v) {
 }
 
 /** SOL | USDC switch: a segmented control whose highlight slides to the coin in use, each side showing what it
- *  holds (in the wallet for a deposit, in the vault otherwise), with a dot on a coin that has something leaving. */
+ *  holds (in the wallet for a deposit, in the Safe otherwise), with a dot on a coin that has something leaving. */
 function assetSwitch(v, where = "vault") {
   const list = assets();
   if (list.length < 2) return "";
@@ -911,7 +950,7 @@ function assetSwitch(v, where = "vault") {
   const held = (a) => where === "wallet" ? (a.id === "native" ? S.walletSol || 0 : S.walletTok[a.id] || 0) : a.id === "native" ? v?.balance || 0 : v?.tokens?.[a.id]?.balance || 0;
   return `<div class="asw" role="group" aria-label="Coin" style="--n:${list.length};--i:${i}"><i class="asw-thumb" aria-hidden="true"></i>${list.map((a) => {
     const leaving = allWithdrawals(v).some((w) => w.asset === a.id);
-    return `<button type="button" data-act="asset" data-a="${a.id}" aria-pressed="${S.asset === a.id}">${assetCoin(a.id)}<span class="asw-t"><b>${a.unit}</b><small class="m">${sol(held(a), a)} ${where === "wallet" ? "in wallet" : "in vault"}</small></span>${leaving ? `<i class="asw-dot" title="Something is waiting to leave"></i>` : ""}</button>`;
+    return `<button type="button" data-act="asset" data-a="${a.id}" aria-pressed="${S.asset === a.id}">${assetCoin(a.id)}<span class="asw-t"><b>${a.unit}</b><small class="m">${sol(held(a), a)} ${where === "wallet" ? "in wallet" : "in Safe"}</small></span>${leaving ? `<i class="asw-dot" title="Something is waiting to leave"></i>` : ""}</button>`;
   }).join("")}</div>`;
 }
 
@@ -953,7 +992,7 @@ function portfolioView(v) {
       </div>
       <div class="pf-split" title="${pct}% protected">
         <div class="pf-bar"><i style="width:${pct}%"></i></div>
-        <div class="pf-legend"><span><i class="pf-dot v"></i><b>${pct}%</b> protected in your vault</span><span><i class="pf-dot w"></i>${100 - pct}% in your wallet${pct < 50 && coinTotal ? ` · <button class="link" data-act="deposit">protect more</button>` : ""}</span></div>
+        <div class="pf-legend"><span><i class="pf-dot v"></i><b>${pct}%</b> protected in your Safe</span><span><i class="pf-dot w"></i>${100 - pct}% in your wallet${pct < 50 && coinTotal ? ` · <button class="link" data-act="deposit">protect more</button>` : ""}</span></div>
       </div>
     </section>
     <div class="pf-grid">
@@ -1098,14 +1137,14 @@ function freezeSheet() {
     const until = now() + d * DAY + 120, ok = until > cur;
     return `<label class="opt${ok ? "" : " is-cur"}"><input type="radio" name="d" value="${d}" ${ok ? "" : "disabled"} ${d === 7 && ok ? "checked" : ""}/><span class="o-l">${label}</span><span class="o-b ${ok ? "now" : "cur"}">${ok ? "Until " + dateShort(until) : "Already locked longer"}</span></label>`;
   }).join("");
-  sheet(`<div class="rule-h"><span class="pol-ico freeze-ico">${I.snow}</span><div><h3>Freeze your vault</h3><span class="muted small">${cur ? `Locked until ${dateShort(cur)} already` : "Applies the moment you confirm"}</span></div></div>
+  sheet(`<div class="rule-h"><span class="pol-ico freeze-ico">${I.snow}</span><div><h3>Freeze your Safe</h3><span class="muted small">${cur ? `Locked until ${dateShort(cur)} already` : "Applies the moment you confirm"}</span></div></div>
     <p class="note">For when something feels wrong: a withdrawal you didn't make, a signature you regret, a stolen phone. Until the date you pick, <b>nothing leaves</b>${waiting ? `, including the ${waiting} withdrawal${waiting === 1 ? "" : "s"} already waiting` : ""}, and sends to trusted addresses stop too.</p>
     <div class="opts">${opts}</div>
     <p class="note">You can still cancel anything, and your guardian can still release a real emergency. A freeze can't be ended early, so pick the shortest time that gives you room to think.</p>`, (fd) => {
     const d = Number(fd.get("d"));
     if (!d) { toast("Pick how long", "err"); return false; }
     const until = now() + d * DAY + 120;
-    return send(`Froze the vault until ${dateShort(until)}`, () => C.x.ops.proposeChange({ kind: "SetLockedUntil", value: until }));
+    return send(`Froze the Safe until ${dateShort(until)}`, () => C.x.ops.proposeChange({ kind: "SetLockedUntil", value: until }));
   });
   const ok = $("#sheet-form").querySelector('button[value="ok"]');
   ok.textContent = "Freeze now"; ok.classList.add("danger-btn");
@@ -1133,7 +1172,7 @@ function knownWallets() { try { return JSON.parse(localStorage.getItem("ecrin-wa
 function rememberWallet() {
   try { const w = knownWallets(); w[fam()] = { net: S.net, owner: S.wallet.toBase58(), vault: S.net === "sol" ? S.vault.address.toBase58() : undefined }; localStorage.setItem("ecrin-wallets", JSON.stringify(w)); } catch (_) {}
 }
-/** The owner's wallet on the other family, if this device has seen it with a vault. */
+/** The owner's wallet on the other family, if this device has seen it with a Safe. */
 const alsoWallets = () => Object.entries(knownWallets()).filter(([f]) => f !== fam()).map(([, t]) => t);
 /** Marks a channel on for this wallet and the others it covered, so every network shows it. */
 function markOn(kind, value = "1") {
@@ -1286,12 +1325,12 @@ function guardianView() {
   const views = v ? assets().map((a) => assetView(v, a.id)) : [];
   const changes = v ? rowsChanges(assetView(v, "native"), true) : "";
   const waiting = views.map((x) => (x.withdrawals.length ? rowsWithdrawals(x, true) : "")).join("");
-  return `<section class="glass"><div class="sec-h"><h2>Look up a vault you guard</h2></div>
-      <div class="lookup"><input id="watch" class="input" placeholder="The vault owner's ${C.name} address" value="${esc(S.watchOwner)}" spellcheck="false" autocomplete="off"/><button class="btn primary" data-act="watch">Look up</button></div>
+  return `<section class="glass"><div class="sec-h"><h2>Look up a Safe you guard</h2></div>
+      <div class="lookup"><input id="watch" class="input" placeholder="The Safe owner's ${C.name} address" value="${esc(S.watchOwner)}" spellcheck="false" autocomplete="off"/><button class="btn primary" data-act="watch">Look up</button></div>
       <p class="hint">Guardians can approve an emergency release of a withdrawal the owner requested, or a trusted address the owner proposed. Nothing else.</p></section>
-    ${!S.watchOwner ? "" : v === undefined ? `<section class="glass"><div class="spinner"></div></section>` : v === null ? `<section class="glass"><div class="empty">No Ecrin vault for that wallet on ${C.name}.</div></section>` : `
+    ${!S.watchOwner ? "" : v === undefined ? `<section class="glass"><div class="spinner"></div></section>` : v === null ? `<section class="glass"><div class="empty">No Ecrin Safe for that wallet on ${C.name}.</div></section>` : `
       <section class="vhero glass"><div class="vh-shield">${I.people}</div><div class="vh-txt"><span class="label">Vault of ${short(v.owner)}</span><div class="big">${sol(v.balance, A("native"))}</div><span class="unit">${C.unit}${views.slice(1).map((x) => ` · ${sol(x.balance, A(x.asset))} ${A(x.asset).unit}`).join("")}</span>
-        <div class="chips"><span class="chip">${I.clock}Withdrawals wait ${delayWords(v.withdrawDelay)}</span>${locked ? `<span class="chip">${I.lock}Locked</span>` : ""}<span class="chip">${g ? "You're the guardian" : "You're not this vault's guardian"}</span></div></div></section>
+        <div class="chips"><span class="chip">${I.clock}Withdrawals wait ${delayWords(v.withdrawDelay)}</span>${locked ? `<span class="chip">${I.lock}Locked</span>` : ""}<span class="chip">${g ? "You're the guardian" : "You're not this Safe's guardian"}</span></div></div></section>
       <section class="glass"><div class="sec-h"><h2>Waiting to leave</h2></div><div class="rows">${waiting || `<div class="empty">Nothing waiting to leave.</div>`}</div></section>
       ${changes ? `<section class="glass"><div class="sec-h"><h2>Rule changes waiting</h2></div><div class="rows">${changes}</div></section>` : ""}`}`;
 }
@@ -1335,7 +1374,7 @@ function sheet(html, onSubmit) {
 }
 const lamportsOf = (fd) => Math.round(Number(fd.get("amount")) * A().base);
 const amount = (v = A().stable ? "10" : "0.1") => `<label class="field">Amount (${A().unit})<input name="amount" type="number" min="${A().stable ? "0.01" : "0.0001"}" step="${A().stable ? "0.01" : "0.0001"}" inputmode="decimal" required value="${v}"/></label>`;
-/** "Withdraw" with the coin's name when the vault holds more than one. */
+/** "Withdraw" with the coin's name when the Safe holds more than one. */
 const titled = (verb) => (assets().length > 1 ? `${verb} ${A().unit}` : verb);
 const walletHas = () => (S.asset === "native" ? S.walletSol || 0 : S.walletTok[S.asset] || 0);
 const keyOf = (s) => (s ? C.x?.key(s) ?? null : null);
@@ -1390,10 +1429,11 @@ const actions = {
   copy: async (el) => { try { await navigator.clipboard.writeText(el.dataset.v); toast("Link copied"); } catch (_) { toast("Copy failed: press and hold the link", "err"); } },
   privacy: () => { S.hide = !S.hide; try { localStorage.setItem("ecrin-hide", S.hide ? "1" : "0"); } catch (_) {} render(); if ($("#sheet").open) { $("#sheet").close(); accountMenu(); } },
   theme: (el) => {
-    const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    const t = el?.dataset?.t || NEXT_THEME[curTheme()];
     const apply = () => {
-      document.documentElement.dataset.theme = t;
-      document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "dark" ? "#0c0d0f" : "#f6f6f3");
+      document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
+      if (t === "ecrin") document.documentElement.dataset.skin = "ecrin"; else delete document.documentElement.dataset.skin;
+      document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "ecrin" ? "#070b1d" : t === "dark" ? "#0c0d0f" : "#f6f6f3");
       try { localStorage.setItem("ecrin-theme", t); } catch (_) {}
       render();
       if ($("#sheet").open) { $("#sheet").close(); accountMenu(); }
@@ -1433,14 +1473,14 @@ const actions = {
       if (!(until > now() + HOUR)) return toast("Pick a lock date in the future", "err");
       preset = { kind: "locked", until, guardian };
     }
-    await send(`Created a ${S.pick} vault`, () => C.x.ops.create(preset));
+    await send(`Created a ${S.pick} Safe`, () => C.x.ops.create(preset));
   },
   deposit: () => sheet(`<h3>${titled("Deposit")}</h3>${assetSwitch(S.vault, "wallet")}${amount(A().stable ? "100" : "1")}<p class="note">Wallet: ${sol(walletHas())} ${A().unit}. Deposits go straight in.${A().stable && isEvm() ? " Your wallet asks you to allow the amount first, then to deposit it." : ""}${A().stable && !walletHas() ? ` Get free test USDC at <a href="https://faucet.circle.com" target="_blank" rel="noopener">faucet.circle.com</a>.` : ""}</p>`, (fd) => send(`Deposited ${sol(lamportsOf(fd))} ${A().unit}`, () => assetOps().deposit(lamportsOf(fd)))),
   withdraw: () => sheet(`<h3>${titled("Withdraw")}</h3>${assetSwitch(S.vault)}${amount()}<label class="field">To address<input name="dest" placeholder="Where it should go" required spellcheck="false" autocomplete="off" value="${S.wallet.toBase58()}"/></label><p class="note">Available: ${sol(assetView(S.vault).available)} ${A().unit}. This waits ${delayWords(S.vault.withdrawDelay)}${S.vault.lockedUntil && now() < S.vault.lockedUntil ? " and until the lock ends" : ""}. You can cancel any time.</p>`, async (fd) => {
     const dest = keyOf(fd.get("dest")); if (!dest) { toast("That address isn't valid", "err"); return false; }
-    // The vault itself (or the contract) can't be a destination: the money would be stuck with no owner.
+    // The Safe itself (or the contract) can't be a destination: the money would be stuck with no owner.
     const own = [S.vault.address, S.vault.tokens?.[S.asset]?.holds, C.contract].filter(Boolean).map(String);
-    if (own.some((a) => a.toLowerCase() === dest.toBase58().toLowerCase())) { toast("That's your vault's own address. Pick the wallet the money should go to.", "err"); return false; }
+    if (own.some((a) => a.toLowerCase() === dest.toBase58().toLowerCase())) { toast("That's your Safe's own address. Pick the wallet the money should go to.", "err"); return false; }
     // More than the daily limit could never run, since each run counts against one day.
     const lim = assetView(S.vault).dailyLimit;
     if (lim && lamportsOf(fd) > lim) { toast(`That's over your daily limit of ${sol(lim)} ${A().unit}. Split it into withdrawals of ${sol(lim)} or less.`, "err"); return false; }
@@ -1461,7 +1501,7 @@ const actions = {
   rules: () => openRuleMenu(),
   freeze: () => { $("#sheet").close(); freezeSheet(); },
   rule: (el) => { $("#sheet").close(); openRule(el.dataset.k); },
-  "cancel-w": (el) => { const a = A(el.dataset.asset); return send(`Cancelled. ${sol(Number(el.dataset.amt), a)} ${a.unit} stays in your vault. That's a win.`, () => assetOps(a.id).cancelWithdrawal(Number(el.dataset.id))); },
+  "cancel-w": (el) => { const a = A(el.dataset.asset); return send(`Cancelled. ${sol(Number(el.dataset.amt), a)} ${a.unit} stays in your Safe. That's a win.`, () => assetOps(a.id).cancelWithdrawal(Number(el.dataset.id))); },
   run: (el) => send("Sent a withdrawal", () => assetOps(el.dataset.asset).executeWithdrawal(S.wallet, Number(el.dataset.id), keyOf(el.dataset.dest))),
   "cancel-c": (el) => send("Cancelled a rule change", () => assetOps(el.dataset.asset).cancelChange(Number(el.dataset.id))),
   apply: (el) => send("Applied a rule change", () => assetOps(el.dataset.asset).applyChange(S.wallet, Number(el.dataset.id))),
@@ -1482,7 +1522,7 @@ document.addEventListener("click", (e) => {
   if (el.dataset.act !== "asset") S.sheetAct = ["deposit", "withdraw", "send"].includes(el.dataset.act) ? el.dataset.act : null;
   actions[el.dataset.act]?.(el);
 });
-// Live countdowns between refreshes: the withdrawal clocks tick every second; when one hits zero, reload the vault.
+// Live countdowns between refreshes: the withdrawal clocks tick every second; when one hits zero, reload the Safe.
 setInterval(() => {
   let done = false;
   document.querySelectorAll(".dial[data-ready]").forEach((n) => { if (!tickDial(n)) done = true; });
@@ -1505,7 +1545,7 @@ function reconnect() {
     else p.connect?.({ onlyIfTrusted: true }).then((r) => { if (r?.publicKey || p.publicKey) connect(p); }).catch(() => {});
   } catch (_) {}
 }
-// Phones without an injected wallet (Safari, Chrome, the home-screen app) reopen the last watched vault.
+// Phones without an injected wallet (Safari, Chrome, the home-screen app) reopen the last watched Safe.
 try { const a = localStorage.getItem(viewKey()); if (a && !providers().length && C.x) startView(a); } catch (_) {}
 reconnect();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});

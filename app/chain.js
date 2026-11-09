@@ -6,13 +6,13 @@
 const enc = new TextEncoder();
 
 export const ERRORS = [
-  ["NotOwner", "Only the vault owner can do that."],
+  ["NotOwner", "Only the Safe owner can do that."],
   ["NotGuardian", "Only the guardian can do that."],
   ["NoGuardian", "This vault has no guardian."],
   ["ZeroAmount", "Enter an amount above zero."],
   ["InsufficientFunds", "Not enough funds that aren't already queued."],
   ["NotTrusted", "That address isn't trusted yet."],
-  ["Locked", "The vault is locked until its date."],
+  ["Locked", "The Safe is locked until its date."],
   ["TooEarly", "Not yet: the waiting time hasn't passed."],
   ["DailyLimit", "That's over today's limit."],
   ["NotFound", "That item is gone."],
@@ -124,9 +124,9 @@ export function createClient({ web3, connection, programId }) {
     const address = vaultAddress(vaultOwner);
     const info = await connection.getAccountInfo(address, "confirmed");
     if (!info) return null;
-    if (!info.owner.equals(PROGRAM)) throw new Error("That account isn't an Ecrin vault");
+    if (!info.owner.equals(PROGRAM)) throw new Error("That account isn't an Ecrin Safe");
     const data = Uint8Array.from(info.data), want = await disc("account:VaultAccount");
-    if (!want.every((b, i) => data[i] === b)) throw new Error("That account isn't an Ecrin vault");
+    if (!want.every((b, i) => data[i] === b)) throw new Error("That account isn't an Ecrin Safe");
     const r = new R(data.subarray(8), web3);
     const v = {
       address, lamports: info.lamports,
@@ -158,7 +158,7 @@ export function createClient({ web3, connection, programId }) {
     keys: [meta(payer, true, true), meta(ata(who, mint), false, true), meta(who, false, false), meta(mint, false, false), meta(web3.SystemProgram.programId, false, false), meta(TOKEN, false, false)],
   });
 
-  /** One token's side of the vault. Amounts are the token's base units (1e6 per USDC). */
+  /** One token's side of the Safe. Amounts are the token's base units (1e6 per USDC). */
   function token(mintAddr) {
     const mint = new web3.PublicKey(mintAddr);
     const tvault = (o) => web3.PublicKey.findProgramAddressSync([enc.encode("tvault"), o.toBytes(), mint.toBytes()], PROGRAM)[0];

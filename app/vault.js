@@ -1,5 +1,5 @@
-// The Ecrin vault rules for the browser demo: a line-for-line port of crates/vault-core/src/lib.rs.
-// Same names, same checks, same order. If you change a rule in Rust, change it here and in vault.test.mjs.
+// The Ecrin Safe rules for the browser demo: a line-for-line port of crates/vault-core/src/lib.rs.
+// Same names, same checks, same order. If you change a rule in Rust, change it here and in Safe.test.mjs.
 // Amounts are whole numbers (the app uses 1 unit = 0.001 SOL); times are unix seconds.
 
 export const HOUR = 3600;
@@ -27,7 +27,7 @@ export function validate(p) {
   if (p.dailyLimit === 0) fail("InvalidValue");
 }
 
-/** True when the change only makes the vault harder to drain, so it may apply at once. */
+/** True when the change only makes the Safe harder to drain, so it may apply at once. */
 export function isStricter(p, { kind, value }) {
   switch (kind) {
     case "SetWithdrawDelay": return value >= p.withdrawDelay;

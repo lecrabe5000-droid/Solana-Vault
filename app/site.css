@@ -719,3 +719,48 @@ td:first-child { color: var(--ink); font-weight: 600; width: 44%; }
 .vf-status span { display: inline-flex; align-items: center; gap: 8px; } .vf-dot { width: 8px; height: 8px; border-radius: 50%; background: #f5b54a; } .vf-dot.ok { background: #7d97ff; }
 @media (max-width: 900px) { .vf-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 520px) { .vf-grid { grid-template-columns: 1fr; } .vf-t { min-height: 0; flex-direction: row; align-items: center; } .vf-x { margin-top: 0; } }
+
+/* ===== The Wall of Time (hero) ===== */
+.hero-card.wot { place-items: center start; min-height: min(90vh, 840px); padding: 64px clamp(28px, 6vw, 96px) 96px; cursor: crosshair;
+  background: radial-gradient(60% 75% at 74% 46%, rgba(47, 91, 255, .2) 0%, rgba(47, 91, 255, .06) 40%, transparent 70%), radial-gradient(120% 90% at 20% 0%, #151826 0%, #0b0c12 55%, #06070a 100%); }
+.wot .hero-copy { position: relative; z-index: 2; max-width: 600px; text-align: left; cursor: auto; }
+.wot .hero-copy h1 { font-size: clamp(40px, 4.7vw, 70px); text-wrap: balance; }
+.wot .lede { margin: 22px 0 0; max-width: 520px; }
+.wot .hero-cta { justify-content: flex-start; }
+.wot-stage { position: absolute; inset: 0; z-index: 0; }
+.wot-stage::before { content: ""; position: absolute; inset: 0; background: url("/hero-poster-wide.webp") center / cover no-repeat; transition: opacity 1.2s ease; }
+.wot-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; transition: opacity 1.2s ease; }
+.wot-stage.ready canvas { opacity: 1; } .wot-stage.ready::before { opacity: 0; }
+.wot-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.wot-l { position: absolute; left: 0; top: 0; translate: -50% calc(-100% - 18px); display: flex; flex-direction: column; gap: 2px; padding: 7px 11px 8px; border-radius: 11px; white-space: nowrap; opacity: 0;
+  background: rgba(10, 12, 20, .74); box-shadow: inset 0 0 0 1px rgba(207, 217, 255, .22), 0 10px 30px -12px rgba(0, 0, 0, .9); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); transition: opacity .3s; will-change: transform; }
+.wot-l::after { content: ""; position: absolute; left: 50%; bottom: -5px; width: 8px; height: 8px; translate: -50% 0; rotate: 45deg; background: rgba(10, 12, 20, .74); box-shadow: 1px 1px 0 rgba(207, 217, 255, .22); }
+.wot-l b { color: #fff; font-size: 12.5px; font-weight: 600; letter-spacing: .01em; }
+.wot-l span { color: #9db0ff; font-size: 11.5px; } .wot-l i { font-style: normal; font-variant-numeric: tabular-nums; color: #dfe6ff; }
+.wot-hud { position: absolute; z-index: 2; left: clamp(28px, 6vw, 96px); right: clamp(28px, 6vw, 96px); bottom: 54px; display: flex; justify-content: flex-end; align-items: center; gap: 18px; pointer-events: none; }
+.wot-count { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: rgba(10, 12, 20, .62); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); color: #c9cbe0; font-size: 13px; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.wot-count b { color: #fff; font-variant-numeric: tabular-nums; } .wot-dot { width: 7px; height: 7px; border-radius: 50%; background: #7d97ff; box-shadow: 0 0 0 4px rgba(125, 151, 255, .18); }
+.wot-hint { color: #8e93ad; font-size: 13px; }
+.wot .hero-note { z-index: 2; }
+@media (max-width: 860px) {
+  .hero-card.wot { place-items: end center; min-height: 94vh; padding: 0 20px 118px; }
+  .wot .hero-copy { text-align: center; max-width: 520px; } .wot .lede { margin: 16px auto 0; } .wot .hero-cta { justify-content: center; }
+  .wot .hero-copy h1 { font-size: clamp(34px, 9vw, 46px); }
+  .wot-hud { left: 16px; right: 16px; bottom: 50px; justify-content: center; flex-direction: column; gap: 6px; }
+  .wot-hint { font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .wot-hint { display: none; } }
+
+.wot-img { display: none; }
+@media (max-width: 860px) {
+  .hero-card.wot { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-height: 0; padding: 10px 20px 112px; cursor: auto; }
+  .wot-stage { position: relative; inset: auto; width: min(100%, 420px); aspect-ratio: 1; margin: 0 auto -14px; }
+  .wot-stage::before, .wot-stage canvas { display: none; }
+  .wot-img { display: block; width: 100%; height: 100%; object-fit: contain; animation: wot-float 7s ease-in-out infinite; }
+  .wot-labels, .wot-hint { display: none; }
+}
+@keyframes wot-float { 50% { transform: translateY(-6px); } }
+@media (prefers-reduced-motion: reduce) { .wot-img { animation: none; } }
+@media (max-width: 860px) { .wot-hud { display: none; } }
+@media (max-width: 400px) { .wot .hero-k { font-size: 11.5px; padding: 5px 11px; } }
+.live[hidden] { display: none !important; }
