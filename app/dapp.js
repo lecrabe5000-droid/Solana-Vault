@@ -610,6 +610,8 @@ function ring(pct) {
 // Animates the big balance from the last shown value to the new one.
 /** A big figure with its cents dimmed: "$4,366" bright, ".73" quiet (works for "4 366,73 $" too). */
 const fig = (str) => esc(str).replace(/([.,]\d+)(\D*)$/, '<span class="dec">$1</span>$2');
+/** The net worth as the wallet shows it: the currency mark small and raised, the cents quiet, the coin unit after. */
+const bigFig = (str, unit) => fig(str).replace(/^\$/, '<span class="cur">$</span>').replace(/ \$$/, ' <span class="cur suf">$</span>') + (unit ? `<span class="cur suf">${esc(unit)}</span>` : "");
 
 function countUp() {
   const el = document.querySelector("[data-count]");
@@ -618,7 +620,7 @@ function countUp() {
   S.shown = to;
   if (from === to || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const t0 = performance.now(), fmt = el.dataset.fmt === "usd" ? money : (n) => sol(n * LAMPORTS, A("native"));
-  const step = (t) => { const k = Math.min(1, (t - t0) / 900), e = 1 - Math.pow(1 - k, 3); el.innerHTML = fig(fmt(from + (to - from) * e)); if (k < 1) requestAnimationFrame(step); };
+  const step = (t) => { const k = Math.min(1, (t - t0) / 900), e = 1 - Math.pow(1 - k, 3); el.innerHTML = bigFig(fmt(from + (to - from) * e), el.dataset.unit); if (k < 1) requestAnimationFrame(step); };
   requestAnimationFrame(step);
 }
 
@@ -740,7 +742,8 @@ function paint(html) {
   if (firstPaint || !app.firstElementChild) { app.innerHTML = html; firstPaint = false; return; }
   const next = app.cloneNode(false); next.innerHTML = html; morph(app, next);
 }
-function render() { renderView(); placePill(); }
+let shownKind = "";
+function render() { renderView(); placePill(); const k = document.querySelector("#app .hello") ? "hello" : document.querySelector("#app .skel") ? "skel" : document.querySelector("#app .create") ? "create" : "data"; if (k !== shownKind) { shownKind = k; if (k !== "skel") stagger(); } }
 function stagger() {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   [...document.querySelectorAll("#app .main > *:not(.foot)")].slice(0, 8).forEach((n, i) => n.animate([{ opacity: 0, transform: "translateY(14px) scale(.985)" }, { opacity: 1, transform: "none" }], { duration: 520, delay: 70 + i * 55, easing: "cubic-bezier(.2,.8,.2,1)", fill: "backwards" }));
@@ -1024,7 +1027,7 @@ function portfolioView(v) {
       <div class="pf-head">
         <div class="pf-total">
           <span class="label">Total balance</span>
-          <div class="pf-big num m" data-count="${totalUsd ?? coinTotal / LAMPORTS}" data-fmt="${totalUsd != null ? "usd" : "coin"}">${fig(totalUsd != null ? money(totalUsd) : sol(coinTotal, na))}</div>
+          <div class="pf-big num m" data-count="${totalUsd ?? coinTotal / LAMPORTS}" data-fmt="${totalUsd != null ? "usd" : "coin"}"${totalUsd != null ? "" : ` data-unit="${C.unit}"`}>${bigFig(totalUsd != null ? money(totalUsd) : sol(coinTotal, na), totalUsd != null ? "" : C.unit)}</div>
           <div class="pf-sub">${ch != null ? `<span class="chg ${ch >= 0 ? "pos" : "neg"}">${ch >= 0 ? "▲" : "▼"} ${Math.abs(ch).toFixed(2)}%</span>` : ""}<span class="m">${sol(coinTotal, na)} ${C.unit}${stableTotal ? ` · ${sol(stableTotal, USDC)} USDC` : ""}</span></div>
         </div>
         ${actionsRow()}
