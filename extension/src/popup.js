@@ -1601,7 +1601,11 @@ function dur(s) { if (s <= 0) return "ready"; const d = Math.floor(s / 86400), h
 // ------------------------------------------------------------------ panels (slide over the home screen)
 
 function openPanel(p, opts = {}) { if (p === "vault") S.shT0 = 0; S.cvT0 = 0; S.panel = { p, step: "form", asset: opts.a || "native", amount: "", to: "", ...opts }; renderPanel(true); }
-function closePanel() { if (S.panel?.step === "done" && (S.panel.p === "protect" || S.panel.p === "withdraw")) S.fly = S.panel.p; const el = $("#panel"); el.classList.remove("in"); document.body.classList.remove("stacked"); setTimeout(() => { if (!S.panel) el.innerHTML = ""; }, 260); S.panel = null;
+// Home's bottom fade is pinned to the screen, but while home slides (it moves with a transform) browsers pin it to the
+// page instead, so it jumps up over the first token rows: a blank or faded strip until the slide ends. body.stacked
+// and body.settling hide it while home is moved, and it fades back once home is still.
+function settleHome() { const b = document.body; clearTimeout(S.settleT); b.classList.add("settling"); S.settleT = setTimeout(() => b.classList.remove("settling"), 460); }
+function closePanel() { if (S.panel?.step === "done" && (S.panel.p === "protect" || S.panel.p === "withdraw")) S.fly = S.panel.p; const el = $("#panel"); el.classList.remove("in"); document.body.classList.remove("stacked"); settleHome(); setTimeout(() => { if (!S.panel) el.innerHTML = ""; }, 260); S.panel = null;
   // Coming back to home: if nothing on it changed, keep the screen as it is instead of rebuilding it mid-slide
   // (a rebuild re-decodes every coin logo and the rows visibly settle for a moment).
   if (S.screen === "home" && !S.fly && S.homeSig && viewSig(homeView()) === S.homeSig) { syncTabbar(); return; }

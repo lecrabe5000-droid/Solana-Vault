@@ -2492,12 +2492,12 @@ html body #tabbar#tabbar button { flex: 0 0 auto !important; overflow: visible; 
 @keyframes hm-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes hm-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes tb-rise { from { translate: 0 calc(100% + 34px); } to { translate: 0 0; } }
-.home.intro > :not(.aura) { animation: hm-rise 720ms cubic-bezier(.22, 1, .36, 1) both; animation-delay: calc(var(--ht, 0ms) + 40ms + var(--i, 0) * 55ms); }
+.home.intro > :not(.aura) { animation: hm-rise 720ms cubic-bezier(.22, 1, .36, 1) backwards; animation-delay: calc(var(--ht, 0ms) + 40ms + var(--i, 0) * 55ms); }
 .home.intro > .top { animation-name: hm-fade; }
-.home.intro .tab-body > .list > .arow { animation: hm-rise 640ms cubic-bezier(.22, 1, .36, 1) both; animation-delay: calc(var(--ht, 0ms) + 330ms + var(--j, 0) * 45ms); }
+.home.intro .tab-body > .list > .arow { animation: hm-rise 640ms cubic-bezier(.22, 1, .36, 1) backwards; animation-delay: calc(var(--ht, 0ms) + 330ms + var(--j, 0) * 45ms); }
 /* switching Tokens / Activity: the list settles in */
-.home.tab-in > .tab-body { animation: hm-fade 380ms cubic-bezier(.22, 1, .36, 1) both; animation-delay: var(--tt, 0ms); }
-.home.tab-in > .tab-body > .list > .arow { animation: hm-rise 420ms cubic-bezier(.22, 1, .36, 1) both; animation-delay: calc(var(--tt, 0ms) + var(--j, 0) * 30ms); }
+.home.tab-in > .tab-body { animation: hm-fade 380ms cubic-bezier(.22, 1, .36, 1) backwards; animation-delay: var(--tt, 0ms); }
+.home.tab-in > .tab-body > .list > .arow { animation: hm-rise 420ms cubic-bezier(.22, 1, .36, 1) backwards; animation-delay: calc(var(--tt, 0ms) + var(--j, 0) * 30ms); }
 /* the floating bar glides up last */
 html body #tabbar#tabbar.enter { animation: tb-rise 760ms cubic-bezier(.22, 1, .36, 1) 420ms both; }
 @media (prefers-reduced-motion: reduce) { .home.intro > *, .home.intro .arow, .home.tab-in > .tab-body, .home.tab-in .arow, html body #tabbar#tabbar.enter { animation: none !important; } }
@@ -2973,6 +2973,11 @@ html:root[data-theme="light"] .coin.letter, html:root[data-theme="light"] .coin.
 .tk-tag.ok { background: color-mix(in srgb, #10915c 16%, transparent); color: #1fa36b; } .tk-tag.warn { background: color-mix(in srgb, #d97706 16%, transparent); color: #d58a16; }
 .tk-r.sk-r .sk-t { display: block; width: 60%; height: 12px; border-radius: 6px; background: var(--h2, var(--s2)); }
 .tk-note, .tk-none { display: block; margin: 8px 2px 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+/* 0.22.4: no background blur on the token list (its rows sit in a solid card, so it showed nothing). And home's bottom
+   fade is hidden while home is moved by a page (see settleHome): a moving parent unpins it and it covered the rows. */
+.home :is(.tab-body .arow, .add-tok, .tabs) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+.home::after { transition: opacity .25s ease; }
+body:is(.stacked, .settling) .home::after { opacity: 0; transition: none; }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
