@@ -243,11 +243,12 @@ const ECRIN_GET = "https://chromewebstore.google.com/detail/ecrin-wallet/nmehcoc
 const ECRIN_MARK = '<svg class="ec-mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="currentColor"/></svg>';
 // The same live numbers as the landing page: how much is sitting in Ecrin Safes on the test networks right now.
 function loadProtected() {
+  if (S.protAsked) return; S.protAsked = true;
   fetch("/api/stats").then((r) => (r.ok ? r.json() : null)).then((st) => {
-    const el = document.querySelector("[data-protected]"); if (!el || !st?.vaults) return;
+    if (!st?.vaults) return;
     const fr = document.documentElement.lang === "fr", loc = fr ? "fr-CA" : "en-US", sol = (Number(BigInt(st.sol || "0") / 10_000_000n) / 100).toLocaleString(loc, { maximumFractionDigits: 2 });
-    el.innerHTML = fr ? `<i></i><b>${sol} SOL</b> protégés dans <b>${st.vaults.toLocaleString(loc)}</b> Coffres sur les réseaux de test` : `<i></i><b>${sol} SOL</b> protected in <b>${st.vaults.toLocaleString(loc)}</b> Safes on the test networks`;
-    el.hidden = false;
+    S.prot = fr ? `<i></i><b>${sol} SOL</b> protégés dans <b>${st.vaults.toLocaleString(loc)}</b> Coffres sur les réseaux de test` : `<i></i><b>${sol} SOL</b> protected in <b>${st.vaults.toLocaleString(loc)}</b> Safes on the test networks`;
+    if (!S.wallet) render();
   }).catch(() => {});
 }
 
@@ -308,13 +309,37 @@ function seal() {
 }
 
 /** Runs one signed operation, then logs it, tells the person, and reloads the Safe. */
+// Every confirmation: the Ecrin diamond draws itself, fills, a check is drawn inside and a ring pulses out, the same
+// moment as in the wallet. It clears itself after a few seconds, or on a click or Escape.
+const DCHECK = `<svg class="dck" viewBox="0 0 120 120" aria-hidden="true"><g transform="rotate(45 60 60)"><rect class="p" x="26" y="26" width="68" height="68" rx="20"/><rect class="o" x="26" y="26" width="68" height="68" rx="20" pathLength="100"/><rect class="f" x="34" y="34" width="52" height="52" rx="15"/></g><path class="t" pathLength="100" d="M47 61 L56 70 L74 51"/></svg>`;
+function confirmTitle(label) {
+  const fr = LANG === "fr", T = (en, f) => (fr ? f : en);
+  if (/^Cancelled\./.test(label)) return T("Kept in your Safe", "Gardé dans votre Coffre");
+  if (/^Created/.test(label)) return T("Your Safe is ready", "Votre Coffre est prêt");
+  if (/^(Deposited|Protected|Moved)/.test(label)) return T("Protected", "Protégé");
+  if (/^Asked to withdraw/.test(label)) return T("Withdrawal started", "Retrait lancé");
+  if (/^Froze/.test(label)) return T("Safe frozen", "Coffre gelé");
+  if (/^(Sent|Approved an emergency)/.test(label)) return T("Sent", "Envoyé");
+  if (/rule|trust/i.test(label)) return T("Request sent", "Demande envoyée");
+  return T("Done", "Terminé");
+}
+function confirmFx(label, sig) {
+  document.querySelector(".cfx")?.remove();
+  const el = document.createElement("div"); el.className = "cfx"; el.setAttribute("role", "status");
+  el.innerHTML = `<div class="cfx-card">${DCHECK}<h2>${esc(confirmTitle(label))}</h2><p>${esc(tr(label))}</p>${sig ? `<a href="${explorer("tx", sig)}" target="_blank" rel="noopener">${esc(tr("View on the explorer"))} ↗</a>` : ""}</div>`;
+  document.body.append(el); requestAnimationFrame(() => el.classList.add("in"));
+  const close = () => { if (!el.isConnected) return; el.classList.remove("in"); el.classList.add("out"); setTimeout(() => el.remove(), 380); removeEventListener("keydown", esc_); };
+  const esc_ = (e) => { if (e.key === "Escape") close(); };
+  el.addEventListener("click", (e) => { if (!e.target.closest("a")) close(); }); addEventListener("keydown", esc_);
+  setTimeout(close, 3200);
+}
 async function send(label, op) {
   if (S.busy) return null;
   S.busy = true; render();
   try {
     const sig = await op();
     log(label, sig);
-    toast(`${esc(label)} · <a href="${explorer("tx", sig)}" target="_blank" rel="noopener" style="color:inherit">view</a>`, label.startsWith("Cancelled") ? "win" : "");
+    confirmFx(label, sig);
     if (label.startsWith("Cancelled")) seal();
     return sig;
   } catch (e) {
@@ -695,12 +720,36 @@ function placePill() {
 
 // ------------------------------------------------------------------ views
 
+// Every render patches the page in place: only what changed is touched, so a refresh never rebuilds the screen,
+// the field you're typing in keeps its cursor, and animations that are playing keep playing.
+function morph(a, b) {
+  if (a.nodeType !== b.nodeType || a.nodeName !== b.nodeName || (a.dataset?.key || "") !== (b.dataset?.key || "")) { a.replaceWith(b.cloneNode(true)); return; }
+  if (a.nodeType === 3 || a.nodeType === 8) { if (a.nodeValue !== b.nodeValue) a.nodeValue = b.nodeValue; return; }
+  const active = a === document.activeElement;
+  for (const { name } of [...a.attributes]) if (!b.hasAttribute(name) && !(active && name === "value") && name !== "style") a.removeAttribute(name);
+  for (const { name, value } of [...b.attributes]) { if (active && name === "value") continue; if (name === "style" && a.dataset.live) continue; if (a.getAttribute(name) !== value) a.setAttribute(name, value); }
+  if ((a.nodeName === "INPUT" || a.nodeName === "TEXTAREA" || a.nodeName === "SELECT") && !active && b.getAttribute("value") != null && a.value !== b.getAttribute("value")) a.value = b.getAttribute("value");
+  if (a.nodeName === "TEXTAREA" || a.nodeName === "CANVAS") return;
+  const ac = [...a.childNodes], bc = [...b.childNodes];
+  for (let i = 0; i < bc.length; i++) { if (ac[i]) morph(ac[i], bc[i]); else a.appendChild(bc[i].cloneNode(true)); }
+  for (let i = ac.length - 1; i >= bc.length; i--) ac[i].remove();
+}
+let firstPaint = true;
+function paint(html) {
+  const app = $("#app");
+  if (firstPaint || !app.firstElementChild) { app.innerHTML = html; firstPaint = false; return; }
+  const next = app.cloneNode(false); next.innerHTML = html; morph(app, next);
+}
 function render() { renderView(); placePill(); }
+function stagger() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  [...document.querySelectorAll("#app .main > *:not(.foot)")].slice(0, 8).forEach((n, i) => n.animate([{ opacity: 0, transform: "translateY(14px) scale(.985)" }, { opacity: 1, transform: "none" }], { duration: 520, delay: 70 + i * 55, easing: "cubic-bezier(.2,.8,.2,1)", fill: "backwards" }));
+}
 
 function renderView() {
   const app = $("#app");
   if (!C.x) {
-    app.innerHTML = shell(`<section class="glass hello"><div class="mark">${I.shield}</div><h1>Ecrin isn't on ${C.name} ${C.net} yet</h1><p>The ${C.contractWord} is being deployed. Meanwhile the demo runs the same rules with pretend money.</p><a class="btn primary lg" href="/demo">Open the demo</a></section>`, { nav: false });
+    paint(shell(`<section class="glass hello"><div class="mark">${I.shield}</div><h1>Ecrin isn't on ${C.name} ${C.net} yet</h1><p>The ${C.contractWord} is being deployed. Meanwhile the demo runs the same rules with pretend money.</p><a class="btn primary lg" href="/demo">Open the demo</a></section>`, { nav: false }));
     return;
   }
   if (!S.wallet) {
@@ -711,7 +760,7 @@ function renderView() {
       : `<button class="btn primary lg" data-act="ecrin-connect">${ECRIN_MARK}<span>Connect Ecrin Wallet</span></button>`;
     const alt = [...others.map((w) => btn(w, "")), wcOn() ? `<button class="btn wc-btn" data-act="wc">${WC_ICON}<span>WalletConnect</span></button>` : "",
       !others.length && isPhone() ? walletLinks().map(([n, href]) => `<a class="btn" href="${esc(href)}">Open in ${n}</a>`).join("") : ""].filter(Boolean).join("");
-    app.innerHTML = shell(`<section class="glass hello">
+    paint(shell(`<section class="glass hello">
       <div class="mark hello-mark">${ECRIN_MARK}</div>
       <h1>Your crypto, out of reach of anyone in a hurry.</h1>
       <p>Connect your wallet. Ecrin never holds your keys: your wallet signs, the ${C.name} ${C.contractWord} enforces the rules.</p>
@@ -720,16 +769,16 @@ function renderView() {
       ${isPhone() && !ecrin ? `<p class="hint">Using Ecrin Wallet on your phone? Open it, go to Settings, then Connected apps, and scan the WalletConnect code.</p>` : ""}
       <div class="viewmode"><span class="label">Or just watch your Safe</span><div class="lookup"><input id="view-addr" class="input" placeholder="Your ${C.name} wallet address" spellcheck="false" autocomplete="off"/><button class="btn" data-act="view-start">View</button></div><p class="hint">View mode shows your Safe, countdowns and alerts. Signing opens your wallet app.</p></div>
       <ol class="steps"><li><b>1</b><span><span>Get <a href="${ECRIN_GET}" target="_blank" rel="noopener">Ecrin Wallet</a> for Chrome, or <a href="${ECRIN_PHONE}">on your phone</a>.</span></span></li><li><b>2</b><span><span>${S.net === "sol" ? `In the wallet, tap Get free test SOL. It arrives in seconds.` : `Get free test ${C.unit} at <a href="${C.faucet}" target="_blank" rel="noopener">${C.faucetName}</a>.`}</span></span></li><li><b>3</b><span><span>Create your Safe and try a withdrawal. Watch the clock, then cancel it.</span></span></li></ol>
-      <p class="protected" data-protected hidden></p>
-    </section>`, { nav: false });
+      ${S.prot ? `<p class="protected">${S.prot}</p>` : ""}
+    </section>`, { nav: false }));
     loadProtected();
     return;
   }
-  if (S.tab === "guardian") { app.innerHTML = shell(guardianView()); return; }
-  if (S.vault === undefined) { app.innerHTML = shell(`<div class="skel" aria-label="Reading your Safe from ${C.name} ${C.net}…"><i class="sk sk-l"></i><i class="sk sk-xl"></i><i class="sk sk-m"></i><div class="sk-row"><i class="sk sk-case"></i><i class="sk sk-card"></i></div></div>`); return; }
-  if (S.vault === null) { app.innerHTML = shell(createView(), { nav: false }); return; }
+  if (S.tab === "guardian") { paint(shell(guardianView())); return; }
+  if (S.vault === undefined) { paint(shell(`<div class="skel" aria-label="Reading your Safe from ${C.name} ${C.net}…"><i class="sk sk-l"></i><i class="sk sk-xl"></i><i class="sk sk-m"></i><div class="sk-row"><i class="sk sk-case"></i><i class="sk sk-card"></i></div></div>`)); return; }
+  if (S.vault === null) { paint(shell(createView(), { nav: false })); return; }
   const v = S.vault;
-  app.innerHTML = shell((S.tab === "portfolio" ? installCard() : "") + (S.readOnly ? `<div class="viewbar">${I.eye}<span><b>View mode</b> · signing opens your wallet app</span><button class="link" data-act="disconnect">Exit</button></div>` : "") + (S.tab === "vault" ? vaultView(v) : S.tab === "activity" ? activityView() : portfolioView(v)));
+  paint(shell((S.tab === "portfolio" ? installCard() : "") + (S.readOnly ? `<div class="viewbar">${I.eye}<span><b>View mode</b> · signing opens your wallet app</span><button class="link" data-act="disconnect">Exit</button></div>` : "") + (S.tab === "vault" ? vaultView(v) : S.tab === "activity" ? activityView() : portfolioView(v))));
   countUp();
 }
 
@@ -1411,8 +1460,12 @@ const actions = {
   account: () => accountMenu(),
   tab: (el) => {
     if (S.tab === el.dataset.t) return;
+    const order = TABS.map(([k]) => k), dir = order.indexOf(el.dataset.t) > order.indexOf(S.tab) ? "fwd" : "back";
     S.tab = el.dataset.t; S.shown = null;
-    document.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches ? document.startViewTransition(render) : render();
+    document.documentElement.dataset.nav = dir;
+    // the new section slides in from the side you're heading to; its cards rise in one after another
+    const go = () => { render(); stagger(); };
+    document.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches ? document.startViewTransition(go) : go();
     scrollTo({ top: 0, behavior: "smooth" });
     if (S.tab === "guardian" && S.watchOwner) refresh();
   },

@@ -791,6 +791,7 @@ function bindChart(root) {
 /** Cards that catch the light: they lean toward the pointer and a sheen follows it. */
 function depth(scope) {
   scope.querySelectorAll("[data-tilt]").forEach((c) => {
+    if (c.__bound) return; c.__bound = true;
     c.addEventListener("pointermove", (e) => {
       const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
       c.style.setProperty("--ry", ((x - 0.5) * 10).toFixed(2) + "deg"); c.style.setProperty("--rx", ((0.5 - y) * 8).toFixed(2) + "deg");
@@ -1530,6 +1531,31 @@ function closePanel() { if (S.panel?.step === "done" && (S.panel.p === "protect"
 // The home markup minus anything that only encodes the passing time (animation offsets), to tell real changes apart.
 const viewSig = (h) => String(h).replace(/-?\d+(\.\d+)?ms/g, "").replace(/ (intro|draw|enter|fresh)(?=["\s])/g, "").replace(/ (?:[xy][12]|c[xy]|f[xy])="-?\d+\.\d{3}"/g, "");
 
+// Updates a live element to match new markup, touching only what changed. The field you're typing in keeps its
+// value, cursor and focus; elements that didn't change keep their animations and listeners.
+function morph(a, b) {
+  if (a.nodeType !== b.nodeType || a.nodeName !== b.nodeName) { a.replaceWith(b.cloneNode(true)); return; }
+  if (a.nodeType === 3 || a.nodeType === 8) { if (a.nodeValue !== b.nodeValue) a.nodeValue = b.nodeValue; return; }
+  const active = a === document.activeElement;
+  for (const { name } of [...a.attributes]) if (!b.hasAttribute(name) && !(active && name === "value")) a.removeAttribute(name);
+  for (const { name, value } of [...b.attributes]) { if (active && name === "value") continue; if (a.getAttribute(name) !== value) a.setAttribute(name, value); }
+  if ((a.nodeName === "INPUT" || a.nodeName === "TEXTAREA") && !active && a.value !== (b.value ?? b.getAttribute("value") ?? "")) a.value = b.getAttribute("value") ?? b.value ?? "";
+  if (a.nodeName === "INPUT" && a.checked !== b.hasAttribute("checked")) a.checked = b.hasAttribute("checked");
+  if (a.nodeName === "TEXTAREA" || a.nodeName === "svg" && a.isEqualNode(b)) return;
+  const ac = [...a.childNodes], bc = [...b.childNodes];
+  for (let i = 0; i < bc.length; i++) { if (ac[i]) morph(ac[i], bc[i]); else a.appendChild(bc[i].cloneNode(true)); }
+  for (let i = ac.length - 1; i >= bc.length; i--) ac[i].remove();
+}
+/** Like renderPanel, but patches the open screen in place instead of rebuilding it (used while typing). */
+function patchPanel() {
+  const el = $("#panel"), pane = el.querySelector(".pane"), P = S.panel;
+  if (!P || !pane || S.holdPanel) return renderPanel();
+  const views = { send: sendView, protect: moveView, withdraw: moveView, swap: swapView, payreq: payreqView };
+  const view = views[P.p]; if (!view) return renderPanel();
+  const tmp = document.createElement("div"); tmp.innerHTML = view(); translate(tmp, S.lang);
+  const next = pane.cloneNode(false); next.append(...tmp.childNodes); morph(pane, next);
+  bindHolds(el); depth(el); queueMicrotask(syncTabbar);
+}
 function renderPanel(enter = false) {
   if (S.holdPanel && !enter) { S.panelDirty = true; return; } // a moment is playing on this page: redraw right after it
   queueMicrotask(syncTabbar);
@@ -2398,14 +2424,14 @@ const actions = {
     if (k === "del") v = v.slice(0, -1);
     else if (k === ".") { if (!v.includes(".")) v = (v || "0") + "."; }
     else { const d = v.split(".")[1]; if (d != null && d.length >= Math.min(x.dec, 6)) return; v = v === "0" ? k : v + k; if (v.replace(".", "").length > 12) return; }
-    P.amount = v; P.pct = null; haptic("light"); renderPanel();
+    P.amount = v; P.pct = null; haptic("light"); patchPanel();
   },
   pct: (el) => {
     const P = S.panel, p = Number(el.dataset.v), a = P.asset;
     const max = P.p === "send" || P.p === "swap" ? sendMax() : P.p === "protect" ? sendMaxProtect() : (a === "usdc" ? S.vault?.usdc?.available : S.vault?.main?.available) || 0;
     const units = Math.floor((max * p) / 100), x = A(a);
     P.pct = p; P.amount = units ? String(Math.floor((units / x.base) * 10 ** x.dec) / 10 ** x.dec) : "";
-    renderPanel();
+    patchPanel();
   },
   paste: async () => { try { S.panel.to = (await navigator.clipboard.readText()).trim(); renderPanel(); } catch (_) { toast("Couldn't read the clipboard", "err"); } },
   review: async () => {
@@ -2483,6 +2509,7 @@ async function saveWallet(phrase, pw) {
 // The send confirmation needs a press and hold: a stray click can't send money.
 function bindHolds(root) {
   root.querySelectorAll("[data-hold]:not([disabled])").forEach((b) => {
+    if (b.__bound) return; b.__bound = true;
     let t0 = 0, raf = 0;
     const stop = () => { cancelAnimationFrame(raf); b.style.setProperty("--h", 0); b.classList.remove("holding"); };
     const tick = () => {
@@ -2538,11 +2565,11 @@ document.addEventListener("input", (e) => {
   if (t.matches("[data-amount]")) {
     const v = t.value.replace(/[^\d.,]/g, "").replace(",", "."), parts = v.split(".");
     S.panel.amount = parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : v; S.panel.pct = null;
-    const pos = t.selectionStart; renderPanel(); const n = $("#panel [data-amount]"); n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {}
+    const pos = t.selectionStart; if (t.value !== S.panel.amount) { t.value = S.panel.amount; try { t.setSelectionRange(Math.min(pos, t.value.length), Math.min(pos, t.value.length)); } catch (_) {} } patchPanel();
   } else if (t.matches("[data-reqamt]") || t.matches("[data-reqlabel]")) { const k = t.matches("[data-reqamt]") ? "amount" : "label", sel = k === "amount" ? "[data-reqamt]" : "[data-reqlabel]"; S.panel[k] = k === "amount" ? t.value.replace(/[^\d.,]/g, "").replace(",", ".") : t.value; const pos = t.selectionStart; renderPanel(); const n = $("#panel " + sel); n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {}
   } else if (t.matches("[data-to]") && (/^wc:/i.test(t.value.trim()) || parsePayLink(t.value))) { const v = t.value.trim(); t.value = ""; onScanned(v);
-  } else if (t.matches("[data-to]")) { lookupTo(t.value); S.panel.to = t.value; const pos = t.selectionStart; renderPanel(); const n = $("#panel [data-to]"); n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} }
-  else if (t.matches("[data-tick]")) { S.wrote = t.checked; render(); }
+  } else if (t.matches("[data-to]")) { lookupTo(t.value); S.panel.to = t.value; patchPanel(); }
+  else if (t.matches("[data-tick]")) { S.wrote = t.checked; const b = $("#root [data-act='to-verify']"); if (b) b.disabled = !(S.revealed && S.wrote); else render(); }
   else if (t.name === "pw" && t.closest("form")?.querySelector("[data-meter]")) { const m = t.closest("form").querySelector("[data-meter]"); m.dataset.s = strength(t.value); }
 });
 
@@ -3154,7 +3181,7 @@ function tokenView() {
 
 /** Scrubbing the token chart: price and date follow the finger. */
 function bindTokChart(el) {
-  const c = el.querySelector("[data-tkchart]"); if (!c || !S.tkChart) return;
+  const c = el.querySelector("[data-tkchart]"); if (!c || !S.tkChart || c.__bound) return; c.__bound = true;
   const svg = c.querySelector("svg"), x = c.querySelector(".tk-x"), pin = c.querySelector(".tk-pin"), pxEl = el.querySelector("[data-tkpx]"), chEl = el.querySelector("[data-tkch]");
   const keep = { px: pxEl?.innerHTML, ch: chEl?.innerHTML, cls: chEl?.className };
   const fmtT = (ms) => new Date(ms).toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", S.range === "1" ? { hour: "numeric", minute: "2-digit" } : { month: "short", day: "numeric", ...(S.range === "365" ? { year: "numeric" } : {}) });

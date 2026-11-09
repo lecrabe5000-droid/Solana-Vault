@@ -1048,3 +1048,44 @@ body { background: radial-gradient(1200px 600px at 80% -10%, color-mix(in srgb, 
 .hello .alt-row .btn, .hello .alt-row .wc-btn { margin: 0; min-width: 0; width: auto; height: 44px; padding: 0 20px; flex: 0 1 auto; font-size: 14px; font-weight: 600; }
 .hello .alt-row .wc-btn svg { width: 18px; height: 18px; }
 @media (max-width: 560px) { .hello .alt-row { flex-direction: column; width: 100%; } .hello .alt-row .btn { width: 100%; } }
+
+/* ===== The confirmation moment: the Ecrin diamond and its check ===== */
+.cfx { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 24px; background: rgba(8, 9, 14, 0); -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0); transition: background .35s, backdrop-filter .35s, -webkit-backdrop-filter .35s; cursor: pointer; }
+.cfx.in { background: rgba(8, 9, 14, .42); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.cfx.out { background: rgba(8, 9, 14, 0); -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0); }
+.cfx-card { display: grid; justify-items: center; gap: 8px; width: min(380px, 100%); padding: 34px 28px 28px; border-radius: 28px; text-align: center; background: var(--surface); box-shadow: 0 0 0 1px var(--line), 0 40px 90px -30px rgba(0, 0, 0, .55);
+  opacity: 0; transform: translateY(18px) scale(.94); transition: opacity .35s, transform .5s cubic-bezier(.2, 1.3, .4, 1); }
+.cfx.in .cfx-card { opacity: 1; transform: none; } .cfx.out .cfx-card { opacity: 0; transform: translateY(8px) scale(.97); transition-duration: .25s; }
+.cfx-card h2 { margin-top: 6px; font: 600 24px/1.15 var(--num); letter-spacing: -.02em; }
+.cfx-card p { margin: 0; color: var(--muted); font-size: 14px; } .cfx-card a { margin-top: 8px; color: var(--accent); font-weight: 600; font-size: 13.5px; text-decoration: none; }
+.dck { width: 120px; height: 120px; overflow: visible; filter: drop-shadow(0 14px 30px rgba(47, 91, 255, .45)); }
+.dck rect, .dck path { transform-box: fill-box; transform-origin: center; }
+.dck .o { fill: none; stroke: #5b7cff; stroke-width: 3; stroke-dasharray: 100; stroke-dashoffset: 100; animation: dck-draw .7s cubic-bezier(.65, 0, .35, 1) .1s forwards; }
+.dck .f { fill: #2f5bff; opacity: 0; transform: scale(.35); animation: dck-fill .55s cubic-bezier(.3, 1.5, .5, 1) .55s forwards; }
+.dck .t { fill: none; stroke: #fff; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: dck-draw .42s cubic-bezier(.65, 0, .35, 1) .9s forwards; }
+.dck .p { fill: none; stroke: #8ea4ff; stroke-width: 2; opacity: 0; animation: dck-pulse 1.1s cubic-bezier(.2, .7, .2, 1) 1.1s; }
+@keyframes dck-draw { to { stroke-dashoffset: 0; } } @keyframes dck-fill { to { opacity: 1; transform: scale(1); } } @keyframes dck-pulse { 0% { opacity: .9; transform: scale(1); } 100% { opacity: 0; transform: scale(1.55); } }
+@media (prefers-reduced-motion: reduce) { .dck .o, .dck .t { animation: none; stroke-dashoffset: 0; } .dck .f { animation: none; opacity: 1; transform: none; } .dck .p { display: none; } .cfx-card { transition: none; } }
+
+/* ===== Navigation that feels physical ===== */
+/* sections slide in the direction you're going, the top bar stays perfectly still */
+.topbar { view-transition-name: topbar; } .tabbar { view-transition-name: tabbar; } .main { view-transition-name: page; }
+::view-transition-old(page) { animation: vt-out .26s cubic-bezier(.4, 0, 1, 1) both; }
+::view-transition-new(page) { animation: vt-in .46s cubic-bezier(.2, .8, .2, 1) both; }
+[data-nav="back"]::view-transition-old(page) { animation-name: vt-out-b; } [data-nav="back"]::view-transition-new(page) { animation-name: vt-in-b; }
+@keyframes vt-out { to { opacity: 0; transform: translateX(-28px); filter: blur(3px); } } @keyframes vt-in { from { opacity: 0; transform: translateX(36px); filter: blur(3px); } }
+@keyframes vt-out-b { to { opacity: 0; transform: translateX(28px); filter: blur(3px); } } @keyframes vt-in-b { from { opacity: 0; transform: translateX(-36px); filter: blur(3px); } }
+/* buttons and cards answer the press */
+.btn, .qa, .pill-i, .tab-i, .acct-chip, .tsw3 button, .preset, .theme { transition: transform .18s cubic-bezier(.2, .8, .2, 1), background-color .2s, border-color .2s, color .2s, box-shadow .2s, opacity .2s; }
+.btn:active, .qa:active, .acct-chip:active, .preset:active, .theme:active { transform: scale(.965); }
+.pill-i:active, .tab-i:active { transform: scale(.94); }
+.btn.primary:hover { box-shadow: 0 10px 26px -14px rgba(47, 91, 255, .7); }
+.glass, .card, .acct, .panel-card { transition: transform .3s cubic-bezier(.2, .8, .2, 1), box-shadow .3s; }
+@media (hover: hover) { .glass:hover, .acct:hover { transform: translateY(-2px); box-shadow: 0 22px 50px -30px rgba(10, 12, 20, .45); } }
+/* sheets spring up, with a softer backdrop */
+.sheet[open] { animation: sheet-in .5s cubic-bezier(.2, 1.15, .35, 1); }
+.sheet[open]::backdrop { animation: bd-in .35s ease both; }
+@keyframes sheet-in { from { opacity: 0; transform: translateY(26px) scale(.96); } }
+@keyframes bd-in { from { opacity: 0; } }
+@media (max-width: 640px) { .sheet { margin: auto auto 10px; border-radius: 26px; } @keyframes sheet-in { from { opacity: .4; transform: translateY(70%); } } }
+@media (prefers-reduced-motion: reduce) { ::view-transition-old(page), ::view-transition-new(page), .sheet[open], .sheet[open]::backdrop { animation: none; } }
