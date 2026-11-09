@@ -30,6 +30,7 @@ function dur(s) {
 const EXACT = {
   // shell
   "Get": "Obtenez", "for Chrome or your phone.": "pour Chrome ou votre téléphone.",
+  "Install Ecrin Wallet for Chrome, then come back here and connect.": "Installez Ecrin Wallet pour Chrome, puis revenez ici pour vous connecter.",
   "Connect Ecrin Wallet": "Connecter Ecrin Wallet", "Get Ecrin Wallet": "Obtenir Ecrin Wallet", "Open Ecrin Wallet": "Ouvrir Ecrin Wallet", "Or use another wallet": "Ou utilisez un autre portefeuille",
   "Using Ecrin Wallet on your phone? Open it, go to Settings, then Connected apps, and scan the WalletConnect code.": "Ecrin Wallet sur votre téléphone ? Ouvrez-le, allez dans Réglages, puis Apps connectées, et scannez le code WalletConnect.",
   "In the wallet, tap Get free test SOL. It arrives in seconds.": "Dans le portefeuille, touchez Obtenir des SOL de test gratuits. Ils arrivent en quelques secondes.",

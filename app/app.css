@@ -1043,3 +1043,8 @@ body { background: radial-gradient(1200px 600px at 80% -10%, color-mix(in srgb, 
 .protected b { color: var(--ink); font-variant-numeric: tabular-nums; }
 .protected i { width: 7px; height: 7px; border-radius: 50%; background: #2f5bff; box-shadow: 0 0 0 4px rgba(47, 91, 255, .16); }
 @media (pointer: coarse), (max-width: 860px) { .tsw3 { --w: 42px; --h: 40px; } }
+/* "Or use another wallet": one even row of equal buttons */
+.hello .alt-row { align-items: stretch; }
+.hello .alt-row .btn, .hello .alt-row .wc-btn { margin: 0; min-width: 0; width: auto; height: 44px; padding: 0 20px; flex: 0 1 auto; font-size: 14px; font-weight: 600; }
+.hello .alt-row .wc-btn svg { width: 18px; height: 18px; }
+@media (max-width: 560px) { .hello .alt-row { flex-direction: column; width: 100%; } .hello .alt-row .btn { width: 100%; } }

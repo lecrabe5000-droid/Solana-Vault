@@ -708,8 +708,7 @@ function renderView() {
     const ecrin = list.find(([n]) => /Ecrin/.test(n)), others = list.filter(([n]) => !/Ecrin/.test(n));
     const btn = ([n], cls) => `<button class="btn ${cls} lg" data-act="connect" data-i="${list.findIndex(([m]) => m === n)}">${/Ecrin/.test(n) ? `${ECRIN_MARK}<span>Connect Ecrin Wallet</span>` : `Connect ${esc(n)}`}</button>`;
     const lead = ecrin ? btn(ecrin, "primary")
-      : isPhone() ? `<a class="btn primary lg" href="${ECRIN_PHONE}">${ECRIN_MARK}<span>Open Ecrin Wallet</span></a>`
-      : `<a class="btn primary lg" href="${ECRIN_GET}">${ECRIN_MARK}<span>Get Ecrin Wallet</span></a>`;
+      : `<button class="btn primary lg" data-act="ecrin-connect">${ECRIN_MARK}<span>Connect Ecrin Wallet</span></button>`;
     const alt = [...others.map((w) => btn(w, "")), wcOn() ? `<button class="btn wc-btn" data-act="wc">${WC_ICON}<span>WalletConnect</span></button>` : "",
       !others.length && isPhone() ? walletLinks().map(([n, href]) => `<a class="btn" href="${esc(href)}">Open in ${n}</a>`).join("") : ""].filter(Boolean).join("");
     app.innerHTML = shell(`<section class="glass hello">
@@ -1425,6 +1424,14 @@ const actions = {
   wc: () => { $("#sheet").close(); connectWC(); },
   install: () => installGuide(),
   "install-off": () => { try { localStorage.setItem("ecrin-install-off", "1"); } catch (_) {} render(); },
+  // Ecrin Wallet isn't in this browser yet: on a phone, open the phone wallet; on a computer, open the install page.
+  "ecrin-connect": () => {
+    const i = providers().findIndex(([n]) => /Ecrin/.test(n));
+    if (i >= 0) return connect(providers()[i][1]);
+    if (isPhone()) { location.href = ECRIN_PHONE; return; }
+    window.open(ECRIN_GET, "_blank", "noopener");
+    toast("Install Ecrin Wallet for Chrome, then come back here and connect.");
+  },
   "view-start": () => startView($("#view-addr")?.value),
   copy: async (el) => { try { await navigator.clipboard.writeText(el.dataset.v); toast("Link copied"); } catch (_) { toast("Copy failed: press and hold the link", "err"); } },
   privacy: () => { S.hide = !S.hide; try { localStorage.setItem("ecrin-hide", S.hide ? "1" : "0"); } catch (_) {} render(); if ($("#sheet").open) { $("#sheet").close(); accountMenu(); } },
