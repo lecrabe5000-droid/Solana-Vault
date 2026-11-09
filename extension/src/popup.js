@@ -237,8 +237,9 @@ async function home() {
 
 async function refresh() {
   try {
-    const e = await eng();
+    const e = await eng(), net = S.net, acct = ACCT;
     const [bal, vault] = await Promise.all([e.balances(), e.vault().catch((err) => (console.warn(err), null))]);
+    if (S.net !== net || ACCT !== acct) return; // switched network or account while this was loading
     S.bal = bal; S.vault = vault; S.err = null; autoProtect(bal); queueMicrotask(checkIncoming);
   } catch (err) { console.warn(err); S.err = `Can't reach ${NETS[S.net].name} right now. Retrying…`; setTimeout(refresh, 6000); }
   // Redraw only when something you can see changed: a rebuild every 15s for nothing makes the page jolt.
@@ -1180,7 +1181,7 @@ function spark(cg) {
 const ACT = { send: ["Sent", I.send], protect: ["Moved to Safe", I.protect], withdraw: ["Withdrawal started", I.clock], release: ["Released to Wallet", I.recv], cancel: ["Withdrawal cancelled", I.shield], vault: ["Safe opened", I.lock] };
 /** Every network at once: reads chequing and savings on each, prices them, and adds it all up. */
 async function loadAll() {
-  const { dev } = await local.get("dev");
+  const { dev } = await local.get("dev"), acct = ACCT;
   const rows = await Promise.all(netKeys().map(async (k) => {
     try {
       const e = k === S.net && ENG ? ENG : engine({ web3, ethers, acct: ACCT, net: k, dev: dev || {} });
@@ -1188,6 +1189,7 @@ async function loadAll() {
       return { k, b, v, ok: true };
     } catch (_) { return { k, ok: false }; }
   }));
+  if (ACCT !== acct) return; // switched account while this was loading
   S.all = rows; queueMicrotask(checkIncoming);
   loadExtras(dev);
   if (S.panel?.p === "all") { S.panel.rows = rows; renderPanel(); }
@@ -1327,17 +1329,39 @@ function addTokView() {
       ${P.dd ? `<div class="dd-menu" role="listbox">${evm.map((n) => `<button type="button" role="option" class="dd-o${n === k ? " on" : ""}" data-act="dd-pick" data-n="${n}">${coin(n)}<b>${NETS[n].name}</b><small>${NETS[n].net}</small>${n === k ? I.check : ""}</button>`).join("")}</div>` : ""}
     </div>
     <label class="fld"><span>Token contract</span><input data-taddr placeholder="0x…" value="${esc(P.addr || "")}" autocomplete="off" spellcheck="false"/></label>
-    <div class="tk-prev" data-tprev>${pv?.err ? `<span class="err">${esc(pv.err)}</span>` : pv?.symbol ? `<span class="coin letter" style="--h:${[...pv.mint].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7)}">${esc(pv.symbol.charAt(0))}</span><span><b>${esc(pv.name)}</b><small>${esc(pv.symbol)} · ${pv.dec} decimals</small></span>` : P.looking ? `<i class="spin"></i><small>Reading the token…</small>` : ""}</div>
+    <div class="tk-prev" data-tprev>${tokPrevHTML(P)}</div>
     <div class="pfoot"><button class="btn primary xl" data-act="tok-add" ${pv?.symbol && !P.busy ? "" : "disabled"}>${P.busy ? `<i class="spin"></i>` : ""}Add ${pv?.symbol ? esc(pv.symbol) : "token"}</button></div></div>`;
+}
+function tokPrevHTML(P) {
+  const pv = P.info;
+  if (P.looking) return `<span class="coin sk"></span><span><b class="sk-t">Looking up the token…</b><small>Reading it from ${esc(NETS[addTokNet(P)].name)}</small></span>`;
+  if (pv?.err) return `<span class="err">${esc(pv.err)}</span>`;
+  if (pv?.symbol) return `<span class="coin letter" style="--h:${[...pv.mint].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7)}">${esc(pv.symbol.charAt(0))}</span><span><b>${esc(pv.name)}</b><small>${esc(pv.symbol)} · ${pv.dec} decimals</small></span>`;
+  return "";
+}
+const addTokNet = (P) => { const evm = netKeys().filter((k) => NETS[k].fam === "evm"); return evm.includes(P.net) ? P.net : evm.includes(S.net) ? S.net : evm[0]; };
+// Updates the preview and the Add button in place, so the address field keeps its cursor and the keyboard stays put.
+function paintTokPrev() {
+  const P = S.panel, box = $("#panel [data-tprev]"), btn = $("#panel [data-act='tok-add']"); if (!P || !box) return renderPanel();
+  box.innerHTML = tokPrevHTML(P); translate(box, S.lang);
+  if (btn) { btn.disabled = !P.info?.symbol || !!P.busy; btn.textContent = trText(`Add ${P.info?.symbol || "token"}`, S.lang); }
 }
 async function previewTok() {
   const P = S.panel; if (!P || P.p !== "addTok") return;
-  const evm = netKeys().filter((k) => NETS[k].fam === "evm"), k = evm.includes(P.net) ? P.net : evm.includes(S.net) ? S.net : evm[0], addr = (P.addr || "").trim();
-  P.info = null; if (!ethers.isAddress(addr)) { if (addr.length > 6) P.info = { err: "That isn't a contract address." }; return renderPanel(); }
-  P.looking = true; renderPanel(); const ticket = (P.ticket = (P.ticket || 0) + 1);
-  try { const { dev } = await local.get("dev"); const info = await engine({ web3, ethers, acct: ACCT, net: k, dev: dev || {} }).tokenInfo(addr); if (ticket === P.ticket) P.info = info; }
-  catch (_) { if (ticket === P.ticket) P.info = { err: `No token at that address on ${NETS[k].name}.` }; }
-  P.looking = false; renderPanel(); const i = $("[data-taddr]"); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+  const k = addTokNet(P), addr = (P.addr || "").trim(), key = `${k}:${addr.toLowerCase()}`;
+  if (key === P.lastKey && (P.info || P.looking)) return; // nothing changed
+  P.lastKey = key; P.info = null; P.looking = false;
+  // only judge the address once it's complete: no error while it's still being typed or pasted
+  if (!ethers.isAddress(addr)) { if (/^0x[0-9a-fA-F]{40,}$/.test(addr) || (addr.length >= 42) || (addr.length > 2 && !/^0x?[0-9a-fA-F]*$/.test(addr))) P.info = { err: "That isn't a contract address." }; return paintTokPrev(); }
+  S.tokCache ||= {}; if (S.tokCache[key]) { P.info = S.tokCache[key]; return paintTokPrev(); }
+  P.looking = true; paintTokPrev(); const ticket = (P.ticket = (P.ticket || 0) + 1);
+  try {
+    const { dev } = await local.get("dev");
+    const info = await Promise.race([engine({ web3, ethers, acct: ACCT, net: k, dev: dev || {} }).tokenInfo(addr), new Promise((_, no) => setTimeout(() => no(new Error("slow")), 10_000))]);
+    if (ticket !== P.ticket || S.panel !== P) return;
+    S.tokCache[key] = info; P.info = info;
+  } catch (e) { if (ticket !== P.ticket || S.panel !== P) return; P.info = { err: e?.message === "slow" ? `${NETS[k].name} is slow to answer. Try again in a moment.` : `No token at that address on ${NETS[k].name}.` }; P.lastKey = null; }
+  P.looking = false; paintTokPrev();
 }
 
 function allView() {
@@ -2154,7 +2178,7 @@ const actions = {
     toast(tokHidden(t) ? "Hidden from your list" : "Shown in your list"); renderPanel(); render();
   },
   dd: () => { S.panel.dd = !S.panel.dd; renderPanel(); },
-  "dd-pick": (el) => { S.panel.net = el.dataset.n; S.panel.dd = false; previewTok(); },
+  "dd-pick": (el) => { S.panel.net = el.dataset.n; S.panel.dd = false; S.panel.lastKey = null; renderPanel(); previewTok(); },
   "tok-add": async () => {
     const P = S.panel, evm = netKeys().filter((n) => NETS[n].fam === "evm"), k = evm.includes(P.net) ? P.net : evm.includes(S.net) ? S.net : evm[0];
     if (!P.info?.symbol) return toast("Paste a token contract address first.", "err");
@@ -2509,7 +2533,7 @@ document.addEventListener("input", (e) => {
     sync(); return;
     function sync() { const ta = document.querySelector('textarea[name="phrase"]'); if (ta) ta.value = [...document.querySelectorAll("[data-w]")].map((b) => b.value.trim().toLowerCase()).filter(Boolean).join(" "); }
   }
-  if (t.matches("[data-taddr]")) { S.panel.addr = t.value; clearTimeout(S.tokT); S.tokT = setTimeout(previewTok, 350); return; }
+  if (t.matches("[data-taddr]")) { S.panel.addr = t.value; clearTimeout(S.tokT); S.tokT = setTimeout(previewTok, ethers.isAddress(t.value.trim()) ? 60 : 450); return; }
   if (t.matches("[data-actq]")) { S.actQ = t.value; const el = $("#actl"); if (el) { el.innerHTML = actRows(); translate(el, S.lang); } return; }
   if (t.matches("[data-amount]")) {
     const v = t.value.replace(/[^\d.,]/g, "").replace(",", "."), parts = v.split(".");
@@ -2980,18 +3004,28 @@ function noticeIncoming() {} // replaced by checkIncoming(): every coin, every n
 
 // Money arriving: every coin on every network, compared with what this device last saw (kept between visits), so an
 // arrival while the app was closed still plays the moment you open it. Our own moves (release, swap) are skipped.
-async function checkIncoming() {
+// Rules that keep it honest: one check at a time; a network that failed to load is unknown, not zero; a rise only
+// counts if it beats the highest value seen in the last 3 minutes (so a stale read flipping back and forth never
+// plays); and the same arrival is never announced twice.
+let incomingRun = Promise.resolve();
+function checkIncoming() { incomingRun = incomingRun.then(checkIncomingNow, checkIncomingNow); return incomingRun; }
+async function checkIncomingNow() {
   const w = worth(); if (!w.ready || !ACCT) return;
   if (S.seen === undefined) S.seen = (await local.get("seenBal")).seenBal || {};
-  const who = curAcct()?.id ?? "0", first = !Object.keys(S.seen).some((k) => k.startsWith(who + ":")), mine = Date.now() - (S.lastTx || 0) < 90_000;
+  S.seenHi ||= {}; S.announced ||= {};
+  const who = curAcct()?.id ?? "0", first = !Object.keys(S.seen).some((k) => k.startsWith(who + ":")), mine = Date.now() - (S.lastTx || 0) < 90_000, t = Date.now();
+  const okNets = new Set([...(S.all || []).filter((r) => r.ok).map((r) => r.k), ...(S.bal ? [S.net] : [])]);
   const got = [], now = {};
   for (const i of w.items) now[`${who}:${i.k}:${i.a}`] = { v: i.chq, i };
-  if (w.all) for (const k of Object.keys(S.seen)) if (k.startsWith(who + ":") && !(k in now)) now[k] = { v: 0 };
+  // a coin that disappeared only counts as zero when its network actually answered
+  for (const k of Object.keys(S.seen)) if (k.startsWith(who + ":") && !(k in now) && okNets.has(k.split(":")[1])) now[k] = { v: 0 };
   for (const [k, { v, i }] of Object.entries(now)) {
-    const was = S.seen[k];
-    if (!first && !mine && i && was != null && v > was + 1e-9) got.push({ i, d: v - was });
-    S.seen[k] = v;
+    const was = S.seen[k], hist = (S.seenHi[k] || []).filter((h) => t - h.t < 180_000), hi = Math.max(was ?? 0, ...hist.map((h) => h.v));
+    const key = `${k}:${v.toFixed(9)}`;
+    if (!first && !mine && i && was != null && v > hi + 1e-9 && !S.announced[key]) { got.push({ i, d: v - Math.max(was, ...hist.map((h) => h.v).filter((x) => x <= v)) }); S.announced[key] = t; }
+    hist.push({ v, t }); S.seenHi[k] = hist.slice(-12); S.seen[k] = v;
   }
+  for (const [key, at] of Object.entries(S.announced)) if (t - at > 600_000) delete S.announced[key];
   local.set({ seenBal: S.seen });
   if (!got.length || S.recvNotify === false) return;
   got.sort((x, y) => (y.i.usd || 0) - (x.i.usd || 0));
@@ -2999,11 +3033,12 @@ async function checkIncoming() {
   const label = `+${n(g.d)} ${g.i.unit}${got.length > 1 ? ` · +${got.length - 1} more` : ""}`;
   for (const x of got) if (NETS[x.i.k]?.fam === "evm") logActivity({ t: "recv", a: x.i.a, n: Math.round(x.d * (x.i.a === "usdc" ? USDC_BASE : BASE)), k: x.i.k }).then(loadActivity);
   if (document.hidden && window.Notification?.permission === "granted") try { new Notification("Ecrin Wallet", { body: `Received ${n(g.d)} ${g.i.unit} on ${g.i.net}`, icon: "/icon2-192.png" }); } catch (_) {}
+  // one animation at a time: a newer arrival replaces one that hasn't played yet, and nothing replays on re-render
   S.recvQ = label; playRecv();
 }
 // Played only where you can see it: on home, app in front. Otherwise it waits until you are.
 function playRecv() {
-  if (!S.recvQ || document.hidden || S.screen !== "home") return;
+  if (!S.recvQ || document.hidden || S.screen !== "home" || document.querySelector(".fx-recv")) return;
   const l = S.recvQ; S.recvQ = null; recvFx(l);
 }
 document.addEventListener("visibilitychange", playRecv);
@@ -3037,7 +3072,7 @@ function recvFx(label) {
   el.className = "fx-recv"; el.setAttribute("aria-live", "polite");
   el.innerHTML = `<svg class="fx-in" viewBox="0 0 120 120"><g class="rays"><path class="ray" style="--i:0" d="M60 60 L130.0 60.0"/><path class="ray" style="--i:1" d="M60 60 L109.5 109.5"/><path class="ray" style="--i:2" d="M60 60 L60.1 130.0"/><path class="ray" style="--i:3" d="M60 60 L10.6 109.6"/><path class="ray" style="--i:4" d="M60 60 L-10.0 60.1"/><path class="ray" style="--i:5" d="M60 60 L10.4 10.6"/><path class="ray" style="--i:6" d="M60 60 L59.8 -10.0"/><path class="ray" style="--i:7" d="M60 60 L109.4 10.4"/></g><g class="dia"><path class="d-o d-fill" pathLength="100" d="M60 22 L88 50 L60 98 L32 50 Z"/><path class="d-f" pathLength="100" d="M32 50 H88 M46 36 L60 50 L74 36 M60 50 V98 M46 36 L52 50 M74 36 L68 50"/></g></svg><b>${esc(label)}</b><small>Received</small>`;
   host.appendChild(el); haptic("success");
-  setTimeout(() => el.classList.add("out"), 2500); setTimeout(() => el.remove(), 3000);
+  setTimeout(() => el.classList.add("out"), 2500); setTimeout(() => { el.remove(); playRecv(); }, 3000);
 }
 
 /* ------------------------------------------------------------------ coin first: pick a coin, Ecrin picks the network */

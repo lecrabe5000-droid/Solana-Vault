@@ -78,6 +78,41 @@
       mountWall({ canvas: wot, labels: document.querySelector("[data-wot-labels]"), lang: root.lang === "fr" ? "fr" : "en", still: matchMedia("(prefers-reduced-motion: reduce)").matches, onCount: (c) => { if (n) n.textContent = c; } });
       requestAnimationFrame(() => setTimeout(() => wot.parentElement.classList.add("ready"), 120));
     }).catch(() => {});
+    // Phones: the still render of the Safe, brought to life with light DOM animation (no WebGL, no battery drain):
+    // attacks streak in, freeze at the shield with their label and a countdown, ripple, and fade.
+    if (matchMedia("(max-width: 860px)").matches && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      const stage = wot.parentElement, fr = root.lang === "fr";
+      const KINDS = fr ? ["Drainer", "Dépôt au casino", "Signature d'hameçonnage", "Encore un pari", "Phrase secrète volée", "Courir après ses pertes", "Levier x100", "Trade de revanche"]
+        : ["Drainer", "Casino deposit", "Phishing signature", "One more bet", "Stolen seed phrase", "Chasing losses", "100x leverage", "Revenge trade"];
+      const FROZEN = fr ? "gelé" : "frozen";
+      let k = 0, on = false, timer = 0;
+      const fmt = (s) => [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map((x) => String(x).padStart(2, "0")).join(":");
+      const shoot = () => {
+        if (!on) return;
+        const W = stage.clientWidth, cx = W / 2, cy = W / 2, R = W * 0.37;
+        // come from the sides and the top, never from below (that's where the headline is)
+        const a = (-90 + (k % 2 ? 1 : -1) * (35 + Math.random() * 70)) * (Math.PI / 180);
+        const hx = cx + Math.cos(a) * R, hy = cy + Math.sin(a) * R, sx = cx + Math.cos(a) * W * 0.95, sy = cy + Math.sin(a) * W * 0.95;
+        const deg = (Math.atan2(hy - sy, hx - sx) * 180) / Math.PI;
+        const c = document.createElement("i"); c.className = "wm-c"; c.style.cssText = `left:${sx}px;top:${sy}px;rotate:${deg}deg`; stage.append(c);
+        c.animate([{ translate: "0 0", opacity: 0 }, { opacity: 1, offset: 0.15 }, { translate: `${Math.hypot(hx - sx, hy - sy)}px 0`, opacity: 1 }], { duration: 900, easing: "cubic-bezier(.4,.1,.6,1)", fill: "forwards" })
+          .finished.then(() => {
+            c.classList.add("frozen");
+            const rip = document.createElement("i"); rip.className = "wm-r"; rip.style.cssText = `left:${hx}px;top:${hy}px`; stage.append(rip);
+            rip.animate([{ scale: 0.2, opacity: 0.9 }, { scale: 2.6, opacity: 0 }], { duration: 1100, easing: "cubic-bezier(.2,.7,.3,1)" }).finished.then(() => rip.remove());
+            const l = document.createElement("div"); l.className = "wm-l"; let secs = 72 * 3600 - 1;
+            l.innerHTML = `<b>${KINDS[k++ % KINDS.length]}</b><span>${FROZEN} · <i>${fmt(secs)}</i></span>`;
+            l.style.cssText = `left:${Math.min(Math.max(hx, 70), W - 70)}px;top:${hy}px`; stage.append(l);
+            const tick = setInterval(() => { secs -= 37; const i = l.querySelector("i"); if (i) i.textContent = fmt(secs); }, 60);
+            l.animate([{ opacity: 0, translate: "-50% calc(-100% - 6px)" }, { opacity: 1, translate: "-50% calc(-100% - 14px)" }], { duration: 300, fill: "forwards" });
+            setTimeout(() => { c.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 700, fill: "forwards" }); l.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 700, fill: "forwards" }).finished.then(() => { clearInterval(tick); l.remove(); c.remove(); }); }, 1900);
+          });
+        timer = setTimeout(shoot, 2300 + Math.random() * 900);
+      };
+      new IntersectionObserver(([en]) => { const v = en.isIntersecting && !document.hidden; if (v && !on) { on = true; timer = setTimeout(shoot, 700); } else if (!v) { on = false; clearTimeout(timer); } }, { threshold: 0.2 }).observe(stage);
+      document.addEventListener("visibilitychange", () => { if (document.hidden) { on = false; clearTimeout(timer); } });
+      stage.classList.add("wm-live");
+    }
     // phones get the still image (lighter, and the Safe sits above the headline); the live scene is for larger screens
     if (ok && matchMedia("(min-width: 861px)").matches) (window.requestIdleCallback || ((f) => setTimeout(f, 300)))(go, { timeout: 1200 });
   }

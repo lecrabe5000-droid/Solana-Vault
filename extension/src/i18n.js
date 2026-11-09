@@ -22,6 +22,7 @@ const FR = {
   "Spend from your Wallet like any other. Keep the rest in your Safe: anything leaving it waits for a delay you set, enforced on-chain, and you can cancel it.": "Dépensez depuis votre Portefeuille comme avec n'importe quel autre. Gardez le reste dans votre Coffre : tout ce qui en sort attend le délai que vous fixez, appliqué on-chain, et vous pouvez l'annuler.",
   "Not audited yet. Never use real funds in the beta.": "Pas encore audité. N'utilisez jamais de vrais fonds pendant la bêta.", "How it works": "Fonctionnement", "Security": "Sécurité", "Testnet beta": "Bêta testnet",
   "A wallet with a Safe nobody can rush.": "Un portefeuille avec un Coffre que personne ne peut presser.",
+  "Looking up the token…": "Recherche du jeton…", "That isn't a contract address.": "Ce n'est pas une adresse de contrat.",
   "Ecrin mode": "Mode Ecrin", "A third look in Settings → Appearance: deep Ecrin blue, white and ivory, with your coins in beige, white, grey and black.": "Un troisième style dans Réglages → Apparence : bleu Ecrin profond, blanc et ivoire, avec vos cryptos en beige, blanc, gris et noir.",
   "Calm price moves": "Des prix tout en douceur", "When a price updates, its digits roll and the figure warms gently toward green or red, then settles.": "Quand un prix change, ses chiffres défilent et il se teinte doucement de vert ou de rouge, puis revient au calme.",
   "A living chart": "Un graphique vivant", "On a coin's page the line draws itself, and a slow pulse marks the latest price.": "Sur la page d'une crypto, la courbe se dessine et une pulsation lente marque le dernier prix.",
@@ -227,6 +228,7 @@ const FR = {
 };
 // Phrases with numbers or names: [pattern, replacement].
 const FR_RE = [
+  [/^Reading it from (.+)$/, "Lecture sur $1"], [/^(.+) is slow to answer\. Try again in a moment\.$/, "$1 tarde à répondre. Réessayez dans un instant."], [/^(\d+) decimals$/, "$1 décimales"],
   [/^([\d.]+) test SOL is on its way$/, "$1 SOL de test arrivent"],
   [/^You chose to wait before connecting\. (\d+) min left\.$/, "Vous avez choisi d'attendre avant de vous connecter. Encore $1 min."],
   [/^Version (.+) · testnet beta · not audited$/, "Version $1 · bêta testnet · non audité"],
