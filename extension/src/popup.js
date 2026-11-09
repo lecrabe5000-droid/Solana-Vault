@@ -26,11 +26,12 @@ if (FULL) {
   for (const id of ["root", "panel", "toast"]) { const el = document.getElementById(id); if (el) box.append(el); }
   document.body.prepend(box);
   queueMicrotask(() => { // after the rest of the module has loaded (the logo is defined below)
-  document.body.insertAdjacentHTML("afterbegin", `<aside class="fp-side"><p class="fp-eyebrow">Ecrin Wallet · testnet beta</p><h2>A wallet with a Safe<br/>nobody can rush.</h2>
+  document.body.insertAdjacentHTML("afterbegin", `<aside class="fp-side"><p class="fp-eyebrow">Ecrin Wallet · testnet beta</p><h2>A wallet with a Safe nobody can rush.</h2>
     <p class="fp-lead">Spend from your Wallet like any other. Keep the rest in your Safe: anything leaving it waits for a delay you set, enforced on-chain, and you can cancel it.</p>
-    <ul class="fp-pts"><li><i>${'<svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg>'}</i><span><b>A Safe with a delay</b>Drainers and 2am impulses meet a wait they can't skip.</span></li>
+    <ul class="fp-pts"><li><i>${'<svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg>'}</i><span><b>A Safe with a delay</b>Drainers, casino deposits and 100x leverage meet a wait they can\'t skip.</span></li>
       <li><i>${'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>'}</i><span><b>Cancel any time</b>Something wrong? Stop it before it lands. Alerts by Telegram or email.</span></li>
-      <li><i>${'<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>'}</i><span><b>Every network, one wallet</b>Solana, Ethereum, Base, Arbitrum and more. Test coins only for now.</span></li></ul>
+      <li><i>${'<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>'}</i><span><b>A pause when it matters</b>Late at night it offers to sleep on it, and it can warn you before a betting site connects.</span></li>
+      <li><i>${'<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>'}</i><span><b>Every network, one wallet</b>Solana, Ethereum, Base, Arbitrum and more, with free test coins in one tap.</span></li></ul>
     <p class="fp-fine">Not audited yet. Never use real funds in the beta.</p></aside>`);
   document.body.insertAdjacentHTML("afterbegin", `<header class="fp-h">${WORDMARK("md")}<b class="fp-sub">Wallet</b><span class="fp-tag">Testnet beta</span><nav><a href="https://ecrinprotocol.app/how-it-works/" target="_blank">How it works</a><a href="https://ecrinprotocol.app/security/" target="_blank">Security</a><a href="https://ecrinprotocol.app/" target="_blank">ecrinprotocol.app</a></nav></header>`);
   });
@@ -652,6 +653,7 @@ function render() {
   S.homeSig = S.screen === "home" ? viewSig(html) : null;
   root.innerHTML = html;
   translate(root, S.lang);
+  if (FULL) for (const el of document.querySelectorAll(".fp-side, .fp-h")) if (el.dataset.lang !== S.lang) { translate(el, S.lang); el.dataset.lang = S.lang; }
   stageHome(root); maybeNews();
   // The three floating buttons live outside #root, made once, so re-renders and panels never make them blink.
   let tb = document.getElementById("tabbar");
@@ -2267,7 +2269,7 @@ const actions = {
     if (k === "showNfts" && !S.showNfts && S.tab === "nfts") S.tab = "tokens";
     await local.set({ [k]: S[k] }); renderPanel(); render();
   },
-  "upd-go": () => { if (globalThis.ECRIN_WEB) location.reload(); else window.open("https://ecrinprotocol.app/#wallet", "_blank"); },
+  "upd-go": () => { if (globalThis.ECRIN_WEB) location.reload(); else window.open("https://chromewebstore.google.com/detail/ecrin-wallet/nmehcocofmbhkjgjhbhbnfmhcbjpcpbd", "_blank"); },
   "bk-later": async () => { await local.set({ backup: { ...S.backup, at: Date.now() } }); S.backup = { ...S.backup, at: Date.now() }; render(); },
   "bk-check": async () => {
     const { phrase } = await session.get("phrase"), w = phrase.split(" "), P = S.panel;

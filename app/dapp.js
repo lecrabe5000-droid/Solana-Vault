@@ -239,7 +239,7 @@ function ecrinSol() {
   };
   return ad;
 }
-const ECRIN_GET = "/#wallet", ECRIN_PHONE = "/wallet/";
+const ECRIN_GET = "https://chromewebstore.google.com/detail/ecrin-wallet/nmehcocofmbhkjgjhbhbnfmhcbjpcpbd", ECRIN_PHONE = "/wallet/";
 const ECRIN_MARK = '<svg class="ec-mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="currentColor"/></svg>';
 // The same live numbers as the landing page: how much is sitting in Ecrin Safes on the test networks right now.
 function loadProtected() {
@@ -719,7 +719,7 @@ function renderView() {
       ${alt ? `<div class="alt-wallets"><span class="label">Or use another wallet</span><div class="alt-row">${alt}</div></div>` : ""}
       ${isPhone() && !ecrin ? `<p class="hint">Using Ecrin Wallet on your phone? Open it, go to Settings, then Connected apps, and scan the WalletConnect code.</p>` : ""}
       <div class="viewmode"><span class="label">Or just watch your Safe</span><div class="lookup"><input id="view-addr" class="input" placeholder="Your ${C.name} wallet address" spellcheck="false" autocomplete="off"/><button class="btn" data-act="view-start">View</button></div><p class="hint">View mode shows your Safe, countdowns and alerts. Signing opens your wallet app.</p></div>
-      <ol class="steps"><li><b>1</b><span><span>Get <a href="${ECRIN_GET}">Ecrin Wallet</a> for Chrome or your phone.</span></span></li><li><b>2</b><span><span>${S.net === "sol" ? `In the wallet, tap Get free test SOL. It arrives in seconds.` : `Get free test ${C.unit} at <a href="${C.faucet}" target="_blank" rel="noopener">${C.faucetName}</a>.`}</span></span></li><li><b>3</b><span><span>Create your Safe and try a withdrawal. Watch the clock, then cancel it.</span></span></li></ol>
+      <ol class="steps"><li><b>1</b><span><span>Get <a href="${ECRIN_GET}" target="_blank" rel="noopener">Ecrin Wallet</a> for Chrome, or <a href="${ECRIN_PHONE}">on your phone</a>.</span></span></li><li><b>2</b><span><span>${S.net === "sol" ? `In the wallet, tap Get free test SOL. It arrives in seconds.` : `Get free test ${C.unit} at <a href="${C.faucet}" target="_blank" rel="noopener">${C.faucetName}</a>.`}</span></span></li><li><b>3</b><span><span>Create your Safe and try a withdrawal. Watch the clock, then cancel it.</span></span></li></ol>
       <p class="protected" data-protected hidden></p>
     </section>`, { nav: false });
     loadProtected();
