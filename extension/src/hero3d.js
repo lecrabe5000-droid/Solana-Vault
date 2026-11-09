@@ -75,8 +75,8 @@ function glowTexture() {
 }
 
 const WORDS = {
-  en: { kinds: ["Drainer", "Phishing signature", "Stolen seed phrase", "2 AM impulse", "Fake airdrop", "SIM swap", "Malicious approval", "Revenge trade"], frozen: "frozen", stopped: (n) => `${n} attack${n === 1 ? "" : "s"} stopped`, through: "0 got through", hint: "Tap anywhere to attack the Safe" },
-  fr: { kinds: ["Drainer", "Signature d'hameçonnage", "Phrase secrète volée", "Impulsion de 2 h", "Faux airdrop", "Vol de carte SIM", "Approbation piégée", "Trade de revanche"], frozen: "gelé", stopped: (n) => `${n} attaque${n > 1 ? "s" : ""} stoppée${n > 1 ? "s" : ""}`, through: "0 passée", hint: "Touchez n'importe où pour attaquer le Coffre" },
+  en: { kinds: ["Drainer", "Casino deposit", "Phishing signature", "One more bet", "Stolen seed phrase", "Chasing losses", "Malicious approval", "100x leverage", "SIM swap", "Revenge trade"], frozen: "frozen", stopped: (n) => `${n} attack${n === 1 ? "" : "s"} stopped`, through: "0 got through", hint: "Tap anywhere to attack the Safe" },
+  fr: { kinds: ["Drainer", "Dépôt au casino", "Signature d'hameçonnage", "Encore un pari", "Phrase secrète volée", "Courir après ses pertes", "Approbation piégée", "Levier x100", "Vol de carte SIM", "Trade de revanche"], frozen: "gelé", stopped: (n) => `${n} attaque${n > 1 ? "s" : ""} stoppée${n > 1 ? "s" : ""}`, through: "0 passée", hint: "Touchez n'importe où pour attaquer le Coffre" },
 };
 
 export function mountWall({ canvas, labels, onCount, lang = "en", still = false }) {
