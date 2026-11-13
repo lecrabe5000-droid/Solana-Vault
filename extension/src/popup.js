@@ -1956,11 +1956,13 @@ function receiveView() {
 /** Protect (chequing → savings) and Withdraw (savings → chequing, after the delay). */
 function moveView() {
   const P = S.panel, e = ENG, a = P.asset, isIn = P.p === "protect", v = S.vault;
-  if (!v) return createVaultView(isIn ? "Protect" : "Withdraw");
-  const units = parseAmt(P.amount, a), main = v.main, tv = a === "usdc" ? v.usdc : main;
+  // First Safe ever: open it. Already have one elsewhere: protect straight away, it opens here as part of the deposit.
+  if (!v && (!isIn || !anySafe())) return createVaultView(isIn ? "Protect" : "Withdraw");
+  const vv = v || { main: openRows()[0].v.main, usdc: null };
+  const units = parseAmt(P.amount, a), main = vv.main, tv = a === "usdc" ? vv.usdc : v ? main : null;
   const max = isIn ? sendMaxProtect() : tv?.available || 0;
   if (P.step === "done") return isIn ? doneView("Protected", `${amt(P.sent, a)} ${A(a).unit} is in your Safe. Anything leaving it waits ${delay(main.withdrawDelay)}.`) : doneView("Withdrawal started", `${amt(P.sent, a)} ${A(a).unit} reaches your Wallet in ${delay(main.withdrawDelay)}. You can cancel it until then.`);
-  const lim = a === "usdc" ? v.usdc?.dailyLimit : main.dailyLimit, overLim = !isIn && lim && units > lim;
+  const lim = a === "usdc" ? vv.usdc?.dailyLimit : main.dailyLimit, overLim = !isIn && lim && units > lim;
   const valid = units > 0 && units <= max && !overLim;
   // Rail + keypad: where the money goes, how much, what each side holds after, then slide to confirm.
   const bal = isIn ? (S.bal?.[a] || 0) : (tv?.balance || 0), other = isIn ? (tv?.balance || 0) : (S.bal?.[a] || 0), u = A(a).unit;
@@ -1979,7 +1981,7 @@ function moveView() {
     <div class="mv-src">${fromRow()}</div>
     <div class="mv-amt${units > max || overLim ? " over" : ""}">${pad ? `<b>${esc(P.amount || "0")}</b>` : `<input data-amount inputmode="decimal" placeholder="0" value="${esc(P.amount)}" autocomplete="off" autofocus style="width:${Math.max(1, (P.amount || "0").length) + 0.6}ch"/>`}<span>${u}</span></div>
     <div class="mv-sub">${units > max ? `<span class="bad">More than ${isIn ? "your Wallet has" : "can leave right now"}</span>` : overLim ? `<span class="bad">Over your daily limit of ${amt(lim, a)} ${u}</span>` : usd != null && units ? money(usd) : `${amt(max, a)} ${u} available`}</div>
-    ${feeNote(a)}
+    ${feeNote(a)}${isIn && !v ? `<p class="mv-note first">${I.shield}<span>First time on ${NETS[S.net].name}: your Safe opens here as part of this deposit, with the same rules.</span></p>` : ""}
     <div class="mv-pcts">${[25, 50, 100].map((v) => `<button data-act="pct" data-v="${v}" class="${P.pct === v ? "on" : ""}">${v === 100 ? "Max" : v + "%"}</button>`).join("")}</div>
     <p class="mv-note">${isIn ? `${I.lock}<span>Anything leaving waits <b>${delay(main.withdrawDelay)}</b>, and you can cancel it.</span>` : `${I.clock}<span>Arrives <b>${when}</b> · cancel any time before</span>`}</p>
     ${pad ? `<div class="kp">${keys.map((k) => `<button data-act="key" data-k="${k}" aria-label="${k === "del" ? "Delete" : k}">${k === "del" ? `<svg viewBox="0 0 24 24"><path d="M9 6h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5-6z"/><path d="M12.5 10l4 4M16.5 10l-4 4"/></svg>` : k}</button>`).join("")}</div>` : ""}
@@ -1987,7 +1989,28 @@ function moveView() {
       <button class="sr-only" data-act="${isIn ? "do-protect" : "do-withdraw"}" ${valid ? "" : "disabled"}>${isIn ? "Move to Safe" : "Start withdrawal"}</button>`}</div>
   </div>`;
 }
-function sendMaxProtect() { const a = S.panel.asset; return a === "native" ? Math.max(0, (S.bal?.native || 0) - (S.panel.reserve || 0) - (NETS[S.net].fam === "sol" ? 3_000_000 : 0)) : S.bal?.usdc || 0; }
+/* ------------------------------------------------------------------ one Safe, every network
+   Each network keeps its own Safe account (that's how blockchains work), but you only ever open one Safe: "Open my
+   Safe" opens it on every network where you have coins for the fee, and any other network opens on its own, with the
+   same rules, the first time you protect something there. */
+const canSafe = (k) => NETS[k] && (NETS[k].fam === "sol" || !!NETS[k].contract);
+const openRows = () => (S.all || []).filter((r) => r.ok && (r.k === S.net && S.vault !== undefined ? S.vault : r.v));
+const anySafe = () => !!S.vault || openRows().length > 0;
+/** The rules your Safe already uses (from any network), so a new network gets the same. */
+function safeKind() { const r = S.vault ? { v: S.vault } : openRows()[0]; return r?.v ? (r.v.main.withdrawDelay >= 72 * 3600 ? "strong" : "gentle") : null; }
+const feeFloor = (k) => (NETS[k].fam === "sol" ? 3_000_000 : 1);
+async function openSafeEverywhere(kind) {
+  const { dev } = await local.get("dev"), rows = S.all || [], done = [], skipped = [];
+  // this network first: if it fails, say why and stop
+  if (!S.vault) { await (await eng()).createVault(kind); done.push(S.net); }
+  for (const k of netKeys().filter((k) => k !== S.net && canSafe(k))) {
+    const r = rows.find((x) => x.k === k); if (!r?.ok || r.v) continue;
+    if (!((r.b?.native || 0) > feeFloor(k))) { skipped.push(k); continue; }
+    try { await engine({ web3, ethers, acct: ACCT, net: k, dev: dev || {} }).createVault(kind); done.push(k); } catch (e) { console.warn("open", k, e); skipped.push(k); }
+  }
+  return { done, skipped };
+}
+function sendMaxProtect() { const a = S.panel.asset, open = !S.vault ? (NETS[S.net].fam === "sol" ? 6_000_000 : 0) : 0; return a === "native" ? Math.max(0, (S.bal?.native || 0) - (S.panel.reserve || 0) - (NETS[S.net].fam === "sol" ? 3_000_000 : 0) - open) : S.bal?.usdc || 0; }
 
 /** Opening a Safe: the Shield from the Safe page, its arc filling as you arrive, the delay you're choosing in the middle. */
 function cvShield(label) {
@@ -2077,19 +2100,32 @@ function vaultView() {
     ${next ? `<div class="sf-alert"><span class="sa-ic">${I.clock}</span><span class="sa-t"><b>${amt(next.amount, next.a)} ${nextU} is leaving your Safe</b><small>to ${isMine(next.dest) ? "your Wallet" : short(String(next.dest))} · on ${NETS[next.r.k].name}</small></span><b class="sa-cd" data-until="${next.readyAt}">${nextLeft > 0 ? hms(nextLeft) : "Ready"}</b>
       <button class="sa-x" data-act="cancel-w" data-n="${next.r.k}" data-id="${next.id}" data-a="${next.a}">${I.shield}Cancel</button></div>` : ""}
     <div class="sf-tiles">
-      <div class="sf-tile t-lock"><span class="st-ic">${I.lock}</span><span class="st-k">Locked</span><b>${mask(money(total))}</b><small>${open.length ? `${open.length} network${open.length > 1 ? "s" : ""}` : "Not opened"}</small></div>
+      <div class="sf-tile t-lock"><span class="st-ic">${I.lock}</span><span class="st-k">Locked</span><b>${mask(money(total))}</b><small>${open.length ? "every network" : "Not opened"}</small></div>
       <div class="sf-tile t-out${waiting ? " hot" : ""}"><span class="st-ic">${I.out}</span><span class="st-k">Leaving</span><b>${waiting || "None"}</b><small>${next ? `first in ${nextLeft > 0 ? dur(nextLeft) : "now"}` : "all quiet"}</small></div>
       <button class="sf-tile t-rules" data-act="panel" data-p="rules"><span class="st-ic">${I.gear}</span><span class="st-k">Rules</span><b>${dl ? delay(dl) : "—"}</b><small>delay · alerts ${I.arrow}</small></button>
     </div>
-    <div class="sf-cta"><button class="sf-go" data-act="safe-go" data-n="${S.net}" data-p="protect">${I.protect}Protect more</button><button class="sf-go2" data-act="safe-go" data-n="${S.net}" data-p="withdraw">${I.out}Withdraw</button></div>
+    <div class="sf-cta"><button class="sf-go" data-act="${open.length ? "safe-pick" : "safe-go"}" data-n="${S.net}" data-p="protect">${I.protect}${open.length ? "Protect more" : "Open my Safe"}</button>${open.length ? `<button class="sf-go2" data-act="safe-pick" data-p="withdraw">${I.out}Withdraw</button>` : ""}</div>
     <div class="list-h"><b>Blocked</b><span>${blocked.length ? `${blocked.length} stopped${saved ? ` · ${mask(money(saved))} kept` : ""}` : "nothing yet"}</span></div>
     <div class="sf-blocked">${blocked.length ? blocked.slice(0, 4).map((e) => `<div class="sb-r"><i class="sb-d"></i><span><b>Withdrawal stopped</b><small>${e.at ? new Date(e.at).toLocaleDateString(S.lang === "fr" ? "fr-CA" : "en-US", { month: "short", day: "numeric" }) : ""}${e.n ? ` · ${amt(e.n, e.a === "usdc" ? "usdc" : "native")} ${e.a === "usdc" ? "USDC" : NETS[e.k]?.unit || ""}` : ""}</small></span><em>Kept</em></div>`).join("")
       : `<div class="sb-empty"><b>Nothing has tried to leave.</b><span>If anything ever does, even with your own key, it waits ${dl ? delay(dl) : "the delay"} and you can stop it right here.</span></div>`}</div>
-    ${open.length ? `<div class="list-h"><b>Your Safe on each network</b><span>${open.length}</span></div>${open.map(section).join("")}` : ""}
+    ${open.length ? safeHoldings(pend, t, isMine, ring, hms) : ""}
     <button class="earn-card" data-act="panel" data-p="earn"><span class="ec-ic">${I.spark}</span><span class="ec-t"><b>Earn on your Safe</b><small>Stake SOL without taking it out · about ${STAKE_APY_TEXT} a year</small></span><span class="soon">Coming soon</span></button>
-    ${closed.length ? `<div class="list-h"><b>Add a network</b><span>same Safe</span></div>
-      <section class="list">${closed.map((N) => `<button class="arow" data-act="safe-go" data-n="${N.key}" data-p="protect">${coin(N.key)}<span class="ar-t"><b>${N.name}</b><small>${N.net} · not opened</small></span><span class="ar-r"><b class="sn-open">Open</b></span></button>`).join("")}</section>` : ""}
   </div>`;
+}
+/** Everything in your Safe as one list, coin by coin (ETH on several networks adds up into one row), then anything
+ *  on its way out, each with its countdown. Tapping a coin opens its page, where Protect and Withdraw are. */
+function safeHoldings(pend, t, isMine, ring, hms) {
+  const w = worth(), by = {};
+  for (const i of w.items.filter((i) => i.sav > 0)) { const g = (by[i.unit] ||= { ...i, sav: 0, val: 0, nets: [] }); g.sav += i.sav; g.val += i.usd != null && i.chq + i.sav ? (i.usd * i.sav) / (i.chq + i.sav) : 0; g.nets.push(i.net); }
+  const coins = Object.values(by).sort((x, y) => y.val - x.val);
+  const n = (v, d) => v.toLocaleString("en-US", { maximumFractionDigits: d });
+  const rows = coins.length ? coins.map((c) => `<button class="arow" data-act="tok" data-u="${c.unit}">${coin(c.unit === "USDC" ? "usdc" : c.unit === "ETH" ? "eth" : c.k)}<span class="ar-t"><b>${c.name}</b><small>${c.nets.length > 1 ? `${c.nets.length} networks` : c.nets[0]}</small></span><span class="ar-r"><b>${mask(money(c.val))}</b><small>${mask(n(c.sav, c.dec))} ${c.unit}</small></span></button>`).join("")
+    : `<div class="sb-empty"><b>Nothing protected yet.</b><span>Tap Protect more and pick any coin you hold, on any network.</span></div>`;
+  const out = pend.map((x) => { const N = NETS[x.r.k], left = x.readyAt - t, ready = left <= 0, unit = x.a === "usdc" ? "USDC" : N.unit, d = x.r.v.main.withdrawDelay;
+    return `<div class="sf-w ${ready ? "ready" : ""}">${ring(left, d, x.readyAt)}<span class="wr-t"><b>${amt(x.amount, x.a)} ${unit}</b><small>to ${isMine(x.dest) ? "your Wallet" : short(String(x.dest))} · ${N.name}</small></span>
+      <span class="wr-r"><b class="cd" data-until="${x.readyAt}">${ready ? "Ready" : hms(left)}</b>${ready ? `<button class="btn sm primary" data-act="execute" data-n="${x.r.k}" data-id="${x.id}" data-a="${x.a}" data-d="${esc(String(x.dest))}">Release</button>` : ""}<button class="btn sm danger" data-act="cancel-w" data-n="${x.r.k}" data-id="${x.id}" data-a="${x.a}">Cancel</button></span></div>`; }).join("");
+  return `<div class="list-h"><b>In your Safe</b><span>${coins.length} coin${coins.length === 1 ? "" : "s"}</span></div><section class="list sf-coins">${rows}</section>
+    ${out ? `<div class="list-h"><b>Waiting to leave</b><span>cancel any time</span></div><section class="sf-net sf-out">${out}</section>` : ""}`;
 }
 const vaultLine = (a, units) => `<div class="vl">${assetCoin(a)}<b>${mask(fig(amt(units, a)))}</b><span>${A(a).unit}</span></div>`;
 
@@ -2550,11 +2586,14 @@ const actions = {
   kind: (el) => { S.panel.kind = el.dataset.k; renderPanel(); },
   "create-vault": async () => {
     const P = S.panel, back = P.p;
-    await txRun(async () => (await eng()).createVault(P.kind || "strong"), null, { t: "vault" });
+    await txRun(async () => { const r = await openSafeEverywhere(P.kind || "strong"); P.opened = r; }, null, { t: "vault" });
+    if (P.opened?.done?.length > 1) toast(P.opened.skipped.length ? `Your Safe is open on ${P.opened.done.length} networks. ${P.opened.skipped.map((k) => NETS[k].name).join(", ")} opens with your first deposit there.` : "Your Safe is open on every network.", "win");
     // Opened from Protect: carry straight on to protecting, no detour through a done screen.
-    if (back === "protect" && S.panel === P && P.step === "done") { P.step = "form"; toast(`Safe opened on ${NETS[S.net].name}`, "win"); const e = await eng(); P.reserve = await e.reserve(P.asset); renderPanel(); }
+    if (back === "protect" && S.panel === P && P.step === "done") { P.step = "form"; if (!(P.opened?.done?.length > 1)) toast("Your Safe is open", "win"); const e = await eng(); P.reserve = await e.reserve(P.asset); renderPanel(); }
   },
-  "do-protect": () => { const P = S.panel, units = parseAmt(P.amount, P.asset); P.sent = units; txRun(async () => (await eng()).protect(P.asset, units), null, { t: "protect", a: P.asset, n: units }); },
+  "do-protect": () => { const P = S.panel, units = parseAmt(P.amount, P.asset); P.sent = units;
+    txRun(async () => { const e = await eng(); if (!S.vault) { await e.createVault(safeKind() || "strong"); S.vault = await e.vault().catch(() => null) || S.vault; } return e.protect(P.asset, units); }, null, { t: "protect", a: P.asset, n: units }); },
+  "safe-pick": (el) => { S.panel = null; openPanel("pick", { back: el.dataset.p }); },
   faucet: async (el) => {
     const N = NETS[S.net]; if (N.key !== "sol" || !ENG?.address) return window.open(N.faucet, "_blank");
     if (S.fauBusy) return; S.fauBusy = true;
@@ -3214,7 +3253,8 @@ function fromRow() {
 }
 function pickView() {
   const P = S.panel, w = worth(), need = P.back === "withdraw" ? "sav" : P.back === "receive" ? null : "chq";
-  let list = need ? w.items.filter((i) => i[need] > 0) : [];
+  // Protect only offers coins on networks where a Safe can live (the Safe program or contract is deployed there).
+  let list = need ? w.items.filter((i) => i[need] > 0 && (P.back !== "protect" || canSafe(i.k))) : [];
   // USDC on several networks shows as one row with the total; Ecrin uses the network that holds the most.
   if (need) { const us = list.filter((i) => i.a === "usdc"); if (us.length > 1) { const best = [...us].sort((x, y) => y[need] - x[need])[0], tot = (k) => us.reduce((t, i) => t + (i[k] || 0), 0); list = [{ ...best, chq: tot("chq"), sav: tot("sav"), usd: tot("chq") + tot("sav"), net: `${us.length} networks · sends from ${best.net}`, merged: best[need] }, ...list.filter((i) => i.a !== "usdc")]; } }
   if (!need) list = netKeys().map((k) => NETS[k]).flatMap((N) => [{ k: N.key, a: "native", unit: N.unit, name: COIN_NAME[N.unit] || N.unit, net: N.name, coin: N.key }, ...(N.usdc ? [{ k: N.key, a: "usdc", unit: "USDC", name: "USD Coin", net: N.name, coin: "usdc" }] : [])]);

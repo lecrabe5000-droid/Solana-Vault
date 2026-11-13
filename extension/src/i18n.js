@@ -188,6 +188,8 @@ const FR = {
   "A wallet for spending.": "Un wallet pour dépenser.", "A safe nobody can rush.": "Un coffre que personne ne peut presser.",
   "Create a new wallet": "Créer un nouveau wallet", "I have a recovery phrase": "J'ai une phrase de récupération", "Skip": "Passer", "Next": "Suivant", "Get started": "Commencer",
   "Your": "Votre", "is for spending, like any crypto wallet. Your": "sert à dépenser, comme n'importe quel wallet. Votre", "holds the rest, and nothing leaves it in a hurry.": "garde le reste, et rien n'en sort dans la précipitation.",
+  "Your Safe is open on every network.": "Votre Coffre est ouvert sur tous les réseaux.", "Your Safe is open": "Votre Coffre est ouvert", "In your Safe": "Dans votre Coffre", "Waiting to leave": "En attente de sortie", "every network": "tous les réseaux", "Protect more": "Protéger plus",
+  "Nothing protected yet.": "Rien de protégé pour l'instant.", "Tap Protect more and pick any coin you hold, on any network.": "Touchez Protéger plus et choisissez n'importe quelle crypto que vous détenez, sur n'importe quel réseau.",
   "Two places for your money": "Deux endroits pour votre argent", "Nothing leaves the Safe in a hurry": "Rien ne quitte le Safe dans la précipitation", "Scams, caught before you sign": "Les arnaques, repérées avant de signer",
   "Testnet beta · not audited · test coins only": "Bêta testnet · non audité · jetons de test uniquement",
   "Unlock": "Déverrouiller", "Password": "Mot de passe", "Wrong password": "Mot de passe incorrect", "Welcome back": "Bon retour",
@@ -235,6 +237,7 @@ const FR = {
 // Phrases with numbers or names: [pattern, replacement].
 const FR_RE = [
   [/^No token called “(.+)” on (.+)\. Paste its contract address instead\.$/, "Aucun jeton nommé « $1 » sur $2. Collez plutôt son adresse de contrat."], [/^On (.+ (?:Sepolia|Amoy|Fuji|Testnet|Mainnet))$/, "Sur $1"], [/^Liq\. (.+)$/, "Liq. $1"], [/^Liquidity (.+)$/, "Liquidité $1"],
+  [/^Your Safe is open on (\d+) networks\. (.+) opens with your first deposit there\.$/, "Votre Coffre est ouvert sur $1 réseaux. $2 s'ouvrira avec votre premier dépôt."], [/^First time on (.+): your Safe opens here as part of this deposit, with the same rules\.$/, "Première fois sur $1 : votre Coffre s'ouvre ici avec ce dépôt, avec les mêmes règles."], [/^(\d+) coins?$/, "$1 crypto(s)"],
   [/^Reading it from (.+)$/, "Lecture sur $1"], [/^(.+) is slow to answer\. Try again in a moment\.$/, "$1 tarde à répondre. Réessayez dans un instant."], [/^(\d+) decimals$/, "$1 décimales"],
   [/^([\d.]+) test SOL is on its way$/, "$1 SOL de test arrivent"],
   [/^You chose to wait before connecting\. (\d+) min left\.$/, "Vous avez choisi d'attendre avant de vous connecter. Encore $1 min."],
