@@ -1137,7 +1137,7 @@ section.glass { padding: 26px 26px; }
 /* rows inside cards: inset hairlines, softer */
 :is(.asset, .feed li, .pol-row, .addr, .steps li, .rm-row, .viewmode) { border-color: var(--h-sep) !important; }
 .steps { border-color: var(--h-sep) !important; }
-.rules { border: 0; gap: 8px; } .rule { border: 0; border-radius: 14px; background: var(--h2); box-shadow: var(--h-lit); }
+.rules { border: 0; gap: 8px; } .rules .rule { border: 0; border-radius: 14px; background: var(--h2); box-shadow: var(--h-lit); }
 .ring .track, .dial .d-track { stroke: var(--h3); } .bar { background: var(--h3); } .pf-bar { background: var(--h3); }
 .wcase { box-shadow: var(--h-lit), var(--h-drop); background: radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--ink) 8%, transparent) 1px, transparent 1.5px) 0 0 / 14px 14px, var(--h1); }
 .sec-h h2 { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
@@ -1166,3 +1166,8 @@ section.glass { padding: 26px 26px; }
 :is(.al-tile, .rule, .asw) .btn:not(.primary):not(.good):not(.link) { background-color: var(--h3); }
 [data-theme="light"]:not([data-skin]) :is(.al-tile, .rule) .btn:not(.primary):not(.good):not(.link) { background-color: #fff; box-shadow: 0 1px 2px rgba(16, 17, 20, .06); }
 @media (max-width: 860px) { .tabbar { border-top: 0 !important; background: color-mix(in srgb, var(--bg) 78%, transparent) !important; -webkit-backdrop-filter: saturate(1.6) blur(18px); backdrop-filter: saturate(1.6) blur(18px); box-shadow: 0 -1px 0 var(--h-sep); } }
+/* the live "protected" line reads as one sentence on every width (it split into columns on phones) */
+.protected { display: block; text-align: center; line-height: 1.6; text-wrap: balance; }
+.protected i { display: inline-block; vertical-align: 1px; margin-right: 8px; }
+/* activity rows: the whole row lights up evenly on hover, with room around the icon and the link */
+@media (hover: hover) { .feed li { margin: 0 -10px; padding-left: 12px; padding-right: 12px; border-radius: 12px; transition: background-color .18s; } .feed li:hover { background-color: var(--h2); } .feed li:hover + li { border-top-color: transparent !important; } }

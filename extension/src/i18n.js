@@ -104,7 +104,7 @@ const FR = {
   "Shield Fortress": "Bouclier forteresse",
   "Shield Building": "Bouclier en construction",
   "Shield Exposed": "Bouclier exposé",
-  "Shield Not raised": "Bouclier pas encore levé",
+  "No shield yet": "Pas encore de bouclier",
   "to your Wallet · on Solana": "vers votre Wallet · sur Solana",
   "Locked": "Verrouillé",
   "Leaving": "En sortie",
@@ -187,6 +187,7 @@ const FR = {
   // onboarding
   "A wallet for spending.": "Un wallet pour dépenser.", "A safe nobody can rush.": "Un coffre que personne ne peut presser.",
   "Create a new wallet": "Créer un nouveau wallet", "I have a recovery phrase": "J'ai une phrase de récupération", "Skip": "Passer", "Next": "Suivant", "Get started": "Commencer",
+  "Your": "Votre", "is for spending, like any crypto wallet. Your": "sert à dépenser, comme n'importe quel wallet. Votre", "holds the rest, and nothing leaves it in a hurry.": "garde le reste, et rien n'en sort dans la précipitation.",
   "Two places for your money": "Deux endroits pour votre argent", "Nothing leaves the Safe in a hurry": "Rien ne quitte le Safe dans la précipitation", "Scams, caught before you sign": "Les arnaques, repérées avant de signer",
   "Testnet beta · not audited · test coins only": "Bêta testnet · non audité · jetons de test uniquement",
   "Unlock": "Déverrouiller", "Password": "Mot de passe", "Wrong password": "Mot de passe incorrect", "Welcome back": "Bon retour",

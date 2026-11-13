@@ -255,6 +255,8 @@ const addrHint = (N) => (N.fam === "sol" ? "Solana address" : N.fam === "tron" ?
 const getJSON = async (url) => { const r = await fetch(url, { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return r.json(); };
 
 async function spotPrices() {
+  // Ecrin's own feed first: fetched once a minute for everyone, so nobody gets rate-limited into "no 24h change".
+  try { const j = await getJSON("https://ecrinprotocol.app/api/prices"); if (j?.prices?.solana?.usd) return j.prices; } catch (_) {}
   try { const j = await getJSON(`https://api.coingecko.com/api/v3/simple/price?ids=${Object.keys(SYM).join(",")}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true`); if (j?.solana?.usd) return j; } catch (_) {}
   try {
     const j = await getJSON(`https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(Object.values(SYM).map((x) => x + "USDT")))}`);
@@ -275,7 +277,26 @@ async function loadPrices() {
   let filled = false;
   for (const cg of Object.keys(SYM)) { const h = S.series[`${cg}:${S.range}`]; if (!S.prices[cg]?.usd && h) { S.prices[cg] = { usd: h.pts[h.pts.length - 1][1] }; filled = true; } }
   if (filled && S.screen === "home") render();
+  fillChanges();
   if (!p) setTimeout(loadPrices, 30_000);
+}
+// A source without a 24h change (or a price taken from the chart) must not read as "+0.00%": work the change out
+// from the last day of prices instead. One fetch per coin every 10 minutes at most.
+async function fillChanges() {
+  if (S.mock) return; S.chg1 ||= {};
+  const todo = Object.keys(SYM).filter((cg) => S.prices[cg]?.usd != null && S.prices[cg].usd_24h_change == null && !(Date.now() - (S.chg1[cg] || 0) < 600_000));
+  if (!todo.length) return;
+  let changed = false;
+  await Promise.all(todo.map(async (cg) => {
+    S.chg1[cg] = Date.now();
+    // any loaded chart that reaches back a day will do (the week chart has hourly points); else fetch the day
+    const cover = (k) => { const q = S.series[`${cg}:${k}`]?.pts; return q?.length > 2 && q[0][0] <= Date.now() - 86400_000 ? q : null; };
+    const pts = cover(1) || cover(7) || (await historyFrom(cg, 1).catch(() => null));
+    if (!(pts?.length > 2)) return;
+    const cut = Date.now() - 86400_000, from = pts.find(([t]) => t >= cut) || pts[0], last = S.prices[cg]?.usd ?? pts[pts.length - 1][1];
+    if (from[1] > 0 && S.prices[cg]) { S.prices[cg] = { ...S.prices[cg], usd_24h_change: ((last - from[1]) / from[1]) * 100 }; changed = true; }
+  }));
+  if (changed && S.screen === "home" && !S.scrubbing) render();
 }
 
 /** Price history for the chart, one fetch per coin and range, kept for five minutes and saved, so the last chart
@@ -317,7 +338,7 @@ async function loadSeriesFor(cg) {
   const days = Number(S.range);
   let pts = S.mock ? fakeHistory(cg, days, S.prices[cg]?.usd) : await historyFrom(cg, days);
   // The web demo runs on pretend money: if every price server is out of reach, it draws a pretend history too.
-  if (!pts && globalThis.ECRIN_DEMO) pts = fakeHistory(cg, days, S.prices[cg]?.usd || { solana: 170, ethereum: 3400 }[cg] || 1);
+  if (!pts && globalThis.ECRIN_DEMO) pts = fakeHistory(cg, days, S.prices[cg]?.usd || { solana: 170, ethereum: 3400, binancecoin: 600, "avalanche-2": 25, tron: 0.24, "polygon-ecosystem-token": 0.4 }[cg] || 1);
   if (!(pts?.length > 2)) return false;
   S.series[k] = { at: Date.now(), pts }; S.drawChart = true;
   try { const st = await local.get("series"); local.set({ series: { ...(st.series || {}), [k]: { at: Date.now(), pts: pts.length > 200 ? pts.filter((_, i) => i % Math.ceil(pts.length / 200) === 0 || i === pts.length - 1) : pts } } }); } catch (_) {}
@@ -802,7 +823,7 @@ function depth(scope) {
 }
 
 const TOUR = [
-  { h: "Two places for your money", p: "Your <b>Wallet</b> is for spending, like any crypto wallet. Your <b>Safe</b> is a vault only you control, on every network.", art: "safe" },
+  { h: "Two places for your money", p: "Your <b>Wallet</b> is for spending, like any crypto wallet. Your <b>Safe</b> holds the rest, and nothing leaves it in a hurry.", art: "safe" },
   { h: "Nothing leaves the Safe in a hurry", p: "Anything leaving your Safe waits a delay you choose, and you can cancel it the whole time. Even someone with your recovery phrase can't rush it.", art: "clock" },
   { h: "Scams, caught before you sign", p: "Ecrin blocks known scam sites, flags look-alikes, and shows exactly what would leave your wallet before you approve anything.", art: "shield" },
 ];
@@ -1093,7 +1114,7 @@ function marketList() {
   return `<div class="list-h mkt-h"><b>Market</b><span><i class="live-dot"></i>Live</span></div>
     <section class="list mkt">${rows.map(([cg, unit, logo, name]) => { const p = S.prices[cg], ch = p.usd_24h_change, was = S.prevPx?.[cg], fl = was != null && was !== p.usd ? (p.usd > was ? " flash-up" : " flash-dn") : "";
       return `<button class="arow" data-act="tok" data-u="${unit}">${coin(logo)}<span class="ar-t"><b>${name}</b><small>${unit}</small></span>${spark(cg)}
-        <span class="ar-r"><b data-pk="m:${cg}" class="px${fl}">${money(p.usd)}</b><small class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch ?? 0).toFixed(2)}%</small></span></button>`; }).join("")}</section>`;
+        <span class="ar-r"><b data-pk="m:${cg}" class="px${fl}">${money(p.usd)}</b>${ch == null ? `<small class="na">—</small>` : `<small class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</small>`}</span></button>`; }).join("")}</section>`;
 }
 
 /** The change over the chart's range, as plain text: "+$122.17 (4.48%) · 1W". */
@@ -2012,7 +2033,7 @@ function vaultView() {
   const waiting = open.reduce((x, r) => x + r.v.main.withdrawals.length + (r.v.usdc?.withdrawals?.length || 0), 0);
   // ---- the Shield: brighter the more of your money is in the Safe
   const w = worth(), share = w.total ? Math.min(1, total / w.total) : 0, pct = Math.round(share * 100);
-  const lvl = !open.length ? ["off", "Not raised"] : pct >= 70 ? ["max", "Fortress"] : pct >= 40 ? ["strong", "Strong"] : pct >= 15 ? ["mid", "Building"] : ["low", "Exposed"];
+  const lvl = !open.length ? ["off", "No shield yet"] : pct >= 70 ? ["max", "Fortress"] : pct >= 40 ? ["strong", "Strong"] : pct >= 15 ? ["mid", "Building"] : ["low", "Exposed"];
   if (!S.shT0) S.shT0 = performance.now();
   const el = performance.now() - S.shT0, intro = el < 2600 ? " intro" : "";
   const pend = open.flatMap((r) => [...r.v.main.withdrawals.map((x) => ({ ...x, a: "native", r })), ...(r.v.usdc?.withdrawals || []).map((x) => ({ ...x, a: "usdc", r }))]).sort((x, y) => x.readyAt - y.readyAt);
@@ -2051,7 +2072,7 @@ function vaultView() {
       <div class="sf-stage">${shield}
         <div class="sf-mid"><span class="sf-ic">${I.shield}</span><span class="lbl">Protected</span><b class="sf-tot${(() => { const n = money(total).length; return n > 12 ? " xs" : n > 9 ? " sm" : ""; })()}">${mask(fig(money(total)))}</b></div>
       </div>
-      <div class="sf-lvl"><span class="sf-pill"><i></i>Shield ${lvl[1]}</span><span class="sf-pct">${open.length ? `${pct}% of everything you own` : "Open your Safe to raise it"}</span></div>
+      <div class="sf-lvl"><span class="sf-pill"><i></i>${open.length ? `Shield ${lvl[1]}` : lvl[1]}</span><span class="sf-pct">${open.length ? `${pct}% of everything you own` : "Open your Safe to raise it"}</span></div>
     </section>
     ${next ? `<div class="sf-alert"><span class="sa-ic">${I.clock}</span><span class="sa-t"><b>${amt(next.amount, next.a)} ${nextU} is leaving your Safe</b><small>to ${isMine(next.dest) ? "your Wallet" : short(String(next.dest))} · on ${NETS[next.r.k].name}</small></span><b class="sa-cd" data-until="${next.readyAt}">${nextLeft > 0 ? hms(nextLeft) : "Ready"}</b>
       <button class="sa-x" data-act="cancel-w" data-n="${next.r.k}" data-id="${next.id}" data-a="${next.a}">${I.shield}Cancel</button></div>` : ""}
@@ -3195,7 +3216,7 @@ function pickView() {
   const P = S.panel, w = worth(), need = P.back === "withdraw" ? "sav" : P.back === "receive" ? null : "chq";
   let list = need ? w.items.filter((i) => i[need] > 0) : [];
   // USDC on several networks shows as one row with the total; Ecrin uses the network that holds the most.
-  if (need) { const us = list.filter((i) => i.a === "usdc"); if (us.length > 1) { const best = [...us].sort((x, y) => y[need] - x[need])[0], tot = (k) => us.reduce((t, i) => t + (i[k] || 0), 0); list = [{ ...best, chq: tot("chq"), sav: tot("sav"), usd: tot("chq") + tot("sav"), net: `${us.length} networks · uses ${best.net}`, merged: best[need] }, ...list.filter((i) => i.a !== "usdc")]; } }
+  if (need) { const us = list.filter((i) => i.a === "usdc"); if (us.length > 1) { const best = [...us].sort((x, y) => y[need] - x[need])[0], tot = (k) => us.reduce((t, i) => t + (i[k] || 0), 0); list = [{ ...best, chq: tot("chq"), sav: tot("sav"), usd: tot("chq") + tot("sav"), net: `${us.length} networks · sends from ${best.net}`, merged: best[need] }, ...list.filter((i) => i.a !== "usdc")]; } }
   if (!need) list = netKeys().map((k) => NETS[k]).flatMap((N) => [{ k: N.key, a: "native", unit: N.unit, name: COIN_NAME[N.unit] || N.unit, net: N.name, coin: N.key }, ...(N.usdc ? [{ k: N.key, a: "usdc", unit: "USDC", name: "USD Coin", net: N.name, coin: "usdc" }] : [])]);
   const n = (v, d) => v.toLocaleString("en-US", { maximumFractionDigits: d });
   return `${phead({ send: "Send which coin?", protect: "Protect which coin?", withdraw: "Withdraw which coin?", receive: "Receive which coin?" }[P.back] || "Choose a coin")}

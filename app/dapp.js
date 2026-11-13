@@ -351,6 +351,45 @@ async function send(label, op) {
 
 function logKey() { return "ecrin-log-" + (S.net === "sol" ? "" : S.net + "-") + (S.wallet ? S.wallet.toBase58() : ""); }
 function readLog() { try { return JSON.parse(localStorage.getItem(logKey()) || "[]"); } catch (_) { return []; } }
+// The Safe's real history, read from the chain (Solana): every transaction that touched the Safe account, named from
+// the program's own log line ("Instruction: Deposit") and the Safe's balance change. Works in view mode too, and on
+// any device, unlike the browser's own log. Refreshed at most once a minute.
+const CHAIN_WORDS = { Initialize: "Safe created", Deposit: "Deposited", SendToTrusted: "Sent to a trusted address", RequestWithdrawal: "Withdrawal started",
+  CancelWithdrawal: "Cancelled a withdrawal", ExecuteWithdrawal: "Withdrawal completed", GuardianRelease: "Released by your guardian", ProposeChange: "Rule change proposed",
+  CancelChange: "Cancelled a rule change", ApplyChange: "Rule change applied", GuardianApproveChange: "Guardian approved a change", OpenTokenVault: "USDC Safe opened",
+  DepositToken: "Deposited USDC", SendTokenToTrusted: "Sent USDC to a trusted address", RequestTokenWithdrawal: "USDC withdrawal started", CancelTokenWithdrawal: "Cancelled a USDC withdrawal",
+  ExecuteTokenWithdrawal: "USDC withdrawal completed", GuardianReleaseToken: "USDC released by your guardian", ProposeTokenLimit: "USDC limit change proposed",
+  CancelTokenChange: "Cancelled a USDC rule change", ApplyTokenChange: "USDC rule change applied" };
+async function loadChainLog() {
+  if (isEvm() || !S.wallet || !CONFIG.programId) return;
+  const who = S.wallet.toBase58(), net = S.net;
+  if (S.chainLog?.who === who && Date.now() - S.chainLog.at < 60_000) return;
+  S.chainLog = { who, at: Date.now(), items: S.chainLog?.who === who ? S.chainLog.items : null };
+  try {
+    const safe = web3.PublicKey.findProgramAddressSync([new TextEncoder().encode("vault"), S.wallet.toBytes()], new web3.PublicKey(CONFIG.programId))[0], sa = safe.toBase58();
+    const sigs = await connection.getSignaturesForAddress(safe, { limit: 25 });
+    const txs = sigs.length ? await connection.getTransactions(sigs.map((x) => x.signature), { maxSupportedTransactionVersion: 0 }) : [];
+    const items = sigs.map((x, i) => {
+      const tx = txs[i], m = tx?.transaction?.message, keys = (m?.staticAccountKeys || m?.accountKeys || []).map((k) => String(k?.toBase58 ? k.toBase58() : k));
+      const name = (tx?.meta?.logMessages || []).map((l) => l.match(/Instruction: (\w+)/)?.[1]).find((n) => n && CHAIN_WORDS[n]);
+      const at = keys.indexOf(sa), d = at >= 0 && tx?.meta ? tx.meta.postBalances[at] - tx.meta.preBalances[at] : 0;
+      let text = CHAIN_WORDS[name] || "Safe transaction";
+      if (Math.abs(d) >= 1000 && /^(Deposited|Withdrawal completed|Released|Sent to)/.test(text)) text += ` ${sol(Math.abs(d), A("native"))} ${C.unit}`;
+      if (x.err) text += " (failed)";
+      return { at: x.blockTime || Math.floor(Date.now() / 1000), text, sig: x.signature };
+    });
+    if (S.wallet?.toBase58() !== who || S.net !== net) return;
+    S.chainLog = { who, at: Date.now(), items };
+    if (S.tab === "activity" || S.tab === "portfolio") render();
+  } catch (e) { console.warn("history", e); }
+}
+/** What to list: the chain's history when we have it, plus anything from this browser it doesn't include yet. */
+function history() {
+  const chain = S.chainLog?.who === S.wallet?.toBase58() ? S.chainLog.items : null, local = readLog();
+  if (!chain) return local;
+  const seen = new Set(chain.map((x) => x.sig));
+  return [...chain, ...local.filter((x) => !seen.has(x.sig))].sort((a, b) => b.at - a.at);
+}
 function log(text, sig) { try { localStorage.setItem(logKey(), JSON.stringify([{ at: now(), text, sig }, ...readLog()].slice(0, 30))); } catch (_) {} }
 
 async function refresh() {
@@ -364,6 +403,7 @@ async function refresh() {
     if (S.tab === "guardian" && S.watchOwner) S.watched = await readVault(C.x.key(S.watchOwner)).catch(() => null);
   } catch (e) { S.err = `Couldn't reach ${C.name} ${C.net}. Retrying…`; console.warn(e); }
   render();
+  if (S.vault) loadChainLog();
   if (S.goto && S.vault !== undefined) openGoto();
 }
 
@@ -502,10 +542,13 @@ const RANGES = [["1", "1D"], ["7", "1W"], ["30", "1M"], ["365", "1Y"]];
 async function loadPrice() {
   const cg = C.cg;
   try {
-    const p = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${cg}&vs_currencies=usd&include_24hr_change=true`).then((r) => r.json());
+    // Ecrin's shared feed first (cached for everyone, so no rate limits), CoinGecko directly as a backup.
+    let p = await fetch("/api/prices").then((r) => (r.ok ? r.json() : null)).then((j) => j?.prices).catch(() => null);
+    if (!p?.[cg]?.usd) p = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${cg}&vs_currencies=usd&include_24hr_change=true`).then((r) => r.json());
     const usd = p?.[cg]?.usd;
     if (!usd || cg !== C.cg) return;
-    S.price = { usd, change: p[cg].usd_24h_change || 0, series: {} };
+    // Unknown stays unknown: no change shown rather than a made-up 0%.
+    S.price = { usd, change: Number.isFinite(p[cg].usd_24h_change) ? p[cg].usd_24h_change : null, series: {} };
     render();
     loadSeries(S.range);
   } catch (e) { console.warn("price", e); }
@@ -1033,7 +1076,7 @@ function portfolioView(v) {
   const stableUsd = stableTotal / USDC.base, protUsd = protectedTotals(v).usd;
   const totalUsd = S.price ? (coinTotal / LAMPORTS) * S.price.usd + stableUsd : null;
   const pct = totalUsd ? Math.round((protUsd / totalUsd) * 100) : coinTotal ? Math.round((v.balance / coinTotal) * 100) : 0, ch = S.price?.change;
-  const recent = readLog().slice(0, 4);
+  const recent = history().slice(0, 4);
   return `
     ${frozenBanner(v)}
     <section class="pf-hero">
@@ -1332,14 +1375,14 @@ document.addEventListener("submit", (e) => {
 });
 
 function feedHTML(log) {
-  const kind = (t) => /^Cancelled/.test(t) ? ["win", I.shield] : /^Deposited/.test(t) ? ["in", I.down] : /withdraw|Sent/i.test(t) ? ["out", I.up] : /rule|trust/i.test(t) ? ["rule", I.sliders] : ["other", I.clock];
+  const kind = (t) => /^Cancelled/.test(t) ? ["win", I.shield] : /^Deposited/.test(t) ? ["in", I.down] : /withdraw|Sent/i.test(t) ? ["out", I.up] : /rule|trust/i.test(t) ? ["chg", I.sliders] : ["other", I.clock];
   return `<ul class="feed">${log.map((l) => { const [k, ic] = kind(l.text); return `<li class="${k}"><span class="f-ico">${ic}</span><span class="f-txt"><b>${esc(l.text)}</b><time>${new Date(l.at * 1000).toLocaleString(LOCALE, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</time></span><a href="${explorer("tx", l.sig)}" target="_blank" rel="noopener" aria-label="View on the explorer">${I.ext}</a></li>`; }).join("")}</ul>`;
 }
 
 function activityView() {
-  const log = readLog();
-  return `<section class="glass"><div class="sec-h"><h2>Activity</h2><span class="muted">from this browser</span></div>
-    ${log.length ? feedHTML(log) : `<div class="empty">Your transactions from this browser show up here.</div>`}</section>`;
+  const log = history(), onChain = !isEvm() && S.chainLog?.who === S.wallet?.toBase58() && S.chainLog.items;
+  return `<section class="glass"><div class="sec-h"><h2>Activity</h2><span class="muted">${onChain ? "read from the chain" : "from this browser"}</span></div>
+    ${log.length ? feedHTML(log) : `<div class="empty">${!isEvm() && S.chainLog?.items === null ? "Reading your Safe's history…" : "Deposits, withdrawals and rule changes show up here."}</div>`}</section>`;
 }
 
 // A watch dial for a queued withdrawal: 60 ticks, an arc that runs down, the time left in the middle.

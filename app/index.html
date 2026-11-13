@@ -137,7 +137,7 @@
         </div>
       </div>
       <ol class="steps wrap">
-        <li><b>Create a vault.</b> An account on the chain that only your wallet controls. Ecrin never touches your keys.</li>
+        <li><b>Create a Safe.</b> An account on the chain that only your wallet controls. Ecrin never touches your keys.</li>
         <li><b>Pick your protection.</b> Gentle, Strong or Locked; add trusted addresses and, if you like, a guardian.</li>
         <li><b>Live normally.</b> Pay your own accounts instantly. Everything else waits, and you can always change your mind.</li>
       </ol>
@@ -145,7 +145,7 @@
 
     <!-- Coins and networks -->
     <section id="chains" class="sec" data-tone="base">
-      <div class="big-head"><h2>Every coin. <span class="nb"><span class="mk" aria-hidden="true"></span> Every</span> chain.</h2><p>One vault per network, the same rules everywhere. USDC sits next to your SOL, ETH or POL, with its own daily limit.</p></div>
+      <div class="big-head"><h2>Every coin. <span class="nb"><span class="mk" aria-hidden="true"></span> Every</span> chain.</h2><p>One Safe per network, the same rules everywhere. USDC sits next to your SOL, ETH or POL, with its own daily limit.</p></div>
       <div class="wrap chains">
         <div class="net-cloud" aria-label="Networks">
           <span class="net"><i class="coin sol"></i>Solana</span><span class="net"><i class="coin eth"></i>Ethereum</span><span class="net"><i class="coin base"></i>Base</span><span class="net"><i class="coin arb"></i>Arbitrum</span><span class="net"><i class="coin op"></i>Optimism</span><span class="net"><i class="coin pol"></i>Polygon</span>
@@ -165,15 +165,15 @@
         <div class="big-head"><span class="kicker">A bad day, with Ecrin</span><h2>The attack works. <span class="nb">The money <span class="mk" aria-hidden="true"></span> stays.</span></h2></div>
         <div class="story">
           <div class="story-steps">
-            <article class="step" data-step="0"><span class="t-time">Before</span><h3>All quiet.</h3><p>Your savings sit in the vault. Your own trusted addresses can be paid instantly; everything else has to wait.</p></article>
+            <article class="step" data-step="0"><span class="t-time">Before</span><h3>All quiet.</h3><p>Your savings sit in the Safe. Your own trusted addresses can be paid instantly; everything else has to wait.</p></article>
             <article class="step" data-step="1"><span class="t-time">0:00</span><h3>Your key leaks.</h3><p>A thief signs a withdrawal of everything to their own address. On a normal wallet, this is the end of the story. Here, Solana itself queues it for your delay, and it shows up with a countdown.</p></article>
             <article class="step" data-step="2"><span class="t-time">0:20</span><h3>You press Cancel.</h3><p>Free and instant. Then you get out on your terms: pay your own trusted address, or request a withdrawal to a fresh wallet and have your guardian release it on the spot.</p></article>
-            <article class="step" data-step="3"><span class="t-time">72:00</span><h3>Nothing was taken.</h3><p>The thief can't shorten the delay, add their address as trusted, or name their own guardian without waiting days. A key can make the rules stricter, never looser: at worst it freezes the vault, it never empties it.</p></article>
+            <article class="step" data-step="3"><span class="t-time">72:00</span><h3>Nothing was taken.</h3><p>The thief can't shorten the delay, add their address as trusted, or name their own guardian without waiting days. A key can make the rules stricter, never looser: at worst it freezes the Safe, it never empties it.</p></article>
           </div>
           <div class="story-pin" aria-hidden="true">
             <div class="device" data-state="0">
               <svg class="guilloche" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice" data-guilloche></svg>
-              <div class="dv-top"><span class="dv-k">Your vault</span><span class="dv-pill">Strong · 72 h</span></div>
+              <div class="dv-top"><span class="dv-k">Your Safe</span><span class="dv-pill">Strong · 72 h</span></div>
               <div class="dv-bal">31.40 <small>SOL</small></div>
               <div class="dv-status">
                 <div class="st st0"><span class="st-dot ok"></span>All quiet. Nothing waiting to leave.</div>
@@ -231,10 +231,10 @@
 
     <section class="sec" data-tone="base">
       <div class="wrap">
-        <div class="big-head"><h2>A hardware wallet protects your key. <span class="nb">Ecrin <span class="mk" aria-hidden="true"></span> protects</span> your money.</h2><p>They work best together: sign for your vault with a hardware wallet, and both have to fail before you lose anything.</p></div>
+        <div class="big-head"><h2>A hardware wallet protects your key. <span class="nb">Ecrin <span class="mk" aria-hidden="true"></span> protects</span> your money.</h2><p>They work best together: sign for your Safe with a hardware wallet, and both have to fail before you lose anything.</p></div>
         <div class="table-card compare">
           <table>
-            <thead><tr><th></th><th>Hot wallet</th><th>Hardware wallet</th><th class="us">Ecrin vault</th></tr></thead>
+            <thead><tr><th></th><th>Hot wallet</th><th>Hardware wallet</th><th class="us">Ecrin Safe</th></tr></thead>
             <tbody>
               <tr><td>You sign a drainer by mistake</td><td><i class="no">Lost</i></td><td><i class="no">Lost</i></td><td class="us"><i class="yes">Cancel it</i></td></tr>
               <tr><td>Your seed phrase leaks</td><td><i class="no">Lost</i></td><td><i class="no">Lost</i></td><td class="us"><i class="yes">Time to react</i></td></tr>
@@ -265,9 +265,9 @@
       <div class="rail" data-rail>
         <div class="rail-h wrap"><span class="rail-k"><svg viewBox="0 0 24 24"><path d="M12 4l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4M4 16l8 4 8-4"/></svg>Roadmap</span><div class="rail-nav"><button class="rn" data-rail-prev aria-label="Previous"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button><button class="rn" data-rail-next aria-label="Next"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button></div></div>
         <div class="rail-track">
-          <article class="stage now"><span class="stage-k">Now</span><h3>Testnet beta</h3><ul><li>SOL, ETH, POL and USDC vaults on six test networks</li><li>Delays, trusted addresses, guardian, lock and daily limits</li><li>Telegram and email alerts, WalletConnect, home-screen app</li><li>Ecrin Wallet for Chrome, in beta: a Wallet and a Safe in one</li></ul></article>
+          <article class="stage now"><span class="stage-k">Now</span><h3>Testnet beta</h3><ul><li>SOL, ETH, POL and USDC Safes on six test networks</li><li>Delays, trusted addresses, guardian, lock and daily limits</li><li>Telegram and email alerts, WalletConnect, home-screen app</li><li>Ecrin Wallet for Chrome, in beta: a Wallet and a Safe in one</li></ul></article>
           <article class="stage"><span class="stage-k">Next</span><h3>Audit</h3><ul><li>Independent security audit of the program and the contract</li><li>Fixes, then a public report</li><li>More stablecoins</li><li>Ecrin Wallet on the Chrome Web Store, then iPhone and Android</li></ul></article>
-          <article class="stage"><span class="stage-k">Later</span><h3>Mainnet and yield</h3><ul><li>Mainnet with deposit caps at first</li><li>Staking inside the vault: earn yield, keep every delay</li><li>Opt-in lending, only after its own audit</li></ul></article>
+          <article class="stage"><span class="stage-k">Later</span><h3>Mainnet and yield</h3><ul><li>Mainnet with deposit caps at first</li><li>Staking inside the Safe: earn yield, keep every delay</li><li>Opt-in lending, only after its own audit</li></ul></article>
           <article class="stage who"><span class="stage-k">Who it's for</span><h3>Anyone whose savings shouldn't be one tap away.</h3><ul><li>Long-term holders</li><li>People stepping back from gambling, where Ecrin started</li><li>Families and small teams</li></ul></article>
         </div>
       </div>
@@ -291,7 +291,7 @@
           <details><summary>What if someone steals my key?</summary><p>They can only ask to withdraw, and that waits your full delay, so cancel each request before it runs (Telegram and email alerts tell you within a minute). To move out, pay one of your trusted addresses, or request a withdrawal to a fresh wallet and have your guardian release it at once. A stolen key can make your rules stricter but never looser: it can't add its own trusted address, shorten a delay or name a guardian without waiting days, so at worst your funds are frozen, not taken. That's why we recommend a guardian on Strong.</p></details>
           <details><summary>What if I have a real emergency?</summary><p>Your guardian can co-sign a withdrawal you already requested so it runs immediately. They can't start one, change the amount or pick where it goes. You can also always pay your trusted addresses instantly.</p></details>
           <details><summary>Can my guardian take my money?</summary><p>No. A guardian can only approve something you asked for: an emergency release of your own withdrawal, or a trusted address you proposed.</p></details>
-          <details><summary>Will I be able to earn yield?</summary><p>That's the plan: native SOL staking where the stake stays inside the vault, so you earn rewards without creating a fast way out. It comes after the audit.</p></details>
+          <details><summary>Will I be able to earn yield?</summary><p>That's the plan: native SOL staking where the stake stays inside the Safe, so you earn rewards without creating a fast way out. It comes after the audit.</p></details>
           <details><summary>What can I store?</summary><p>During the beta: SOL and USDC on Solana devnet, and ETH (POL on Polygon) and USDC on Ethereum Sepolia, Base, Arbitrum, Optimism and Polygon test networks. Each coin has its own balance and daily limit under the same rules.</p></details>
           <details><summary>Does it cost anything?</summary><p>The devnet beta is free, using test coins. You only pay normal network fees, a fraction of a cent.</p></details>
           <details><summary>Is it live on mainnet?</summary><p>Not yet. Ecrin runs on test networks while it's being tested. Mainnet comes after an independent security audit, with deposit caps at first.</p></details>

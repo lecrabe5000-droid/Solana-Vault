@@ -7,7 +7,7 @@
   <meta name="description" content="How Ecrin keeps your money safe, what is tested, what is still missing, and how to report a flaw." />
   <meta name="theme-color" content="#f3f2ee" />
   <meta property="og:title" content="Security · Ecrin" />
-  <meta property="og:description" content="An on-chain vault for Solana and Ethereum. Every way out takes time, and you can cancel any time." />
+  <meta property="og:description" content="An on-chain Safe for Solana and Ethereum. Every way out takes time, and you can cancel any time." />
   <link rel="canonical" href="https://ecrinprotocol.app/security/" />
   <link rel="alternate" hreflang="en" href="https://ecrinprotocol.app/security/" />
   <link rel="alternate" hreflang="fr" href="https://ecrinprotocol.app/fr/securite/" />
@@ -19,7 +19,7 @@
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Security · Ecrin" />
-  <meta name="twitter:description" content="An on-chain vault for Solana and Ethereum. Every way out waits, and you can cancel any time." />
+  <meta name="twitter:description" content="An on-chain Safe for Solana and Ethereum. Every way out waits, and you can cancel any time." />
   <meta name="twitter:image" content="https://ecrinprotocol.app/og.png" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ffffff'/%3E%3Crect x='5' y='5' width='22' height='22' rx='7' fill='none' stroke='%232F5BFF' stroke-width='2.2'/%3E%3Cpath d='M16 10.5l4.8 5.5L16 21.5 11.2 16z' fill='%232F5BFF'/%3E%3C/svg%3E" />
   <link rel="preload" href="/fonts/unbounded-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin />
@@ -65,7 +65,7 @@
       <ul class="doc-list">
         <li><b>Every withdrawal to a new address waits</b> your delay, from an hour to a year, and you can cancel it until it runs.</li>
         <li><b>Only your trusted addresses are instant</b>, and adding one waits days (or needs your guardian).</li>
-        <li><b>Loosening any rule waits</b>; tightening applies at once. A stolen key can freeze your vault, never empty it.</li>
+        <li><b>Loosening any rule waits</b>; tightening applies at once. A stolen key can freeze your Safe, never empty it.</li>
         <li><b>A guardian can only approve what you asked for</b>: release a withdrawal you requested, or a trusted address you proposed. They can't start a withdrawal or choose where money goes.</li>
         <li><b>There is no receipt token</b>, so nothing can be sold to get around the delay.</li>
       </ul>
@@ -86,9 +86,9 @@
       <h2>What is tested</h2>
       <ul class="doc-list">
         <li><b>The rules</b> (crates/vault-core): every delay, cancel, guardian and limit case, in Rust and in the browser's copy.</li>
-        <li><b>The Solana program</b> on a real local validator, SOL and USDC token vaults included.</li>
+        <li><b>The Solana program</b> on a real local validator, SOL and USDC token Safes included.</li>
         <li><b>The Ethereum contract</b>: ETH, USDC, tokens that return nothing (like USDT), tokens that take a fee, refused transfers and re-entry attempts.</li>
-        <li><b>The app</b>, end to end in a browser against both local chains, and <b>the alerts</b> that watch every vault.</li>
+        <li><b>The app</b>, end to end in a browser against both local chains, and <b>the alerts</b> that watch every Safe.</li>
       </ul>
       <p><a href="https://github.com/lecrabe5000-droid/Solana-Vault/actions/workflows/ci.yml" target="_blank" rel="noopener">See the latest test runs on GitHub ↗</a></p>
     </section>
@@ -102,7 +102,7 @@
     <section id="limits" class="doc-sec">
       <h2>What Ecrin can't protect you from</h2>
       <ul class="doc-list">
-        <li><b>The coin's issuer.</b> Circle can freeze USDC at any address, a vault included.</li>
+        <li><b>The coin's issuer.</b> Circle can freeze USDC at any address, a Safe included.</li>
         <li><b>Money already sent</b> to a trusted address, which is instant by design. Trust only addresses you control.</li>
         <li><b>Not noticing.</b> A delay only helps if you see the request: turn on alerts.</li>
         <li><b>Fake websites.</b> Check the address bar, and bookmark ecrinprotocol.app.</li>
@@ -111,7 +111,7 @@
 
     <section id="report" class="doc-sec">
       <h2>Found a flaw?</h2>
-      <p>Please tell us privately before telling anyone else, so it can be fixed first. Describe what you found and how to reproduce it; never test against other people's vaults.</p>
+      <p>Please tell us privately before telling anyone else, so it can be fixed first. Describe what you found and how to reproduce it; never test against other people's Safes.</p>
       <p><a class="btn primary" href="https://github.com/lecrabe5000-droid/Solana-Vault/security/advisories/new" target="_blank" rel="noopener">Report privately on GitHub</a></p>
       <p class="muted-s">A paid bug bounty starts with the mainnet launch.</p>
     </section>

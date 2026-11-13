@@ -2985,3 +2985,6 @@ html:root[data-theme] .words label { border: 0 !important; background: var(--h2,
 html:root[data-theme="light"] .words label { background: #fff !important; box-shadow: 0 1px 2px rgba(16, 17, 20, .06), inset 0 0 0 1px rgba(16, 17, 20, .06) !important; }
 html:root[data-theme] .words label:focus-within { box-shadow: 0 0 0 1.5px #2f5bff, 0 0 0 5px rgba(47, 91, 255, .14) !important; }
 html:root[data-theme] .words span { font-variant-numeric: tabular-nums; }
+/* 0.22.6: Ecrin look, the chosen chart range reads as chosen (the generic button rule out-ranked it) */
+html:root[data-skin="ecrin"] .ranges.ranges.ranges.ranges button:not([aria-pressed="true"]) { background: transparent !important; color: rgba(255, 255, 255, .62) !important; }
+html:root[data-skin="ecrin"] .ranges.ranges.ranges.ranges button[aria-pressed="true"] { background: #fff !important; color: #1f3fd6 !important; }
