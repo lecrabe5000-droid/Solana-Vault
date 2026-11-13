@@ -4,7 +4,7 @@ import { LOGOS } from "./logos.js";
 import { mountVault3d } from "./vault3d.js";
 
 const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-const NAME = { sol: "sol", eth: "eth", base: "base", arb: "arb", op: "op", pol: "pol", bnb: "bnb", avax: "avax", tron: "tron", usdc: "usdc", usdt: "usdt" };
+const NAME = { sol: "sol", eth: "eth", base: "base", arb: "arb", op: "op", pol: "pol", bnb: "bnb", avax: "avax", hype: "hype", rh: "rh", tron: "tron", usdc: "usdc", usdt: "usdt" };
 
 // 1. Official logos in every coin dot.
 document.querySelectorAll("i.coin").forEach((el) => { const k = [...el.classList].find((c) => NAME[c]); if (k && LOGOS[k]) { el.innerHTML = LOGOS[k]; el.classList.add("real"); } });

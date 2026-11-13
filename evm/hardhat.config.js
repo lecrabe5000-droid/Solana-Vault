@@ -43,5 +43,8 @@ module.exports = {
     polygonAmoy: { url: rpc("polygonAmoy", "https://polygon-amoy-bor-rpc.publicnode.com"), chainId: 80002, accounts },
     bscTestnet: { url: rpc("bscTestnet", "https://bsc-testnet-rpc.publicnode.com"), chainId: 97, accounts },
     avalancheFuji: { url: rpc("avalancheFuji", "https://avalanche-fuji-c-chain-rpc.publicnode.com"), chainId: 43113, accounts },
+    robinhoodTestnet: { url: rpc("robinhoodTestnet", "https://rpc.testnet.chain.robinhood.com"), chainId: 46630, accounts },
+    // HyperEVM: the contract is too big for its small blocks; scripts/hyper-big-blocks.js switches the deployer to big blocks first.
+    hyperevmTestnet: { url: rpc("hyperevmTestnet", "https://rpc.hyperliquid-testnet.xyz/evm"), chainId: 998, accounts, timeout: 300_000 },
   },
 };

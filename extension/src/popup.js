@@ -250,7 +250,7 @@ async function refresh() {
 }
 
 // Prices come from CoinGecko first, then Binance, then Coinbase: if one is down or rate-limits us, the next answers.
-const SYM = { solana: "SOL", ethereum: "ETH", "polygon-ecosystem-token": "POL", binancecoin: "BNB", "avalanche-2": "AVAX", tron: "TRX" };
+const SYM = { solana: "SOL", ethereum: "ETH", "polygon-ecosystem-token": "POL", binancecoin: "BNB", "avalanche-2": "AVAX", tron: "TRX", hyperliquid: "HYPE" };
 const addrHint = (N) => (N.fam === "sol" ? "Solana address" : N.fam === "tron" ? "Tron address (T…)" : "0x… address");
 const getJSON = async (url) => { const r = await fetch(url, { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return r.json(); };
 
@@ -269,7 +269,7 @@ async function spotPrices() {
 }
 
 async function loadPrices() {
-  if (S.mock) { S.prices = { solana: { usd: 172.4, usd_24h_change: 2.31 }, binancecoin: { usd: 612.5, usd_24h_change: 0.6 }, "avalanche-2": { usd: 28.4, usd_24h_change: -1.4 }, tron: { usd: 0.24, usd_24h_change: 0.9 }, ethereum: { usd: 3410, usd_24h_change: -0.84 }, "polygon-ecosystem-token": { usd: 0.42, usd_24h_change: 1.2 } }; if (S.screen === "home" && !S.mockDrawn) { S.mockDrawn = true; render(); } return loadSeries(); }
+  if (S.mock) { S.prices = { solana: { usd: 172.4, usd_24h_change: 2.31 }, binancecoin: { usd: 612.5, usd_24h_change: 0.6 }, "avalanche-2": { usd: 28.4, usd_24h_change: -1.4 }, hyperliquid: { usd: 38.2, usd_24h_change: 3.1 }, tron: { usd: 0.24, usd_24h_change: 0.9 }, ethereum: { usd: 3410, usd_24h_change: -0.84 }, "polygon-ecosystem-token": { usd: 0.42, usd_24h_change: 1.2 } }; if (S.screen === "home" && !S.mockDrawn) { S.mockDrawn = true; render(); } return loadSeries(); }
   const p = await spotPrices().catch(() => null);
   if (p) { const was = JSON.stringify(S.prices); S.prices = { ...S.prices, ...p }; local.set({ prices: { at: Date.now(), p: S.prices } }); if (S.screen === "home" && JSON.stringify(S.prices) !== was) render(); checkPriceAlerts(); }
   await loadSeries();
@@ -338,7 +338,7 @@ async function loadSeriesFor(cg) {
   const days = Number(S.range);
   let pts = S.mock ? fakeHistory(cg, days, S.prices[cg]?.usd) : await historyFrom(cg, days);
   // The web demo runs on pretend money: if every price server is out of reach, it draws a pretend history too.
-  if (!pts && globalThis.ECRIN_DEMO) pts = fakeHistory(cg, days, S.prices[cg]?.usd || { solana: 170, ethereum: 3400, binancecoin: 600, "avalanche-2": 25, tron: 0.24, "polygon-ecosystem-token": 0.4 }[cg] || 1);
+  if (!pts && globalThis.ECRIN_DEMO) pts = fakeHistory(cg, days, S.prices[cg]?.usd || { solana: 170, ethereum: 3400, hyperliquid: 38, binancecoin: 600, "avalanche-2": 25, tron: 0.24, "polygon-ecosystem-token": 0.4 }[cg] || 1);
   if (!(pts?.length > 2)) return false;
   S.series[k] = { at: Date.now(), pts }; S.drawChart = true;
   try { const st = await local.get("series"); local.set({ series: { ...(st.series || {}), [k]: { at: Date.now(), pts: pts.length > 200 ? pts.filter((_, i) => i % Math.ceil(pts.length / 200) === 0 || i === pts.length - 1) : pts } } }); } catch (_) {}
@@ -1059,7 +1059,7 @@ function homeView() {
 // own brand and kept apart from each other on the dark background.
 // Ecrin's own palette: every coin a shade of blue or grey, far enough apart to tell on the diamond, readable on dark and
 // light. Tron keeps its red. The diamond, the bubble by each name and the Activity rows all use these.
-const COIN_COL = { SOL: "#5b7cff", ETH: "#9badff", USDC: "#3d9bff", POL: "#4352c4", USDT: "#5f7a92", BNB: "#a4abba", AVAX: "#767c88", TRX: "#ff3b5c" };
+const COIN_COL = { SOL: "#5b7cff", ETH: "#9badff", USDC: "#3d9bff", POL: "#4352c4", USDT: "#5f7a92", BNB: "#a4abba", AVAX: "#767c88", TRX: "#ff3b5c", HYPE: "#50d2c1" };
 const cdot = (u) => `<i class="cdot" style="--cc:${COIN_COL[u] || "#9aa0b4"}"></i>`;
 function lozShares(w) {
   const by = {}; for (const i of w.items) if (i.usd) by[i.unit] = (by[i.unit] || 0) + i.usd;
@@ -1085,7 +1085,7 @@ function lozenge(w, loading) {
 function lozLegend(w, loading) {
   if (loading || !w.total) return "";
   const sh = lozShares(w).slice(0, 4), safe = Math.round((w.sav / w.total) * 100);
-  const LK = { SOL: "sol", ETH: "eth", USDC: "usdc", USDT: "usdt", BNB: "bnb", AVAX: "avax", TRX: "tron", POL: "pol" };
+  const LK = { SOL: "sol", ETH: "eth", USDC: "usdc", USDT: "usdt", BNB: "bnb", AVAX: "avax", TRX: "tron", POL: "pol", HYPE: "hype" };
   const grow = S.lzT0 && performance.now() - S.lzT0 < 2300 ? " grow" : "", pill = (cls, col, ic, name, pct) => `<span class="lp ${cls}${grow}" style="--pc:${col};--pf:${pct}%">${ic}<b>${name}</b><em>${pct}%</em><i class="lp-bar"></i></span>`;
   return `<div class="lz-leg">${sh.map(({ u, f }) => pill("", COIN_COL[u] || "#9aa0b4", LK[u] ? coin(LK[u], "lp-c") : `<i class="lp-d"></i>`, u, Math.round(f * 100))).join("")}${pill("lz-s", "#5b7cff", `<span class="lp-lock">${I.lock}</span>`, "Safe", safe)}</div>`;
 }
@@ -1118,7 +1118,7 @@ function tokenList(w) {
 }
 
 // Live prices for every coin Ecrin supports, held or not: something is always moving on the home screen.
-const MARKET = [["solana", "SOL", "sol", "Solana"], ["ethereum", "ETH", "eth", "Ethereum"], ["binancecoin", "BNB", "bnb", "BNB"], ["tron", "TRX", "tron", "TRON"], ["avalanche-2", "AVAX", "avax", "Avalanche"], ["polygon-ecosystem-token", "POL", "pol", "Polygon"]];
+const MARKET = [["solana", "SOL", "sol", "Solana"], ["ethereum", "ETH", "eth", "Ethereum"], ["hyperliquid", "HYPE", "hype", "Hyperliquid"], ["binancecoin", "BNB", "bnb", "BNB"], ["tron", "TRX", "tron", "TRON"], ["avalanche-2", "AVAX", "avax", "Avalanche"], ["polygon-ecosystem-token", "POL", "pol", "Polygon"]];
 /** Below your coins, like any good wallet: recent activity, shortcuts and the market. */
 function homeMore() {
   const all = S.activity || [];
@@ -1202,7 +1202,7 @@ function chartView() {
   </div>`;
 }
 
-const COIN_NAME = { SOL: "Solana", ETH: "Ethereum", POL: "Polygon", BNB: "BNB", AVAX: "Avalanche", TRX: "TRON", USDC: "USD Coin" };
+const COIN_NAME = { SOL: "Solana", ETH: "Ethereum", POL: "Polygon", BNB: "BNB", AVAX: "Avalanche", TRX: "TRON", HYPE: "Hyperliquid", USDC: "USD Coin" };
 function assetRow(a, chq, sav) {
   const x = A(a), u = usdOf(chq + sav, a), p = a === "usdc" ? { usd: 1, usd_24h_change: 0 } : S.prices[NETS[S.net].cg];
   const ch = p?.usd_24h_change;
@@ -1501,7 +1501,7 @@ function allView() {
   // By coin: SOL, ETH (all Ethereum-style networks together), POL, USDC.
   const byCoin = {};
   for (const i of items) { const c = (byCoin[i.unit] ||= { unit: i.unit, coin: i.unit === "USDC" ? "usdc" : i.unit === "ETH" ? "eth" : i.coin, usd: 0, amt: 0, dec: i.dec }); c.usd += i.usd || 0; c.amt += i.chq + i.sav; }
-  const coins = Object.values(byCoin).sort((a, b) => b.usd - a.usd), COL = { SOL: "#9945ff", ETH: "#7d97ff", POL: "#a26bff", BNB: "#f0b90b", AVAX: "#e84142", TRX: "#ff060a", USDC: "#2775ca" };
+  const coins = Object.values(byCoin).sort((a, b) => b.usd - a.usd), COL = { SOL: "#9945ff", ETH: "#7d97ff", POL: "#a26bff", BNB: "#f0b90b", AVAX: "#e84142", TRX: "#ff060a", USDC: "#2775ca", HYPE: "#50d2c1" };
   const n = (v, d) => v.toLocaleString("en-US", { maximumFractionDigits: d });
   return `${phead("All assets")}
     <div class="all-total"><span class="lbl">Across every network</span><div class="big">${mask(fig(money(total)))}</div>
@@ -2451,7 +2451,7 @@ const actions = {
   "rc-cancel": async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).cancelChange(Number(el.dataset.id)); toast("Change cancelled", "win"); } catch (e) { toast(errText(e), "err"); } await loadAll(); },
   "al-tg": async () => { try { const r = await alertCall("/api/alerts/start", {}); if (!r.url) throw new Error(r.error || "Alerts aren't available right now."); window.open(r.url, "_blank"); S.alertsOn = true; local.set({ alertsOn: true }); toast("Telegram opened: tap Start in the chat.", "win"); } catch (e) { toast(e.message, "err"); } },
   "al-mail": async () => { const email = ($("#panel [data-mail]")?.value || "").trim(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast("Enter your email address", "err"); try { const r = await alertCall("/api/alerts/email", { email }); if (r.error) throw new Error(r.error); S.alertsOn = true; local.set({ alertsOn: true }); toast(r.already ? "Email alerts are already on." : "Check your inbox to confirm.", "win"); } catch (e) { toast(e.message, "err"); } },
-  tok: (el) => { S.tkDrawKey = null; const u = el.dataset.u, cg = u === "USDC" ? null : { SOL: "solana", ETH: "ethereum", POL: "polygon-ecosystem-token", BNB: "binancecoin", AVAX: "avalanche-2", TRX: "tron" }[u]; openPanel("tok", { u, cg, n: el.dataset.n }); if (cg) loadSeriesFor(cg).then(() => S.panel?.p === "tok" && renderPanel()); },
+  tok: (el) => { S.tkDrawKey = null; const u = el.dataset.u, cg = u === "USDC" ? null : { SOL: "solana", ETH: "ethereum", HYPE: "hyperliquid", POL: "polygon-ecosystem-token", BNB: "binancecoin", AVAX: "avalanche-2", TRX: "tron" }[u]; openPanel("tok", { u, cg, n: el.dataset.n }); if (cg) loadSeriesFor(cg).then(() => S.panel?.p === "tok" && renderPanel()); },
   "tok-do": async (el) => { const P = S.panel, w = worth(), list = w.items.filter((i) => i.unit === P.u), p = el.dataset.p;
     const best = list.filter((i) => (p === "withdraw" ? i.sav : i.chq) > 0).sort((x, y) => (y.usd || 0) - (x.usd || 0))[0] || list[0];
     const k = best?.k || P.n || (P.u === "SOL" ? "sol" : P.u === "POL" ? "pol" : "eth"), a = P.u === "USDC" ? "usdc" : "native";
@@ -2824,7 +2824,7 @@ function feeNote(a) {
 
 /* ------------------------------------------------------------------ price alerts */
 // A note when a coin you choose moves more than 5 or 10% in a day: once per coin, per direction, per day.
-const ALERT_COINS = [["solana", "SOL"], ["ethereum", "ETH"], ["binancecoin", "BNB"], ["avalanche-2", "AVAX"], ["tron", "TRX"], ["polygon-ecosystem-token", "POL"]];
+const ALERT_COINS = [["solana", "SOL"], ["ethereum", "ETH"], ["hyperliquid", "HYPE"], ["binancecoin", "BNB"], ["avalanche-2", "AVAX"], ["tron", "TRX"], ["polygon-ecosystem-token", "POL"]];
 async function checkPriceAlerts() {
   const al = S.palerts || {}; if (!Object.keys(al).length) return;
   const { palertSeen = {} } = await local.get("palertSeen"), day = new Date().toISOString().slice(0, 10); let any = false;
@@ -2839,7 +2839,7 @@ async function checkPriceAlerts() {
 }
 function alertsView() {
   const al = S.palerts || {}, on = Object.values(al).filter(Boolean).length;
-  const LOGO = { solana: "sol", ethereum: "eth", binancecoin: "bnb", "avalanche-2": "avax", tron: "tron", "polygon-ecosystem-token": "pol" };
+  const LOGO = { solana: "sol", ethereum: "eth", binancecoin: "bnb", "avalanche-2": "avax", tron: "tron", "polygon-ecosystem-token": "pol", hyperliquid: "hype" };
   const canPush = !!window.Notification, pushOn = canPush && Notification.permission === "granted";
   return `${phead("Price alerts")}
     <div class="pa-hero"><span class="pa-ic">${I.spark}</span><b>${on ? `${on} alert${on > 1 ? "s" : ""} on` : "No alerts yet"}</b><small>Get a note when a coin moves more than you choose in a day. Once per coin and direction, each day.</small></div>
@@ -3320,7 +3320,7 @@ function tokenView() {
   }
   const rl = { 1: "today", 7: "this week", 30: "this month", 365: "this year" }[S.range];
   const ranges = `<div class="ranges">${[["1", "1D"], ["7", "1W"], ["30", "1M"], ["365", "1Y"]].map(([x, l]) => `<button data-act="range" data-d="${x}" aria-pressed="${S.range === x}">${l}</button>`).join("")}</div>`;
-  const icon = coin({ USDC: "usdc", USDT: "usdt", ETH: "eth", SOL: "sol", POL: "pol", BNB: "bnb", AVAX: "avax", TRX: "tron" }[P.u] || "eth");
+  const icon = coin({ USDC: "usdc", USDT: "usdt", ETH: "eth", SOL: "sol", POL: "pol", BNB: "bnb", AVAX: "avax", TRX: "tron", HYPE: "hype" }[P.u] || "eth");
   const cc = COIN_COL[P.u] || "#5b7cff";
   const nets = [...new Set(list.map((i) => NETS[i.k].name))];
   const acts = (S.activity || []).filter((e) => e.n && A(e.a).unit === P.u).slice(0, 5);

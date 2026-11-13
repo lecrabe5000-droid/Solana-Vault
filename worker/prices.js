@@ -2,7 +2,7 @@
 // Fetched here once a minute (cached at the edge) instead of by each person's browser, so a busy day doesn't get
 // everyone rate-limited by CoinGecko and left with prices but no 24h change. CoinGecko first, Coinbase as backup.
 // Shape matches CoinGecko's simple/price: { solana: { usd, usd_24h_change, usd_market_cap, usd_24h_vol }, ... }
-export const COINS = { solana: "SOL", ethereum: "ETH", "polygon-ecosystem-token": "POL", binancecoin: "BNB", "avalanche-2": "AVAX", tron: "TRX", "usd-coin": "USDC", "euro-coin": "EURC", chainlink: "LINK", uniswap: "UNI" };
+export const COINS = { solana: "SOL", ethereum: "ETH", "polygon-ecosystem-token": "POL", binancecoin: "BNB", "avalanche-2": "AVAX", tron: "TRX", hyperliquid: "HYPE", "usd-coin": "USDC", "euro-coin": "EURC", chainlink: "LINK", uniswap: "UNI" };
 const CORS = { "access-control-allow-origin": "*", "access-control-allow-methods": "GET, OPTIONS" };
 const out = (body, status = 200, maxAge = 0) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": maxAge ? `public, max-age=${maxAge}` : "no-store", ...CORS } });
 const num = (v) => (v == null || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));

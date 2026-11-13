@@ -12,7 +12,7 @@ on:
         description: Where to deploy
         type: choice
         default: all
-        options: [all, sepolia, baseSepolia, arbitrumSepolia, optimismSepolia, polygonAmoy, bscTestnet, avalancheFuji]
+        options: [all, sepolia, baseSepolia, arbitrumSepolia, optimismSepolia, polygonAmoy, bscTestnet, avalancheFuji, robinhoodTestnet, hyperevmTestnet]
 
 permissions:
   contents: write
@@ -42,15 +42,18 @@ jobs:
       - name: Deploy
         run: |
           if [ -z "$DEPLOYER_KEY" ]; then echo "::error::Add the EVM_DEPLOYER_KEY secret first (Settings → Secrets and variables → Actions)."; exit 1; fi
-          if [ "${{ inputs.network }}" = all ]; then nets="sepolia baseSepolia arbitrumSepolia optimismSepolia polygonAmoy bscTestnet avalancheFuji"; else nets="${{ inputs.network }}"; fi
+          if [ "${{ inputs.network }}" = all ]; then nets="sepolia baseSepolia arbitrumSepolia optimismSepolia polygonAmoy bscTestnet avalancheFuji robinhoodTestnet hyperevmTestnet"; else nets="${{ inputs.network }}"; fi
           failed=""
           for n in $nets; do
             echo "::group::$n"
+            # HyperEVM: the contract only fits in its big blocks, switched on per account through Hyperliquid's API
+            if [ "$n" = hyperevmTestnet ] && ! node scripts/hyper-big-blocks.js on; then echo "::warning::Couldn't switch the deployer to HyperEVM big blocks"; failed="$failed $n"; echo "::endgroup::"; continue; fi
             if REDEPLOY=$([ "${{ inputs.network }}" = all ] && echo 0 || echo 1) npx hardhat run scripts/deploy.js --network "$n"; then
               echo "$n" >> /tmp/deployed
             else
               echo "::warning::$n was not deployed (see the log above)"; failed="$failed $n"
             fi
+            [ "$n" = hyperevmTestnet ] && { node scripts/hyper-big-blocks.js off || true; }
             echo "::endgroup::"
           done
           echo "FAILED=$failed" >> "$GITHUB_ENV"

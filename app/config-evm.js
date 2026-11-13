@@ -47,6 +47,20 @@ const NETWORKS = {
     usdc: "0x5425890298aed601595a70AB815c96711a31Bc65",
     faucet: "https://core.app/tools/testnet-faucet/?subnet=c&token=c", faucetName: "the Avalanche faucet",
   },
+  // Robinhood Chain (an Arbitrum Orbit network). No official test USDC yet.
+  rh: {
+    hardhat: "robinhoodTestnet", name: "Robinhood Chain", net: "Testnet", chainId: 46630, unit: "ETH", cg: "ethereum",
+    rpc: "https://rpc.testnet.chain.robinhood.com", rpc2: null, explorer: "https://explorer.testnet.chain.robinhood.com",
+    usdc: null,
+    faucet: "https://faucet.testnet.chain.robinhood.com", faucetName: "the Robinhood Chain faucet",
+  },
+  // Hyperliquid's HyperEVM. Gas is HYPE. No official test USDC on it yet.
+  hype: {
+    hardhat: "hyperevmTestnet", name: "HyperEVM", net: "Testnet", chainId: 998, unit: "HYPE", cg: "hyperliquid",
+    rpc: "https://rpc.hyperliquid-testnet.xyz/evm", rpc2: "https://rpcs.chain.link/hyperevm/testnet", explorer: "https://testnet.purrsec.com",
+    usdc: null,
+    faucet: "https://faucet.quicknode.com/hyperliquid", faucetName: "the QuickNode HyperEVM faucet",
+  },
 };
 
 /** Each network with its deployment: address (null until deployed), fromBlock, and v (2 = holds tokens too). */
