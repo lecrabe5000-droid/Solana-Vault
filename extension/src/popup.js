@@ -676,7 +676,7 @@ function render() {
   root.innerHTML = html;
   translate(root, S.lang);
   if (FULL) for (const el of document.querySelectorAll(".fp-side, .fp-h")) if (el.dataset.lang !== S.lang) { translate(el, S.lang); el.dataset.lang = S.lang; }
-  stageHome(root); maybeNews();
+  stageHome(root); maybeNews(); tourLive(root); const tr = root.querySelector(".tour2"); if (tr && S.tourDir) { tr.dataset.dir = S.tourDir; S.tourDir = null; }
   // The three floating buttons live outside #root, made once, so re-renders and panels never make them blink.
   let tb = document.getElementById("tabbar");
   if (S.screen === "home" && !tb) { (document.querySelector(".device") || document.body).insertAdjacentHTML("beforeend", TABBAR); tb = document.getElementById("tabbar"); tb.classList.add("enter"); setTimeout(() => tb.classList.remove("enter"), 1400); }
@@ -823,32 +823,55 @@ function depth(scope) {
 }
 
 const TOUR = [
-  { h: "Two places for your money", p: "Your <b>Wallet</b> is for spending, like any crypto wallet. Your <b>Safe</b> holds the rest, and nothing leaves it in a hurry.", art: "safe" },
-  { h: "Nothing leaves the Safe in a hurry", p: "Anything leaving your Safe waits a delay you choose, and you can cancel it the whole time. Even someone with your recovery phrase can't rush it.", art: "clock" },
-  { h: "Scams, caught before you sign", p: "Ecrin blocks known scam sites, flags look-alikes, and shows exactly what would leave your wallet before you approve anything.", art: "shield" },
+  { k: "01", h: "Two places for <em>your money</em>", p: "Your <b>Wallet</b> spends instantly, like any wallet. Your <b>Safe</b> keeps the rest, and nothing leaves it in a hurry.", art: "split" },
+  { k: "02", h: "Every withdrawal <em>waits</em>", p: "A delay you choose, with a countdown you can stop. A thief, a scam or a 2 a.m. decision all hit the same wall: time.", art: "clock" },
+  { k: "03", h: "Scams caught <em>before you sign</em>", p: "Ecrin blocks known scam sites, flags look-alikes, and shows exactly what would leave your wallet before you approve.", art: "shield" },
 ];
+/** Each slide shows a real Ecrin moment, drawn with the wallet's own pieces, instead of an icon. */
 function tourArt(k) {
-  if (k === "safe") return `<div class="tour-3d"><canvas data-vault3d aria-hidden="true"></canvas></div>`;
-  const ring = Array.from({ length: 36 }, (_, i) => { const a = (i / 36) * Math.PI * 2, r0 = 52, r1 = i % 3 ? 58 : 64; return `<path d="M${(80 + Math.cos(a) * r0).toFixed(1)} ${(80 + Math.sin(a) * r0).toFixed(1)}L${(80 + Math.cos(a) * r1).toFixed(1)} ${(80 + Math.sin(a) * r1).toFixed(1)}" style="--i:${i}"/>`; }).join("");
-  if (k === "clock") return `<svg class="tour-art" viewBox="0 0 160 160"><g class="t-ring">${ring}</g><circle cx="80" cy="80" r="44" class="soft"/><path class="t-hand" d="M80 80V48"/><path class="t-hand2" d="M80 80h22"/><circle cx="80" cy="80" r="2.5" class="dot"/></svg>`;
-  return `<svg class="tour-art" viewBox="0 0 160 160"><g class="t-ring">${ring}</g><path class="t-sh" d="M80 34l34 12v26c0 24-15 40-34 50-19-10-34-26-34-50V46z"/><path class="t-ck" d="M64 80l11 11 22-24"/></svg>`;
+  if (k === "split") return `<div class="tv tv-split">
+    <div class="tv-lz"><svg viewBox="0 0 220 220" aria-hidden="true"><g transform="rotate(45 110 110)"><rect class="tl-b" x="38" y="38" width="144" height="144" rx="30"/><rect class="tl-w" x="38" y="38" width="144" height="144" rx="30" pathLength="100"/><rect class="tl-b in" x="54" y="54" width="112" height="112" rx="24"/><rect class="tl-s" x="54" y="54" width="112" height="112" rx="24" pathLength="100"/></g></svg>
+      <div class="tv-lz-in"><span>Net worth</span><b><i>$</i>8,989</b></div></div>
+    <div class="tv-cards"><div class="tv-card w"><span class="tv-k">${I.card}Wallet</span><b>$1,608</b><small>spend now</small></div><div class="tv-card s"><span class="tv-k">${I.lock}Safe</span><b>$7,381</b><small>72 h to leave</small></div></div></div>`;
+  if (k === "clock") return `<div class="tv tv-clock"><div class="tv-wd">
+    <div class="tv-wd-h"><span class="tv-dot"></span>Withdrawal requested<em>→ 9cRt…X2</em></div>
+    <div class="tv-wd-amt"><b>24.00</b><span>SOL</span></div>
+    <div class="tv-cd"><div><b data-tv-h>71</b><small>hours</small></div><i>:</i><div><b data-tv-m>59</b><small>min</small></div><i>:</i><div><b data-tv-s>48</b><small>sec</small></div></div>
+    <div class="tv-bar"><i></i></div>
+    <button class="tv-keep" tabindex="-1">${I.shield}Cancel and keep it</button>
+    <div class="tv-kept">${I.check}<b>Kept in your Safe</b><small>It never left.</small></div></div></div>`;
+  return `<div class="tv tv-shield"><div class="tv-ap">
+    <div class="tv-site"><span class="tv-fav">!</span><span><b>claim-sol-airdrop.app</b><small>wants you to sign a transaction</small></span></div>
+    <div class="tv-out"><span>Would leave your wallet</span><b>24.5 SOL · 1,250 USDC</b><small>everything you hold</small></div>
+    <div class="tv-flag">${I.shield}<span><b>Known scam site</b><small>Ecrin blocked this before you could sign.</small></span></div>
+    <div class="tv-ap-acts"><span class="tv-btn ghost">Reject</span><span class="tv-btn off">Approve</span></div></div></div>`;
 }
 function tourView() {
   const i = S.tour || 0, t = TOUR[i], last = i === TOUR.length - 1;
-  return `<div class="onb tour">
+  return `<div class="onb tour tour2" data-tour="${i}">
+    <div class="tour-bars">${TOUR.map((_, j) => `<i class="${j < i ? "done" : j === i ? "on" : ""}"><b></b></i>`).join("")}</div>
     <div class="tour-top"><span class="mv-mark">${LOGO}<b>ECRIN</b></span><button class="link" data-act="tour-skip">Skip</button></div>
     <div class="onb-art" data-i="${i}">${tourArt(t.art)}</div>
-    <div class="onb-copy"><h1>${t.h}</h1><p>${t.p}</p></div>
-    <div class="tour-dots">${TOUR.map((_, j) => `<i class="${j === i ? "on" : ""}"></i>`).join("")}</div>
-    <div class="onb-acts"><button class="btn primary xl" data-act="tour-next">${last ? "Get started" : "Next"}</button></div>
+    <div class="onb-copy"><span class="tour-k">${t.k} / 03</span><h1>${t.h}</h1><p>${t.p}</p></div>
+    <div class="onb-acts">${i ? `<button class="btn tour-back" data-act="tour-prev" aria-label="Back">${I.back}</button>` : ""}<button class="btn primary xl" data-act="tour-next">${last ? "Get started" : "Next"}</button></div>
   </div>`;
 }
+// The countdown on the second slide really counts; after a moment the button is "pressed" and the money is kept.
+function tourLive(root) {
+  const c = root.querySelector(".tv-clock"); if (!c || c.__on) return; c.__on = true;
+  let left = 71 * 3600 + 59 * 60 + 48; const h = c.querySelector("[data-tv-h]"), m = c.querySelector("[data-tv-m]"), sec = c.querySelector("[data-tv-s]"), p = (n) => String(n).padStart(2, "0");
+  const tick = setInterval(() => { if (!c.isConnected) return clearInterval(tick); left--; h.textContent = p(Math.floor(left / 3600)); m.textContent = p(Math.floor((left % 3600) / 60)); sec.textContent = p(left % 60); }, 1000);
+  setTimeout(() => c.isConnected && c.classList.add("press"), 2600); setTimeout(() => c.isConnected && c.classList.add("kept"), 3000);
+}
+// Swipe between slides on phones.
+document.addEventListener("touchstart", (e) => { const t = e.target.closest?.(".tour2"); S.tsx = t ? e.touches[0].clientX : null; }, { passive: true });
+document.addEventListener("touchend", (e) => { if (S.tsx == null) return; const dx = e.changedTouches[0].clientX - S.tsx; S.tsx = null; if (Math.abs(dx) < 50) return; const b = document.querySelector(dx < 0 ? '[data-act="tour-next"]' : '[data-act="tour-prev"]'); b?.click(); }, { passive: true });
 // One question after the tour: it decides which safety steps the wallet suggests first. Nothing is turned on by itself.
 const GOALS = [["savings", "Protect my savings", "From scams, drainers and stolen keys.", "shield"], ["discipline", "Help me stay in control", "Limits and pauses against impulsive trading or gambling.", "clock"], ["both", "Both", "Protection from others, and from myself.", "lock"]];
 function goalView() {
-  return `<div class="onb tour goal">
+  return `<div class="onb tour tour2 goal">
     <div class="tour-top"><span class="mv-mark">${LOGO}<b>ECRIN</b></span><button class="link" data-act="goal" data-v="skip">Skip</button></div>
-    <div class="onb-copy"><h1>What brings you to Ecrin?</h1><p>We'll suggest the right protections first. You can change everything later.</p></div>
+    <div class="onb-copy"><span class="tour-k">One question</span><h1>What brings you to <em>Ecrin</em>?</h1><p>We'll suggest the right protections first. You can change everything later.</p></div>
     <div class="goal-l">${GOALS.map(([k, t, d, ic]) => `<button class="goal-o" data-act="goal" data-v="${k}"><span class="goal-ic">${I[ic]}</span><span><b>${t}</b><small>${d}</small></span>${I.arrow}</button>`).join("")}</div>
   </div>`;
 }
@@ -2303,7 +2326,8 @@ const actions = {
   "reveal-bio": async () => { try { const words = await bioUnlock(S.bio); S.panel.words = normalize(words); renderPanel(); } catch (e) { toast(`${bioName()} didn't work. Use your password.`, "err"); } },
   cur: async (el) => { S.cur = el.dataset.v; await local.set({ cur: S.cur }); await loadFx(); toast(S.cur === "USD" || S.fx?.[S.cur] ? `Showing ${S.cur}` : `Couldn't get today's ${S.cur} rate. Showing USD until it loads.`, S.cur === "USD" || S.fx?.[S.cur] ? "win" : ""); renderPanel(); render(); },
   lang: async (el) => { S.lang = el.dataset.v; document.documentElement.lang = S.lang; await local.set({ lang: S.lang }); render(); renderPanel(); },
-  "tour-next": () => { S.tour = (S.tour || 0) + 1; if (S.tour >= TOUR.length) { local.set({ toured: true }); S.askGoal = true; } render(); },
+  "tour-prev": () => { if (S.tour > 0) { S.tour--; S.tourDir = "back"; render(); } },
+  "tour-next": () => { S.tourDir = "fwd"; S.tour = (S.tour || 0) + 1; if (S.tour >= TOUR.length) { local.set({ toured: true }); S.askGoal = true; } render(); },
   "tour-skip": () => { S.tour = TOUR.length; S.askGoal = true; local.set({ toured: true }); render(); },
   goal: async (el) => { const v = el.dataset.v; S.askGoal = false; if (v !== "skip") { S.goal = v; await local.set({ goal: v }); } render(); },
   guard: async (el) => {

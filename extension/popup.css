@@ -2988,3 +2988,104 @@ html:root[data-theme] .words span { font-variant-numeric: tabular-nums; }
 /* 0.22.6: Ecrin look, the chosen chart range reads as chosen (the generic button rule out-ranked it) */
 html:root[data-skin="ecrin"] .ranges.ranges.ranges.ranges button:not([aria-pressed="true"]) { background: transparent !important; color: rgba(255, 255, 255, .62) !important; }
 html:root[data-skin="ecrin"] .ranges.ranges.ranges.ranges button[aria-pressed="true"] { background: #fff !important; color: #1f3fd6 !important; }
+
+/* =====================================================================
+   0.22.8 The first three screens, rebuilt. Each slide is a real Ecrin moment on a dark stage lit in Ecrin blue,
+   with a big left-aligned headline, story bars on top, swipe and a back button. Same look in light and dark:
+   onboarding always opens on the brand's own night.
+   ===================================================================== */
+.tour2 { --ink2: #f3f3ef; --mut2: #9aa3bd; position: relative; display: flex; flex-direction: column; min-height: 100%; padding: 14px 20px calc(18px + env(safe-area-inset-bottom, 0px)); color: var(--ink2);
+  background: radial-gradient(90% 55% at 50% 30%, rgba(47, 91, 255, .30), transparent 70%), radial-gradient(60% 40% at 90% 95%, rgba(47, 91, 255, .12), transparent 70%), #07090f !important; }
+.tour2 .tour-top { margin-top: 12px; } .tour2 .tour-top .mv-mark { color: #fff; } .tour2 .tour-top .link { color: var(--mut2); }
+.tour-bars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.tour-bars i { height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .14); overflow: hidden; }
+.tour-bars i b { display: block; height: 100%; width: 0; border-radius: inherit; background: #fff; }
+.tour-bars i.done b { width: 100%; } .tour-bars i.on b { animation: tb-fill .9s cubic-bezier(.3, .7, .2, 1) forwards; }
+@keyframes tb-fill { to { width: 100%; } }
+.tour2 .onb-art { flex: 1; min-height: 300px; display: grid; place-items: center; animation: none; }
+.tour2 .onb-copy { text-align: left; margin: 0 0 22px; }
+.tour-k { display: block; margin-bottom: 10px; color: #8ea4ff; font: 600 11px var(--font); letter-spacing: .2em; }
+.tour2 .onb-copy h1 { font: 600 31px/1.08 var(--font) !important; letter-spacing: -.035em !important; color: #fff !important; -webkit-text-fill-color: #fff; background: none !important; text-wrap: balance; }
+.tour2 .onb-copy h1 em { font-style: normal; color: #8ea4ff; -webkit-text-fill-color: #8ea4ff; }
+.tour2 .onb-copy p { max-width: none; margin: 12px 0 0; color: var(--mut2); font-size: 15px; line-height: 1.55; }
+.tour2 .onb-copy p b { color: #fff; font-weight: 600; }
+.tour2 .onb-acts { display: flex; gap: 10px; } .tour2 .onb-acts .btn.primary { flex: 1; background: #f4f2ea !important; color: #0c0d0f !important; border: 0 !important; }
+.tour2 .tour-back { flex: none; width: 56px; height: 56px; padding: 0; border-radius: 50%; border: 0 !important; background: rgba(255, 255, 255, .08) !important; color: #fff !important; box-shadow: none !important; }
+.tour2 .tour-back svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+/* slide-in, the way you're going */
+.tour2 .onb-art, .tour2 .onb-copy { animation: tv-in .55s cubic-bezier(.2, .8, .2, 1) both; } .tour2 .onb-copy { animation-delay: .06s; }
+.tour2[data-dir="back"] .onb-art, .tour2[data-dir="back"] .onb-copy { animation-name: tv-in-b; }
+@keyframes tv-in { from { opacity: 0; transform: translateX(28px); } } @keyframes tv-in-b { from { opacity: 0; transform: translateX(-28px); } }
+
+/* shared card language */
+.tv { width: 100%; max-width: 330px; }
+.tv svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tv-card, .tv-wd, .tv-ap { border-radius: 22px; background: linear-gradient(180deg, rgba(255, 255, 255, .085), rgba(255, 255, 255, .04)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 30px 60px -30px rgba(0, 0, 0, .9); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+
+/* 1 · the lozenge and the two halves */
+.tv-lz { position: relative; width: 210px; height: 210px; margin: 0 auto -6px; }
+.tv-lz svg { width: 100%; height: 100%; overflow: visible; }
+.tl-b { stroke: rgba(255, 255, 255, .08); stroke-width: 3; } .tl-b.in { stroke: rgba(255, 255, 255, .05); }
+.tl-w { stroke: #5b7cff; stroke-width: 3.2; stroke-dasharray: 18 82; filter: drop-shadow(0 0 8px rgba(91, 124, 255, .6)); animation: tl-draw 1.4s cubic-bezier(.3, .1, .1, 1) .15s both; }
+.tl-s { stroke: #f3f3ef; stroke-width: 3.2; stroke-dasharray: 82 18; animation: tl-draw2 1.6s cubic-bezier(.3, .1, .1, 1) .45s both; }
+@keyframes tl-draw { from { stroke-dasharray: 0 100; } } @keyframes tl-draw2 { from { stroke-dasharray: 0 100; } }
+.tv-lz-in { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+.tv-lz-in span { color: var(--mut2); font-size: 9.5px; letter-spacing: .22em; text-transform: uppercase; }
+.tv-lz-in b { margin-top: 4px; color: #fff; font: 500 34px/1 var(--font); letter-spacing: -.04em; } .tv-lz-in b i { font-style: normal; font-size: .45em; color: var(--mut2); vertical-align: .9em; margin-right: 2px; }
+.tv-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tv-card { padding: 14px 15px; animation: tv-up .6s cubic-bezier(.2, .8, .2, 1) both; } .tv-card.s { animation-delay: .12s; box-shadow: inset 0 0 0 1px rgba(142, 164, 255, .35), 0 30px 60px -30px rgba(0, 0, 0, .9); }
+.tv-k { display: flex; align-items: center; gap: 6px; color: var(--mut2); font-size: 12px; font-weight: 600; } .tv-k svg { width: 14px; height: 14px; } .tv-card.s .tv-k { color: #8ea4ff; }
+.tv-card b { display: block; margin-top: 8px; color: #fff; font: 600 22px/1 var(--font); letter-spacing: -.03em; }
+.tv-card small { display: block; margin-top: 5px; color: var(--mut2); font-size: 11.5px; }
+@keyframes tv-up { from { opacity: 0; transform: translateY(14px); } }
+
+/* 2 · a withdrawal counting down, then kept */
+.tv-wd { position: relative; padding: 18px; overflow: hidden; }
+.tv-wd-h { display: flex; align-items: center; gap: 8px; color: #f0b04a; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.tv-wd-h em { margin-left: auto; color: var(--mut2); font-style: normal; font-weight: 500; letter-spacing: 0; text-transform: none; font-size: 12px; }
+.tv-dot { width: 7px; height: 7px; border-radius: 50%; background: #f0b04a; box-shadow: 0 0 0 4px rgba(240, 176, 74, .18); animation: tv-pulse 1.6s ease-in-out infinite; }
+@keyframes tv-pulse { 50% { box-shadow: 0 0 0 7px rgba(240, 176, 74, .06); } }
+.tv-wd-amt { margin-top: 12px; } .tv-wd-amt b { color: #fff; font: 600 38px/1 var(--font); letter-spacing: -.04em; } .tv-wd-amt span { margin-left: 6px; color: var(--mut2); font-size: 14px; font-weight: 600; }
+.tv-cd { display: flex; align-items: flex-start; gap: 6px; margin-top: 16px; } .tv-cd div { flex: 1; padding: 10px 0 8px; border-radius: 12px; background: rgba(0, 0, 0, .3); text-align: center; }
+.tv-cd b { display: block; color: #fff; font: 500 24px/1 var(--font); font-variant-numeric: tabular-nums; } .tv-cd small { color: var(--mut2); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; }
+.tv-cd i { padding-top: 12px; color: rgba(255, 255, 255, .3); font-style: normal; font-size: 18px; }
+.tv-bar { height: 3px; margin-top: 14px; border-radius: 3px; background: rgba(255, 255, 255, .1); overflow: hidden; } .tv-bar i { display: block; width: 100%; height: 100%; background: #f0b04a; transform-origin: 0 50%; animation: tv-run 30s linear both; }
+@keyframes tv-run { to { transform: scaleX(.9); } }
+.tv-keep { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 46px; margin-top: 16px; border: 0; border-radius: 99px; background: #2f5bff; color: #fff; font: 600 14px var(--font); pointer-events: none; transition: transform .15s; }
+.tv-keep svg { width: 17px; height: 17px; }
+.tv-clock.press .tv-keep { transform: scale(.95); }
+.tv-kept { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 4px; background: radial-gradient(circle at 50% 45%, rgba(47, 91, 255, .5), rgba(11, 14, 30, .96) 70%); opacity: 0; transform: scale(1.04); transition: opacity .45s, transform .6s cubic-bezier(.2, 1.2, .4, 1); }
+.tv-kept svg { width: 54px; height: 54px; padding: 14px; border-radius: 50%; background: #2f5bff; color: #fff; stroke-width: 2.6; box-shadow: 0 0 0 10px rgba(47, 91, 255, .2); }
+.tv-kept b { margin-top: 12px; color: #fff; font: 600 20px var(--font); letter-spacing: -.02em; } .tv-kept small { color: #c3cbe6; font-size: 13px; }
+.tv-clock.kept .tv-kept { opacity: 1; transform: none; }
+
+/* 3 · the approval window catching a scam */
+.tv-ap { padding: 16px; }
+.tv-site { display: flex; align-items: center; gap: 11px; } .tv-site b { display: block; color: #fff; font-size: 14px; } .tv-site small { color: var(--mut2); font-size: 12px; }
+.tv-fav { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: rgba(255, 112, 136, .16); color: #ff7088; font: 700 16px var(--font); }
+.tv-out { margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: rgba(0, 0, 0, .3); }
+.tv-out span { display: block; color: var(--mut2); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; } .tv-out b { display: block; margin-top: 5px; color: #fff; font: 600 18px var(--font); letter-spacing: -.02em; }
+.tv-out small { color: #ff8fa2; font-size: 12px; }
+.tv-flag { display: flex; gap: 11px; align-items: flex-start; margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: rgba(255, 112, 136, .12); box-shadow: inset 0 0 0 1px rgba(255, 112, 136, .35); animation: tv-flag .5s cubic-bezier(.2, 1.3, .4, 1) .6s both; }
+.tv-flag svg { flex: none; width: 20px; height: 20px; color: #ff7088; } .tv-flag b { display: block; color: #ffd3da; font-size: 14px; } .tv-flag small { color: #e6a9b4; font-size: 12px; }
+@keyframes tv-flag { from { opacity: 0; transform: scale(.94); } }
+.tv-ap-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+.tv-btn { display: grid; place-items: center; height: 42px; border-radius: 99px; font-size: 14px; font-weight: 600; }
+.tv-btn.ghost { background: #f4f2ea; color: #0c0d0f; } .tv-btn.off { background: rgba(255, 255, 255, .06); color: rgba(255, 255, 255, .3); text-decoration: line-through; }
+@media (prefers-reduced-motion: reduce) { .tour2 *, .tour2 { animation: none !important; transition: none !important; } .tv-clock .tv-kept { opacity: 0; } }
+@media (max-height: 700px) { .tour2 .onb-art { min-height: 240px; } .tv-lz { width: 170px; height: 170px; } .tour2 .onb-copy h1 { font-size: 27px !important; } }
+.tour2 .tv { width: min(100%, 340px); justify-self: center; }
+.tv-lz { width: 232px; height: 232px; margin: -8px auto -14px; }
+.tv-lz-in b { font-size: 30px; }
+.tv-cards { margin-top: 0; }
+@media (max-height: 700px) { .tv-lz { width: 212px; height: 212px; } .tv-lz-in b { font-size: 27px; } }
+@media (max-height: 620px) { .tv-lz { width: 170px; height: 170px; } }
+.tv-kept { background: radial-gradient(circle at 50% 40%, #22389e 0%, #111a48 45%, #0b1030 75%); }
+/* the question after the slides, in the same light */
+.tour2.goal .onb-copy { margin-top: 26px; }
+.tour2 .goal-o { border: 0 !important; background: linear-gradient(180deg, rgba(255, 255, 255, .085), rgba(255, 255, 255, .04)) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08) !important; color: #fff !important; border-radius: 20px !important; transition: transform .15s, background-color .2s; }
+.tour2 .goal-o:active { transform: scale(.98); }
+.tour2 .goal-o b { color: #fff !important; } .tour2 .goal-o small { color: var(--mut2) !important; }
+.tour2 .goal-ic { background: rgba(47, 91, 255, .22) !important; color: #b4c3ff !important; box-shadow: none !important; }
+.tour2 .goal-o > svg { color: var(--mut2); }
+.tour2 .goal-l .goal-o { animation: tv-up .5s cubic-bezier(.2, .8, .2, 1) both; } .tour2 .goal-l .goal-o:nth-child(2) { animation-delay: .07s; } .tour2 .goal-l .goal-o:nth-child(3) { animation-delay: .14s; }
