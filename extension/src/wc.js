@@ -1,15 +1,16 @@
 // WalletConnect for Ecrin Wallet on phones: connect to any website or app that shows a WalletConnect QR code.
 // Loaded only when used. Every request a site makes goes through the same approval screen as the browser extension
 // (the exact preview of what leaves your wallet, phishing checks), and is answered back through WalletConnect.
-// Beta: Solana Devnet and the EVM test networks only.
+// The networks offered follow Settings → Networks: mainnet, or Solana Devnet and the EVM test networks.
 import { Core } from "@walletconnect/core";
 import { WalletKit } from "@reown/walletkit";
 import { buildApprovedNamespaces, getSdkError } from "@walletconnect/utils";
 import bs58 from "bs58";
-import { EVM_NETS } from "../../app/config-evm.js";
+import { evmOfMode, SOL_DEV_CAIP, SOL_MAIN_CAIP } from "./netmode.js";
 
 export const WC_PROJECT = "668bdc733a6710a91a28ad02dd980f43"; // public by design; Reown's domain allow-list protects it
-export const SOL_DEVNET = "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1";
+export const SOL_DEVNET = SOL_DEV_CAIP;
+const solChain = (caip) => (String(caip) === SOL_MAIN_CAIP ? "solana:mainnet" : "solana:devnet");
 const EVM_METHODS = ["eth_sendTransaction", "personal_sign", "eth_sign", "eth_signTypedData", "eth_signTypedData_v4"];
 const SOL_METHODS = ["solana_signTransaction", "solana_signAndSendTransaction", "solana_signMessage", "solana_signAllTransactions"];
 
@@ -23,8 +24,8 @@ export function toRequest(method, params, chainId, evmAddr) {
   if (method.startsWith("eth_signTypedData")) { const [a, b] = params, d = String(a).toLowerCase() === evmAddr?.toLowerCase() ? b : a; return { fam: "evm", kind: "typed", data: typeof d === "string" ? d : JSON.stringify(d) }; }
   if (method === "eth_sendTransaction") return { fam: "evm", kind: "tx", tx: params[0] || {}, chainId: Number(String(chainId).split(":")[1]) };
   if (method === "solana_signMessage") return { fam: "sol", kind: "solmsg", message: Array.from(bs58.decode(params.message)) };
-  if (method === "solana_signTransaction" || method === "solana_signAndSendTransaction") return { fam: "sol", kind: "soltx", txs: [Array.from(unb64(params.transaction))], send: method === "solana_signAndSendTransaction", chain: "solana:devnet" };
-  if (method === "solana_signAllTransactions") return { fam: "sol", kind: "soltx", txs: params.transactions.map((t) => Array.from(unb64(t))), send: false, chain: "solana:devnet" };
+  if (method === "solana_signTransaction" || method === "solana_signAndSendTransaction") return { fam: "sol", kind: "soltx", txs: [Array.from(unb64(params.transaction))], send: method === "solana_signAndSendTransaction", chain: solChain(chainId) };
+  if (method === "solana_signAllTransactions") return { fam: "sol", kind: "soltx", txs: params.transactions.map((t) => Array.from(unb64(t))), send: false, chain: solChain(chainId) };
   throw new Error(`Ecrin Wallet doesn't support ${method} yet.`);
 }
 
@@ -37,17 +38,17 @@ export function toResult(method, out) {
   return out; // EVM: a signature or a transaction hash
 }
 
-export async function startWC({ solAddr, evmAddr, onProposal, onRequest, onChange }) {
+export async function startWC({ solAddr, evmAddr, onProposal, onRequest, onChange, getMode = () => "test" }) {
   const core = new Core({ projectId: WC_PROJECT });
   const kit = await WalletKit.init({ core, metadata: { name: "Ecrin Wallet", description: "A wallet with a Safe nobody can rush.", url: "https://ecrinprotocol.app", icons: ["https://ecrinprotocol.app/icon2-192.png"] } });
-  const evmChains = Object.values(EVM_NETS).map((n) => `eip155:${n.chainId}`);
-  const supported = {
-    ...(solAddr ? { solana: { chains: [SOL_DEVNET], methods: SOL_METHODS, events: [], accounts: [`${SOL_DEVNET}:${solAddr}`] } } : {}),
+  // Worked out for each new connection, so it follows Settings → Networks at that moment.
+  const supportedNow = () => { const mode = getMode(), evmChains = evmOfMode(mode).map((n) => `eip155:${n.chainId}`), sol = mode === "main" ? SOL_MAIN_CAIP : SOL_DEV_CAIP; return {
+    ...(solAddr ? { solana: { chains: [sol], methods: SOL_METHODS, events: [], accounts: [`${sol}:${solAddr}`] } } : {}),
     ...(evmAddr ? { eip155: { chains: evmChains, methods: EVM_METHODS, events: ["accountsChanged", "chainChanged"], accounts: evmChains.map((c) => `${c}:${evmAddr}`) } } : {}),
-  };
+  }; };
   kit.on("session_proposal", (p) => {
     let ns = null, why = "";
-    try { ns = buildApprovedNamespaces({ proposal: p.params, supportedNamespaces: supported }); } catch (e) { why = e?.message || String(e); }
+    try { ns = buildApprovedNamespaces({ proposal: p.params, supportedNamespaces: supportedNow() }); } catch (e) { why = e?.message || String(e); }
     onProposal({ id: p.id, meta: p.params.proposer.metadata, verify: p.verifyContext?.verified, ns, why });
   });
   kit.on("session_request", (e) => {

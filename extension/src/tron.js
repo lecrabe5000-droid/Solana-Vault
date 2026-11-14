@@ -1,4 +1,4 @@
-// Tron for Ecrin Wallet: TRX and USDT (TRC-20), send and receive. No Safe on Tron yet.
+// Tron for Ecrin Wallet: TRX and USDT (TRC-20), send and receive, on Nile (test) and mainnet. No Safe on Tron yet.
 // Keys: the recovery phrase at m/44'/195'/0'/0/i (the path TronLink uses), secp256k1 like Ethereum.
 // Every transaction is built and signed here, byte by byte (Tron's protobuf format), so the server only relays it:
 // it can't change the receiver or the amount. The server is TronGrid's public API for the Nile test network.
@@ -10,6 +10,12 @@ export const TRON = {
   api: "https://nile.trongrid.io", faucet: "https://nileex.io/join/getJoinPage",
   usdt: "TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf", // Tether's test USDT on Nile
   explorer: (k, id) => `https://nile.tronscan.org/#/${k === "tx" ? "transaction" : k === "token" ? "token20" : "address"}/${id}`,
+};
+// Mainnet, real money. USDT is Tether's own contract (tether.to, supported protocols), checked on-chain (symbol USDT).
+export const TRON_MAIN = {
+  ...TRON, key: "tronm", net: "Mainnet", real: true, api: "https://api.trongrid.io", faucet: null,
+  usdt: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+  explorer: (k, id) => `https://tronscan.org/#/${k === "tx" ? "transaction" : k === "token" ? "token20" : "address"}/${id}`,
 };
 const SUN = 1_000_000; // 1 TRX
 const hex = (u8) => Array.from(u8, (b) => b.toString(16).padStart(2, "0")).join("");
@@ -55,8 +61,8 @@ export function signRaw(raw, signingKey) {
   return { id: hex(id), bytes: cat(fBytes(1, raw), fBytes(2, s65)) };
 }
 
-export function tronEngine({ ethers, acct, dev = {} }) {
-  const N = TRON, api = dev.tronApi || N.api, w = acct.tron;
+export function tronEngine({ ethers, acct, dev = {}, N = TRON }) {
+  const api = dev.tronApi || N.api, w = acct.tron;
   const me = toTron(w.address), me21 = fromTron(me);
   async function call(path, body) {
     const r = await fetch(api + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -90,7 +96,7 @@ export function tronEngine({ ethers, acct, dev = {} }) {
     // USDT shows with the other tokens; sending it is a TRC-20 call that burns a little TRX for energy (capped at 30 TRX).
     async listTokens() {
       const raw = await usdtBal().catch(() => 0n);
-      return raw > 0n ? [{ mint: N.usdt, raw: String(raw), dec: 6, symbol: "USDT", name: "Tether USD (test)", prog: "trc20" }] : [];
+      return raw > 0n ? [{ mint: N.usdt, raw: String(raw), dec: 6, symbol: "USDT", name: N.real ? "Tether USD" : "Tether USD (test)", prog: "trc20" }] : [];
     },
     async sendToken(t, to, raw) {
       const to21 = fromTron(to); if (!to21) throw new Error("That isn't a Tron address.");

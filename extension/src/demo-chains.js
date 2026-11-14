@@ -2,11 +2,11 @@
 // balances, the savings vault and its countdowns live in memory, and every action takes a moment like a real one.
 import * as web3 from "@solana/web3.js";
 import { ethers } from "ethers";
-import { NETS, BASE, USDC_BASE } from "./chains.js";
+import { NETS, BASE, USDC_BASE, modeNets } from "./chains.js";
 import { toTron, fromTron } from "./tron.js";
 import { suiAddress, normAddr } from "./sui.js";
 import { ed25519 } from "@noble/curves/ed25519";
-export { NETS, BASE, USDC_BASE };
+export { NETS, BASE, USDC_BASE, modeNets };
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const books = {};

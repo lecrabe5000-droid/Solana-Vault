@@ -1,4 +1,4 @@
-// Sui for Ecrin Wallet: SUI and USDC, send and receive, on Sui Testnet. No Safe on Sui yet.
+// Sui for Ecrin Wallet: SUI and USDC, send and receive, on Sui Testnet and mainnet. No Safe on Sui yet.
 // Keys: the recovery phrase at m/44'/784'/i'/0'/0' (ed25519, the path Sui Wallet and Slush use), so the same phrase
 // works there. Every transaction is built and signed here, byte by byte (Sui's BCS format); the server only estimates
 // gas and relays the signed bytes, so it can't change the receiver or the amount. The server is Sui's public GraphQL
@@ -13,6 +13,12 @@ export const SUI = {
   // Circle's test USDC on Sui Testnet (developers.circle.com, USDC contract addresses)
   usdc: "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC",
   explorer: (k, id) => `https://suiscan.xyz/testnet/${k === "tx" ? "tx" : k === "token" ? "coin" : "account"}/${id}`,
+};
+// Mainnet, real money. USDC is Circle's (developers.circle.com), checked on-chain (symbol USDC, 6 decimals).
+export const SUI_MAIN = {
+  ...SUI, key: "suim", net: "Mainnet", real: true, api: "https://graphql.mainnet.sui.io/graphql", faucet: null,
+  usdc: "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC",
+  explorer: (k, id) => `https://suiscan.xyz/mainnet/${k === "tx" ? "tx" : k === "token" ? "coin" : "account"}/${id}`,
 };
 export const SUI_COIN = "0x2::sui::SUI";
 
@@ -96,8 +102,8 @@ export function signTx(tx, priv) {
 }
 export const txDigest = (tx) => bs58.encode(h256(cat(new TextEncoder().encode("TransactionData::"), tx)));
 
-export function suiEngine({ acct, dev = {} }) {
-  const N = SUI, api = dev.suiApi || N.api, priv = acct.sui, me = dev.as || suiAddress(ed25519.getPublicKey(priv));
+export function suiEngine({ acct, dev = {}, N = SUI }) {
+  const api = dev.suiApi || N.api, priv = acct.sui, me = dev.as || suiAddress(ed25519.getPublicKey(priv));
   async function gql(query, variables = {}) {
     const r = await fetch(api, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query, variables }) });
     if (!r.ok) throw new Error(`Sui network error (${r.status})`);

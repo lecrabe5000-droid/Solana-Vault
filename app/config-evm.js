@@ -1,4 +1,5 @@
-// The Ethereum-style test networks Ecrin runs on. Contract addresses come from deployments-evm.js, which the
+// The Ethereum-style networks Ecrin runs on: the test networks (with the Safe) and, below, the main networks (real money,
+// no Safe until the contract's audit). Contract addresses come from deployments-evm.js, which the
 // deploy-evm workflow writes after each deploy; a network without one shows "not deployed yet".
 // USDC addresses are Circle's official testnet USDC (developers.circle.com/stablecoins/usdc-contract-addresses).
 import { DEPLOYED } from "./deployments-evm.js";
@@ -57,11 +58,30 @@ const NETWORKS = {
   // Hyperliquid's HyperEVM. Gas is HYPE. No official test USDC on it yet.
   hype: {
     hardhat: "hyperevmTestnet", name: "HyperEVM", net: "Testnet", chainId: 998, unit: "HYPE", cg: "hyperliquid",
-    rpc: "https://rpc.hyperliquid-testnet.xyz/evm", rpc2: "https://rpcs.chain.link/hyperevm/testnet", explorer: "https://testnet.purrsec.com",
+    // No explorer: testnet.purrsec.com is gone (its parent domain now serves a gambling site) and hyperevmscan has no testnet.
+    rpc: "https://rpc.hyperliquid-testnet.xyz/evm", rpc2: "https://rpcs.chain.link/hyperevm/testnet", explorer: null,
     usdc: null,
     faucet: "https://faucet.quicknode.com/hyperliquid", faucetName: "the QuickNode HyperEVM faucet",
   },
 };
+
+// Main networks: real money. Chain IDs checked against each network's own server; USDC is Circle's native USDC
+// (developers.circle.com/stablecoins/usdc-contract-addresses), checked on-chain (symbol USDC, 6 decimals).
+// Servers: PublicNode first, dRPC as backup. No contract: the Safe arrives on mainnet after its audit.
+const MAINNETS = {
+  ethm: { name: "Ethereum", net: "Mainnet", chainId: 1, unit: "ETH", cg: "ethereum", rpc: "https://ethereum-rpc.publicnode.com", rpc2: "https://eth.drpc.org", explorer: "https://etherscan.io", usdc: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" },
+  basem: { name: "Base", net: "Mainnet", chainId: 8453, unit: "ETH", cg: "ethereum", rpc: "https://base-rpc.publicnode.com", rpc2: "https://base.drpc.org", explorer: "https://basescan.org", usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" },
+  arbm: { name: "Arbitrum", net: "Mainnet", chainId: 42161, unit: "ETH", cg: "ethereum", rpc: "https://arbitrum-one-rpc.publicnode.com", rpc2: "https://arbitrum.drpc.org", explorer: "https://arbiscan.io", usdc: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831" },
+  opm: { name: "Optimism", net: "Mainnet", chainId: 10, unit: "ETH", cg: "ethereum", rpc: "https://optimism-rpc.publicnode.com", rpc2: "https://optimism.drpc.org", explorer: "https://optimistic.etherscan.io", usdc: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85" },
+  polm: { name: "Polygon", net: "Mainnet", chainId: 137, unit: "POL", cg: "polygon-ecosystem-token", rpc: "https://polygon-bor-rpc.publicnode.com", rpc2: "https://polygon.drpc.org", explorer: "https://polygonscan.com", usdc: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359" },
+  // Circle has no native USDC on BNB Chain: BNB only.
+  bnbm: { name: "BNB Chain", net: "Mainnet", chainId: 56, unit: "BNB", cg: "binancecoin", rpc: "https://bsc-rpc.publicnode.com", rpc2: "https://bsc.drpc.org", explorer: "https://bscscan.com", usdc: null },
+  avaxm: { name: "Avalanche", net: "Mainnet", chainId: 43114, unit: "AVAX", cg: "avalanche-2", rpc: "https://avalanche-c-chain-rpc.publicnode.com", rpc2: "https://avalanche.drpc.org", explorer: "https://snowtrace.io", usdc: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E" },
+  hypem: { name: "HyperEVM", net: "Mainnet", chainId: 999, unit: "HYPE", cg: "hyperliquid", rpc: "https://rpc.hyperliquid.xyz/evm", rpc2: null, explorer: "https://hyperevmscan.io", usdc: "0xb88339CB7199b77E23DB6E890353E22632Ba630f" },
+};
+/** Main networks (real money), same shape as EVM_NETS, never with a Safe contract. Kept apart so the alert worker,
+ *  which watches Safe contracts, never touches them. */
+export const EVM_MAIN = Object.fromEntries(Object.entries(MAINNETS).map(([k, n]) => [k, { key: k, ...n, real: true, address: null, fromBlock: 0, v: 2, faucet: null }]));
 
 /** Each network with its deployment: address (null until deployed), fromBlock, and v (2 = holds tokens too). */
 export const EVM_NETS = Object.fromEntries(Object.entries(NETWORKS).map(([k, n]) => [k, { key: k, ...n, address: null, fromBlock: 0, v: 1, ...(DEPLOYED[n.hardhat] || {}) }]));

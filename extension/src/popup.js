@@ -5,7 +5,7 @@ import * as web3 from "@solana/web3.js";
 import { ethers } from "ethers";
 import qrcode from "qrcode-generator";
 import { newPhrase, isPhrase, normalize, seal, open, deriveAccount, strength, WORDS } from "./keyring.js";
-import { NETS, BASE, USDC_BASE, engine } from "./chains.js";
+import { NETS, BASE, USDC_BASE, engine, modeNets } from "./chains.js";
 import { makeApprovals } from "./approve.js";
 import { mountVault3d } from "./vault3d.js";
 import { bioEnable, bioUnlock, bioName, bioPossible, bioForget } from "./bio.js";
@@ -99,7 +99,9 @@ const WORDMARK = (cls = "") => `<span class="wm ${cls}">${MARK}<b>Ecrin</b></spa
 const LOGO = '<svg viewBox="0 0 32 32" class="logo"><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="currentColor"/></svg>';
 const SOLP = "M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1zM64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1zM333.1 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H6.5c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1z";
 let gid = 0;
-const coin = (k, cls = "") => `<span class="coin logo c-${k} ${cls}" aria-hidden="true">${LOGOS[k] || LOGOS.eth}</span>`;
+// A network's logo: mainnet keys are the test key plus "m" (solm, basem…) and share its logo.
+const logoKey = (k) => (LOGOS[k] ? k : NETS[k]?.real && LOGOS[k.slice(0, -1)] ? k.slice(0, -1) : k);
+const coin = (k, cls = "") => { const L = logoKey(k); return `<span class="coin logo c-${L} ${cls}" aria-hidden="true">${LOGOS[L] || LOGOS.eth}</span>`; };
 const netCoin = (n = S.net) => coin(n);
 const assetCoin = (a) => (a === "usdc" ? coin("usdc") : netCoin());
 /** The coin itself (USDC, or ETH on every Ethereum network), with the network as a small badge when they differ. */
@@ -158,7 +160,11 @@ const DEF_ACCTS = [{ id: "hd0", kind: "hd", i: 0, name: "Account 1", c: 0 }];
 // Sui: the account address, and its private key in Sui's export format (suiprivkey…, which Slush and the Sui CLI import).
 const suiOf = (A) => (A?.sui ? suiAddress(ed25519.getPublicKey(A.sui)) : null);
 const suiKeyHex = (k) => bech32.encode("suiprivkey", bech32.toWords(Uint8Array.of(0, ...k)));
-const netKeys = () => Object.keys(NETS).filter((k) => !ACCT?.only || NETS[k].fam === ACCT.only);
+// Networks, like any major wallet: Mainnet (real money) or Testnet, chosen in Settings → Networks. Testnet stays the
+// default until mainnet launches; DEFAULT_MODE flips it.
+const DEFAULT_MODE = "test";
+const isMain = () => S.mode === "main";
+const netKeys = () => modeNets(S.mode || DEFAULT_MODE).filter((k) => !ACCT?.only || NETS[k].fam === ACCT.only);
 const curAcct = () => (S.accts || DEF_ACCTS).find((a) => a.id === S.sel) || (S.accts || DEF_ACCTS)[0];
 async function useAccount(phrase) {
   PHRASE = normalize(phrase);
@@ -168,7 +174,7 @@ async function useAccount(phrase) {
   try { ACCT = keysFor(curAcct(), PHRASE, imported, { web3, ethers }); }
   catch (_) { S.sel = S.accts[0].id; ACCT = keysFor(S.accts[0], PHRASE, imported, { web3, ethers }); }
   ENG = null;
-  if (ACCT.only && NETS[S.net].fam !== ACCT.only) S.net = netKeys()[0];
+  if (!netKeys().includes(S.net)) S.net = netKeys()[0];
   // Public addresses only, so websites you connected can see your address while the wallet is locked.
   await local.set({ pub: { sol: ACCT.sol?.publicKey.toBase58() || null, evm: ACCT.evm?.address || null } });
 }
@@ -188,7 +194,8 @@ async function eng() {
 
 async function boot() {
   const pr = await local.get(["book", "hideSmall", "order", "recvNotify", "guard", "alertsOn", "showNfts", "goal", "cur", "palerts", "sounds", "obHide"]); S.obHide = !!pr.obHide; S.palerts = pr.palerts || {}; S.sounds = !!pr.sounds; S.showNfts = !!pr.showNfts; S.goal = pr.goal || null; S.cur = pr.cur || "USD"; Object.assign(S, { book: pr.book || {}, hideSmall: !!pr.hideSmall, order: pr.order || "value", recvNotify: pr.recvNotify, guard: { auto: 0, daily: 0, cool: 0, coolOver: 500, late: 1, bet: 0, ...(pr.guard || {}) }, alertsOn: !!pr.alertsOn });
-  const st = await local.get(["box", "net", "theme", "autolock", "hide", "nums", "range", "dev", "prices", "bio", "lang"]);
+  const st = await local.get(["box", "net", "theme", "autolock", "hide", "nums", "range", "dev", "prices", "bio", "lang", "netMode"]);
+  S.mode = st.netMode === "main" || st.netMode === "test" ? st.netMode : DEFAULT_MODE;
   S.lang = st.lang || (/^fr/i.test(navigator.language || "") ? "fr" : "en"); document.documentElement.lang = S.lang;
   S.bio = globalThis.ECRIN_WEB && st.bio ? st.bio : null;
   // The phone app opens on the spinning Ecrin mark for a moment.
@@ -198,7 +205,7 @@ async function boot() {
   if (["1", "7", "30", "365"].includes(st.range)) S.range = st.range;
   S.mock = !!st.dev?.mockPrices;
   applyNums();
-  S.net = NETS[st.net] ? st.net : "sol";
+  S.net = NETS[st.net] && netKeys().includes(st.net) ? st.net : netKeys()[0];
   S.theme = ["light", "ecrin"].includes(st.theme) ? st.theme : "dark";
   S.autolock = st.autolock ?? 15;
   try { chrome.runtime.connect?.({ name: "popup" }); } catch (_) {}
@@ -372,11 +379,11 @@ function worth() {
     if (natC + natS > 0) {
       coins[N.cg] = (coins[N.cg] || 0) + (natC + natS) / BASE;
       const c = px != null ? (natC / BASE) * px : 0, v = px != null ? (natS / BASE) * px : 0; chq += c; sav += v;
-      items.push({ k: r.k, a: "native", coin: N.unit === "ETH" ? "eth" : r.k === "solm" ? "sol" : r.k, cg: N.cg, unit: N.unit, name: COIN_NAME[N.unit] || N.unit, net: N.real ? `${N.name} · real money` : N.name, real: !!N.real, chq: natC / BASE, sav: natS / BASE, usd: px != null ? c + v : null, dec: N.unit === "SOL" ? 4 : 5 });
+      items.push({ k: r.k, a: "native", coin: N.unit === "ETH" ? "eth" : r.k === "solm" ? "sol" : r.k, cg: N.cg, unit: N.unit, name: COIN_NAME[N.unit] || N.unit, net: N.name, real: !!N.real, chq: natC / BASE, sav: natS / BASE, usd: px != null ? c + v : null, dec: N.unit === "SOL" ? 4 : 5 });
     }
     if (uC + uS > 0) {
       usdc += (uC + uS) / USDC_BASE; chq += uC / USDC_BASE; sav += uS / USDC_BASE;
-      items.push({ k: r.k, a: "usdc", coin: "usdc", cg: "usdc", unit: "USDC", name: "USD Coin", net: N.real ? `${N.name} · real money` : N.name, real: !!N.real, chq: uC / USDC_BASE, sav: uS / USDC_BASE, usd: (uC + uS) / USDC_BASE, dec: 2 });
+      items.push({ k: r.k, a: "usdc", coin: "usdc", cg: "usdc", unit: "USDC", name: "USD Coin", net: N.name, real: !!N.real, chq: uC / USDC_BASE, sav: uS / USDC_BASE, usd: (uC + uS) / USDC_BASE, dec: 2 });
     }
   }
   items.sort((x, y) => (y.usd || 0) - (x.usd || 0));
@@ -414,7 +421,7 @@ document.addEventListener("scroll", (ev) => {
 const FAUCET_URL = "https://ecrinprotocol.app/api/faucet";
 const faucetBtn = (N, cls = "link", label = `Get free test ${N.unit}`) => N.real || !N.faucet && N.key !== "sol" ? "" : N.key === "sol" ? `<button class="${cls} fau-b" data-act="faucet">${label}</button>` : `<a class="${cls}" href="${N.faucet}" target="_blank">${label} ${I.ext}</a>`;
 function startCard(w) {
-  if (S.obHide || !w.ready) return "";
+  if (S.obHide || !w.ready || isMain()) return ""; // the guide walks through the Safe, which is on Testnet for now
   const acts = S.activity || [], did = (t) => acts.some((e) => t.includes(e.t));
   const steps = [["Get free test coins", w.total > 0, S.net === "sol" ? 'data-act="faucet"' : 'data-act="panel" data-p="receive"'], ["Protect some in your Safe", w.sav > 0 || did(["protect"]), 'data-act="panel" data-p="protect"'],
     ["Start a withdrawal, then cancel it", did(["cancel", "withdraw", "release"]), 'data-act="panel" data-p="vault"']];
@@ -1037,7 +1044,7 @@ function homeView() {
     </header>
     ${S.err ? `<div class="banner">${esc(S.err)}</div>` : ""}
     ${S.offline ? `<div class="offline"><i></i>You're offline · showing your last balances</div>` : ""}${updateBanner()}${backupCard()}
-    ${NETS[S.net].real ? `<div class="brand-sig real" title="Solana mainnet: these coins are real money">${WORDMARK()}<i>Real money</i></div>` : `<div class="brand-sig" title="Test networks: these coins have no value">${WORDMARK()}<i>Testnet</i></div>`}
+    ${isMain() ? `<div class="brand-sig">${WORDMARK()}</div>` : `<div class="brand-sig" title="Test networks: these coins have no value">${WORDMARK()}<i>Testnet</i></div>`}
     <section class="hero"><svg class="hero-g" viewBox="0 0 360 230" preserveAspectRatio="xMidYMin slice" aria-hidden="true">${Array.from({ length: 30 }, (_, i) => `<ellipse cx="${180 + Math.sin(i / 2.6) * 6}" cy="${-10 + Math.cos(i / 2.6) * 4}" rx="${40 + i * 9}" ry="${22 + i * 6.2}"/>`).join("")}</svg>
       <div class="lz-wrap">${lozenge(w, loading)}
         <div class="lz-in">
@@ -1105,7 +1112,7 @@ function lozLegend(w, loading) {
 /** Every coin you hold on every network, biggest first. Tapping one opens Send on its network. */
 function tokenList(w) {
   if (!w.ready) return `<section class="list">${[1, 2, 3].map(() => `<div class="arow"><span class="coin sk"></span><span class="ar-t"><b class="sk">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</b><small class="sk">&nbsp;&nbsp;&nbsp;&nbsp;</small></span></div>`).join("")}</section>`;
-  if (!w.items.length && !(S.extra || []).length) return `<section class="list"><div class="empty art">${emptyArt("coins")}<b>Your wallet is empty</b><span>Get free test coins to try Ecrin. They're not worth anything.</span><button class="btn sm primary" data-act="panel" data-p="receive">Get test coins</button></div></section>`;
+  if (!w.items.length && !(S.extra || []).length) return `<section class="list"><div class="empty art">${emptyArt("coins")}<b>Your wallet is empty</b><span>${isMain() ? "Receive coins from an exchange or another wallet to get started." : "Get free test coins to try Ecrin. They're not worth anything."}</span><button class="btn sm primary" data-act="panel" data-p="receive">${isMain() ? "Receive" : "Get test coins"}</button></div></section>`;
   const n = (v, d) => v.toLocaleString("en-US", { maximumFractionDigits: d });
   let items = S.hideSmall ? w.items.filter((i) => !(i.usd != null && i.usd < 1)) : w.items;
   if (S.order === "name") items = [...items].sort((x, y) => x.name.localeCompare(y.name));
@@ -1115,7 +1122,7 @@ function tokenList(w) {
   const row = (i, sub) => {
     const p = i.a === "usdc" ? { usd: 1 } : S.prices[i.cg], ch = i.a === "usdc" ? null : p?.usd_24h_change;
     return `<button class="arow" data-act="tok" data-u="${i.unit}" data-n="${i.k}"><span class="cstack">${coin(i.coin)}${i.coin !== i.k ? `<span class="cmini">${coin(i.k)}</span>` : ""}</span>
-      <span class="ar-t"><b>${cdot(i.unit)}${i.name}${i.real ? `<span class="rm-tag">Real money</span>` : ""}</b><small>${i.a === "usdc" ? i.net : p?.usd != null ? `<span data-pk="p:${i.cg}" class="px${S.prevPx?.[i.cg] != null && S.prevPx[i.cg] !== p.usd ? (p.usd > S.prevPx[i.cg] ? " flash-up" : " flash-dn") : ""}">${money(p.usd)}</span>` : i.net}${ch != null ? ` <span class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</span>` : ""}</small></span>
+      <span class="ar-t"><b>${cdot(i.unit)}${i.name}</b><small>${i.a === "usdc" ? i.net : p?.usd != null ? `<span data-pk="p:${i.cg}" class="px${S.prevPx?.[i.cg] != null && S.prevPx[i.cg] !== p.usd ? (p.usd > S.prevPx[i.cg] ? " flash-up" : " flash-dn") : ""}">${money(p.usd)}</span>` : i.net}${ch != null ? ` <span class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</span>` : ""}</small></span>
       ${spark(i.cg)}<span class="ar-r"><b data-pk="v:${i.unit}:${i.k}">${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}${i.sav ? ` <span class="sv">${I.lock}${mask(n(i.sav, i.dec))}</span>` : ""}</small></span></button>`.replace('class="arow"', `class="arow${sub ? " sub" : ""}"`);
   };
   const out = Object.values(groups).map((g) => {
@@ -1238,7 +1245,7 @@ function spark(cg) {
 const ACT = { send: ["Sent", I.send], protect: ["Moved to Safe", I.protect], withdraw: ["Withdrawal started", I.clock], release: ["Released to Wallet", I.recv], cancel: ["Withdrawal cancelled", I.shield], vault: ["Safe opened", I.lock] };
 /** Every network at once: reads chequing and savings on each, prices them, and adds it all up. */
 async function loadAll() {
-  const { dev } = await local.get("dev"), acct = ACCT;
+  const { dev } = await local.get("dev"), acct = ACCT, mode = S.mode;
   const rows = await Promise.all(netKeys().map(async (k) => {
     try {
       const e = k === S.net && ENG ? ENG : engine({ web3, ethers, acct: ACCT, net: k, dev: dev || {} });
@@ -1246,7 +1253,7 @@ async function loadAll() {
       return { k, b, v, ok: true };
     } catch (_) { return { k, ok: false }; }
   }));
-  if (ACCT !== acct) return; // switched account while this was loading
+  if (ACCT !== acct || S.mode !== mode) return; // switched account or networks while this was loading
   S.all = rows; queueMicrotask(checkIncoming);
   loadExtras(dev);
   if (S.panel?.p === "all") { S.panel.rows = rows; renderPanel(); }
@@ -1266,7 +1273,7 @@ const tokName = (t) => t.name || t.symbol || `Token ${short(t.mint)}`;
 const ipfs = (u) => String(u || "").replace(/^ipfs:\/\//, "https://ipfs.io/ipfs/").replace(/^ar:\/\//, "https://arweave.net/");
 const safeImg = (u) => (/^https:\/\/[^\s"'<>]+$/.test(u) ? u : "");
 async function loadExtras(dev) {
-  const pr = await local.get(["tokPref", "tokList", "nftMeta"]); S.tokPref = pr.tokPref || {}; S.tokList = pr.tokList || {};
+  const mode = S.mode, pr = await local.get(["tokPref", "tokList", "nftMeta"]); S.tokPref = pr.tokPref || {}; S.tokList = pr.tokList || {};
   const meta = pr.nftMeta || {};
   const lists = await Promise.all(netKeys().map(async (k) => {
     try {
@@ -1275,6 +1282,7 @@ async function loadExtras(dev) {
       return (await e.listTokens(NETS[k].fam === "evm" ? S.tokList[k] || [] : undefined)).map((t) => ({ ...t, k }));
     } catch (_) { return []; }
   }));
+  if (S.mode !== mode) return;
   S.delegs = lists.flat().filter((t) => t.delegate);
   S.extra = lists.flat().filter((t) => !t.usdc && BigInt(t.raw || 0) > 0n);
   // Pictures for collectibles (and token logos): read each item's public metadata file once, never for hidden spam.
@@ -1338,7 +1346,7 @@ function xtokView() {
       <label class="fld"><span>Amount</span><input data-xamt inputmode="decimal" placeholder="0" value="${esc(P.amount || "")}"/></label>
       <button class="btn primary" data-act="xsend">${I.send}Review and send</button></div>` : ""}
     <div class="tk-info"><div><span>Network</span><b>${N.name} ${N.net}</b></div><div><span>Token address</span><b class="mono">${short(t.mint)} <button class="ib sm" data-act="copy" data-v="${esc(t.mint)}" aria-label="Copy">${I.copy}</button></b></div></div>
-    <div class="acc-acts"><a class="btn" href="${N.explorer(N.fam === "evm" || N.fam === "tron" || N.fam === "sui" ? "token" : "address", t.mint)}" target="_blank">${I.ext}Explorer</a>
+    <div class="acc-acts">${N.explorer("token", t.mint) ? `<a class="btn" href="${N.explorer(N.fam === "evm" || N.fam === "tron" || N.fam === "sui" ? "token" : "address", t.mint)}" target="_blank">${I.ext}Explorer</a>` : ""}
       <button class="btn" data-act="tok-pref" data-m="${esc(t.mint)}">${hidden ? `${I.eye}Show in list` : `${I.eyeOff}Hide`}</button></div>`;
 }
 /** Who can move your tokens without asking again, and a Revoke button for each. */
@@ -1524,7 +1532,7 @@ function allView() {
     <section class="list">${items.length ? items.sort((a, b) => (b.usd || 0) - (a.usd || 0)).map((i) => `<button class="arow" data-act="net-go" data-n="${i.k}"><span class="cstack">${coin(i.coin)}${i.coin === "usdc" || i.coin !== i.k ? `<span class="cmini">${coin(i.k)}</span>` : ""}</span>
       <span class="ar-t"><b>${i.name}</b><small>${i.net} · ${mask(n(i.chq, i.dec))}${i.sav ? ` <span class="sv">${I.lock}${mask(n(i.sav, i.dec))}</span>` : ""}</small></span>
       <span class="ar-r"><b>${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}</small></span></button>`).join("")
-      : `<div class="empty">${I.shield}<b>No coins yet</b><span>Use Receive to get test coins on any network.</span></div>`}</section>
+      : `<div class="empty">${I.shield}<b>No coins yet</b><span>${isMain() ? "Use Receive to add coins on any network." : "Use Receive to get test coins on any network."}</span></div>`}</section>
     ${rows.some((r) => !r.ok) ? `<p class="fine pad">Couldn't reach ${rows.filter((r) => !r.ok).map((r) => NETS[r.k].name).join(", ")} right now.</p>` : ""}`;
 }
 
@@ -1541,10 +1549,10 @@ async function loadActivity() {
   const merge = () => { const seen = new Set(list.map((x) => x.sig).filter(Boolean)); S.activity = [...list, ...(S.hist || []).filter((x) => !seen.has(x.sig))].sort((x, y) => y.at - x.at); if (S.tab === "activity") paintActivity(); };
   merge();
   if (S.histAt && Date.now() - S.histAt < 30_000) return; S.histAt = Date.now();
-  if (!keys.includes("sol")) return;
+  const sk = keys.find((k) => NETS[k].fam === "sol"); if (!sk) return;
   try {
-    const { dev } = await local.get("dev"); const e = S.net === "sol" && ENG ? ENG : engine({ web3, ethers, acct: ACCT, net: "sol", dev: dev || {} });
-    S.hist = ((await e.history?.()) || []).map((x) => ({ ...x, k: "sol" })); merge();
+    const { dev } = await local.get("dev"); const e = S.net === sk && ENG ? ENG : engine({ web3, ethers, acct: ACCT, net: sk, dev: dev || {} });
+    S.hist = ((await e.history?.()) || []).map((x) => ({ ...x, k: sk })); merge();
   } catch (_) {}
 }
 const ACT_LBL = {
@@ -1618,7 +1626,7 @@ function txdView() {
       ${e.sig ? `<div><span>Transaction</span><b class="mono">${short(e.sig)} <button class="ib sm" data-act="copy" data-v="${esc(e.sig)}" aria-label="Copy">${I.copy}</button></b></div>` : ""}
     </div>
     ${who && !whoName && N.fam ? `<div class="book-save txd-save"><input data-bookname placeholder="Save this address as a contact" maxlength="24" autocomplete="off"/><button class="btn sm" data-act="txd-save" data-a="${esc(who)}" data-f="${N.fam}">Save</button></div>` : ""}
-    ${e.sig ? `<div class="pfoot"><a class="btn xl" href="${N.explorer("tx", e.sig)}" target="_blank">${I.ext}View on the explorer</a></div>` : ""}`;
+    ${e.sig && N.explorer("tx", e.sig) ? `<div class="pfoot"><a class="btn xl" href="${N.explorer("tx", e.sig)}" target="_blank">${I.ext}View on the explorer</a></div>` : ""}`;
 }
 
 // ------------------------------------------------------------------ contacts
@@ -1865,10 +1873,10 @@ const dcheck = (cls = "") => `<svg class="dck ${cls}" viewBox="0 0 120 120" aria
 function doneView(title, text, extra = "") {
   const mark = `<div class="done-dck">${dcheck()}</div>`;
   if (mark) return `<div class="done">${mark}<h2>${title}</h2><p>${text}</p>
-    ${S.panel.sig ? `<a class="link" href="${NETS[S.net].explorer("tx", S.panel.sig)}" target="_blank">View on the explorer ${I.ext}</a>` : ""}${extra}
+    ${S.panel.sig && NETS[S.net].explorer("tx", S.panel.sig) ? `<a class="link" href="${NETS[S.net].explorer("tx", S.panel.sig)}" target="_blank">View on the explorer ${I.ext}</a>` : ""}${extra}
     <div class="pfoot"><button class="btn primary xl" data-act="close">Done</button></div></div>`;
   return `<div class="done">${mark}<h2>${title}</h2><p>${text}</p>
-    ${S.panel.sig ? `<a class="link" href="${NETS[S.net].explorer("tx", S.panel.sig)}" target="_blank">View on the explorer ${I.ext}</a>` : ""}${extra}
+    ${S.panel.sig && NETS[S.net].explorer("tx", S.panel.sig) ? `<a class="link" href="${NETS[S.net].explorer("tx", S.panel.sig)}" target="_blank">View on the explorer ${I.ext}</a>` : ""}${extra}
     <div class="pfoot"><button class="btn primary xl" data-act="close">Done</button></div></div>`;
 }
 
@@ -1883,7 +1891,7 @@ function addrsView() {
       ${nets ? `<div class="ad-nets">${nets.map((n) => `<span title="${esc(NETS[n].name)}">${coin(n)}<small>${esc(NETS[n].name)}</small></span>`).join("")}</div>` : ""}
       <button class="ad-copy" data-act="copy" data-v="${esc(a)}">${I.copy}<span>Copy address</span></button>
     </article>`;
-  const evmNets = Object.keys(NETS).filter((k) => NETS[k].fam === "evm");
+  const evmNets = netKeys().filter((k) => NETS[k].fam === "evm");
   return `${phead("Addresses")}
     <div class="ad-hero">${acctIc(A0, "lg")}<span><b>${esc(A0.name)}</b><small>${A0.kind === "key" ? "Imported private key" : "From your recovery phrase"}</small></span></div>
     <div class="ad-list">
@@ -1983,7 +1991,7 @@ function receiveView() {
       <p class="recv-n">Your ${N.name} address</p>
       ${navigator.share ? `<button class="btn sm share" data-act="share-addr">${I.send}Share address</button>` : ""}
       <button class="addr" data-act="copy-addr"><span class="mono">${esc(e.address)}</span>${I.copy}</button>
-      <p class="fine">Only send ${N.name} ${N.net} coins${N.usdc ? " or USDC" : ""} to this address. ${N.fam === "tron" ? "Tron addresses start with T. Test USDT on Nile shows with your tokens." : ""}${N.fam === "sui" ? "Sui addresses are 0x and 64 characters, different from your Ethereum one. " : ""}${N.fam === "evm" ? "The same address works on every Ethereum-style network." : ""}</p>
+      <p class="fine">Only send ${N.name} ${N.net} coins${N.usdc ? " or USDC" : ""} to this address. ${N.fam === "tron" ? (N.real ? "Tron addresses start with T. USDT shows with your tokens." : "Tron addresses start with T. Test USDT on Nile shows with your tokens.") : ""}${N.fam === "sui" ? "Sui addresses are 0x and 64 characters, different from your Ethereum one. " : ""}${N.fam === "evm" ? "The same address works on every Ethereum-style network." : ""}</p>
       ${faucetBtn(N)}
       <button class="btn sm buy-b" data-act="payreq">${I.recv}Request an amount</button>
       <button class="btn sm buy-b" data-act="panel" data-p="buy">${I.card}Buy with a card</button>
@@ -1991,7 +1999,16 @@ function receiveView() {
 }
 
 /** Protect (chequing → savings) and Withdraw (savings → chequing, after the delay). */
+/** Mainnet before the audit: the Safe isn't there yet. Says so plainly and offers Testnet to try it. */
+function safeSoonView(title) {
+  return `${phead(title)}<div class="cv"><div class="cv-art">${I.lock}</div><h2>The Safe comes to mainnet after its audit</h2>
+    <p class="sub">Your Wallet works on mainnet today: send, receive and swap. The Safe, which makes every withdrawal wait, opens on mainnet once an independent security audit is done.</p>
+    <div class="note">${I.shield}<span>Want to try it now? It runs on Testnet with free test coins, exactly as it will on mainnet.</span></div></div>
+    <div class="pfoot"><button class="btn xl" data-act="net-mode" data-v="test">Try the Safe on Testnet</button></div>`;
+}
+const noSafeHere = () => !netKeys().some(canSafe);
 function moveView() {
+  if (noSafeHere()) return safeSoonView(S.panel.p === "protect" ? "Protect" : "Withdraw");
   const P = S.panel, e = ENG, a = P.asset, isIn = P.p === "protect", v = S.vault;
   // First Safe ever: open it. Already have one elsewhere: protect straight away, it opens here as part of the deposit.
   if (!v && (!isIn || !anySafe())) return createVaultView(isIn ? "Protect" : "Withdraw");
@@ -2081,13 +2098,14 @@ function createVaultView(title) {
 /** One Safe for everything: every network that has a vault, each in its own section, with its own delay, balances
  *  and withdrawals. Actions switch to that network first, so nothing depends on the network picker. */
 function vaultView() {
+  if (noSafeHere()) return safeSoonView("Safe");
   const rows = S.all;
   if (!rows) return `${phead("Safe")}<div class="vcase safe-all"><div class="mv-top"><span class="mv-mark">${LOGO}<b>ECRIN</b></span><span class="mv-lvl">Every network</span></div><div class="sa-tot"><span class="lbl">Protected</span><b class="sk">&nbsp;</b></div></div>`;
   const mine = [ACCT?.sol?.publicKey?.toBase58?.(), ACCT?.evm?.address?.toLowerCase?.()].filter(Boolean);
   const isMine = (d) => mine.includes(String(d)) || mine.includes(String(d).toLowerCase());
   const t = now() + (S.clockOff || 0), px = (k) => S.prices[NETS[k].cg]?.usd;
   const live = rows.filter((r) => r.ok).map((r) => (r.k === S.net && S.vault !== undefined ? { ...r, v: S.vault } : r));
-  const open = live.filter((r) => r.v), closed = Object.values(NETS).filter((N) => netKeys().includes(N.key) && (N.fam === "sol" || N.contract) && !open.some((r) => r.k === N.key));
+  const open = live.filter((r) => r.v), closed = Object.values(NETS).filter((N) => netKeys().includes(N.key) && canSafe(N.key) && !open.some((r) => r.k === N.key));
   const usdOf = (r) => ((r.v.main.balance / BASE) * (px(r.k) || 0)) + ((r.v.usdc?.balance || 0) / USDC_BASE);
   const total = open.reduce((x, r) => x + usdOf(r), 0);
   const waiting = open.reduce((x, r) => x + r.v.main.withdrawals.length + (r.v.usdc?.withdrawals?.length || 0), 0);
@@ -2197,6 +2215,9 @@ function settingsView() {
       <div class="srow"><span>${I.globe}Language</span><span class="seg">${LANGS.map(([k, l]) => `<button data-act="lang" data-v="${k}" aria-pressed="${S.lang === k}">${l}</button>`).join("")}</span></div>
       <div class="srow"><span>${S.theme === "light" ? I.sun : I.moon}Appearance</span><span class="seg">${["light", "dark", "ecrin"].map((t) => `<button data-act="theme" data-v="${t}" aria-pressed="${S.theme === t}">${{ light: "Light", dark: "Dark", ecrin: "Ecrin" }[t]}</button>`).join("")}</span></div>
       ${row("panel", '<b class="nf-ico">1.2</b>', "Numbers", `${NUM_FACES.find(([k]) => k === S.nums.face)[1]} ${I.arrow}`, 'data-p="numbers"')}`)}
+    ${sec("Networks", `
+      <div class="srow"><span>${I.globe}Networks</span><span class="seg">${[["main", "Mainnet"], ["test", "Testnet"]].map(([m, l]) => `<button data-act="net-mode" data-v="${m}" aria-pressed="${(S.mode || DEFAULT_MODE) === m}">${l}</button>`).join("")}</span></div>
+      <p class="set-note">${isMain() ? "Real money on every network. The Safe comes to mainnet after its security audit; until then it runs on Testnet." : "Test coins with no value: try everything, the Safe included, for free."}</p>`)}
     ${sec("Wallet", `
       ${row("panel", I.recv, "Contacts", `${Object.values(S.book || {}).reduce((t, m) => t + Object.keys(m || {}).length, 0) || ""} ${I.arrow}`, 'data-p="contacts"')}
       ${row("report", I.spark, "Monthly report")}`)}
@@ -2215,7 +2236,7 @@ function settingsView() {
       <a class="srow" href="https://ecrinprotocol.app/privacy/" target="_blank"><span>${I.lock}Privacy</span><span class="sv">${I.ext}</span></a>
       <a class="srow" href="https://ecrinprotocol.app/terms/" target="_blank"><span>${I.card}Terms</span><span class="sv">${I.ext}</span></a>`)}
     <div class="sets danger-z"><button class="srow danger" data-act="forget"><span>Remove wallet from this browser</span><span></span></button></div>
-    <div class="set-sig">${WORDMARK("md")}<b>Wallet</b><small>Version ${VERSION} · testnet beta · not audited</small></div>`;
+    <div class="set-sig">${WORDMARK("md")}<b>Wallet</b><small>Version ${VERSION} · beta · not audited</small></div>`;
 }
 // What's new: shown once after an update (never on a fresh install), and any time from Settings → About.
 const NEWS = [
@@ -2266,11 +2287,11 @@ function revealView() {
 function toast(text, kind = "") { const t = $("#toast"); t.innerHTML = `<i class="t-ic" aria-hidden="true"></i><span>${esc(trText(text, S.lang))}</span>`; t.className = "toast show " + kind; clearTimeout(t._t); t._t = setTimeout(() => (t.className = "toast " + kind), 2600); }
 const errText = (e) => {
   const raw = String(e?.shortMessage || e?.message || e);
-  if (/429|too many requests|failed to fetch|fetch failed|networkerror|network error|timed? ?out|ECONN|\b50[234]\b|block height exceeded|blockhash not found|server error/i.test(raw)) return "The test network is busy right now. Check Activity in a minute, and try again if it didn't go through.";
-  if (/insufficient funds/i.test(raw)) return `Not enough ${NETS[S.net].unit} for this and the network fee. Use Receive to get free test coins.`;
+  if (/429|too many requests|failed to fetch|fetch failed|networkerror|network error|timed? ?out|ECONN|\b50[234]\b|block height exceeded|blockhash not found|server error/i.test(raw)) return `The ${isMain() ? "" : "test "}network is busy right now. Check Activity in a minute, and try again if it didn't go through.`;
+  if (/insufficient funds/i.test(raw)) return `Not enough ${NETS[S.net].unit} for this and the network fee. ${isMain() ? "Use Receive to add some." : "Use Receive to get free test coins."}`;
   if (/user rejected|user denied|rejected the request|cancell?ed by (the )?user|NotAllowedError/i.test(raw)) return "Cancelled. Nothing was sent.";
   if (/nonce too low|replacement (transaction )?underpriced|already known|nonce has already been used/i.test(raw)) return "Your last transaction is still going through. Wait a minute, then try again.";
-  if (/no record of a prior credit|AccountNotFound|insufficient lamports|attempt to debit an account but found no record/i.test(raw)) return `Your Wallet needs a little ${NETS[S.net].unit} to pay the network fee. Use Receive to get free test coins.`;
+  if (/no record of a prior credit|AccountNotFound|insufficient lamports|attempt to debit an account but found no record/i.test(raw)) return `Your Wallet needs a little ${NETS[S.net].unit} to pay the network fee. ${isMain() ? "Use Receive to add some." : "Use Receive to get free test coins."}`;
   if (/max fee per gas less than block base fee|fee too low|underpriced|intrinsic gas too low/i.test(raw)) return "The network fee went up while you were confirming. Try again: Ecrin will use the new fee.";
   if (/invalid address|bad address checksum|invalid public key|Invalid public key input/i.test(raw)) return "That address doesn't look right for this network. Check it and paste it again.";
   let m; try { m = ENG?.explain?.(e)?.message || raw; } catch (_) { m = raw; }
@@ -2684,6 +2705,15 @@ const actions = {
     } catch (e) { el.disabled = false; el.classList.remove("busy"); el.innerHTML = was; toast(errText(e), "err"); }
   },
   execute: async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).execute(el.dataset.a, Number(el.dataset.id), el.dataset.d); await logActivity({ t: "release", a: el.dataset.a }); loadActivity(); toast("Released to Wallet", "win"); await refresh(); loadAll(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
+  // Settings → Networks: Mainnet or Testnet. The same network family stays selected where it can (Solana ↔ Solana).
+  "net-mode": async (el) => {
+    const m = el.dataset.v; if (m === (S.mode || DEFAULT_MODE)) return;
+    const was = NETS[S.net]; S.mode = m; await local.set({ netMode: m });
+    const keys = netKeys(); S.net = keys.find((k) => NETS[k].name === was?.name) || keys[0]; await local.set({ net: S.net });
+    Object.assign(S, { bal: null, vault: undefined, all: null, extra: null, hist: null, histAt: 0, activity: null, series: {}, drawChart: true, lzT0: 0 }); ENG = null;
+    toast(m === "main" ? "Mainnet: real money" : "Testnet: test coins with no value", m === "main" ? "" : "win");
+    renderPanel(); await eng(); refresh(); loadAll(); loadActivity(); loadSeries();
+  },
   net: async (el) => { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; S.drawChart = true; closePanel(); await eng(); loadActivity(); refresh(); loadSeries(); },
   "row-send": async (el) => { if (el.dataset.n !== S.net) { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; await eng(); loadActivity(); await refresh(); } openPanel("send", { a: el.dataset.a }); const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); },
   "net-go": async (el) => { if (el.dataset.n !== S.net) await actions.net(el); else closePanel(); },
@@ -2981,7 +3011,7 @@ function payreqView() {
 let WC = null;
 const wcClient = () => (WC ||= import("./wc.js").then((m) => m.startWC({
   solAddr: ACCT?.sol?.publicKey?.toBase58?.(), evmAddr: ACCT?.evm?.address,
-  onProposal: wcProposal, onRequest: wcRequest, onChange: () => { if (S.panel?.p === "wc") renderPanel(); },
+  onProposal: wcProposal, onRequest: wcRequest, onChange: () => { if (S.panel?.p === "wc") renderPanel(); }, getMode: () => S.mode || DEFAULT_MODE,
 }).then((c) => ({ ...c, m }))).catch((e) => { WC = null; throw e; }));
 async function wcSite(meta, verify) {
   let host = "unknown app", https = false;
@@ -2998,7 +3028,7 @@ async function wcPair(uri) {
 async function wcProposal(p) {
   if (S.screen === "approve" && S.req) { try { (await wcClient()).reject(p); } catch (_) {} return; }
   const site = await wcSite(p.meta, p.verify);
-  S.req = { wc: "proposal", p, kind: "connect", fam: p.ns?.solana ? "sol" : "evm", site, origin: p.meta?.url, err: p.ns ? null : "This app asks for networks Ecrin doesn't support during the beta (Solana Devnet and the EVM test networks only)." };
+  S.req = { wc: "proposal", p, kind: "connect", fam: p.ns?.solana ? "sol" : "evm", site, origin: p.meta?.url, err: p.ns ? null : (isMain() ? "This app asks for networks Ecrin doesn't have on Mainnet." : "This app asks for networks Ecrin doesn't have on Testnet (Solana Devnet and the EVM test networks). Switch Settings → Networks to Mainnet for real networks.") };
   S.reqBack = S.screen; S.screen = "approve"; render();
 }
 async function wcRequest(r) {
@@ -3137,6 +3167,7 @@ function buyView() {
 // open when the server says so (/api/swap/status → "on"); until then the screen shows a preview. Before signing,
 // the wallet dry-runs Jupiter's transaction and refuses anything that takes more than you chose (chains.js swapSign).
 const SWAP = { live: false, feeBps: 50, api: "https://ecrinprotocol.app/api/swap", checked: 0 };
+const STAKE_APY = 0.065, STAKE_APY_TEXT = "6–7%"; // Earn (coming soon): Solana staking from the Safe
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 const SWAP_NET = "solm";
 const swapEng = () => (S.net === SWAP_NET && ENG ? ENG : engine({ web3, ethers, acct: ACCT, net: SWAP_NET, dev: {} }));
@@ -3199,6 +3230,8 @@ async function swapNow() {
 }
 
 function swapView() {
+  // Jupiter has markets on mainnet only.
+  if (!isMain()) return `${phead("Swap")}<div class="cv"><div class="cv-art">${I.swap}</div><h2>Swaps use real money</h2><p class="sub">Swaps go through Jupiter on Solana mainnet, which has no test version. Switch Settings → Networks to Mainnet to swap.</p></div>`;
   const P = S.panel, N = NETS[SWAP_NET], coins = swapCoins();
   swapStatus();
   P.from ||= coins[0]; P.to ||= coins[1];
@@ -3437,7 +3470,7 @@ function pickView() {
       if (i.merged) return `<button class="arow pk-u${P.openU ? " open" : ""}" data-act="pick-usdc" aria-expanded="${!!P.openU}"><span class="cstack">${coin("usdc")}</span><span class="ar-t"><b>${i.name}</b><small>${i.net} · ${P.openU ? "choose one" : "tap to choose"}</small></span>${right(i)}</button>
         ${P.openU ? `<div class="pk-nets">${usdNets.map((x) => `<button class="arow sub" data-act="pick-go" data-n="${x.k}" data-a="usdc" data-p="${P.back}"><span class="cstack">${coin(x.k)}</span><span class="ar-t"><b>on ${x.net}</b><small>${x === usdNets[0] ? "most here" : "&nbsp;"}</small></span>${right(x)}</button>`).join("")}</div>` : ""}`;
       return `<button class="arow" data-act="pick-go" data-n="${i.k}" data-a="${i.a}" data-p="${P.back}"><span class="cstack">${coin(i.coin)}${i.coin !== i.k ? `<span class="cmini">${coin(i.k)}</span>` : ""}</span>
-      <span class="ar-t"><b>${i.name}</b><small>${i.net}</small></span>${right(i)}</button>`; }).join("") : `<div class="empty">${I.recv}<b>Nothing here yet</b><span>${need === "sav" ? "Your Safe is empty." : "Use Receive to get free test coins."}</span></div>`}</section>`;
+      <span class="ar-t"><b>${i.name}</b><small>${i.net}</small></span>${right(i)}</button>`; }).join("") : `<div class="empty">${I.recv}<b>Nothing here yet</b><span>${need === "sav" ? "Your Safe is empty." : isMain() ? "Use Receive to add some." : "Use Receive to get free test coins."}</span></div>`}</section>`;
 }
 
 /* ------------------------------------------------------------------ the token page */

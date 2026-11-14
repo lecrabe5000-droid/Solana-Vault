@@ -52,7 +52,7 @@
   if (!window.ethereum) { try { Object.defineProperty(window, "ethereum", { value: eth, configurable: true, writable: true }); } catch (_) {} }
 
   /* ---------- Solana (Wallet Standard) ---------- */
-  const SOL_CHAINS = ["solana:devnet", "solana:testnet", "solana:localnet"];
+  const SOL_CHAINS = ["solana:mainnet", "solana:devnet", "solana:testnet", "solana:localnet"]; // the wallet answers for the mode chosen in its Settings
   const FEATS = ["solana:signAndSendTransaction", "solana:signTransaction", "solana:signMessage"];
   const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
   const b58decode = (s) => { let n = 0n; for (const c of s) n = n * 58n + BigInt(B58.indexOf(c)); const out = []; while (n > 0n) { out.unshift(Number(n & 255n)); n >>= 8n; } for (const c of s) { if (c !== "1") break; out.unshift(0); } return new Uint8Array(out); };

@@ -3143,3 +3143,4 @@ html:root[data-skin="ecrin"] .brand-sig.real i { color: #ffd27a !important; back
 :root[data-theme="dark"] .sx-soon.real { color: #ffd27a; background: rgba(255, 176, 32, .1); box-shadow: inset 0 0 0 1px rgba(255, 176, 32, .38); } :root[data-theme="dark"] .sx-soon.real i { background: #ffb020; box-shadow: 0 0 8px #ffb020; }
 .pk-search input { box-sizing: border-box; height: 46px; padding: 0 16px; border: 0; border-radius: 14px; font: inherit; font-size: 15px; color: var(--text); background: rgba(127, 127, 127, .1); box-shadow: inset 0 0 0 1px rgba(127, 127, 127, .18); outline: none; }
 .pk-search input:focus { box-shadow: inset 0 0 0 1.5px #5b7cff; }
+.set-note { margin: 0; padding: 2px 16px 12px 48px; font-size: 12.5px; line-height: 1.45; color: var(--muted); }

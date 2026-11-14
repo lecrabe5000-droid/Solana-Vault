@@ -1,17 +1,17 @@
-import { solConnection, evmProvider } from "./chains.js";
+import { solConnection, evmProvider, SOLM_RPC_BACKUPS } from "./chains.js";
+import { evmByChain, solIsMain, SOL_RPC } from "./netmode.js";
 // Requests from websites: what Ecrin shows before you approve, and how it signs once you do.
 // The rule: show exactly what would leave your wallet, in plain words, before anything is signed. Solana
 // transactions are simulated against the network (your balances before and after); Ethereum transactions and
 // signatures are read field by field, with the dangerous kinds (unlimited approvals, permits, handing over an
 // account) called out in red.
-import { EVM_NETS } from "../../app/config-evm.js";
 import { SOL_USDC } from "../../app/config-tokens.js";
 import { ed25519 } from "@noble/curves/ed25519";
 
 const TOKEN = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", TOKEN22 = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 const SYSTEM = "11111111111111111111111111111111";
 const MAX = 2n ** 255n;
-const byChain = (id) => Object.values(EVM_NETS).find((n) => n.chainId === Number(id));
+const byChain = evmByChain;
 
 /** 12345678901n, 9 → "123.45678901" (trailing zeros trimmed, at most `keep` decimals). */
 export function units(v, dec, keep = 6) {
@@ -141,15 +141,16 @@ export function makeApprovals({ web3, ethers, getAcct, getDev }) {
 
   async function solConn(chain) {
     const dev = await getDev();
-    return solConnection(web3, dev?.solRpc || "https://api.devnet.solana.com", !!dev?.solRpc);
+    if (dev?.solRpc) return solConnection(web3, dev.solRpc, true);
+    return solIsMain(chain) ? solConnection(web3, SOL_RPC.main, false, SOLM_RPC_BACKUPS) : solConnection(web3, SOL_RPC.test);
   }
 
   /** Simulates the transaction and compares your balances before and after. */
   async function previewSolTx(req) {
     const conn = await solConn(req.chain), me = getAcct().sol.publicKey, meS = me.toBase58();
-    const out = { leaves: [], gets: [], danger: [], notes: [], net: "Solana Devnet" };
+    const main = solIsMain(req.chain), out = { leaves: [], gets: [], danger: [], notes: [], net: main ? "Solana Mainnet" : "Solana Devnet" };
     const txs = req.txs.map((b) => web3.VersionedTransaction.deserialize(Uint8Array.from(b)));
-    const usdc = SOL_USDC.devnet, dev = await getDev(), usdcMint = dev?.usdcMint || usdc;
+    const usdc = main ? SOL_USDC.mainnet : SOL_USDC.devnet, dev = await getDev(), usdcMint = dev?.usdcMint || usdc;
     let feeTotal = 0;
     for (const vtx of txs) {
       const msg = vtx.message;

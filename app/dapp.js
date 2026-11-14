@@ -105,7 +105,7 @@ async function ensureChain(p, E = C.evm) {
   try { await p.request({ method: "wallet_switchEthereumChain", params: [{ chainId: want }] }); }
   catch (e) {
     if (e?.code !== 4902) throw e;
-    await p.request({ method: "wallet_addEthereumChain", params: [{ chainId: want, chainName: `${E.name} ${E.net}`, nativeCurrency: { name: E.unit, symbol: E.unit, decimals: 18 }, rpcUrls: [E.rpc], blockExplorerUrls: [E.explorer] }] });
+    await p.request({ method: "wallet_addEthereumChain", params: [{ chainId: want, chainName: `${E.name} ${E.net}`, nativeCurrency: { name: E.unit, symbol: E.unit, decimals: 18 }, rpcUrls: [E.rpc], ...(E.explorer ? { blockExplorerUrls: [E.explorer] } : {}) }] });
   }
 }
 
@@ -115,7 +115,7 @@ function evmNet(E) {
     : null;
   return {
     name: E.name, net: E.net, unit: E.unit, cg: E.cg, x: c && { ...c, explain: (e) => explainEvmError(e, c.iface) }, contract: E.address, contractWord: "contract", evm: E,
-    explorer: (kind, id) => `${E.explorer}/${kind}/${id}`,
+    explorer: (kind, id) => (E.explorer ? `${E.explorer}/${kind}/${id}` : "#"),
     faucet: E.faucet, faucetName: E.faucetName, lowBal: E.unit === "POL" ? 0.05 : E.key === "eth" ? 0.002 : 0.0005,
     setup: `In MetaMask: Settings → Advanced → turn on <b>Show test networks</b>. Ecrin asks MetaMask to switch to <b>${E.name} ${E.net}</b> for you.`,
     getWallet: ["Get MetaMask", "https://metamask.io/download/"],

@@ -6,9 +6,9 @@ import { createEvmClient, explainEvmError } from "../../app/evm.js";
 import { explainError } from "../../app/chain.js";
 import { CONFIG } from "../../app/config.js";
 import { SOL_USDC } from "../../app/config-tokens.js";
-import { EVM_NETS } from "../../app/config-evm.js";
-import { TRON, tronEngine } from "./tron.js";
-import { SUI, suiEngine } from "./sui.js";
+import { EVM_NETS, EVM_MAIN } from "../../app/config-evm.js";
+import { TRON, TRON_MAIN, tronEngine } from "./tron.js";
+import { SUI, SUI_MAIN, suiEngine } from "./sui.js";
 
 // When a network's public server is busy or down, try the next one. Only connection problems (refused, timed out,
 // rate limited, 5xx) move on to a backup; an answer from the network, even an error, is final.
@@ -48,14 +48,20 @@ export function evmProvider(ethers, E, rpcOverride) {
   return new Failover();
 }
 
+// Every network, test and main, like the network list in any major wallet. `test: true` networks show in Testnet
+// mode (Settings → Networks), the others in Mainnet mode; `real: true` marks real money. The Safe runs where a network
+// has a contract: the test networks for now, mainnet after the audit.
+const evmNet = (E, test) => [E.key, { key: E.key, fam: "evm", name: E.name, net: E.net, test, real: !test, unit: E.unit, cg: E.cg, explorer: (k, id) => (E.explorer ? `${E.explorer}/${k}/${id}` : null), usdc: E.usdc, contract: E.address, rpc: E.rpc, faucet: E.faucet, E, tokens: E.v >= 2 }];
 export const NETS = {
-  sol: { key: "sol", fam: "sol", name: "Solana", net: "Devnet", unit: "SOL", cg: "solana", explorer: (k, id) => `https://explorer.solana.com/${k}/${id}?cluster=devnet`, usdc: SOL_USDC.devnet, contract: CONFIG.programId, rpc: CONFIG.rpc, faucet: "https://faucet.solana.com" },
-  // Real money: Solana mainnet for sending, receiving and swaps. No Safe here until the program's audit.
-  solm: { key: "solm", fam: "sol", name: "Solana", net: "Mainnet", real: true, unit: "SOL", cg: "solana", explorer: (k, id) => `https://solscan.io/${k === "address" ? "account" : k}/${id}`, usdc: SOL_USDC.mainnet, contract: null, rpc: "https://ecrinprotocol.app/api/rpc/solm", faucet: null },
-  tron: TRON,
-  sui: SUI,
-  ...Object.fromEntries(Object.values(EVM_NETS).map((E) => [E.key, { key: E.key, fam: "evm", name: E.name, net: E.net, unit: E.unit, cg: E.cg, explorer: (k, id) => `${E.explorer}/${k}/${id}`, usdc: E.usdc, contract: E.address, rpc: E.rpc, faucet: E.faucet, E, tokens: E.v >= 2 }])),
+  sol: { key: "sol", fam: "sol", name: "Solana", net: "Devnet", test: true, unit: "SOL", cg: "solana", explorer: (k, id) => `https://explorer.solana.com/${k}/${id}?cluster=devnet`, usdc: SOL_USDC.devnet, contract: CONFIG.programId, rpc: CONFIG.rpc, faucet: "https://faucet.solana.com" },
+  solm: { key: "solm", fam: "sol", name: "Solana", net: "Mainnet", test: false, real: true, unit: "SOL", cg: "solana", explorer: (k, id) => `https://solscan.io/${k === "address" ? "account" : k}/${id}`, usdc: SOL_USDC.mainnet, contract: null, rpc: "https://ecrinprotocol.app/api/rpc/solm", faucet: null },
+  ...Object.fromEntries(Object.values(EVM_MAIN).map((E) => evmNet(E, false))),
+  ...Object.fromEntries(Object.values(EVM_NETS).map((E) => evmNet(E, true))),
+  tron: { ...TRON, test: true }, tronm: { ...TRON_MAIN, test: false },
+  sui: { ...SUI, test: true }, suim: { ...SUI_MAIN, test: false },
 };
+/** The networks of one mode: "main" (real money) or "test". */
+export const modeNets = (mode) => Object.keys(NETS).filter((k) => !NETS[k].test === (mode === "main"));
 export const BASE = 1e9, USDC_BASE = 1e6;
 
 const meta = (pubkey, isSigner, isWritable) => ({ pubkey, isSigner, isWritable });
@@ -72,8 +78,8 @@ function readMeta(d) {
 /** The wallet on one network. `acct` comes from keyring.deriveAccount; `dev` overrides RPC and program for local tests. */
 export function engine({ web3, ethers, acct, net, dev = {} }) {
   const N = NETS[net];
-  if (N.fam === "tron") return tronEngine({ ethers, acct, dev });
-  if (N.fam === "sui") return suiEngine({ acct, dev });
+  if (N.fam === "tron") return tronEngine({ ethers, acct, dev, N });
+  if (N.fam === "sui") return suiEngine({ acct, dev, N });
   return N.fam === "sol" ? solEngine({ web3, acct, N, dev }) : evmEngine({ ethers, acct, N, dev });
 }
 

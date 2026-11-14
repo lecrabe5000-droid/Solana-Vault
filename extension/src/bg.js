@@ -4,7 +4,7 @@
 // 2. Websites: answers requests from the page (through content.js). It never holds keys: anything that needs your
 //    approval opens an Ecrin window, which shows the site, what it asks and exactly what would leave, and signs
 //    only if you approve. The site's address always comes from Chrome (sender.url), never from the page.
-import { EVM_NETS } from "../../app/config-evm.js";
+import { getMode, evmOfMode, solIsMain, solChainFor, SOL_RPC } from "./netmode.js";
 import { check, refresh as refreshLists } from "./sitecheck.js";
 
 const lock = () => chrome.storage.session.clear();
@@ -36,8 +36,6 @@ const OWN = chrome.runtime.getURL("");
 const fromWallet = (s) => typeof s.url === "string" && s.url.startsWith(OWN); // the popup and the approval window (which Chrome counts as a tab)
 const err = (code, message) => Object.assign(new Error(message), { code });
 const REJECT = () => err(4001, "You rejected the request in Ecrin Wallet.");
-const EVMS = Object.values(EVM_NETS);
-const byChain = (id) => EVMS.find((n) => n.chainId === Number(id));
 const hex = (n) => "0x" + Number(n).toString(16);
 
 const getSites = async () => (await chrome.storage.local.get("sites")).sites || {};
@@ -93,7 +91,9 @@ async function evmRpc(net, method, params) {
 
 async function handleEvm(origin, method, params) {
   const sites = await getSites(), site = sites[origin], p = await pub();
-  const net = byChain(site?.chainId) || EVM_NETS.eth;
+  // Only the networks of the chosen mode (Settings → Networks): a site never reaches mainnet while you're on Testnet.
+  const mode = await getMode(), EVMS = evmOfMode(mode), byChain = (id) => EVMS.find((n) => n.chainId === Number(id));
+  const net = byChain(site?.chainId) || EVMS[0];
   const connected = !!site?.evm && !!p?.evm;
   switch (method) {
     case "eth_chainId": return hex(net.chainId);
@@ -113,7 +113,7 @@ async function handleEvm(origin, method, params) {
     case "wallet_revokePermissions": { const s = await getSites(); if (s[origin]) { s[origin].evm = false; await setSites(s); } broadcast(origin, "evm", "accountsChanged", []); return null; }
     case "wallet_switchEthereumChain": case "wallet_addEthereumChain": {
       const want = byChain(BigInt(params?.[0]?.chainId ?? "0x0"));
-      if (!want) throw err(4902, "Ecrin Wallet runs on test networks during the beta: Sepolia, Base Sepolia, Arbitrum Sepolia, OP Sepolia and Polygon Amoy.");
+      if (!want) throw err(4902, `Ecrin Wallet doesn't have that network in ${mode === "main" ? "Mainnet" : "Testnet"} mode. Networks: ${EVMS.map((n) => `${n.name}${mode === "main" ? "" : " " + n.net}`).join(", ")}.`);
       const s = await getSites(); s[origin] = { ...(s[origin] || {}), chainId: want.chainId }; await setSites(s);
       if (want.chainId !== net.chainId) broadcast(origin, "evm", "chainChanged", hex(want.chainId));
       return null;
@@ -155,8 +155,8 @@ async function handleSol(origin, method, params) {
     case "signTransactions": case "signMessage": {
       if (!connected) throw err(4100, "Connect Ecrin Wallet to this site first.");
       if (method === "signTransactions") {
-        const chain = String(params?.chain || "solana:devnet");
-        if (chain === "solana:mainnet" || chain === "solana:mainnet-beta") throw err(4100, "Ecrin Wallet runs on Solana Devnet during the beta.");
+        const mode = await getMode(), chain = String(params?.chain || solChainFor(mode));
+        if (solIsMain(chain) !== (mode === "main")) throw err(4100, mode === "main" ? "Ecrin Wallet is on Mainnet. Switch Settings → Networks to Testnet for test networks." : "Ecrin Wallet is on Testnet. Switch Settings → Networks to Mainnet for Solana mainnet.");
         if (!Array.isArray(params?.txs) || !params.txs.length) throw err(-32602, "No transaction to sign.");
         if (params.txs.length > 8 || params.txs.some((t) => !Array.isArray(t) || t.length > 1232 || t.some((x) => !Number.isInteger(x) || x < 0 || x > 255))) throw err(-32602, "That transaction is malformed or too large.");
         return approve({ fam: "sol", kind: "soltx", origin, site: await siteInfo(origin), txs: params.txs, send: !!params.send, chain });
@@ -216,12 +216,13 @@ chrome.alarms.onAlarm.addListener(async (a) => {
   const { pub, recvNotify, dev, seenBal = {} } = await chrome.storage.local.get(["pub", "recvNotify", "dev", "seenBal"]);
   if (!pub || recvNotify === false) return;
   const rpc = (url, method, params) => fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) }).then((r) => r.json()).then((j) => j.result);
-  const checks = [["sol", "Solana", "SOL", 1e9, () => rpc(dev?.solRpc || "https://api.devnet.solana.com", "getBalance", [pub.sol]).then((r) => r?.value)],
-    ...Object.values(EVM_NETS).map((n) => [n.key, n.name, n.unit, 1e18, () => rpc(dev?.evm?.[n.key]?.rpc || n.rpc, "eth_getBalance", [pub.evm, "latest"]).then((r) => (r ? Number(BigInt(r)) : null))])];
+  const mode = await getMode();
+  const checks = [[mode === "main" ? "solm" : "sol", "Solana", "SOL", 1e9, () => rpc(dev?.solRpc || SOL_RPC[mode], "getBalance", [pub.sol]).then((r) => r?.value)],
+    ...evmOfMode(mode).map((n) => [n.key, n.name, n.unit, 1e18, () => rpc(dev?.evm?.[n.key]?.rpc || n.rpc, "eth_getBalance", [pub.evm, "latest"]).then((r) => (r ? Number(BigInt(r)) : null))])];
   const next = { ...seenBal };
   await Promise.all(checks.map(async ([k, name, unit, base, get]) => {
     const v = await get().catch(() => null); if (v == null) return;
-    const key = `${k}:${k === "sol" ? pub.sol : pub.evm}`, was = seenBal[key];
+    const key = `${k}:${k === "sol" || k === "solm" ? pub.sol : pub.evm}`, was = seenBal[key];
     if (was != null && v > was) chrome.notifications?.create(`recv-${key}-${Date.now()}`, { type: "basic", iconUrl: "icons/128.png", title: "Ecrin Wallet", message: `Received ${+((v - was) / base).toFixed(6)} ${unit} on ${name}` });
     next[key] = v;
   }));
@@ -231,6 +232,12 @@ chrome.alarms.onAlarm.addListener(async (a) => {
 // You switched accounts in the wallet: connected sites see the new address straight away (or none, when the new
 // account has no address of that kind, e.g. an imported Solana key on an Ethereum site).
 chrome.storage.onChanged.addListener(async (ch, area) => {
+  // Settings → Networks changed: connected sites move to that mode's first network.
+  if (area === "local" && ch.netMode) {
+    const sites = await getSites(), first = evmOfMode(await getMode())[0];
+    for (const [origin, s] of Object.entries(sites)) if (s.evm) { s.chainId = first.chainId; broadcast(origin, "evm", "chainChanged", hex(first.chainId)); }
+    await setSites(sites);
+  }
   if (area !== "local" || !ch.pub) return;
   const was = ch.pub.oldValue || {}, now = ch.pub.newValue || {};
   const sites = await getSites();
