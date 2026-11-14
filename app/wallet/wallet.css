@@ -3125,6 +3125,25 @@ html:root[data-theme="light"]:not([data-skin]) .srow.danger span { color: #b4382
 .later-btn { margin-top: 8px; } .fine.center { text-align: center; margin-top: 6px; }
 .pk-nets .arow { width: 100%; } .pk-nets .arow .ar-t { flex: 1; min-width: 0; } .pk-nets .arow .ar-r { margin-left: auto; }
 
+/* Real money (Solana mainnet): a warm marker wherever it shows, so it never looks like test coins */
+.brand-sig.real i { color: #ffb020; background: rgba(255, 176, 32, .14); box-shadow: inset 0 0 0 1px rgba(255, 176, 32, .4); }
+.sx-soon.real { color: #ffd27a; background: rgba(255, 176, 32, .12); box-shadow: inset 0 0 0 1px rgba(255, 176, 32, .38); }
+.sx-soon.real i { background: #ffb020; box-shadow: 0 0 8px #ffb020; }
+:root[data-theme="light"] .sx-soon.real { color: #8a5a00 !important; box-shadow: 0 0 0 1px rgba(255, 176, 32, .6) !important; } :root[data-theme="light"] .sx-soon.real i { background: #ffb020 !important; }
+.sx-real { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; font-size: 13px; line-height: 1.45; color: var(--text); background: rgba(255, 176, 32, .1); box-shadow: inset 0 0 0 1px rgba(255, 176, 32, .35); }
+.sx-real svg { width: 18px; height: 18px; flex: none; stroke: #ffb020; }
+.sx-pickb { cursor: pointer; border: 0; background: transparent; font: inherit; color: inherit; padding: 0; text-align: left; }
+.sx-pickb > svg { width: 14px; height: 14px; opacity: .6; }
+.sx-out.ld { opacity: .45; }
+.pk-search { padding: 0 16px 8px; } .pk-search input { width: 100%; }
+:root[data-theme="light"] .brand-sig.real i { color: #8a5a00; background: rgba(255, 176, 32, .16); }
+html:root[data-skin="ecrin"] .brand-sig.real i { color: #ffd27a !important; background: rgba(255, 176, 32, .2) !important; }
+.rm-tag { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px; font: 600 9.5px var(--font); letter-spacing: .06em; text-transform: uppercase; vertical-align: 2px; color: #ffb020; background: rgba(255, 176, 32, .14); }
+:root[data-theme="light"] .rm-tag { color: #8a5a00; background: rgba(255, 176, 32, .18); }
+:root[data-theme="dark"] .sx-soon.real { color: #ffd27a; background: rgba(255, 176, 32, .1); box-shadow: inset 0 0 0 1px rgba(255, 176, 32, .38); } :root[data-theme="dark"] .sx-soon.real i { background: #ffb020; box-shadow: 0 0 8px #ffb020; }
+.pk-search input { box-sizing: border-box; height: 46px; padding: 0 16px; border: 0; border-radius: 14px; font: inherit; font-size: 15px; color: var(--text); background: rgba(127, 127, 127, .1); box-shadow: inset 0 0 0 1px rgba(127, 127, 127, .18); outline: none; }
+.pk-search input:focus { box-shadow: inset 0 0 0 1.5px #5b7cff; }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
 #root, #panel { top: 0; bottom: 0; }

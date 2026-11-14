@@ -13,9 +13,12 @@ import { SUI, suiEngine } from "./sui.js";
 // When a network's public server is busy or down, try the next one. Only connection problems (refused, timed out,
 // rate limited, 5xx) move on to a backup; an answer from the network, even an error, is final.
 export const SOL_RPC_BACKUPS = ["https://ecrinprotocol.app/api/rpc/sol"];
+// Mainnet (real money): Ecrin's route first (a private node when SOL_MAINNET_RPC is set), Solana's public server as backup.
+// Never mixed with the devnet backups.
+export const SOLM_RPC_BACKUPS = ["https://api.mainnet-beta.solana.com"];
 const busy = (r) => r.status === 429 || r.status >= 500;
-export function solConnection(web3, url, local = false) {
-  const urls = local ? [url] : [url, ...SOL_RPC_BACKUPS.filter((u) => u !== url)];
+export function solConnection(web3, url, local = false, backups = SOL_RPC_BACKUPS) {
+  const urls = local ? [url] : [url, ...backups.filter((u) => u !== url)];
   let at = 0;
   const failover = async (input, init) => {
     let last;
@@ -47,6 +50,8 @@ export function evmProvider(ethers, E, rpcOverride) {
 
 export const NETS = {
   sol: { key: "sol", fam: "sol", name: "Solana", net: "Devnet", unit: "SOL", cg: "solana", explorer: (k, id) => `https://explorer.solana.com/${k}/${id}?cluster=devnet`, usdc: SOL_USDC.devnet, contract: CONFIG.programId, rpc: CONFIG.rpc, faucet: "https://faucet.solana.com" },
+  // Real money: Solana mainnet for sending, receiving and swaps. No Safe here until the program's audit.
+  solm: { key: "solm", fam: "sol", name: "Solana", net: "Mainnet", real: true, unit: "SOL", cg: "solana", explorer: (k, id) => `https://solscan.io/${k === "address" ? "account" : k}/${id}`, usdc: SOL_USDC.mainnet, contract: null, rpc: "https://ecrinprotocol.app/api/rpc/solm", faucet: null },
   tron: TRON,
   sui: SUI,
   ...Object.fromEntries(Object.values(EVM_NETS).map((E) => [E.key, { key: E.key, fam: "evm", name: E.name, net: E.net, unit: E.unit, cg: E.cg, explorer: (k, id) => `${E.explorer}/${k}/${id}`, usdc: E.usdc, contract: E.address, rpc: E.rpc, faucet: E.faucet, E, tokens: E.v >= 2 }])),
@@ -73,9 +78,10 @@ export function engine({ web3, ethers, acct, net, dev = {} }) {
 }
 
 function solEngine({ web3, acct, N, dev }) {
-  const conn = solConnection(web3, dev.solRpc || N.rpc, !!dev.solRpc);
+  const conn = solConnection(web3, dev.solRpc || N.rpc, !!dev.solRpc, N.real ? SOLM_RPC_BACKUPS : SOL_RPC_BACKUPS);
   const programId = dev.programId || N.contract, mintAddr = dev.usdcMint || N.usdc;
-  const client = createClient({ web3, connection: conn, programId });
+  // No Safe program on this network (mainnet): the client is only used for token-account maths, never for the Safe.
+  const client = createClient({ web3, connection: conn, programId: programId || web3.SystemProgram.programId.toBase58() });
   const me = acct.sol.publicKey, kp = acct.sol;
   const mint = new web3.PublicKey(mintAddr), tok = client.token(mint);
   const TOKEN22 = new web3.PublicKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"), MPL = new web3.PublicKey("metaqbxxUerdq28cj1RAAXmS3jR5o5uKWQ1kXYp2yMR");
@@ -102,6 +108,7 @@ function solEngine({ web3, acct, N, dev }) {
       return { native, usdc };
     },
     async vault() {
+      if (!programId) return null;
       const v = await client.fetchVault(me);
       if (!v) return null;
       const t = await tok.fetch(me).catch(() => null);
@@ -141,6 +148,42 @@ function solEngine({ web3, acct, N, dev }) {
         r?.value?.forEach((acc, j) => { const md = acc?.data?.parsed?.info?.extensions?.find((x) => x.extension === "tokenMetadata")?.state; if (md) Object.assign(t22[i + j], { name: String(md.name || "").slice(0, 60), symbol: String(md.symbol || "").slice(0, 16), uri: String(md.uri || "") }); });
       }
       return out;
+    },
+    /** How many decimals a token has (read from its mint), or null if it isn't a token. */
+    async decimals(m) { const a = await conn.getParsedAccountInfo(new web3.PublicKey(m)); const d = a?.value?.data?.parsed?.info?.decimals; return Number.isInteger(d) ? d : null; },
+    /**
+     * Swap safety: before signing a swap built by Jupiter, run it on the network as a dry run and compare your
+     * accounts before and after. Refuses anything a swap shouldn't do: another signer or fee payer, more of the coin
+     * you pay leaving than you typed, any other coin leaving, a token account handed to someone else or given a
+     * spending permission, or more SOL than the swap plus fees. Returns the signed transaction (base64) if it passes.
+     */
+    async swapSign(txB64, { inMint, inRaw }) {
+      const SOL_MINT = "So11111111111111111111111111111111111111112", FEE_ROOM = 30_000_000n; // 0.03 SOL: network + priority fees and new token accounts
+      const tx = web3.VersionedTransaction.deserialize(Uint8Array.from(atob(txB64), (c) => c.charCodeAt(0)));
+      const keys = tx.message.staticAccountKeys;
+      if (!keys[0]?.equals(me) || tx.message.header.numRequiredSignatures !== 1) throw new Error("This swap asks for another signer. Ecrin refused it.");
+      const progs = [TOKEN, TOKEN22];
+      const held = (await Promise.all(progs.map((pid) => conn.getTokenAccountsByOwner(me, { programId: pid }, "confirmed").then((r) => r.value)))).flat();
+      const u64 = (d, o) => new DataView(d.buffer, d.byteOffset + o, 8).getBigUint64(0, true);
+      const pre = held.map((h) => { const d = h.account.data; return { key: h.pubkey.toBase58(), mint: new web3.PublicKey(d.slice(0, 32)).toBase58(), amount: u64(d, 64), deleg: new DataView(d.buffer, d.byteOffset + 72, 4).getUint32(0, true) }; });
+      const solPre = BigInt(await conn.getBalance(me, "confirmed"));
+      const sim = await conn.simulateTransaction(tx, { sigVerify: false, replaceRecentBlockhash: true, commitment: "confirmed", accounts: { encoding: "base64", addresses: [me.toBase58(), ...pre.map((x) => x.key)] } });
+      if (sim.value.err) throw new Error("This swap would fail right now (the price moved or a balance is short). Try again.");
+      const [solAcc, ...toks] = sim.value.accounts || [];
+      if (!solAcc) throw new Error("Couldn't check this swap. Try again.");
+      const spentSol = solPre - BigInt(solAcc.lamports), want = BigInt(inRaw);
+      if (spentSol > (inMint === SOL_MINT ? want : 0n) + FEE_ROOM) throw new Error("This swap would take more SOL than you asked. Ecrin refused it.");
+      toks.forEach((acc, i) => {
+        const p0 = pre[i]; if (!acc) { if (p0.amount > 0n && p0.mint !== inMint && p0.mint !== SOL_MINT) throw new Error("This swap would close one of your token accounts. Ecrin refused it."); return; }
+        const d = Uint8Array.from(atob(acc.data[0]), (c) => c.charCodeAt(0));
+        if (!new web3.PublicKey(d.slice(32, 64)).equals(me)) throw new Error("This swap would hand one of your token accounts to someone else. Ecrin refused it.");
+        if (new DataView(d.buffer, 72, 4).getUint32(0, true) && !p0.deleg) throw new Error("This swap would give someone permission to spend your tokens. Ecrin refused it.");
+        const out = p0.amount - u64(d, 64);
+        if (out > 0n && (p0.mint !== inMint || out > want)) throw new Error(p0.mint === inMint ? "This swap would take more than you typed. Ecrin refused it." : "This swap would take a coin you didn't choose. Ecrin refused it.");
+      });
+      tx.sign([kp]);
+      let s = ""; const b = tx.serialize(); for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+      return btoa(s);
     },
     /** Takes back a permission you gave someone to move your tokens (SPL "Revoke"). */
     revoke: (t) => run(new web3.TransactionInstruction({ programId: new web3.PublicKey(t.prog), data: Uint8Array.of(5), keys: [meta(new web3.PublicKey(t.acct), false, true), meta(me, true, false)] })),

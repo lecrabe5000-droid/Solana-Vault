@@ -372,11 +372,11 @@ function worth() {
     if (natC + natS > 0) {
       coins[N.cg] = (coins[N.cg] || 0) + (natC + natS) / BASE;
       const c = px != null ? (natC / BASE) * px : 0, v = px != null ? (natS / BASE) * px : 0; chq += c; sav += v;
-      items.push({ k: r.k, a: "native", coin: N.unit === "ETH" ? "eth" : r.k, cg: N.cg, unit: N.unit, name: COIN_NAME[N.unit] || N.unit, net: N.name, chq: natC / BASE, sav: natS / BASE, usd: px != null ? c + v : null, dec: N.unit === "SOL" ? 4 : 5 });
+      items.push({ k: r.k, a: "native", coin: N.unit === "ETH" ? "eth" : r.k === "solm" ? "sol" : r.k, cg: N.cg, unit: N.unit, name: COIN_NAME[N.unit] || N.unit, net: N.real ? `${N.name} · real money` : N.name, real: !!N.real, chq: natC / BASE, sav: natS / BASE, usd: px != null ? c + v : null, dec: N.unit === "SOL" ? 4 : 5 });
     }
     if (uC + uS > 0) {
       usdc += (uC + uS) / USDC_BASE; chq += uC / USDC_BASE; sav += uS / USDC_BASE;
-      items.push({ k: r.k, a: "usdc", coin: "usdc", cg: "usdc", unit: "USDC", name: "USD Coin", net: N.name, chq: uC / USDC_BASE, sav: uS / USDC_BASE, usd: (uC + uS) / USDC_BASE, dec: 2 });
+      items.push({ k: r.k, a: "usdc", coin: "usdc", cg: "usdc", unit: "USDC", name: "USD Coin", net: N.real ? `${N.name} · real money` : N.name, real: !!N.real, chq: uC / USDC_BASE, sav: uS / USDC_BASE, usd: (uC + uS) / USDC_BASE, dec: 2 });
     }
   }
   items.sort((x, y) => (y.usd || 0) - (x.usd || 0));
@@ -412,7 +412,7 @@ document.addEventListener("scroll", (ev) => {
 // For a new wallet: three steps that show what Ecrin is for, with progress. Gone once done or dismissed.
 // Test coins straight from Ecrin's faucet on Solana devnet; other networks link to their public faucet.
 const FAUCET_URL = "https://ecrinprotocol.app/api/faucet";
-const faucetBtn = (N, cls = "link", label = `Get free test ${N.unit}`) => N.key === "sol" ? `<button class="${cls} fau-b" data-act="faucet">${label}</button>` : `<a class="${cls}" href="${N.faucet}" target="_blank">${label} ${I.ext}</a>`;
+const faucetBtn = (N, cls = "link", label = `Get free test ${N.unit}`) => N.real || !N.faucet && N.key !== "sol" ? "" : N.key === "sol" ? `<button class="${cls} fau-b" data-act="faucet">${label}</button>` : `<a class="${cls}" href="${N.faucet}" target="_blank">${label} ${I.ext}</a>`;
 function startCard(w) {
   if (S.obHide || !w.ready) return "";
   const acts = S.activity || [], did = (t) => acts.some((e) => t.includes(e.t));
@@ -907,7 +907,7 @@ function welcome() {
     <div class="onb-art">${welcomeArt()}</div>
     <div class="onb-copy"><h1 class="onb-wm">${WORDMARK("lg")}<span class="sr-only">Ecrin Wallet</span></h1><p>Set up takes a minute, in a full tab with room for your recovery phrase.</p></div>
     <div class="onb-acts"><button class="btn primary xl" data-act="open-full">Set up in a new tab</button><button class="link center" data-act="stay-popup">Continue here instead</button></div>
-    <p class="fine">Testnet beta · not audited · test coins only</p></div>`;
+    <p class="fine">Beta · not audited · Solana mainnet is real money, every other network is test coins</p></div>`;
   if (S.tour != null && S.tour < TOUR.length) return tourView();
   if (S.tour === TOUR.length && S.askGoal) return goalView();
   return `<div class="onb onb-w"><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
@@ -918,7 +918,7 @@ function welcome() {
       <button class="btn ghost xl" data-act="start-import">I have a recovery phrase</button>
       ${globalThis.ECRIN_DEMO ? `<button class="link center" data-act="demo-quick">Skip setup: open a demo wallet ${I.arrow}</button>` : ""}
     </div>
-    <p class="fine">Testnet beta · not audited · test coins only</p>
+    <p class="fine">Beta · not audited · Solana mainnet is real money, every other network is test coins</p>
   </div>`;
 }
 
@@ -1037,7 +1037,7 @@ function homeView() {
     </header>
     ${S.err ? `<div class="banner">${esc(S.err)}</div>` : ""}
     ${S.offline ? `<div class="offline"><i></i>You're offline · showing your last balances</div>` : ""}${updateBanner()}${backupCard()}
-    <div class="brand-sig" title="Test networks only: these coins have no value">${WORDMARK()}<i>Testnet</i></div>
+    ${NETS[S.net].real ? `<div class="brand-sig real" title="Solana mainnet: these coins are real money">${WORDMARK()}<i>Real money</i></div>` : `<div class="brand-sig" title="Test networks: these coins have no value">${WORDMARK()}<i>Testnet</i></div>`}
     <section class="hero"><svg class="hero-g" viewBox="0 0 360 230" preserveAspectRatio="xMidYMin slice" aria-hidden="true">${Array.from({ length: 30 }, (_, i) => `<ellipse cx="${180 + Math.sin(i / 2.6) * 6}" cy="${-10 + Math.cos(i / 2.6) * 4}" rx="${40 + i * 9}" ry="${22 + i * 6.2}"/>`).join("")}</svg>
       <div class="lz-wrap">${lozenge(w, loading)}
         <div class="lz-in">
@@ -1110,11 +1110,12 @@ function tokenList(w) {
   let items = S.hideSmall ? w.items.filter((i) => !(i.usd != null && i.usd < 1)) : w.items;
   if (S.order === "name") items = [...items].sort((x, y) => x.name.localeCompare(y.name));
   const hidden = w.items.length - items.length;
-  const groups = {}; for (const i of items) (groups[i.unit] ||= []).push(i);
+  // Real money never merges with test coins of the same name: it gets its own row.
+  const groups = {}; for (const i of items) (groups[i.unit + (i.real ? ":real" : "")] ||= []).push(i);
   const row = (i, sub) => {
     const p = i.a === "usdc" ? { usd: 1 } : S.prices[i.cg], ch = i.a === "usdc" ? null : p?.usd_24h_change;
     return `<button class="arow" data-act="tok" data-u="${i.unit}" data-n="${i.k}"><span class="cstack">${coin(i.coin)}${i.coin !== i.k ? `<span class="cmini">${coin(i.k)}</span>` : ""}</span>
-      <span class="ar-t"><b>${cdot(i.unit)}${i.name}</b><small>${i.a === "usdc" ? i.net : p?.usd != null ? `<span data-pk="p:${i.cg}" class="px${S.prevPx?.[i.cg] != null && S.prevPx[i.cg] !== p.usd ? (p.usd > S.prevPx[i.cg] ? " flash-up" : " flash-dn") : ""}">${money(p.usd)}</span>` : i.net}${ch != null ? ` <span class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</span>` : ""}</small></span>
+      <span class="ar-t"><b>${cdot(i.unit)}${i.name}${i.real ? `<span class="rm-tag">Real money</span>` : ""}</b><small>${i.a === "usdc" ? i.net : p?.usd != null ? `<span data-pk="p:${i.cg}" class="px${S.prevPx?.[i.cg] != null && S.prevPx[i.cg] !== p.usd ? (p.usd > S.prevPx[i.cg] ? " flash-up" : " flash-dn") : ""}">${money(p.usd)}</span>` : i.net}${ch != null ? ` <span class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</span>` : ""}</small></span>
       ${spark(i.cg)}<span class="ar-r"><b data-pk="v:${i.unit}:${i.k}">${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}${i.sav ? ` <span class="sv">${I.lock}${mask(n(i.sav, i.dec))}</span>` : ""}</small></span></button>`.replace('class="arow"', `class="arow${sub ? " sub" : ""}"`);
   };
   const out = Object.values(groups).map((g) => {
@@ -1748,6 +1749,7 @@ function sendView() {
         ${self ? `<p class="warn-n">That's your own address.</p>` : P.fresh ? `<p class="warn-n">${I.shield}<span>You've never sent to this address from Ecrin. Check the first and last characters against where you copied it.</span></p>` : ""}
       </div>
       ${P.coolUntil > Date.now() ? `<div class="cool"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17"/><circle class="cl-p" cx="20" cy="20" r="17" style="stroke-dashoffset:${(106.8 * (P.coolUntil - Date.now())) / (S.guard.cool * 1000)}"/></svg><span><b data-cool>${Math.ceil((P.coolUntil - Date.now()) / 1000)}s</b><small>Cooling-off pause for big sends. Take a breath: is this really who you think it is?</small></span></div>` : ""}
+      ${NETS[S.net].real ? `<div class="sx-real">${I.warn}<span><b>Real money.</b> This is Solana mainnet. Sent coins can't be brought back.</span></div>` : ""}
       <div class="pfoot">${P.coolUntil > Date.now() ? `<button class="hold" disabled><span class="hold-t">${I.clock}Wait for the pause</span></button>` : hold(P.step === "sending" ? "Sending…" : "Hold to send", P.step === "sending")}</div>`;
   }
   const nm = P.named && P.named.name === P.to.trim() ? P.named : null, nmOk = !!(nm?.addr && e.isAddress(nm.addr));
@@ -2028,7 +2030,7 @@ function moveView() {
    Each network keeps its own Safe account (that's how blockchains work), but you only ever open one Safe: "Open my
    Safe" opens it on every network where you have coins for the fee, and any other network opens on its own, with the
    same rules, the first time you protect something there. */
-const canSafe = (k) => NETS[k] && (NETS[k].fam === "sol" || !!NETS[k].contract);
+const canSafe = (k) => !!NETS[k]?.contract; // Solana devnet has its program; mainnet (real money) waits for the audit
 const openRows = () => (S.all || []).filter((r) => r.ok && (r.k === S.net && S.vault !== undefined ? S.vault : r.v));
 const anySafe = () => !!S.vault || openRows().length > 0;
 /** The rules your Safe already uses (from any network), so a new network gets the same. */
@@ -2527,11 +2529,16 @@ const actions = {
     try { const { phrase } = await session.get("phrase"); const box = await bioEnable(phrase); await local.set({ bio: box }); S.bio = box; toast(`${bioName()} is on`, "win"); renderPanel(); }
     catch (e) { if (e?.name !== "NotAllowedError") toast(e?.message || `Couldn't turn on ${bioName()}`, "err"); }
   },
-  "swap-flip": async () => { const P = S.panel, px = S.prices.solana?.usd, v = Number(String(P.amount || "").replace(/,/g, ""));
-    // what you would have received becomes what you pay, like every swap screen
-    P.amount = px && v > 0 ? String(+(P.asset === "usdc" ? v / px : v * px).toFixed(P.asset === "usdc" ? 4 : 2)) : "";
-    P.asset = P.asset === "usdc" ? "native" : "usdc"; P.pct = null; P.flipped = true; P.reserve = await (await eng()).reserve(P.asset); renderPanel(); },
-  "swap-sol": async () => { await useNet("sol"); S.panel = null; openPanel("swap"); const e = await eng(); S.panel.reserve = await e.reserve("native"); renderPanel(); },
+  "swap-flip": () => { const P = S.panel; [P.from, P.to] = [P.to, P.from]; P.amount = ""; P.pct = null; P.flipped = true; P.quote = null; renderPanel(); },
+  "swap-pick": (el) => { const P = S.panel; P.pick = el.dataset.v; P.sq = ""; P.found = []; renderPanel(); },
+  "swap-choose": async (el) => {
+    const P = S.panel, c = { ...(el.dataset.src === "h" ? swapCoins()[Number(el.dataset.i)] : P.found[Number(el.dataset.i)]) };
+    if (c.dec == null) { c.dec = await swapEng().decimals?.(c.mint).catch(() => null); if (!Number.isInteger(c.dec)) return toast("Couldn't read this token. Try another.", "err"); }
+    c.raw ||= "0"; P[P.pick] = c; P.pick = null; P.amount = ""; P.pct = null; P.quote = null; renderPanel();
+  },
+  "swap-pct": (el) => { const P = S.panel, p = BigInt(el.dataset.v), m = swapMaxRaw(P.from), u = (m * p) / 100n; P.pct = Number(p); P.amount = u ? String(fromRaw(u, P.from.dec)) : ""; swapQuoteSoon(0); },
+  "swap-review": () => { const P = S.panel; if (!P.quote) return; P.step = "review"; renderPanel(); },
+  "swap-sol": async () => { await useNet(SWAP_NET); S.panel = null; openPanel("swap"); const e = await eng(); S.panel.reserve = await e.reserve("native"); renderPanel(); },
   "ap-ok": async (el) => {
     const R = S.req; if (!R || R.busy) return;
     if (R.kind === "connect" && S.guard.bet && isBetting(R.site?.host) && !(await betCheck(R.site.host))) return actions["ap-no"]();
@@ -2728,6 +2735,7 @@ async function xSendNow() {
 }
 async function confirmSend() {
   if (S.panel?.p === "xtok") return xSendNow();
+  if (S.panel?.p === "swap") return swapNow();
   const P = S.panel, units = parseAmt(P.amount, P.asset), to = P.to.trim();
   P.sent = units;
   const lim = await limitCheck(usdOf(units, P.asset)); if (lim) { P.step = "form"; renderPanel(); return toast(lim, "err"); }
@@ -2758,6 +2766,8 @@ document.addEventListener("input", (e) => {
     const v = t.value.replace(/[^\d.,]/g, "").replace(",", "."), parts = v.split(".");
     S.panel.amount = parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : v; S.panel.pct = null;
     const pos = t.selectionStart; if (t.value !== S.panel.amount) { t.value = S.panel.amount; try { t.setSelectionRange(Math.min(pos, t.value.length), Math.min(pos, t.value.length)); } catch (_) {} } patchPanel();
+    if (S.panel.p === "swap") swapQuoteSoon();
+  } else if (t.matches("[data-swapq]")) { swapSearch(t.value);
   } else if (t.matches("[data-reqamt]") || t.matches("[data-reqlabel]")) { const k = t.matches("[data-reqamt]") ? "amount" : "label", sel = k === "amount" ? "[data-reqamt]" : "[data-reqlabel]"; S.panel[k] = k === "amount" ? t.value.replace(/[^\d.,]/g, "").replace(",", ".") : t.value; const pos = t.selectionStart; renderPanel(); const n = $("#panel " + sel); n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {}
   } else if (t.matches("[data-to]") && (/^wc:/i.test(t.value.trim()) || parsePayLink(t.value))) { const v = t.value.trim(); t.value = ""; onScanned(v);
   } else if (t.matches("[data-to]")) { lookupTo(t.value); S.panel.to = t.value; patchPanel(); }
@@ -3123,41 +3133,152 @@ function buyView() {
       <div class="note">${I.shield}<span>Ecrin never sees your card details: the partner handles payment and identity checks.</span></div>
       ${faucetBtn(N, "btn xl", `Get free test ${N.unit} for now`)}</div>`;
 }
-const SWAP = { live: false, feeBps: 50, api: "https://ecrinprotocol.app/api/swap" };
-const STAKE_APY = 0.065, STAKE_APY_TEXT = "6–7%";
+// Swaps run on Solana mainnet (real money) through Jupiter, with Ecrin's fee, via ecrinprotocol.app/api/swap. They
+// open when the server says so (/api/swap/status → "on"); until then the screen shows a preview. Before signing,
+// the wallet dry-runs Jupiter's transaction and refuses anything that takes more than you chose (chains.js swapSign).
+const SWAP = { live: false, feeBps: 50, api: "https://ecrinprotocol.app/api/swap", checked: 0 };
+const SOL_MINT = "So11111111111111111111111111111111111111112";
+const SWAP_NET = "solm";
+const swapEng = () => (S.net === SWAP_NET && ENG ? ENG : engine({ web3, ethers, acct: ACCT, net: SWAP_NET, dev: {} }));
+async function swapStatus() {
+  if (Date.now() - SWAP.checked < 60_000) return;
+  SWAP.checked = Date.now();
+  try { const r = await fetch(SWAP.api + "/status", { cache: "no-store" }); const d = await r.json(); SWAP.live = d.mode === "on"; SWAP.feeBps = Number(d.feeBps) || 50; } catch (_) {}
+  if (S.panel?.p === "swap") renderPanel();
+}
+const toRaw = (s, dec) => { const m = /^(\d*)(?:\.(\d*))?$/.exec(String(s || "").trim()); if (!m || (!m[1] && !m[2])) return 0n; const f = (m[2] || "").slice(0, dec).padEnd(dec, "0"); return BigInt((m[1] || "0") + f); };
+const fromRaw = (r, dec) => Number(r) / 10 ** dec;
+/** The coins you can swap on mainnet: SOL, USDC, then every token this wallet holds there. */
+function swapCoins() {
+  const N = NETS[SWAP_NET], list = [{ mint: SOL_MINT, sym: "SOL", name: "Solana", dec: 9, raw: String(Math.max(0, (S.net === SWAP_NET ? S.bal?.native : S.all?.find((r) => r.k === SWAP_NET)?.b?.native) || 0)), logo: "sol" },
+    { mint: N.usdc, sym: "USDC", name: "USD Coin", dec: 6, raw: String((S.net === SWAP_NET ? S.bal?.usdc : S.all?.find((r) => r.k === SWAP_NET)?.b?.usdc) || 0), logo: "usdc" }];
+  for (const t of S.extra || []) if (t.k === SWAP_NET && !t.nft && t.mint !== N.usdc) list.push({ mint: t.mint, sym: t.symbol || "Token", name: t.name || t.symbol || short(t.mint), dec: t.dec, raw: t.raw, icon: t.icon });
+  return list;
+}
+const swapIc = (c) => (c?.logo ? coin(c.logo) : c?.icon ? `<img class="coin" src="${esc(c.icon)}" alt="" referrerpolicy="no-referrer"/>` : `<span class="coin tk-l">${esc((c?.sym || "?").slice(0, 1))}</span>`);
+/** Reserve 0.01 SOL for fees when paying with SOL. */
+const swapMaxRaw = (c) => { const r = BigInt(c?.raw || 0); return c?.mint === SOL_MINT ? (r > 10_000_000n ? r - 10_000_000n : 0n) : r; };
+function swapQuoteSoon(ms = 400) {
+  const P = S.panel; if (!P || P.p !== "swap") return;
+  clearTimeout(S.swapT); const mine = (P.qSeq = (P.qSeq || 0) + 1); P.quote = null; P.qErr = null;
+  const raw = toRaw(P.amount, P.from.dec); if (!raw || !SWAP.live) { patchPanel(); return; }
+  P.quoting = true; patchPanel();
+  S.swapT = setTimeout(async () => {
+    try {
+      const r = await fetch(`${SWAP.api}?` + new URLSearchParams({ inputMint: P.from.mint, outputMint: P.to.mint, amount: String(raw) }), { cache: "no-store" });
+      const d = await r.json().catch(() => ({}));
+      if (P.qSeq !== mine || S.panel !== P) return;
+      if (!r.ok || !d.outAmount) throw new Error((typeof d.error === "string" ? d.error : d.error?.message) || d.errorMessage || "No price for this pair right now");
+      P.quote = d;
+    } catch (e) { if (P.qSeq === mine) P.qErr = e.message || "No price right now"; }
+    if (P.qSeq === mine && S.panel === P) { P.quoting = false; renderPanel(); }
+  }, ms);
+}
+const SWAP_ERR = { 1: "Not enough balance for this swap.", 2: "You need a little SOL for network fees (about 0.01 SOL).", 3: "That amount is too small to swap." };
+async function swapNow() {
+  const P = S.panel, raw = toRaw(P.amount, P.from.dec);
+  if (S.upd?.must) return toast("A security update is required before you can swap. Update Ecrin Wallet first.", "err");
+  if (!raw) return;
+  const usd = P.quote?.inUsdValue ? Number(P.quote.inUsdValue) : null, lim = await limitCheck(usd); if (lim) { P.step = "form"; renderPanel(); return toast(lim, "err"); }
+  P.step = "sending"; renderPanel();
+  try {
+    const { dev } = await local.get("dev"), e = swapEng();
+    const r = await fetch(`${SWAP.api}?` + new URLSearchParams({ inputMint: P.from.mint, outputMint: P.to.mint, amount: String(raw), taker: e.address }), { cache: "no-store" });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || !d.transaction) throw new Error(SWAP_ERR[d.errorCode] || (typeof d.error === "string" ? d.error : d.error?.message) || d.errorMessage || "Jupiter couldn't build this swap. Try again.");
+    const signed = await e.swapSign(d.transaction, { inMint: P.from.mint, inRaw: String(raw) });
+    const x = await fetch(SWAP.api, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ signedTransaction: signed, requestId: d.requestId }) });
+    const res = await x.json().catch(() => ({}));
+    if (res.status !== "Success") throw new Error(res.error || "The swap didn't go through" + (res.code ? ` (${res.code})` : "") + ". Nothing left your wallet.");
+    P.sig = res.signature || null; P.got = d.outAmount; P.step = "done"; haptic("success");
+    await logActivity({ t: "swap", k: SWAP_NET, from: P.from.sym, to: P.to.sym, sig: P.sig });
+    if (usd != null) await countSpend(usd);
+    refresh().then(() => { loadActivity(); loadAll(); loadExtras(dev || {}); });
+  } catch (err) { console.warn(err); P.step = "form"; toast(errText(err), "err"); }
+  renderPanel();
+}
 
 function swapView() {
-  const P = S.panel, N = NETS[S.net];
-  if (N.fam !== "sol") return `${phead("Swap")}<div class="cv"><div class="cv-art">${I.swap}</div><h2>Swaps start on Solana</h2><p class="sub">Swap any Solana coin at the best price across every exchange, through Jupiter. Ethereum-style networks come later.</p></div><div class="pfoot"><button class="btn primary xl" data-act="swap-sol">Go to Solana</button></div>`;
-  const a = P.asset, b = a === "usdc" ? "native" : "usdc", units = parseAmt(P.amount, a), px = S.prices.solana?.usd;
-  const fee = SWAP.feeBps / 10_000, inAmt = units / A(a).base;
-  const out = px && inAmt ? (a === "native" ? inAmt * px : inAmt / px) * (1 - fee) : 0;
-  const rate = px ? `1 SOL ≈ ${money(px)}` : "—";
-  const max = sendMax(), over = units > max, usdIn = usdOf(units, a), usdOut = out && px ? (b === "usdc" ? out : out * px) : null;
-  const bal = (x) => amt(Math.max(0, x === a ? max : (S.bal?.[x] || 0)), x);
-  const chip = (x) => `<span class="sx-coin">${assetCoin(x)}<b>${A(x).unit}</b><small>${x === "usdc" ? "USD Coin" : N.name}</small></span>`;
+  const P = S.panel, N = NETS[SWAP_NET], coins = swapCoins();
+  swapStatus();
+  P.from ||= coins[0]; P.to ||= coins[1];
+  const fresh = (c) => coins.find((x) => x.mint === c.mint) || { ...c, raw: "0" };
+  P.from = fresh(P.from); P.to = fresh(P.to);
+  if (P.step === "done") return doneView("Swapped", `${esc(P.amount)} ${esc(P.from.sym)} for ${fromRaw(P.got || 0, P.to.dec).toLocaleString("en-US", { maximumFractionDigits: P.to.dec > 4 ? 4 : P.to.dec })} ${esc(P.to.sym)}.`, `<p class="fine">On Solana mainnet. It shows in your Wallet in a few seconds.</p>`)
+    .replace(NETS[S.net].explorer("tx", P.sig || ""), N.explorer("tx", P.sig || ""));
+  if (P.pick) return swapPickView();
+  const raw = toRaw(P.amount, P.from.dec), max = swapMaxRaw(P.from), over = raw > max, q = P.quote;
+  const out = q ? fromRaw(q.outAmount, P.to.dec) : 0, inAmt = fromRaw(raw, P.from.dec);
+  const inUsd = q && Number(q.inUsdValue) > 0 ? Number(q.inUsdValue) : null, outUsd = q && Number(q.outUsdValue) > 0 ? Number(q.outUsdValue) : null;
+  const loss = inUsd && outUsd ? Math.max(0, (1 - outUsd / inUsd) * 100) : null;
+  const nf = (v, d) => v.toLocaleString("en-US", { maximumFractionDigits: d });
+  const bal = (c) => nf(fromRaw(c.raw, c.dec), c.dec > 4 ? 4 : c.dec);
+  const chip = (side, c) => `<button class="sx-coin sx-pickb" data-act="swap-pick" data-v="${side}">${swapIc(c)}<b>${esc(c.sym)}</b><small>${esc(c.name)}</small>${I.chev}</button>`;
+  const btn = !SWAP.live ? "Coming soon" : !raw ? "Enter an amount" : over ? `Not enough ${esc(P.from.sym)}` : P.quoting || !q ? (P.qErr ? "No price right now" : "Getting the best price…") : `Review swap`;
+  if (P.step === "review" || P.step === "sending") return `${phead("Review swap")}
+    <div class="sx sx-rv">
+      <div class="sx-real">${I.warn}<span><b>Real money.</b> This swap happens on Solana mainnet and can't be undone.</span></div>
+      <div class="tk-info"><div><span>You pay</span><b>${nf(inAmt, 6)} ${esc(P.from.sym)}${inUsd ? ` · ${money(inUsd)}` : ""}</b></div>
+        <div><span>You receive about</span><b>${nf(out, 6)} ${esc(P.to.sym)}${outUsd ? ` · ${money(outUsd)}` : ""}</b></div>
+        <div><span>Price impact + fees</span><b class="${loss >= 10 ? "bad" : ""}">${loss == null ? "—" : loss < 0.1 ? "< 0.1%" : "−" + loss.toFixed(loss < 10 ? 2 : 1) + "%"}</b></div>
+        <div><span>Ecrin fee</span><b>${(SWAP.feeBps / 100).toFixed(1)}% (included)</b></div>
+        <div><span>Route</span><b>Jupiter${q?.router ? " · " + esc(String(q.router)) : ""}</b></div></div>
+      ${loss >= 10 ? `<p class="err">You'd lose ${loss.toFixed(0)}% to price impact. This coin has very little trading; try a smaller amount.</p>` : ""}
+      <div class="sx-note">${I.shield}<span>Before you sign, Ecrin checks the swap on the network and refuses it if more would leave than you chose.</span></div>
+    </div><div class="pfoot">${hold(P.step === "sending" ? "Swapping…" : "Hold to swap", P.step === "sending")}</div>`;
   return `${phead("Swap")}
   <div class="sx">
     <div class="sf-aura" aria-hidden="true" style="${auraT()}"><i></i><i></i><i></i></div>
-    <div class="sx-soon"><i></i>Preview · swaps open with mainnet</div>
+    <div class="sx-soon${SWAP.live ? " real" : ""}"><i></i>${SWAP.live ? "Solana mainnet · real money" : "Preview · swaps are being switched on"}</div>
     <div class="sx-pair">
       <div class="sx-card${over ? " over" : ""}">
-        <div class="sx-top"><span class="sx-k">You pay</span><span class="sx-bal">Balance ${bal(a)} ${A(a).unit}</span></div>
-        <div class="sx-row">${chip(a)}<input class="sx-in" data-amount inputmode="decimal" placeholder="0" value="${esc(P.amount)}" autocomplete="off" autofocus/></div>
-        <div class="sx-foot"><span class="sx-pcts">${[25, 50, 100].map((v) => `<button data-act="pct" data-v="${v}" class="${P.pct === v ? "on" : ""}">${v === 100 ? "Max" : v + "%"}</button>`).join("")}</span><span class="sx-usd">${over ? `<span class="bad">Not enough</span>` : usdIn != null && units ? money(usdIn) : ""}</span></div>
+        <div class="sx-top"><span class="sx-k">You pay</span><span class="sx-bal">Balance ${bal(P.from)} ${esc(P.from.sym)}</span></div>
+        <div class="sx-row">${chip("from", P.from)}<input class="sx-in" data-amount inputmode="decimal" placeholder="0" value="${esc(P.amount)}" autocomplete="off" autofocus/></div>
+        <div class="sx-foot"><span class="sx-pcts">${[25, 50, 100].map((v) => `<button data-act="swap-pct" data-v="${v}" class="${P.pct === v ? "on" : ""}">${v === 100 ? "Max" : v + "%"}</button>`).join("")}</span><span class="sx-usd">${over ? `<span class="bad">Not enough</span>` : inUsd ? money(inUsd) : ""}</span></div>
       </div>
       <button class="sx-flip${P.flipped ? " spun" : ""}" data-act="swap-flip" aria-label="Swap direction"><svg viewBox="0 0 24 24"><path d="M8 4v15M8 19l-4-4M8 19l4-4M16 20V5M16 5l-4 4M16 5l4 4"/></svg></button>
       <div class="sx-card to">
-        <div class="sx-top"><span class="sx-k">You receive</span><span class="sx-bal">Balance ${bal(b)} ${A(b).unit}</span></div>
-        <div class="sx-row">${chip(b)}<b class="sx-out${out ? "" : " zero"}">${out ? out.toLocaleString("en-US", { maximumFractionDigits: b === "usdc" ? 2 : 4 }) : "0"}</b></div>
-        <div class="sx-foot"><span class="sx-est">Estimate</span><span class="sx-usd">${usdOut != null ? money(usdOut) : ""}</span></div>
+        <div class="sx-top"><span class="sx-k">You receive</span><span class="sx-bal">Balance ${bal(P.to)} ${esc(P.to.sym)}</span></div>
+        <div class="sx-row">${chip("to", P.to)}<b class="sx-out${out ? "" : " zero"}${P.quoting ? " ld" : ""}">${out ? nf(out, P.to.dec > 4 ? 4 : P.to.dec) : "0"}</b></div>
+        <div class="sx-foot"><span class="sx-est">${P.qErr ? `<span class="bad">${esc(P.qErr)}</span>` : "Estimate"}</span><span class="sx-usd">${outUsd ? money(outUsd) : ""}</span></div>
       </div>
     </div>
-    <div class="sx-rate"><span class="sx-live"><i></i>${rate}</span><span class="sx-route">Best price via Jupiter</span></div>
-    <div class="sx-kv"><div><span>Ecrin fee</span><b>${(SWAP.feeBps / 100).toFixed(1)}%</b></div><div><span>Network fee</span><b>${N.unit === "SOL" ? "< 0.001 SOL" : "—"}</b></div><div><span>Price protection</span><b>0.5% max slippage</b></div></div>
-    <div class="sx-note">${I.lock}<span>Swaps use your Wallet only. Money in your Safe never moves without its delay.</span></div>
-    ${(P.flipped = false, "")}<button class="sx-go" ${SWAP.live && units && !over ? "" : "disabled"}>${SWAP.live ? (units ? (over ? "Not enough " + A(a).unit : "Swap") : "Enter an amount") : "Coming soon"}</button>
+    <div class="sx-rate"><span class="sx-live"><i></i>${q && inAmt && out ? `1 ${esc(P.from.sym)} ≈ ${nf(out / inAmt, 6)} ${esc(P.to.sym)}` : "Best price"}</span><span class="sx-route">via Jupiter</span></div>
+    <div class="sx-kv"><div><span>Ecrin fee</span><b>${(SWAP.feeBps / 100).toFixed(1)}%</b></div><div><span>Network fee</span><b>&lt; 0.001 SOL</b></div><div><span>Price impact</span><b>${loss == null ? "—" : loss < 0.1 ? "< 0.1%" : loss.toFixed(2) + "%"}</b></div></div>
+    <div class="sx-note">${I.lock}<span>Swaps use your Wallet on Solana mainnet. Money in your Safe never moves without its delay.</span></div>
+    ${(P.flipped = false, "")}<button class="sx-go" data-act="swap-review" ${SWAP.live && raw && !over && q ? "" : "disabled"}>${btn}</button>
   </div>`;
+}
+/** Picking a coin: what you hold on mainnet first, then search any Solana token by name. */
+function swapPickView() {
+  const P = S.panel, side = P.pick, other = side === "from" ? P.to : P.from, held = swapCoins();
+  const row = (c, i, src) => `<button class="arow" data-act="swap-choose" data-src="${src}" data-i="${i}" ${c.mint === other.mint ? "disabled" : ""}>${swapIc(c)}<span class="ar-t"><b>${esc(c.sym)}</b><small>${esc(c.name)}</small></span>
+    <span class="ar-r">${src === "h" ? `<b>${(fromRaw(c.raw, c.dec)).toLocaleString("en-US", { maximumFractionDigits: 4 })}</b>` : c.price ? `<b>${money(c.price)}</b><small>${c.liq ? "liquidity " + money(c.liq) : ""}</small>` : ""}</span></button>`;
+  const found = P.found || [];
+  return `${phead(side === "from" ? "You pay" : "You receive")}
+    <div class="pk-search"><input data-swapq placeholder="Search any Solana token by name" value="${esc(P.sq || "")}" autocomplete="off" autofocus/></div>
+    ${P.sq && P.sq.trim().length >= 2 ? `<section class="list">${P.searching ? `<p class="fine pad">Searching…</p>` : found.length ? found.map((c, i) => row(c, i, "f")).join("") : `<p class="fine pad">No Solana token by that name. Paste its address instead.</p>`}</section>
+      <p class="fine pad">Several tokens can share a name. Check the liquidity: copies usually have very little.</p>`
+    : `<section class="list">${(side === "to" ? held : held.filter((c) => BigInt(c.raw) > 0n || c.mint === SOL_MINT)).map((c, i) => row(c, held.indexOf(c), "h")).join("")}</section>`}`;
+}
+async function swapSearch(q) {
+  const P = S.panel; P.sq = q; clearTimeout(S.swapQT);
+  if (q.trim().length < 2) { P.found = []; return renderPanel(); }
+  P.searching = true;
+  S.swapQT = setTimeout(async () => {
+    const v = q.trim(); let list = [];
+    try {
+      if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(v)) {
+        const d = await swapEng().decimals?.(v).catch(() => null); // an address pasted: the chain says how many decimals
+        if (Number.isInteger(d)) list = [{ mint: v, sym: short(v), name: "Token by address", dec: d }];
+      } else {
+        const r = await fetch(`https://ecrinprotocol.app/api/tokens?` + new URLSearchParams({ q: v, chain: "solana" })); const d = await r.json();
+        list = (d.tokens || d || []).slice?.(0, 8).map((t) => ({ mint: t.address, sym: t.symbol, name: t.name, price: t.price, liq: t.liq, icon: t.icon, dec: null })) || [];
+      }
+    } catch (_) {}
+    if (S.panel !== P || P.sq !== q) return;
+    P.found = list; P.searching = false; renderPanel();
+  }, 300);
 }
 
 function earnView() {

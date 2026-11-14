@@ -1,1 +1,1 @@
-{"latest": "0.24.0", "minimum": "0.2.0", "notes": "Sui is here: send and receive SUI and USDC with the same recovery phrase."}
+{"latest": "0.25.0", "minimum": "0.2.0", "notes": "Swap on Solana mainnet (real money), checked before you sign. Solana mainnet joins the wallet for sending and receiving."}
