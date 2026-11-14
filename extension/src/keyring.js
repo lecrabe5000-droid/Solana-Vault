@@ -1,5 +1,6 @@
 // Ecrin Wallet keys. One 12-word recovery phrase (BIP-39) gives one account on every network:
 // - Solana: SLIP-0010 ed25519 at m/44'/501'/i'/0' (the path Phantom and Solflare use), so the same phrase works there.
+// - Sui: SLIP-0010 ed25519 at m/44'/784'/i'/0'/0' (Sui Wallet and Slush).
 // - Ethereum-style networks: BIP-44 secp256k1 at m/44'/60'/0'/0/i (the path MetaMask uses).
 // The phrase is stored only encrypted: PBKDF2-SHA256 (600,000 rounds) turns the password into an AES-256-GCM key.
 // Only well-known audited libraries do the cryptography (@scure/bip39, @noble/hashes, ethers, WebCrypto).
@@ -37,7 +38,9 @@ export function deriveAccount(phrase, { web3, ethers }, index = 0) {
   const evm = ethers.HDNodeWallet.fromPhrase(normalize(phrase), undefined, `m/44'/60'/0'/0/${index}`);
   // Tron: its own path (TronLink's), so its address is not the Ethereum one.
   const tron = ethers.HDNodeWallet.fromPhrase(normalize(phrase), undefined, `m/44'/195'/0'/0/${index}`);
-  return { sol, evm, tron };
+  // Sui: ed25519 at m/44'/784'/i'/0'/0' (the path Sui Wallet and Slush use). Just the 32-byte private seed.
+  const sui = slip10(seed, `m/44'/784'/${index}'/0'/0'`);
+  return { sol, evm, tron, sui };
 }
 
 const b64 = (u8) => btoa(String.fromCharCode(...u8));

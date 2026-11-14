@@ -12,6 +12,9 @@ import { bioEnable, bioUnlock, bioName, bioPossible, bioForget } from "./bio.js"
 import { sealKeys, openKeys, parseKey, keysFor, COLORS, b58 } from "./accounts.js";
 import { translate, trText, LANGS } from "./i18n.js";
 import { toTron } from "./tron.js";
+import { suiAddress } from "./sui.js";
+import { ed25519 } from "@noble/curves/ed25519";
+import { bech32 } from "@scure/base";
 import { LOGOS } from "./logos.js";
 
 const VERSION = chrome.runtime.getManifest().version;
@@ -152,6 +155,9 @@ const mask = (s) => (S.hide ? "••••" : s);
 let ENG = null, ACCT = null, PHRASE = null;
 const DEF_ACCTS = [{ id: "hd0", kind: "hd", i: 0, name: "Account 1", c: 0 }];
 /** The networks the current account can use: all of them, or one family for an imported private key. */
+// Sui: the account address, and its private key in Sui's export format (suiprivkey…, which Slush and the Sui CLI import).
+const suiOf = (A) => (A?.sui ? suiAddress(ed25519.getPublicKey(A.sui)) : null);
+const suiKeyHex = (k) => bech32.encode("suiprivkey", bech32.toWords(Uint8Array.of(0, ...k)));
 const netKeys = () => Object.keys(NETS).filter((k) => !ACCT?.only || NETS[k].fam === ACCT.only);
 const curAcct = () => (S.accts || DEF_ACCTS).find((a) => a.id === S.sel) || (S.accts || DEF_ACCTS)[0];
 async function useAccount(phrase) {
@@ -255,8 +261,8 @@ async function refresh() {
 }
 
 // Prices come from CoinGecko first, then Binance, then Coinbase: if one is down or rate-limits us, the next answers.
-const SYM = { solana: "SOL", ethereum: "ETH", "polygon-ecosystem-token": "POL", binancecoin: "BNB", "avalanche-2": "AVAX", tron: "TRX", hyperliquid: "HYPE" };
-const addrHint = (N) => (N.fam === "sol" ? "Solana address" : N.fam === "tron" ? "Tron address (T…)" : "0x… address");
+const SYM = { solana: "SOL", ethereum: "ETH", "polygon-ecosystem-token": "POL", binancecoin: "BNB", "avalanche-2": "AVAX", tron: "TRX", hyperliquid: "HYPE", sui: "SUI" };
+const addrHint = (N) => (N.fam === "sol" ? "Solana address" : N.fam === "tron" ? "Tron address (T…)" : N.fam === "sui" ? "Sui address (0x…, 64 characters)" : "0x… address");
 const getJSON = async (url) => { const r = await fetch(url, { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return r.json(); };
 
 async function spotPrices() {
@@ -274,7 +280,7 @@ async function spotPrices() {
 }
 
 async function loadPrices() {
-  if (S.mock) { S.prices = { solana: { usd: 172.4, usd_24h_change: 2.31 }, binancecoin: { usd: 612.5, usd_24h_change: 0.6 }, "avalanche-2": { usd: 28.4, usd_24h_change: -1.4 }, hyperliquid: { usd: 38.2, usd_24h_change: 3.1 }, tron: { usd: 0.24, usd_24h_change: 0.9 }, ethereum: { usd: 3410, usd_24h_change: -0.84 }, "polygon-ecosystem-token": { usd: 0.42, usd_24h_change: 1.2 } }; if (S.screen === "home" && !S.mockDrawn) { S.mockDrawn = true; render(); } return loadSeries(); }
+  if (S.mock) { S.prices = { solana: { usd: 172.4, usd_24h_change: 2.31 }, binancecoin: { usd: 612.5, usd_24h_change: 0.6 }, "avalanche-2": { usd: 28.4, usd_24h_change: -1.4 }, hyperliquid: { usd: 38.2, usd_24h_change: 3.1 }, tron: { usd: 0.24, usd_24h_change: 0.9 }, sui: { usd: 1.92, usd_24h_change: -2.1 }, ethereum: { usd: 3410, usd_24h_change: -0.84 }, "polygon-ecosystem-token": { usd: 0.42, usd_24h_change: 1.2 } }; if (S.screen === "home" && !S.mockDrawn) { S.mockDrawn = true; render(); } return loadSeries(); }
   const p = await spotPrices().catch(() => null);
   if (p) { const was = JSON.stringify(S.prices); S.prices = { ...S.prices, ...p }; local.set({ prices: { at: Date.now(), p: S.prices } }); if (S.screen === "home" && JSON.stringify(S.prices) !== was) render(); checkPriceAlerts(); }
   await loadSeries();
@@ -343,7 +349,7 @@ async function loadSeriesFor(cg) {
   const days = Number(S.range);
   let pts = S.mock ? fakeHistory(cg, days, S.prices[cg]?.usd) : await historyFrom(cg, days);
   // The web demo runs on pretend money: if every price server is out of reach, it draws a pretend history too.
-  if (!pts && globalThis.ECRIN_DEMO) pts = fakeHistory(cg, days, S.prices[cg]?.usd || { solana: 170, ethereum: 3400, hyperliquid: 38, binancecoin: 600, "avalanche-2": 25, tron: 0.24, "polygon-ecosystem-token": 0.4 }[cg] || 1);
+  if (!pts && globalThis.ECRIN_DEMO) pts = fakeHistory(cg, days, S.prices[cg]?.usd || { solana: 170, ethereum: 3400, hyperliquid: 38, binancecoin: 600, "avalanche-2": 25, tron: 0.24, sui: 1.9, "polygon-ecosystem-token": 0.4 }[cg] || 1);
   if (!(pts?.length > 2)) return false;
   S.series[k] = { at: Date.now(), pts }; S.drawChart = true;
   try { const st = await local.get("series"); local.set({ series: { ...(st.series || {}), [k]: { at: Date.now(), pts: pts.length > 200 ? pts.filter((_, i) => i % Math.ceil(pts.length / 200) === 0 || i === pts.length - 1) : pts } } }); } catch (_) {}
@@ -1065,7 +1071,7 @@ function homeView() {
 // own brand and kept apart from each other on the dark background.
 // Ecrin's own palette: every coin a shade of blue or grey, far enough apart to tell on the diamond, readable on dark and
 // light. Tron keeps its red. The diamond, the bubble by each name and the Activity rows all use these.
-const COIN_COL = { SOL: "#5b7cff", ETH: "#9badff", USDC: "#3d9bff", POL: "#4352c4", USDT: "#5f7a92", BNB: "#a4abba", AVAX: "#767c88", TRX: "#ff3b5c", HYPE: "#50d2c1" };
+const COIN_COL = { SOL: "#5b7cff", ETH: "#9badff", USDC: "#3d9bff", POL: "#4352c4", USDT: "#5f7a92", BNB: "#a4abba", AVAX: "#767c88", TRX: "#ff3b5c", HYPE: "#50d2c1", SUI: "#7fb8ff" };
 const cdot = (u) => `<i class="cdot" style="--cc:${COIN_COL[u] || "#9aa0b4"}"></i>`;
 function lozShares(w) {
   const by = {}; for (const i of w.items) if (i.usd) by[i.unit] = (by[i.unit] || 0) + i.usd;
@@ -1091,7 +1097,7 @@ function lozenge(w, loading) {
 function lozLegend(w, loading) {
   if (loading || !w.total) return "";
   const sh = lozShares(w).slice(0, 4), safe = Math.round((w.sav / w.total) * 100);
-  const LK = { SOL: "sol", ETH: "eth", USDC: "usdc", USDT: "usdt", BNB: "bnb", AVAX: "avax", TRX: "tron", POL: "pol", HYPE: "hype" };
+  const LK = { SOL: "sol", ETH: "eth", USDC: "usdc", USDT: "usdt", BNB: "bnb", AVAX: "avax", TRX: "tron", POL: "pol", HYPE: "hype", SUI: "sui" };
   const grow = S.lzT0 && performance.now() - S.lzT0 < 2300 ? " grow" : "", pill = (cls, col, ic, name, pct) => `<span class="lp ${cls}${grow}" style="--pc:${col};--pf:${pct}%">${ic}<b>${name}</b><em>${pct}%</em><i class="lp-bar"></i></span>`;
   return `<div class="lz-leg">${sh.map(({ u, f }) => pill("", COIN_COL[u] || "#9aa0b4", LK[u] ? coin(LK[u], "lp-c") : `<i class="lp-d"></i>`, u, Math.round(f * 100))).join("")}${pill("lz-s", "#5b7cff", `<span class="lp-lock">${I.lock}</span>`, "Safe", safe)}</div>`;
 }
@@ -1124,7 +1130,7 @@ function tokenList(w) {
 }
 
 // Live prices for every coin Ecrin supports, held or not: something is always moving on the home screen.
-const MARKET = [["solana", "SOL", "sol", "Solana"], ["ethereum", "ETH", "eth", "Ethereum"], ["hyperliquid", "HYPE", "hype", "Hyperliquid"], ["binancecoin", "BNB", "bnb", "BNB"], ["tron", "TRX", "tron", "TRON"], ["avalanche-2", "AVAX", "avax", "Avalanche"], ["polygon-ecosystem-token", "POL", "pol", "Polygon"]];
+const MARKET = [["solana", "SOL", "sol", "Solana"], ["ethereum", "ETH", "eth", "Ethereum"], ["hyperliquid", "HYPE", "hype", "Hyperliquid"], ["binancecoin", "BNB", "bnb", "BNB"], ["tron", "TRX", "tron", "TRON"], ["sui", "SUI", "sui", "Sui"], ["avalanche-2", "AVAX", "avax", "Avalanche"], ["polygon-ecosystem-token", "POL", "pol", "Polygon"]];
 /** Below your coins, like any good wallet: recent activity, shortcuts and the market. */
 function homeMore() {
   const all = S.activity || [];
@@ -1207,7 +1213,7 @@ function chartView() {
   </div>`;
 }
 
-const COIN_NAME = { SOL: "Solana", ETH: "Ethereum", POL: "Polygon", BNB: "BNB", AVAX: "Avalanche", TRX: "TRON", HYPE: "Hyperliquid", USDC: "USD Coin" };
+const COIN_NAME = { SOL: "Solana", ETH: "Ethereum", POL: "Polygon", BNB: "BNB", AVAX: "Avalanche", TRX: "TRON", HYPE: "Hyperliquid", SUI: "Sui", USDC: "USD Coin" };
 function assetRow(a, chq, sav) {
   const x = A(a), u = usdOf(chq + sav, a), p = a === "usdc" ? { usd: 1, usd_24h_change: 0 } : S.prices[NETS[S.net].cg];
   const ch = p?.usd_24h_change;
@@ -1331,7 +1337,7 @@ function xtokView() {
       <label class="fld"><span>Amount</span><input data-xamt inputmode="decimal" placeholder="0" value="${esc(P.amount || "")}"/></label>
       <button class="btn primary" data-act="xsend">${I.send}Review and send</button></div>` : ""}
     <div class="tk-info"><div><span>Network</span><b>${N.name} ${N.net}</b></div><div><span>Token address</span><b class="mono">${short(t.mint)} <button class="ib sm" data-act="copy" data-v="${esc(t.mint)}" aria-label="Copy">${I.copy}</button></b></div></div>
-    <div class="acc-acts"><a class="btn" href="${N.explorer(N.fam === "evm" || N.fam === "tron" ? "token" : "address", t.mint)}" target="_blank">${I.ext}Explorer</a>
+    <div class="acc-acts"><a class="btn" href="${N.explorer(N.fam === "evm" || N.fam === "tron" || N.fam === "sui" ? "token" : "address", t.mint)}" target="_blank">${I.ext}Explorer</a>
       <button class="btn" data-act="tok-pref" data-m="${esc(t.mint)}">${hidden ? `${I.eye}Show in list` : `${I.eyeOff}Hide`}</button></div>`;
 }
 /** Who can move your tokens without asking again, and a Revoke button for each. */
@@ -1526,7 +1532,7 @@ const nameFor = (k, a) => (a && S.book?.[NETS[k]?.fam]?.[a]) || null;
 const who = (k, a) => esc(nameFor(k, a) || short(a));
 /** Activity from every network of this account, newest first, plus coins received (read from the chain) and website approvals. */
 async function loadActivity() {
-  const keys = netKeys(), addrOf = (k) => (NETS[k].fam === "sol" ? ACCT.sol?.publicKey.toBase58() : NETS[k].fam === "tron" ? (ACCT.tron ? toTron(ACCT.tron.address) : null) : ACCT.evm?.address);
+  const keys = netKeys(), addrOf = (k) => (NETS[k].fam === "sol" ? ACCT.sol?.publicKey.toBase58() : NETS[k].fam === "tron" ? (ACCT.tron ? toTron(ACCT.tron.address) : null) : NETS[k].fam === "sui" ? suiOf(ACCT) : ACCT.evm?.address);
   const st = await local.get([...keys.map((k) => `act:${k}:${addrOf(k)}`), "apLog"]);
   let list = keys.flatMap((k) => (st[`act:${k}:${addrOf(k)}`] || []).map((e) => ({ ...e, k })));
   const mine = new Set(keys.map(addrOf).filter(Boolean));
@@ -1866,7 +1872,7 @@ function doneView(title, text, extra = "") {
 
 /** Every address this account has, network by network, like MetaMask's account view. */
 function addrsView() {
-  const sol = ACCT.sol?.publicKey.toBase58(), evm = ACCT.evm?.address, tron = ACCT.tron && !ACCT.only ? toTron(ACCT.tron.address) : null, A0 = curAcct();
+  const sol = ACCT.sol?.publicKey.toBase58(), evm = ACCT.evm?.address, tron = ACCT.tron && !ACCT.only ? toTron(ACCT.tron.address) : null, sui = !ACCT.only ? suiOf(ACCT) : null, A0 = curAcct();
   // The full address in one piece; the first and last four characters stand out, since those are what people check.
   const groups = (a) => `<b>${esc(a.slice(0, 4))}</b>${esc(a.slice(4, -4))}<b>${esc(a.slice(-4))}</b>`;
   const card = (k, a, title, note, nets) => `<article class="ad-card">
@@ -1882,6 +1888,7 @@ function addrsView() {
       ${sol ? card("sol", sol, "Solana", "SOL, USDC and Solana tokens") : ""}
       ${evm ? card("eth", evm, "Ethereum-style networks", `One address for all ${evmNets.length}`, evmNets) : ""}
       ${tron ? card("tron", tron, "Tron", "TRX and USDT") : ""}
+      ${sui ? card("sui", sui, "Sui", "SUI and USDC") : ""}
     </div>
     <p class="fine pad">Only send coins to the matching network. Coins sent to the right address on the wrong network may be lost.</p>`;
 }
@@ -1974,7 +1981,7 @@ function receiveView() {
       <p class="recv-n">Your ${N.name} address</p>
       ${navigator.share ? `<button class="btn sm share" data-act="share-addr">${I.send}Share address</button>` : ""}
       <button class="addr" data-act="copy-addr"><span class="mono">${esc(e.address)}</span>${I.copy}</button>
-      <p class="fine">Only send ${N.name} ${N.net} coins${N.usdc ? " or USDC" : ""} to this address. ${N.fam === "tron" ? "Tron addresses start with T. Test USDT on Nile shows with your tokens." : ""}${N.fam === "evm" ? "The same address works on every Ethereum-style network." : ""}</p>
+      <p class="fine">Only send ${N.name} ${N.net} coins${N.usdc ? " or USDC" : ""} to this address. ${N.fam === "tron" ? "Tron addresses start with T. Test USDT on Nile shows with your tokens." : ""}${N.fam === "sui" ? "Sui addresses are 0x and 64 characters, different from your Ethereum one. " : ""}${N.fam === "evm" ? "The same address works on every Ethereum-style network." : ""}</p>
       ${faucetBtn(N)}
       <button class="btn sm buy-b" data-act="payreq">${I.recv}Request an amount</button>
       <button class="btn sm buy-b" data-act="panel" data-p="buy">${I.card}Buy with a card</button>
@@ -2330,7 +2337,7 @@ const actions = {
   "ct-add": async () => {
     const n = ($("[data-ctname]")?.value || "").trim(), a = ($("[data-ctaddr]")?.value || "").trim(), f = famOfAddr(a);
     S.panel.n = n; S.panel.a = a;
-    if (!n) return toast("Give the contact a name.", "err"); if (!f) return toast("That isn't a Solana, Ethereum or Tron address.", "err");
+    if (!n) return toast("Give the contact a name.", "err"); if (!f) return toast("That isn't a Solana, Ethereum, Tron or Sui address.", "err");
     S.book[f] = { ...(S.book[f] || {}), [a]: n }; await local.set({ book: S.book }); S.panel.n = S.panel.a = ""; toast(`${n} added`, "win"); renderPanel();
   },
   "ct-del": async (el) => { const f = el.dataset.f, a = el.dataset.a, n = S.book?.[f]?.[a]; if (!(await ask(`Delete ${n} from your contacts?`, { ok: "Delete", danger: true }))) return; delete S.book[f][a]; await local.set({ book: S.book }); renderPanel(); },
@@ -2464,7 +2471,7 @@ const actions = {
   "rc-cancel": async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).cancelChange(Number(el.dataset.id)); toast("Change cancelled", "win"); } catch (e) { toast(errText(e), "err"); } await loadAll(); },
   "al-tg": async () => { try { const r = await alertCall("/api/alerts/start", {}); if (!r.url) throw new Error(r.error || "Alerts aren't available right now."); window.open(r.url, "_blank"); S.alertsOn = true; local.set({ alertsOn: true }); toast("Telegram opened: tap Start in the chat.", "win"); } catch (e) { toast(e.message, "err"); } },
   "al-mail": async () => { const email = ($("#panel [data-mail]")?.value || "").trim(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast("Enter your email address", "err"); try { const r = await alertCall("/api/alerts/email", { email }); if (r.error) throw new Error(r.error); S.alertsOn = true; local.set({ alertsOn: true }); toast(r.already ? "Email alerts are already on." : "Check your inbox to confirm.", "win"); } catch (e) { toast(e.message, "err"); } },
-  tok: (el) => { S.tkDrawKey = null; const u = el.dataset.u, cg = u === "USDC" ? null : { SOL: "solana", ETH: "ethereum", HYPE: "hyperliquid", POL: "polygon-ecosystem-token", BNB: "binancecoin", AVAX: "avalanche-2", TRX: "tron" }[u]; openPanel("tok", { u, cg, n: el.dataset.n }); if (cg) loadSeriesFor(cg).then(() => S.panel?.p === "tok" && renderPanel()); },
+  tok: (el) => { S.tkDrawKey = null; const u = el.dataset.u, cg = u === "USDC" ? null : { SOL: "solana", ETH: "ethereum", HYPE: "hyperliquid", POL: "polygon-ecosystem-token", BNB: "binancecoin", AVAX: "avalanche-2", TRX: "tron", SUI: "sui" }[u]; openPanel("tok", { u, cg, n: el.dataset.n }); if (cg) loadSeriesFor(cg).then(() => S.panel?.p === "tok" && renderPanel()); },
   "tok-do": async (el) => { const P = S.panel, w = worth(), list = w.items.filter((i) => i.unit === P.u), p = el.dataset.p;
     const best = list.filter((i) => (p === "withdraw" ? i.sav : i.chq) > 0).sort((x, y) => (y.usd || 0) - (x.usd || 0))[0] || list[0];
     const k = best?.k || P.n || (P.u === "SOL" ? "sol" : P.u === "POL" ? "pol" : "eth"), a = P.u === "USDC" ? "usdc" : "native";
@@ -2798,6 +2805,7 @@ document.addEventListener("submit", async (e) => {
       if (ACCT.sol) keys.push(["Solana", b58(ACCT.sol.secretKey)]);
       if (ACCT.evm) keys.push(["Ethereum-style networks", ACCT.evm.privateKey]);
       if (ACCT.tron && !ACCT.only) keys.push(["Tron", ACCT.tron.privateKey.slice(2)]);
+      if (ACCT.sui && !ACCT.only) keys.push(["Sui", suiKeyHex(ACCT.sui)]);
       S.panel.keys = keys; renderPanel();
     } catch (_) { err("Wrong password."); }
     return;
@@ -2826,13 +2834,13 @@ function onScanned(text) {
   if (/^wc:/i.test(text)) return wcPair(text);
   const pay = parsePayLink(text);
   if (pay) return openPay(pay);
-  if (S.panel?.p === "send") { S.panel.to = text.replace(/^(solana|ethereum|tron):/i, "").split(/[?@]/)[0].trim(); renderPanel(); }
+  if (S.panel?.p === "send") { S.panel.to = text.replace(/^(solana|ethereum|tron|sui):/i, "").split(/[?@]/)[0].trim(); renderPanel(); }
 }
 
 /* ------------------------------------------------------------------ never stuck without fees */
 // Sending a token (USDC, USDT) still costs a little of the network's own coin. If there isn't enough, say so before
 // the send fails, and show where to get it.
-function feeNeed(N, P) { return N.fam === "sol" ? 10_000 : N.fam === "tron" ? 15e9 : Math.max(50_000, (P?.reserve || 0) * 3); }
+function feeNeed(N, P) { return N.fam === "sol" ? 10_000 : N.fam === "tron" ? 15e9 : N.fam === "sui" ? 10_000_000 : Math.max(50_000, (P?.reserve || 0) * 3); }
 function feeNote(a) {
   const N = NETS[S.net], P = S.panel;
   if (a === "native" || !S.bal || (S.bal.native || 0) >= feeNeed(N, P)) return "";
@@ -2841,7 +2849,7 @@ function feeNote(a) {
 
 /* ------------------------------------------------------------------ price alerts */
 // A note when a coin you choose moves more than 5 or 10% in a day: once per coin, per direction, per day.
-const ALERT_COINS = [["solana", "SOL"], ["ethereum", "ETH"], ["hyperliquid", "HYPE"], ["binancecoin", "BNB"], ["avalanche-2", "AVAX"], ["tron", "TRX"], ["polygon-ecosystem-token", "POL"]];
+const ALERT_COINS = [["solana", "SOL"], ["ethereum", "ETH"], ["hyperliquid", "HYPE"], ["binancecoin", "BNB"], ["avalanche-2", "AVAX"], ["tron", "TRX"], ["sui", "SUI"], ["polygon-ecosystem-token", "POL"]];
 async function checkPriceAlerts() {
   const al = S.palerts || {}; if (!Object.keys(al).length) return;
   const { palertSeen = {} } = await local.get("palertSeen"), day = new Date().toISOString().slice(0, 10); let any = false;
@@ -2856,7 +2864,7 @@ async function checkPriceAlerts() {
 }
 function alertsView() {
   const al = S.palerts || {}, on = Object.values(al).filter(Boolean).length;
-  const LOGO = { solana: "sol", ethereum: "eth", binancecoin: "bnb", "avalanche-2": "avax", tron: "tron", "polygon-ecosystem-token": "pol", hyperliquid: "hype" };
+  const LOGO = { solana: "sol", ethereum: "eth", binancecoin: "bnb", "avalanche-2": "avax", tron: "tron", "polygon-ecosystem-token": "pol", hyperliquid: "hype", sui: "sui" };
   const canPush = !!window.Notification, pushOn = canPush && Notification.permission === "granted";
   return `${phead("Price alerts")}
     <div class="pa-hero"><span class="pa-ic">${I.spark}</span><b>${on ? `${on} alert${on > 1 ? "s" : ""} on` : "No alerts yet"}</b><small>Get a note when a coin moves more than you choose in a day. Once per coin and direction, each day.</small></div>
@@ -2954,7 +2962,7 @@ function payreqView() {
         ${note ? `<span class="rq-for">“${esc(note)}”</span>` : ""}
         <span class="rq-to">to <span class="mono">${short(addr)}</span> · ${N.name}</span>
       </div>
-      <p class="fine rq-fine">Opens in any ${N.fam === "sol" ? "Solana Pay" : N.fam === "evm" ? "Ethereum" : "Tron"} wallet that scans it.</p>
+      <p class="fine rq-fine">Opens in any ${N.fam === "sol" ? "Solana Pay" : N.fam === "evm" ? "Ethereum" : N.fam === "sui" ? "Sui" : "Tron"} wallet that scans it.</p>
       <div class="rq-acts">${navigator.share ? `<button class="btn primary" data-act="share-req">${I.send}Share</button>` : ""}<button class="btn" data-act="copy-req">${I.copy}Copy link</button></div>
     </div>`;
 }
@@ -3243,7 +3251,7 @@ async function checkIncomingNow() {
   got.sort((x, y) => (y.i.usd || 0) - (x.i.usd || 0));
   const g = got[0], n = (x) => x.toLocaleString("en-US", { maximumFractionDigits: g.i.dec });
   const label = `+${n(g.d)} ${g.i.unit}${got.length > 1 ? ` · +${got.length - 1} more` : ""}`;
-  for (const x of got) if (NETS[x.i.k]?.fam === "evm") logActivity({ t: "recv", a: x.i.a, n: Math.round(x.d * (x.i.a === "usdc" ? USDC_BASE : BASE)), k: x.i.k }).then(loadActivity);
+  for (const x of got) if (["evm", "sui"].includes(NETS[x.i.k]?.fam)) logActivity({ t: "recv", a: x.i.a, n: Math.round(x.d * (x.i.a === "usdc" ? USDC_BASE : BASE)), k: x.i.k }).then(loadActivity);
   if (document.hidden && window.Notification?.permission === "granted") try { new Notification("Ecrin Wallet", { body: `Received ${n(g.d)} ${g.i.unit} on ${g.i.net}`, icon: "/icon2-192.png" }); } catch (_) {}
   // one animation at a time: a newer arrival replaces one that hasn't played yet, and nothing replays on re-render
   S.recvQ = label; playRecv();
@@ -3343,7 +3351,7 @@ function tokenView() {
   }
   const rl = { 1: "today", 7: "this week", 30: "this month", 365: "this year" }[S.range];
   const ranges = `<div class="ranges">${[["1", "1D"], ["7", "1W"], ["30", "1M"], ["365", "1Y"]].map(([x, l]) => `<button data-act="range" data-d="${x}" aria-pressed="${S.range === x}">${l}</button>`).join("")}</div>`;
-  const icon = coin({ USDC: "usdc", USDT: "usdt", ETH: "eth", SOL: "sol", POL: "pol", BNB: "bnb", AVAX: "avax", TRX: "tron", HYPE: "hype" }[P.u] || "eth");
+  const icon = coin({ USDC: "usdc", USDT: "usdt", ETH: "eth", SOL: "sol", POL: "pol", BNB: "bnb", AVAX: "avax", TRX: "tron", HYPE: "hype", SUI: "sui" }[P.u] || "eth");
   const cc = COIN_COL[P.u] || "#5b7cff";
   const nets = [...new Set(list.map((i) => NETS[i.k].name))];
   const acts = (S.activity || []).filter((e) => e.n && A(e.a).unit === P.u).slice(0, 5);
