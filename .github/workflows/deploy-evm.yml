@@ -42,7 +42,7 @@ jobs:
       - name: Deploy
         run: |
           if [ -z "$DEPLOYER_KEY" ]; then echo "::error::Add the EVM_DEPLOYER_KEY secret first (Settings → Secrets and variables → Actions)."; exit 1; fi
-          if [ "${{ inputs.network }}" = all ]; then nets="sepolia baseSepolia arbitrumSepolia optimismSepolia polygonAmoy bscTestnet avalancheFuji robinhoodTestnet hyperevmTestnet"; else nets="${{ inputs.network }}"; fi
+          if [ "${{ inputs.network }}" = all ]; then nets="sepolia baseSepolia arbitrumSepolia optimismSepolia polygonAmoy bscTestnet avalancheFuji robinhoodTestnet"; else nets="${{ inputs.network }}"; fi
           failed=""
           for n in $nets; do
             echo "::group::$n"
