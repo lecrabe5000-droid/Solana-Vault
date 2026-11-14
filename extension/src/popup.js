@@ -233,6 +233,11 @@ async function home() {
   // Phone app shortcuts (long-press the icon): Send, Receive, Freeze.
   const go = !S.wentTo && new URLSearchParams(location.search).get("go"); S.wentTo = true;
   if (go && ["send", "receive", "safety"].includes(go)) setTimeout(() => openPanel(go), 400);
+  if (S.offerBio) { S.offerBio = false; if (globalThis.ECRIN_WEB && bioPossible() && !S.bio) setTimeout(offerBio, 1400); }
+}
+async function offerBio() {
+  const c = await choose({ icon: I.face, title: `Unlock with ${bioName()}?`, text: `<p>Open Ecrin with a glance instead of typing your password. Your recovery phrase stays encrypted on this device.</p>`, safe: "Turn on", go: "Not now", fine: "You can change this any time in Settings." });
+  if (c === "safe") actions["bio-toggle"]();
 }
 
 async function refresh() {
@@ -408,9 +413,9 @@ function startCard(w) {
   const steps = [["Get free test coins", w.total > 0, S.net === "sol" ? 'data-act="faucet"' : 'data-act="panel" data-p="receive"'], ["Protect some in your Safe", w.sav > 0 || did(["protect"]), 'data-act="panel" data-p="protect"'],
     ["Start a withdrawal, then cancel it", did(["cancel", "withdraw", "release"]), 'data-act="panel" data-p="vault"']];
   const n = steps.filter((x) => x[1]).length; if (n === 3) return "";
-  return `<section class="ob"><div class="ob-h"><b>Getting started</b><span>${n} of 3</span><button class="ob-x" data-act="ob-hide" aria-label="Hide">×</button></div>
-    <i class="ob-bar"><i style="width:${(n / 3) * 100}%"></i></i>
-    ${steps.map(([t, ok, a], i) => `<button class="ob-s${ok ? " ok" : ""}" ${ok ? "disabled" : a}><span class="ob-n">${ok ? I.check : i + 1}</span><span>${t}</span>${ok ? "" : I.arrow}</button>`).join("")}</section>`;
+  // Only the next step: one line, the count as a small ring, a way to hide it.
+  const i = steps.findIndex((x) => !x[1]), [t, , a] = steps[i];
+  return `<section class="ob ob1"><button class="ob-next" ${a}><span class="ob-ring" style="--p:${(n / 3) * 100}" aria-label="${n} of 3 done"><b>${n}/3</b></span><span class="ob-t"><small>Next step</small><b>${t}</b></span>${I.arrow}</button><button class="ob-x" data-act="ob-hide" aria-label="Hide">×</button></section>`;
 }
 
 // ------------------------------------------------------------------ the entrance
@@ -956,6 +961,7 @@ function createVerify() {
     ${q ? `<div class="choices">${q.opts.map((w) => `<button class="choice" data-act="pick" data-w="${esc(w)}">${esc(w)}</button>`).join("")}</div>` : `<div class="allset">${I.check}<b>All correct</b></div>`}
     <p class="err" data-err>${S.quizErr ? "Not that one. Check your paper." : ""}</p>
     <button class="btn primary xl" data-act="finish-create" ${q ? "disabled" : ""}>${S.busy ? "Securing…" : "Open my wallet"}</button>
+    ${q && !S.busy ? `<button class="btn ghost xl later-btn" data-act="verify-later">Check later</button><p class="fine center">We'll remind you tomorrow. Until you check, keep your paper close.</p>` : ""}
   </div>`;
 }
 
@@ -1122,8 +1128,7 @@ const MARKET = [["solana", "SOL", "sol", "Solana"], ["ethereum", "ETH", "eth", "
 /** Below your coins, like any good wallet: recent activity, shortcuts and the market. */
 function homeMore() {
   const all = S.activity || [];
-  let recent = "";
-  if (all.length) recent = actRows(all.slice(0, 3));
+  const recent = ""; void all; // the Activity tab right above already lists everything
   const sc = [["swap", "Swap", I.swap, 'data-act="panel" data-p="swap"'], ["buy", "Buy", I.card, 'data-act="panel" data-p="buy"'], ["req", "Request", I.recv, 'data-act="home-req"'],
     ["ct", "Contacts", '<svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 19.5c1.2-3.2 3.9-5 7-5s5.8 1.8 7 5"/></svg>', 'data-act="panel" data-p="contacts"'], ...(globalThis.ECRIN_WEB ? [["wc", "Apps", I.link, 'data-act="panel" data-p="wc"']] : globalThis.ECRIN_DEMO ? [] : [["sites", "Sites", I.link, 'data-act="panel" data-p="sites"']]), ["al", "Alerts", I.spark, 'data-act="panel" data-p="alerts"']];
   return `${recent ? `<div class="list-h"><b>Recent activity</b><button class="see-all" data-act="tab" data-t="activity">See all</button></div><div class="tab-body"><section class="list recent">${recent}</section></div>` : ""}
@@ -1132,12 +1137,12 @@ function homeMore() {
     ${marketList()}`;
 }
 function marketList() {
-  const rows = MARKET.filter(([cg]) => S.prices[cg]?.usd != null);
+  const live = MARKET.filter(([cg]) => S.prices[cg]?.usd != null), rows = S.mktAll ? live : live.slice(0, 3), more = live.length - rows.length;
   if (!rows.length) return "";
   return `<div class="list-h mkt-h"><b>Market</b><span><i class="live-dot"></i>Live</span></div>
     <section class="list mkt">${rows.map(([cg, unit, logo, name]) => { const p = S.prices[cg], ch = p.usd_24h_change, was = S.prevPx?.[cg], fl = was != null && was !== p.usd ? (p.usd > was ? " flash-up" : " flash-dn") : "";
       return `<button class="arow" data-act="tok" data-u="${unit}">${coin(logo)}<span class="ar-t"><b>${name}</b><small>${unit}</small></span>${spark(cg)}
-        <span class="ar-r"><b data-pk="m:${cg}" class="px${fl}">${money(p.usd)}</b>${ch == null ? `<small class="na">—</small>` : `<small class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</small>`}</span></button>`; }).join("")}</section>`;
+        <span class="ar-r"><b data-pk="m:${cg}" class="px${fl}">${money(p.usd)}</b>${ch == null ? `<small class="na">—</small>` : `<small class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</small>`}</span></button>`; }).join("")}</section>${more > 0 || S.mktAll ? `<button class="mkt-more" data-act="mkt-all">${S.mktAll ? "Show less" : `Show all ${live.length}`}</button>` : ""}`;
 }
 
 /** The change over the chart's range, as plain text: "+$122.17 (4.48%) · 1W". */
@@ -1558,7 +1563,7 @@ function actRows(only) {
     const safeEv = /^(protect|auto|withdraw|release|cancel|vault|freeze)$/.test(e.t), cu = e.a === "usdc" ? "USDC" : unit;
     return `${head}<${tag} class="arow act-row ${e.t} ${cls}${safeEv ? " safe-ev" : ""}" style="--cc:${COIN_COL[cu] || "#9aa0b4"}"><span class="act-ico">${ic}${e.k ? `<span class="cmini">${coin(e.k)}</span>` : ""}</span>
       <span class="ar-t"><b>${title}</b><small>${safeEv ? `<em class="sv-tag">${I.lock}Safe</em>` : ""}${when(e.at)}${e.k ? ` · ${N.name}` : ""}</small></span>
-      ${val != null ? `<span class="ar-r"><b class="${cls === "out" ? "neg" : cls === "in" ? "pos" : ""}">${sign}${mask(val.toLocaleString("en-US", { maximumFractionDigits: 6 }))} ${esc(unit)}</b></span>` : ""}</${tag.split(" ")[0]}>`;
+      ${val != null ? `<span class="ar-r"><b class="${cls === "out" ? "neg" : cls === "in" ? "pos" : ""}">${sign}${mask(val.toLocaleString("en-US", { maximumFractionDigits: 6 }))} ${esc(unit)}</b>${(() => { const px = cu === "USDC" ? 1 : S.prices[N.cg]?.usd; return px != null && e.t !== "tsend" && !e.sym ? `<small>≈ ${mask(money(val * px))}</small>` : ""; })()}</span>` : ""}</${tag.split(" ")[0]}>`;
   }).join("");
 }
 // ------------------------------------------------------------------ monthly report
@@ -1714,7 +1719,7 @@ function amountBlock(max, label) {
     <div class="amt-in"><input data-amount inputmode="decimal" placeholder="0" value="${esc(P.amount)}" autocomplete="off" autofocus style="width:${Math.max(1, [...String(P.amount || "")].reduce((t, c) => t + (/[.,]/.test(c) ? .45 : 1), 0)) + .12}ch"/><span>${A(a).unit}</span></div>
     <div class="amt-usd">${u != null && units ? money(u) : "&nbsp;"}</div>
     <div class="pcts">${[25, 50, 100].map((p) => `<button data-act="pct" data-v="${p}" class="${P.pct === p ? "on" : ""}">${p === 100 ? "Max" : p + "%"}</button>`).join("")}</div>
-    <div class="avail">${label}: <b>${amt(Math.max(0, max), a)} ${A(a).unit}</b>${over ? ` <span class="bad">· not enough</span>` : ""}</div>
+    <div class="avail">${label}: <b>${amt(Math.max(0, max), a)} ${A(a).unit}</b>${usdOf(Math.max(0, max), a) != null && !A(a).stable ? ` <span class="avail-usd">≈ ${money(usdOf(Math.max(0, max), a))}</span>` : ""}${over ? ` <span class="bad">· not enough</span>` : ""}</div>
   </div>`;
 }
 
@@ -2003,7 +2008,7 @@ function moveView() {
     </div>
     <div class="mv-src">${fromRow()}</div>
     <div class="mv-amt${units > max || overLim ? " over" : ""}">${pad ? `<b>${esc(P.amount || "0")}</b>` : `<input data-amount inputmode="decimal" placeholder="0" value="${esc(P.amount)}" autocomplete="off" autofocus style="width:${Math.max(1, (P.amount || "0").length) + 0.6}ch"/>`}<span>${u}</span></div>
-    <div class="mv-sub">${units > max ? `<span class="bad">More than ${isIn ? "your Wallet has" : "can leave right now"}</span>` : overLim ? `<span class="bad">Over your daily limit of ${amt(lim, a)} ${u}</span>` : usd != null && units ? money(usd) : `${amt(max, a)} ${u} available`}</div>
+    <div class="mv-sub">${units > max ? `<span class="bad">More than ${isIn ? "your Wallet has" : "can leave right now"}</span>` : overLim ? `<span class="bad">Over your daily limit of ${amt(lim, a)} ${u}</span>` : usd != null && units ? money(usd) : `${amt(max, a)} ${u} available${usdOf(max, a) != null && !A(a).stable && max ? ` · ≈ ${money(usdOf(max, a))}` : ""}`}</div>
     ${feeNote(a)}${isIn && !v ? `<p class="mv-note first">${I.shield}<span>First time on ${NETS[S.net].name}: your Safe opens here as part of this deposit, with the same rules.</span></p>` : ""}
     <div class="mv-pcts">${[25, 50, 100].map((v) => `<button data-act="pct" data-v="${v}" class="${P.pct === v ? "on" : ""}">${v === 100 ? "Max" : v + "%"}</button>`).join("")}</div>
     <p class="mv-note">${isIn ? `${I.lock}<span>Anything leaving waits <b>${delay(main.withdrawDelay)}</b>, and you can cancel it.</span>` : `${I.clock}<span>Arrives <b>${when}</b> · cancel any time before</span>`}</p>
@@ -2254,7 +2259,15 @@ const errText = (e) => {
   const raw = String(e?.shortMessage || e?.message || e);
   if (/429|too many requests|failed to fetch|fetch failed|networkerror|network error|timed? ?out|ECONN|\b50[234]\b|block height exceeded|blockhash not found|server error/i.test(raw)) return "The test network is busy right now. Check Activity in a minute, and try again if it didn't go through.";
   if (/insufficient funds/i.test(raw)) return `Not enough ${NETS[S.net].unit} for this and the network fee. Use Receive to get free test coins.`;
+  if (/user rejected|user denied|rejected the request|cancell?ed by (the )?user|NotAllowedError/i.test(raw)) return "Cancelled. Nothing was sent.";
+  if (/nonce too low|replacement (transaction )?underpriced|already known|nonce has already been used/i.test(raw)) return "Your last transaction is still going through. Wait a minute, then try again.";
+  if (/no record of a prior credit|AccountNotFound|insufficient lamports|attempt to debit an account but found no record/i.test(raw)) return `Your Wallet needs a little ${NETS[S.net].unit} to pay the network fee. Use Receive to get free test coins.`;
+  if (/max fee per gas less than block base fee|fee too low|underpriced|intrinsic gas too low/i.test(raw)) return "The network fee went up while you were confirming. Try again: Ecrin will use the new fee.";
+  if (/invalid address|bad address checksum|invalid public key|Invalid public key input/i.test(raw)) return "That address doesn't look right for this network. Check it and paste it again.";
   let m; try { m = ENG?.explain?.(e)?.message || raw; } catch (_) { m = raw; }
+  // Anything still technical (codes, JSON, hex, stack traces) never reaches the screen: say what happened, plainly.
+  if (/execution reverted|CALL_EXCEPTION|reverted|custom program error|instruction error/i.test(m) && m === raw) return "The network refused this transaction, so nothing was sent. Check the amount and your Safe's rules, then try again.";
+  if (m === raw && (/[{}\[\]]|0x[0-9a-f]{12,}|code[=:]|Error:|at .+\(/i.test(m) || m.length > 140)) { console.warn("unexplained error", raw); return "Something went wrong and nothing was sent. Try again in a moment."; }
   return m.length > 160 ? m.slice(0, 157) + "…" : m;
 };
 
@@ -2456,7 +2469,9 @@ const actions = {
     const best = list.filter((i) => (p === "withdraw" ? i.sav : i.chq) > 0).sort((x, y) => (y.usd || 0) - (x.usd || 0))[0] || list[0];
     const k = best?.k || P.n || (P.u === "SOL" ? "sol" : P.u === "POL" ? "pol" : "eth"), a = P.u === "USDC" ? "usdc" : "native";
     await useNet(k); S.panel = null; openPanel(p, { a }); if (p === "send" || p === "protect" || p === "swap") { const e = await eng(); S.panel.reserve = await e.reserve(a); renderPanel(); } },
-  "pick-coin": () => { const P = S.panel; S.panel = { p: "pick", back: P.p, step: "form" }; renderPanel(); },
+  "mkt-all": () => { S.mktAll = !S.mktAll; render(); },
+  "pick-usdc": () => { S.panel.openU = !S.panel.openU; patchPanel ? patchPanel() : renderPanel(); },
+  "pick-coin": () => { const P = S.panel; if (!P) return; S.panel = { p: "pick", back: P.p, step: "form" }; renderPanel(); },
   "pick-go": async (el) => { await useNet(el.dataset.n); S.panel = null; openPanel(el.dataset.p, { a: el.dataset.a }); if (el.dataset.p !== "receive" && el.dataset.p !== "withdraw") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); } },
   grp: (el) => { S.open = { ...(S.open || {}), [el.dataset.u]: !S.open?.[el.dataset.u] }; render(); },
   wn: (el) => { S.wn = Number(el.dataset.n); render(); },
@@ -2558,7 +2573,9 @@ const actions = {
     go("createVerify", { quizErr: false });
   },
   pick: (el) => { const q = S.quiz.find((x) => !x.ok), w = S.phrase.split(" ")[q.i]; if (el.dataset.w === w) { q.ok = true; S.quizErr = false; } else S.quizErr = true; render(); },
-  "finish-create": async () => { S.busy = true; render(); await saveWallet(S.phrase, S.pw); await local.set({ backup: { at: Date.now(), done: false } }); S.busy = false; S.phrase = S.pw = null; home(); },
+  "finish-create": async () => { S.busy = true; render(); await saveWallet(S.phrase, S.pw); await local.set({ backup: { at: Date.now(), done: false } }); S.busy = false; S.phrase = S.pw = null; S.offerBio = true; home(); },
+  // Skipping the check: the wallet opens now, and the "Check your backup" card comes back tomorrow until it's done.
+  "verify-later": async () => { S.busy = true; render(); await saveWallet(S.phrase, S.pw); await local.set({ backup: { at: Date.now() - (BK_DAYS - 1) * 86400_000, done: false } }); S.busy = false; S.phrase = S.pw = null; S.offerBio = true; home(); },
   forgot: async () => { if (await ask("Without the password, the only way back in is your recovery phrase. Remove this wallet from this device and import it again?", { title: "Forgot your password?", ok: "Remove and re-import", danger: true })) forget(); },
   copy: async (el) => {
     await navigator.clipboard.writeText(el.dataset.v);
@@ -2616,7 +2633,7 @@ const actions = {
     if (back === "protect" && S.panel === P && P.step === "done") { P.step = "form"; if (!(P.opened?.done?.length > 1)) toast("Your Safe is open", "win"); const e = await eng(); P.reserve = await e.reserve(P.asset); renderPanel(); }
   },
   "do-protect": () => { const P = S.panel, units = parseAmt(P.amount, P.asset); P.sent = units;
-    txRun(async () => { const e = await eng(); if (!S.vault) { await e.createVault(safeKind() || "strong"); S.vault = await e.vault().catch(() => null) || S.vault; } return e.protect(P.asset, units); }, null, { t: "protect", a: P.asset, n: units }); },
+    txRun(async () => { const e = await eng(); if (!S.vault) { await e.createVault(safeKind() || "strong"); S.vault = await e.vault().catch(() => null) || S.vault; await syncRulesTo(S.net, e); } return e.protect(P.asset, units); }, null, { t: "protect", a: P.asset, n: units }); },
   "safe-pick": (el) => { S.panel = null; openPanel("pick", { back: el.dataset.p }); },
   faucet: async (el) => {
     const N = NETS[S.net]; if (N.key !== "sol" || !ENG?.address) return window.open(N.faucet, "_blank");
@@ -3279,13 +3296,19 @@ function pickView() {
   const P = S.panel, w = worth(), need = P.back === "withdraw" ? "sav" : P.back === "receive" ? null : "chq";
   // Protect only offers coins on networks where a Safe can live (the Safe program or contract is deployed there).
   let list = need ? w.items.filter((i) => i[need] > 0 && (P.back !== "protect" || canSafe(i.k))) : [];
-  // USDC on several networks shows as one row with the total; Ecrin uses the network that holds the most.
-  if (need) { const us = list.filter((i) => i.a === "usdc"); if (us.length > 1) { const best = [...us].sort((x, y) => y[need] - x[need])[0], tot = (k) => us.reduce((t, i) => t + (i[k] || 0), 0); list = [{ ...best, chq: tot("chq"), sav: tot("sav"), usd: tot("chq") + tot("sav"), net: `${us.length} networks · sends from ${best.net}`, merged: best[need] }, ...list.filter((i) => i.a !== "usdc")]; } }
+  // USDC on several networks shows as one row with the total. A transaction lives on one network, so tapping it opens
+  // the networks with what each one holds, and you pick where it comes from (the fullest first).
+  let usdNets = [];
+  if (need) { const us = list.filter((i) => i.a === "usdc"); if (us.length > 1) { usdNets = [...us].sort((x, y) => y[need] - x[need]); const tot = (k) => us.reduce((t, i) => t + (i[k] || 0), 0); list = [{ ...usdNets[0], chq: tot("chq"), sav: tot("sav"), usd: tot("chq") + tot("sav"), net: `${us.length} networks`, merged: true }, ...list.filter((i) => i.a !== "usdc")]; } }
   if (!need) list = netKeys().map((k) => NETS[k]).flatMap((N) => [{ k: N.key, a: "native", unit: N.unit, name: COIN_NAME[N.unit] || N.unit, net: N.name, coin: N.key }, ...(N.usdc ? [{ k: N.key, a: "usdc", unit: "USDC", name: "USD Coin", net: N.name, coin: "usdc" }] : [])]);
   const n = (v, d) => v.toLocaleString("en-US", { maximumFractionDigits: d });
   return `${phead({ send: "Send which coin?", protect: "Protect which coin?", withdraw: "Withdraw which coin?", receive: "Receive which coin?" }[P.back] || "Choose a coin")}
-    <section class="list">${list.length ? list.map((i) => `<button class="arow" data-act="pick-go" data-n="${i.k}" data-a="${i.a}" data-p="${P.back}"><span class="cstack">${coin(i.coin)}${i.coin !== i.k ? `<span class="cmini">${coin(i.k)}</span>` : ""}</span>
-      <span class="ar-t"><b>${i.name}</b><small>${i.net}</small></span>${need ? `<span class="ar-r"><b>${mask(n(i[need], i.dec))} ${i.unit}</b><small>${i.usd != null ? mask(money(i.usd * (i[need] / ((i.chq + i.sav) || 1)))) : ""}</small></span>` : ""}</button>`).join("") : `<div class="empty">${I.recv}<b>Nothing here yet</b><span>${need === "sav" ? "Your Safe is empty." : "Use Receive to get free test coins."}</span></div>`}</section>`;
+    <section class="list">${list.length ? list.map((i) => {
+      const right = (x) => (need ? `<span class="ar-r"><b>${mask(n(x[need], x.dec))} ${x.unit}</b><small>${x.usd != null ? mask(money(x.usd * (x[need] / ((x.chq + x.sav) || 1)))) : ""}</small></span>` : "");
+      if (i.merged) return `<button class="arow pk-u${P.openU ? " open" : ""}" data-act="pick-usdc" aria-expanded="${!!P.openU}"><span class="cstack">${coin("usdc")}</span><span class="ar-t"><b>${i.name}</b><small>${i.net} · ${P.openU ? "choose one" : "tap to choose"}</small></span>${right(i)}</button>
+        ${P.openU ? `<div class="pk-nets">${usdNets.map((x) => `<button class="arow sub" data-act="pick-go" data-n="${x.k}" data-a="usdc" data-p="${P.back}"><span class="cstack">${coin(x.k)}</span><span class="ar-t"><b>on ${x.net}</b><small>${x === usdNets[0] ? "most here" : "&nbsp;"}</small></span>${right(x)}</button>`).join("")}</div>` : ""}`;
+      return `<button class="arow" data-act="pick-go" data-n="${i.k}" data-a="${i.a}" data-p="${P.back}"><span class="cstack">${coin(i.coin)}${i.coin !== i.k ? `<span class="cmini">${coin(i.k)}</span>` : ""}</span>
+      <span class="ar-t"><b>${i.name}</b><small>${i.net}</small></span>${right(i)}</button>`; }).join("") : `<div class="empty">${I.recv}<b>Nothing here yet</b><span>${need === "sav" ? "Your Safe is empty." : "Use Receive to get free test coins."}</span></div>`}</section>`;
 }
 
 /* ------------------------------------------------------------------ the token page */
@@ -3375,6 +3398,24 @@ const famOf = (k) => (NETS[k].fam === "sol" ? "sol" : "evm");
 const openVaults = () => (S.all || []).filter((r) => r.ok && r.v);
 
 /** Sends each change to every network with a Safe in that family ("all" = every network), one after another. */
+/** A Safe that opens later on a new network takes your current rules from one you already have: the same delay,
+ *  freeze date, and (same kind of address only) guardian, trusted addresses and daily limit. Stricter ones apply at
+ *  once; anything looser waits, like any rule change. Quiet: only says something if a rule couldn't be copied. */
+async function syncRulesTo(k, eng0) {
+  const ref = openVaults().find((r) => r.k !== k && famOf(r.k) === famOf(k)) || openVaults().find((r) => r.k !== k); if (!ref) return;
+  const m = ref.v.main, same = famOf(ref.k) === famOf(k), t = now(), jobs = [];
+  const fresh = await eng0.vault().catch(() => null); if (!fresh) return; const f = fresh.main;
+  if (m.withdrawDelay && m.withdrawDelay !== f.withdrawDelay) jobs.push({ kind: "SetWithdrawDelay", value: m.withdrawDelay });
+  if (m.lockedUntil && m.lockedUntil > t + 300 && m.lockedUntil !== f.lockedUntil) jobs.push({ kind: "SetLockedUntil", value: m.lockedUntil });
+  if (same) {
+    if (m.guardian && String(m.guardian) !== String(f.guardian || "")) jobs.push({ kind: "SetGuardian", value: String(m.guardian) });
+    for (const a of m.trusted || []) if (!(f.trusted || []).some((x) => String(x) === String(a))) jobs.push({ kind: "AddTrusted", value: String(a) });
+    if (m.dailyLimit && NETS[ref.k].unit === NETS[k].unit && m.dailyLimit !== f.dailyLimit) jobs.push({ kind: "SetDailyLimit", value: m.dailyLimit });
+  }
+  let failed = 0; for (const c of jobs) { try { await eng0.propose(c); } catch (e) { console.warn("sync rule", k, c.kind, e); failed++; } }
+  if (failed) toast(`Your Safe opened on ${NETS[k].name}, but ${failed} rule${failed > 1 ? "s" : ""} didn't copy. Check Rules and alerts.`, "err");
+}
+
 async function applyEverywhere(jobs) {
   const P = S.panel; P.busy = true; renderPanel();
   const back = S.net; let done = 0; const fails = [];

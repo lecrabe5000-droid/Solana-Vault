@@ -3089,3 +3089,38 @@ html:root[data-skin="ecrin"] .ranges.ranges.ranges.ranges button[aria-pressed="t
 .tour2 .goal-ic { background: rgba(47, 91, 255, .22) !important; color: #b4c3ff !important; box-shadow: none !important; }
 .tour2 .goal-o > svg { color: var(--mut2); }
 .tour2 .goal-l .goal-o { animation: tv-up .5s cubic-bezier(.2, .8, .2, 1) both; } .tour2 .goal-l .goal-o:nth-child(2) { animation-delay: .07s; } .tour2 .goal-l .goal-o:nth-child(3) { animation-delay: .14s; }
+
+/* =====================================================================
+   0.23.0 A calmer home and a clearer coin picker
+   ===================================================================== */
+/* getting started: one line, the next step only */
+.ob.ob1 { display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 8px !important; }
+.ob-next { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 8px 6px; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; border-radius: 14px; }
+.ob-next > svg { flex: none; width: 16px; height: 16px; color: var(--muted); fill: none; stroke: currentColor; stroke-width: 2; }
+.ob-ring { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: conic-gradient(#2f5bff calc(var(--p) * 1%), var(--h3, var(--s2)) 0); position: relative; }
+.ob-ring::before { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: var(--h1, var(--s1)); }
+.ob-ring b { position: relative; font-size: 11px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ob-t { display: grid; flex: 1; min-width: 0; } .ob-t small { color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; } .ob-t b { font-size: 14.5px; font-weight: 600; color: var(--ink); }
+.ob1 .ob-x { flex: none; width: 44px; height: 44px; }
+/* market: the first three, then all */
+.mkt-more { display: block; width: 100%; margin: 6px 0 0; padding: 12px; border: 0; border-radius: 14px; background: none; color: var(--muted); font: 600 13px var(--font); cursor: pointer; }
+.mkt-more:hover { color: var(--ink); background: var(--h2, var(--s2)); }
+/* coin picker: USDC opens its networks */
+.pk-u.open { background: var(--h2, var(--s2)) !important; }
+.pk-nets { margin: 2px 0 6px 18px; border-left: 2px solid color-mix(in srgb, #2f5bff 40%, transparent); padding-left: 6px; }
+.pk-nets .arow.sub .ar-t b { font-weight: 600; }
+
+/* Accessibility: every control is at least ~44px to the finger, without changing how it looks (an invisible margin
+   of touch around it), and secondary text in the light look reaches 4.5:1 on white. */
+:is(.ib, .pcts button, .mv-pcts button, .sx-pcts button, .seg button, .seg2 button, .tabs button, .acts button, .add-tok, .acct, .lz-chg, .ranges button, .ob-x, .mkt-more) { position: relative; }
+:is(.ib, .pcts button, .mv-pcts button, .sx-pcts button, .seg button, .seg2 button, .tabs button, .acts button, .add-tok, .acct, .lz-chg, .ranges button, .ob-x)::before { content: ""; position: absolute; inset: -7px -4px; }
+html:root[data-theme="light"]:not([data-skin]) { --muted: #686b73; }
+html:root[data-theme="light"]:not([data-skin]) .mkt small.dn { color: #686b73; }
+.srow .seg button::before { inset: -11px -2px; }
+/* secondary text readable on every surface: section labels at full strength, dark grey a touch lighter */
+html:root[data-theme] :is(.home .list-h b, .lz-in .hero-l .lbl) { color: var(--muted) !important; }
+html:root[data-theme="dark"]:not([data-skin]) { --muted: #9095a0; }
+html:root[data-theme="dark"]:not([data-skin]) .list-h span, html:root[data-theme="light"]:not([data-skin]) .list-h span { color: var(--muted); }
+html:root[data-theme="light"]:not([data-skin]) .srow.danger span { color: #b4382a; }
+.later-btn { margin-top: 8px; } .fine.center { text-align: center; margin-top: 6px; }
+.pk-nets .arow { width: 100%; } .pk-nets .arow .ar-t { flex: 1; min-width: 0; } .pk-nets .arow .ar-r { margin-left: auto; }

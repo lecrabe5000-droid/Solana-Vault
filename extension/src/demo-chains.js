@@ -13,7 +13,7 @@ const now = () => Math.floor(Date.now() / 1000);
 export function engine({ acct, net }) {
   const N = NETS[net], sol = N.fam === "sol";
   const address = sol ? acct.sol.publicKey.toBase58() : N.fam === "tron" ? toTron(acct.tron.address) : acct.evm.address;
-  const B = (books[net] ||= { native: sol ? 24.5 * BASE : 1.8 * BASE, usdc: 1250 * USDC_BASE, vault: null, id: 1 });
+  const B = (books[net] ||= { native: sol ? 24.5 * BASE : 1.8 * BASE, usdc: N.usdc || sol || N.fam === "tron" ? 1250 * USDC_BASE : 0, vault: null, id: 1 }); // no test USDC where the real network has none
   const side = (a) => (a === "usdc" ? B.vault.usdc : B.vault.main);
   const free = (t) => t.balance - t.withdrawals.reduce((s, w) => s + w.amount, 0);
   const view = () => B.vault && { main: { ...B.vault.main, available: free(B.vault.main) }, usdc: { ...B.vault.usdc, available: free(B.vault.usdc) } };
