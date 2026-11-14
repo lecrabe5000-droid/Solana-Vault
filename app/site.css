@@ -765,17 +765,31 @@ td:first-child { color: var(--ink); font-weight: 600; width: 44%; }
 @media (max-width: 400px) { .wot .hero-k { font-size: 11.5px; padding: 5px 11px; } }
 .live[hidden] { display: none !important; }
 
-/* phone hero: light animation over the still Safe */
+/* phone hero: the Safe alive, without WebGL */
 @media (max-width: 860px) {
-  .wot-stage { overflow: visible; }
-  .wot-stage.wm-live::after { content: ""; position: absolute; inset: 22% 22%; border-radius: 50%; pointer-events: none;
-    background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, .22) 50%, transparent 65%) no-repeat; background-size: 250% 100%; animation: wm-sheen 5.5s ease-in-out infinite; mix-blend-mode: screen; }
-  .wm-c { position: absolute; z-index: 2; width: 70px; height: 3px; margin: -1.5px 0 0 -70px; transform-origin: 100% 50%; border-radius: 3px; pointer-events: none;
-    background: linear-gradient(90deg, transparent, rgba(255, 61, 79, .25) 40%, #ff3d4f 88%, #ffd9dd); box-shadow: 0 0 12px rgba(255, 61, 79, .8); transition: background .45s, box-shadow .45s, width .45s, margin .45s; }
-  .wm-c.frozen { width: 10px; margin-left: -10px; background: radial-gradient(circle, #fff, #cfd9ff 60%, transparent 70%); box-shadow: 0 0 16px 4px rgba(207, 217, 255, .8); }
-  .wm-r { position: absolute; z-index: 1; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; pointer-events: none; border: 1.5px solid rgba(157, 176, 255, .9); box-shadow: 0 0 18px rgba(125, 151, 255, .6); }
-  .wm-l { position: absolute; z-index: 3; display: flex; flex-direction: column; gap: 1px; padding: 6px 10px 7px; border-radius: 10px; white-space: nowrap; pointer-events: none; opacity: 0;
-    background: rgba(10, 12, 20, .78); box-shadow: inset 0 0 0 1px rgba(207, 217, 255, .22), 0 8px 24px -10px rgba(0, 0, 0, .9); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
-  .wm-l b { color: #fff; font-size: 12px; font-weight: 600; } .wm-l span { color: #9db0ff; font-size: 11px; } .wm-l i { font-style: normal; color: #dfe6ff; font-variant-numeric: tabular-nums; }
+  .wot-stage { overflow: visible; perspective: 900px; }
+  .wot-stage.wm-live .wot-img { animation: wm-tilt 9s ease-in-out infinite; transform-origin: 50% 50%; filter: drop-shadow(0 30px 50px rgba(47, 91, 255, .25)); }
+  .wm-glow { position: absolute; inset: 18%; z-index: 0; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(70, 105, 255, .55), rgba(47, 91, 255, .14) 45%, transparent 70%); filter: blur(10px); animation: wm-breathe 4.2s ease-in-out infinite; }
+  .wm-orbit { position: absolute; inset: 6%; z-index: 0; border-radius: 50%; pointer-events: none; border: 1px dashed rgba(157, 176, 255, .22); animation: wm-spin 40s linear infinite; }
+  .wm-orbit::before, .wm-orbit::after { content: ""; position: absolute; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: #cfd9ff; box-shadow: 0 0 12px 3px rgba(157, 176, 255, .8); }
+  .wm-orbit::before { left: 50%; top: 0; } .wm-orbit::after { left: 0; top: 50%; opacity: .6; width: 4px; height: 4px; margin: -2px; }
+  .wot-img { position: relative; z-index: 1; }
+  .wm-a { position: absolute; z-index: 3; width: 110px; height: 3px; margin: -1.5px 0 0 -110px; transform-origin: 100% 50%; border-radius: 3px; pointer-events: none;
+    background: linear-gradient(90deg, transparent, rgba(255, 61, 79, .2) 35%, #ff3d4f 85%, #fff); box-shadow: 0 0 14px 1px rgba(255, 61, 79, .85); }
+  .wm-a::after { content: ""; position: absolute; right: -4px; top: 50%; width: 9px; height: 9px; margin-top: -4.5px; border-radius: 50%; background: #fff; box-shadow: 0 0 14px 4px rgba(255, 90, 110, .95); }
+  .wm-f { position: absolute; z-index: 3; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, #fff, rgba(157, 176, 255, .7) 30%, transparent 70%); }
+  .wm-s { position: absolute; z-index: 3; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: #e7ecff; box-shadow: 0 0 8px 2px rgba(157, 176, 255, .9); pointer-events: none; }
+  .wm-ice { position: absolute; z-index: 3; width: 14px; height: 14px; margin: -7px 0 0 -7px; rotate: 45deg; border-radius: 3px; pointer-events: none;
+    background: linear-gradient(135deg, #fff, #b9c8ff 55%, #6f8cff); box-shadow: 0 0 0 3px rgba(157, 176, 255, .25), 0 0 22px 6px rgba(125, 151, 255, .75); }
+  .wm-r { position: absolute; z-index: 2; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; pointer-events: none; border: 1.5px solid rgba(157, 176, 255, .9); box-shadow: 0 0 18px rgba(125, 151, 255, .6); }
+  .wm-l { position: absolute; z-index: 4; display: flex; flex-direction: column; gap: 1px; padding: 7px 11px 8px; border-radius: 11px; white-space: nowrap; pointer-events: none; opacity: 0;
+    background: rgba(10, 12, 24, .82); box-shadow: inset 0 0 0 1px rgba(207, 217, 255, .24), 0 10px 26px -10px rgba(0, 0, 0, .9); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+  .wm-l b { color: #fff; font-size: 12.5px; font-weight: 600; } .wm-l span { color: #9db0ff; font-size: 11.5px; } .wm-l i { font-style: normal; color: #dfe6ff; font-variant-numeric: tabular-nums; }
+  .wm-count { position: absolute; z-index: 4; left: 50%; bottom: 7%; translate: -50% 0; display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 999px; white-space: nowrap;
+    background: rgba(10, 12, 24, .7); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); color: #c9cbe0; font-size: 12.5px; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+  .wm-count b { color: #fff; font-variant-numeric: tabular-nums; } .wm-count i { width: 7px; height: 7px; border-radius: 50%; background: #7d97ff; box-shadow: 0 0 0 4px rgba(125, 151, 255, .18); animation: wm-breathe 2s ease-in-out infinite; }
 }
-@keyframes wm-sheen { 0%, 55% { background-position: 150% 0; } 85%, 100% { background-position: -60% 0; } }
+@keyframes wm-tilt { 0%, 100% { transform: rotateX(4deg) rotateY(-6deg) translateY(0); } 50% { transform: rotateX(-3deg) rotateY(6deg) translateY(-6px); } }
+@keyframes wm-breathe { 0%, 100% { opacity: .75; scale: .96; } 50% { opacity: 1; scale: 1.04; } }
+@keyframes wm-spin { to { rotate: 360deg; } }
+@media (prefers-reduced-motion: reduce) { .wm-glow, .wm-orbit, .wot-img { animation: none !important; } }

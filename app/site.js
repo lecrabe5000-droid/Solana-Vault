@@ -78,38 +78,58 @@
       mountWall({ canvas: wot, labels: document.querySelector("[data-wot-labels]"), lang: root.lang === "fr" ? "fr" : "en", still: matchMedia("(prefers-reduced-motion: reduce)").matches, onCount: (c) => { if (n) n.textContent = c; } });
       requestAnimationFrame(() => setTimeout(() => wot.parentElement.classList.add("ready"), 120));
     }).catch(() => {});
-    // Phones: the still render of the Safe, brought to life with light DOM animation (no WebGL, no battery drain):
-    // attacks streak in, freeze at the shield with their label and a countdown, ripple, and fade.
+    // Phones: the Safe's render brought to life with light DOM and CSS (no WebGL, easy on the battery). The Safe tilts
+    // and breathes; red attacks streak in from every side, hit the diamond's edge (it flashes), and freeze into ice with
+    // their name and a countdown; a chip counts every attack frozen.
     if (matchMedia("(max-width: 860px)").matches && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
       const stage = wot.parentElement, fr = root.lang === "fr";
-      const KINDS = fr ? ["Drainer", "Dépôt au casino", "Signature d'hameçonnage", "Encore un pari", "Phrase secrète volée", "Courir après ses pertes", "Levier x100", "Trade de revanche"]
-        : ["Drainer", "Casino deposit", "Phishing signature", "One more bet", "Stolen seed phrase", "Chasing losses", "100x leverage", "Revenge trade"];
+      const KINDS = fr ? ["Drainer", "Dépôt au casino", "Signature d'hameçonnage", "Encore un pari", "Phrase secrète volée", "Courir après ses pertes", "Levier x100", "Trade de revanche", "Vol de carte SIM"]
+        : ["Drainer", "Casino deposit", "Phishing signature", "One more bet", "Stolen seed phrase", "Chasing losses", "100x leverage", "Revenge trade", "SIM swap"];
       const FROZEN = fr ? "gelé" : "frozen";
-      let k = 0, on = false, timer = 0;
+      // decor made once: glow, orbiting ring, the diamond's edge (flashes on impact), the counter
+      stage.insertAdjacentHTML("afterbegin", `<i class="wm-glow" aria-hidden="true"></i><i class="wm-orbit" aria-hidden="true"></i>`);
+      stage.insertAdjacentHTML("beforeend", `<div class="wm-count" aria-hidden="true"><i></i><b data-wm-n>0</b> ${fr ? "attaques gelées" : "attacks frozen"}</div>`);
+      const glow = stage.querySelector(".wm-glow"), nEl = stage.querySelector("[data-wm-n]");
+      let k = 0, n = 0, on = false, timer = 0, side = 1; const busy = {};
       const fmt = (s) => [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map((x) => String(x).padStart(2, "0")).join(":");
-      const shoot = () => {
+      const shoot = (extra) => {
         if (!on) return;
-        const W = stage.clientWidth, cx = W / 2, cy = W / 2, R = W * 0.37;
-        // come from the sides and the top, never from below (that's where the headline is)
-        const a = (-90 + (k % 2 ? 1 : -1) * (35 + Math.random() * 70)) * (Math.PI / 180);
-        const hx = cx + Math.cos(a) * R, hy = cy + Math.sin(a) * R, sx = cx + Math.cos(a) * W * 0.95, sy = cy + Math.sin(a) * W * 0.95;
-        const deg = (Math.atan2(hy - sy, hx - sx) * 180) / Math.PI;
-        const c = document.createElement("i"); c.className = "wm-c"; c.style.cssText = `left:${sx}px;top:${sy}px;rotate:${deg}deg`; stage.append(c);
-        c.animate([{ translate: "0 0", opacity: 0 }, { opacity: 1, offset: 0.15 }, { translate: `${Math.hypot(hx - sx, hy - sy)}px 0`, opacity: 1 }], { duration: 900, easing: "cubic-bezier(.4,.1,.6,1)", fill: "forwards" })
-          .finished.then(() => {
-            c.classList.add("frozen");
-            const rip = document.createElement("i"); rip.className = "wm-r"; rip.style.cssText = `left:${hx}px;top:${hy}px`; stage.append(rip);
-            rip.animate([{ scale: 0.2, opacity: 0.9 }, { scale: 2.6, opacity: 0 }], { duration: 1100, easing: "cubic-bezier(.2,.7,.3,1)" }).finished.then(() => rip.remove());
-            const l = document.createElement("div"); l.className = "wm-l"; let secs = 72 * 3600 - 1;
+        const W = stage.clientWidth, cx = W * 0.495, cy = W * 0.5, r = W * 0.33;
+        // from the sides and the top (the headline is below); the hit point sits on the diamond's own edge
+        side = -side; const deg0 = -90 + side * (25 + Math.random() * 85), a = (deg0 * Math.PI) / 180, ca = Math.cos(a), sa = Math.sin(a);
+        const d = r / (Math.abs(ca) + Math.abs(sa)), hx = cx + ca * d, hy = cy + sa * d, sx = cx + ca * W * 1.05, sy = cy + sa * W * 1.05;
+        const len = Math.hypot(hx - sx, hy - sy), rot = (Math.atan2(hy - sy, hx - sx) * 180) / Math.PI;
+        const c = document.createElement("i"); c.className = "wm-a"; c.style.cssText = `left:${sx}px;top:${sy}px;rotate:${rot}deg`; stage.append(c);
+        c.animate([{ translate: "0 0", opacity: 0 }, { opacity: 1, offset: 0.12 }, { translate: `${len}px 0`, opacity: 1 }], { duration: 700, easing: "cubic-bezier(.55,.05,.7,.95)", fill: "forwards" }).finished.then(() => {
+          c.remove();
+          // impact: the edge flashes, sparks scatter, the attack becomes a crystal of ice
+          glow.animate([{ filter: "blur(10px) brightness(1.8)" }, { filter: "blur(10px) brightness(1)" }], { duration: 700, easing: "ease-out" });
+          const fl = document.createElement("i"); fl.className = "wm-f"; fl.style.cssText = `left:${hx}px;top:${hy}px`; stage.append(fl);
+          fl.animate([{ scale: 0.3, opacity: 1 }, { scale: 1.6, opacity: 0 }], { duration: 500, easing: "ease-out" }).finished.then(() => fl.remove());
+          stage.animate([{ transform: "translate(0,0)" }, { transform: `translate(${-ca * 3}px,${-sa * 3}px)` }, { transform: "translate(0,0)" }], { duration: 260, easing: "ease-out" });
+          for (let i = 0; i < 7; i++) { const sp = document.createElement("i"); sp.className = "wm-s"; sp.style.cssText = `left:${hx}px;top:${hy}px`; stage.append(sp);
+            const t = a + Math.PI + (Math.random() - 0.5) * 2.2, v = 18 + Math.random() * 26;
+            sp.animate([{ translate: "0 0", opacity: 1, scale: 1 }, { translate: `${Math.cos(t) * v}px ${Math.sin(t) * v}px`, opacity: 0, scale: 0.3 }], { duration: 650 + Math.random() * 300, easing: "cubic-bezier(.2,.7,.3,1)" }).finished.then(() => sp.remove()); }
+          const ice = document.createElement("i"); ice.className = "wm-ice"; ice.style.cssText = `left:${hx}px;top:${hy}px`; stage.append(ice);
+          ice.animate([{ scale: 0.2, opacity: 0 }, { scale: 1.25, opacity: 1, offset: 0.5 }, { scale: 1, opacity: 1 }], { duration: 420, easing: "cubic-bezier(.2,1.4,.4,1)", fill: "forwards" });
+          const rip = document.createElement("i"); rip.className = "wm-r"; rip.style.cssText = `left:${hx}px;top:${hy}px`; stage.append(rip);
+          rip.animate([{ scale: 0.2, opacity: 0.9 }, { scale: 3, opacity: 0 }], { duration: 1000, easing: "cubic-bezier(.2,.7,.3,1)" }).finished.then(() => rip.remove());
+          // labels sit in four fixed slots (two each side) so they never pile up
+          const L = hx < cx ? "l" : "r", rows = hy < cy ? ["t", "m"] : ["m", "t"], slot = rows.map((r0) => L + r0).find((q) => !busy[q]);
+          let l = null, tick = 0;
+          if (slot) {
+            busy[slot] = 1; l = document.createElement("div"); l.className = "wm-l"; let secs = 72 * 3600 - 1;
             l.innerHTML = `<b>${KINDS[k++ % KINDS.length]}</b><span>${FROZEN} · <i>${fmt(secs)}</i></span>`;
-            l.style.cssText = `left:${Math.min(Math.max(hx, 70), W - 70)}px;top:${hy}px`; stage.append(l);
-            const tick = setInterval(() => { secs -= 37; const i = l.querySelector("i"); if (i) i.textContent = fmt(secs); }, 60);
-            l.animate([{ opacity: 0, translate: "-50% calc(-100% - 6px)" }, { opacity: 1, translate: "-50% calc(-100% - 14px)" }], { duration: 300, fill: "forwards" });
-            setTimeout(() => { c.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 700, fill: "forwards" }); l.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 700, fill: "forwards" }).finished.then(() => { clearInterval(tick); l.remove(); c.remove(); }); }, 1900);
-          });
-        timer = setTimeout(shoot, 2300 + Math.random() * 900);
+            l.style.cssText = `${L === "l" ? "left" : "right"}:2%;top:${slot[1] === "t" ? 6 : 56}%`; stage.append(l);
+            tick = setInterval(() => { secs -= 37; const i = l.querySelector("i"); if (i) i.textContent = fmt(secs); }, 60);
+            l.animate([{ opacity: 0, translate: `0 ${slot[1] === "t" ? -8 : 8}px` }, { opacity: 1, translate: "0 0" }], { duration: 340, easing: "cubic-bezier(.2,1.2,.4,1)", fill: "forwards" });
+          }
+          nEl.textContent = ++n; nEl.parentElement.animate([{ scale: 1 }, { scale: 1.08 }, { scale: 1 }], { duration: 300 });
+          setTimeout(() => { for (const el of [ice, l]) el?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 600, fill: "forwards" }); setTimeout(() => { clearInterval(tick); ice.remove(); l?.remove(); if (slot) busy[slot] = 0; }, 650); }, 2300);
+        });
+        if (!extra) { timer = setTimeout(() => shoot(), 1500 + Math.random() * 700); if (Math.random() < 0.3) setTimeout(() => shoot(true), 380); }
       };
-      new IntersectionObserver(([en]) => { const v = en.isIntersecting && !document.hidden; if (v && !on) { on = true; timer = setTimeout(shoot, 700); } else if (!v) { on = false; clearTimeout(timer); } }, { threshold: 0.2 }).observe(stage);
+      new IntersectionObserver(([en]) => { const v = en.isIntersecting && !document.hidden; if (v && !on) { on = true; timer = setTimeout(() => shoot(), 600); } else if (!v) { on = false; clearTimeout(timer); } }, { threshold: 0.2 }).observe(stage);
       document.addEventListener("visibilitychange", () => { if (document.hidden) { on = false; clearTimeout(timer); } });
       stage.classList.add("wm-live");
     }
