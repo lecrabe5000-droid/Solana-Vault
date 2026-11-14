@@ -1008,17 +1008,34 @@ function unlock() {
       <p class="bs-t">${ok ? "Unlocked" : `Unlocking with ${bioName()}`}</p></div>`;
   }
   const las = S.lockInfo?.accts?.length ? S.lockInfo.accts : S.lockInfo ? DEF_ACCTS : [], la = las.find((x) => x.id === S.lockInfo?.acctSel) || las[0];
-  return `<div class="lock">
-    <div class="lock-mark"><i class="halo"></i>${LOGO}</div>
-    <h1>Welcome back</h1>
-    ${la ? `<div class="lock-acct">${acctIc(la)}<span>${esc(la.name)}</span></div>` : `<p class="sub">Unlock Ecrin Wallet</p>`}
-    ${S.bio ? `<button class="btn primary xl bio-btn" data-act="bio-unlock">${I.face}Unlock with ${bioName()}</button><p class="or">or use your password</p>` : ""}
-    <form class="stack" data-form="unlock">
-      <label class="fld"><span>Password</span><input name="pw" type="password" autocomplete="current-password" ${S.bio && globalThis.ECRIN_WEB ? "" : "autofocus"} required/></label>
-      <p class="err" data-err></p>
-      <button class="btn ${S.bio ? "" : "primary"} xl">${S.busy ? "Unlocking…" : "Unlock"}</button>
-    </form>
-    <button class="link" data-act="forgot">Forgot your password?</button>
+  const addr = la && S.lockInfo?.addrCache?.[la.id], tries = S.pwTries || 0;
+  // The Safe's diamond: a point of light circles it while locked, speeds up while the password is checked, and the
+  // diamond closes into a full outline with a check when it opens (the same motion as Face ID).
+  const R = (c, x, r) => `<rect class="${c}" x="${x}" y="${x}" width="${220 - 2 * x}" height="${220 - 2 * x}" rx="${r}" pathLength="100"/>`;
+  return `<div class="lock lk2">
+    <div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
+    <div class="lk-top">
+      <div class="lk-hero" aria-hidden="true"><svg class="lk-lz" viewBox="0 0 220 220"><defs><linearGradient id="lkg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b6c4ff"/><stop offset=".5" stop-color="#4b74ff"/><stop offset="1" stop-color="#00c8ff"/></linearGradient></defs>
+        <g transform="rotate(45 110 110)">${R("lk-base", 38, 30)}${R("lk-in", 51, 24)}${R("lk-run", 38, 30)}${R("lk-run2", 51, 24)}${R("lk-full", 38, 30)}</g></svg>
+        <span class="lk-ic"><span class="lk-l">${I.lock}</span><svg class="lk-ok" viewBox="0 0 24 24"><path d="M6 12.5l4 4L18 8"/></svg></span></div>
+      <h1>Welcome back</h1>
+      ${la ? `<div class="lk-acct">${acctIc(la)}<span><b>${esc(la.name)}</b>${addr ? `<small class="mono">${esc(short(addr))}</small>` : ""}</span></div>` : `<p class="sub">Unlock Ecrin Wallet</p>`}
+    </div>
+    <div class="lk-form">
+      ${S.bio ? `<button class="btn primary xl bio-btn" data-act="bio-unlock">${I.face}Unlock with ${bioName()}</button><p class="or">or use your password</p>` : ""}
+      <form class="stack" data-form="unlock" novalidate>
+        <label class="lk-fld"><span class="lk-fi">${I.key}</span><input name="pw" type="password" placeholder="Password" aria-label="Password" autocomplete="current-password" ${S.bio && globalThis.ECRIN_WEB ? "" : "autofocus"} required/>
+          <button type="button" class="lk-eye" data-act="pw-eye" aria-label="Show password">${I.eye}</button></label>
+        <p class="lk-caps" data-caps hidden>${I.warn}Caps Lock is on</p>
+        <p class="err" data-err></p>
+        <button class="btn ${S.bio ? "" : "primary"} xl lk-go" data-unlock>Unlock</button>
+      </form>
+      ${tries >= 3 ? `<div class="lk-help">${I.shield}<span>Can't remember it? Your recovery phrase brings your wallet back with a new password.</span></div>` : ""}
+    </div>
+    <div class="lk-foot">
+      <button class="link" data-act="forgot">Forgot your password?</button>
+      <p class="lk-safe">${I.lock}Your keys never leave this device</p>
+    </div>
   </div>`;
 }
 
@@ -2706,6 +2723,7 @@ const actions = {
   },
   execute: async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).execute(el.dataset.a, Number(el.dataset.id), el.dataset.d); await logActivity({ t: "release", a: el.dataset.a }); loadActivity(); toast("Released to Wallet", "win"); await refresh(); loadAll(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
   // Settings → Networks: Mainnet or Testnet. The same network family stays selected where it can (Solana ↔ Solana).
+  "pw-eye": (el) => { const i = el.parentElement.querySelector("input"); const show = i.type === "password"; i.type = show ? "text" : "password"; el.innerHTML = show ? I.eyeOff : I.eye; el.setAttribute("aria-label", show ? "Hide password" : "Show password"); i.focus(); },
   "net-mode": async (el) => {
     const m = el.dataset.v; if (m === (S.mode || DEFAULT_MODE)) return;
     const was = NETS[S.net]; S.mode = m; await local.set({ netMode: m });
@@ -2833,9 +2851,24 @@ document.addEventListener("submit", async (e) => {
     S.busy = true; render(); await saveWallet(d.phrase, d.pw); S.busy = false; return home();
   }
   if (kind === "unlock") {
-    S.busy = true; render();
-    try { const { box } = await local.get("box"); const phrase = await open(box, d.pw); await session.set({ phrase }); await useAccount(phrase); await touch(); S.busy = false; AP.id ? startApproval() : home(); }
-    catch (_) { S.busy = false; render(); const x = $("[data-err]"); if (x) x.textContent = "Wrong password"; $("#root form")?.classList.add("shake"); }
+    const lk = $("#root .lk2"), go = $("#root [data-unlock]"), x = $("[data-err]"), f = $("#root form");
+    if (!d.pw) { if (x) x.textContent = "Enter your password"; f?.classList.remove("shake"); void f?.offsetWidth; f?.classList.add("shake"); return; }
+    if (S.busy) return; S.busy = true;
+    lk?.classList.remove("lk-bad"); lk?.classList.add("run"); if (x) x.textContent = ""; if (go) { go.disabled = true; go.innerHTML = `<i class="spin"></i>Unlocking…`; }
+    try {
+      const { box } = await local.get("box"); const phrase = await open(box, d.pw);
+      lk?.classList.replace("run", "ok"); if (go) { go.classList.add("lk-done"); go.innerHTML = "Unlocked"; } haptic?.("success");
+      await session.set({ phrase }); await useAccount(phrase); await touch(); S.pwTries = 0;
+      await new Promise((r) => setTimeout(r, matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 520));
+      S.busy = false; AP.id ? startApproval() : home();
+    } catch (_) {
+      S.busy = false; S.pwTries = (S.pwTries || 0) + 1;
+      if (S.pwTries === 3) { render(); }
+      const lk2 = $("#root .lk2"), g2 = $("#root [data-unlock]"), x2 = $("[data-err]"), f2 = $("#root form"), i2 = $("#root [name=pw]");
+      lk2?.classList.remove("run"); lk2?.classList.add("lk-bad"); if (g2) { g2.disabled = false; g2.textContent = "Unlock"; }
+      if (x2) x2.textContent = S.pwTries >= 3 ? "That's not it either. Check Caps Lock, or use your recovery phrase." : "That password doesn't match. Try again.";
+      f2?.classList.remove("shake"); void f2?.offsetWidth; f2?.classList.add("shake"); if (i2) { i2.select(); i2.focus(); }
+    }
     return;
   }
   if (kind === "pkey") {
@@ -2865,6 +2898,12 @@ setInterval(() => {
   document.querySelectorAll("[data-ru]").forEach((c) => { const f = Math.max(0, Math.min(1, (Number(c.dataset.ru) - t - 1) / Number(c.dataset.rd))); c.style.strokeDasharray = `${(f * 100).toFixed(3)} 100`; });
 }, 1000);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.panel) closePanel(); });
+// Lock screen: warn about Caps Lock while typing the password; typing again clears the red "wrong password" state.
+for (const ev of ["keydown", "keyup"]) document.addEventListener(ev, (e) => {
+  if (!e.target?.matches?.(".lk2 [name=pw]") || !e.getModifierState) return;
+  const c = $("#root [data-caps]"); if (c) c.hidden = !e.getModifierState("CapsLock");
+  if (ev === "keydown" && e.key !== "Enter") $("#root .lk2")?.classList.remove("lk-bad");
+});
 
 boot();
 
