@@ -2218,8 +2218,19 @@ function vaultView() {
       </div>
       <div class="sf-lvl"><span class="sf-pill"><i></i>${open.length ? `Shield ${lvl[1]}` : lvl[1]}</span><span class="sf-pct">${open.length ? `${pct}% of everything you own` : "Open your Safe to raise it"}</span></div>
     </section>
-    ${next ? `<div class="sf-alert"><span class="sa-ic">${I.clock}</span><span class="sa-t"><b>${amt(next.amount, next.a)} ${nextU} is leaving your Safe</b><small>to ${isMine(next.dest) ? "your Wallet" : short(String(next.dest))} · on ${NETS[next.r.k].name}</small></span><b class="sa-cd" data-until="${next.readyAt}">${nextLeft > 0 ? hms(nextLeft) : "Ready"}</b>
-      <button class="sa-x" data-act="cancel-w" data-n="${next.r.k}" data-id="${next.id}" data-a="${next.a}">${I.shield}Cancel</button></div>` : ""}
+    ${pend.length ? `<div class="list-h sf-lh"><b>Leaving your Safe</b><span>you can cancel any time</span></div>
+      <div class="sf-outs${pend.length > 1 ? " many" : ""}">${pend.map((x) => {
+        const N = NETS[x.r.k], d = x.r.v.main.withdrawDelay, left = x.readyAt - t, ready = left <= 0, f = Math.max(0, Math.min(1, left / (d || 86400))), unit = x.a === "usdc" ? "USDC" : N.unit, usd = usdOfEntry({ a: x.a, n: x.amount, k: x.r.k });
+        const arrive = new Date(x.readyAt * 1000).toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { weekday: "short", hour: "numeric", minute: "2-digit" });
+        return `<article class="sf-out${ready ? " ready" : ""}">
+          <div class="so-ring"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="b" cx="60" cy="60" r="52"/><circle class="p" cx="60" cy="60" r="52" pathLength="100" data-ru="${x.readyAt}" data-rd="${d}" style="stroke-dasharray:${(f * 100).toFixed(3)} 100"/></svg>
+            <span class="so-mid">${ready ? `<b>Ready</b><small>to release</small>` : `<b class="cd" data-until="${x.readyAt}">${hms(left)}</b><small>left of ${delay(d)}</small>`}</span></div>
+          <div class="so-info"><span class="so-amt">${x.a === "usdc" ? coin("usdc") : coin(x.r.k)}<b>${mask(amt(x.amount, x.a))} ${unit}</b></span>${usd ? `<small class="so-usd">${mask(money(usd))}</small>` : ""}
+            <span class="so-to">to ${isMine(x.dest) ? "your Wallet" : `<span class="mono">${esc(short(String(x.dest)))}</span>`} · ${N.name}</span>
+            <span class="so-when">${ready ? "Waiting for you to release it" : `Arrives ${arrive}`}</span></div>
+          ${ready ? `<button class="btn primary so-go" data-act="execute" data-n="${x.r.k}" data-id="${x.id}" data-a="${x.a}" data-d="${esc(String(x.dest))}">${I.recv}Release to Wallet</button>`
+            : `<button class="so-x" data-act="cancel-w" data-n="${x.r.k}" data-id="${x.id}" data-a="${x.a}">${I.shield}Cancel this withdrawal</button>`}
+        </article>`; }).join("")}</div>` : ""}
     <div class="sf-tiles">
       <div class="sf-tile t-lock"><span class="st-ic">${I.lock}</span><span class="st-k">Locked</span><b>${mask(money(total))}</b><small>${open.length ? "every network" : "Not opened"}</small></div>
       <div class="sf-tile t-out${waiting ? " hot" : ""}"><span class="st-ic">${I.out}</span><span class="st-k">Leaving</span><b>${waiting || "None"}</b><small>${next ? `first in ${nextLeft > 0 ? dur(nextLeft) : "now"}` : "all quiet"}</small></div>
@@ -2229,9 +2240,20 @@ function vaultView() {
     <div class="list-h"><b>Blocked</b><span>${blocked.length ? `${blocked.length} stopped${saved ? ` · ${mask(money(saved))} kept` : ""}` : "nothing yet"}</span></div>
     <div class="sf-blocked">${blocked.length ? blocked.slice(0, 4).map((e) => `<div class="sb-r"><i class="sb-d"></i><span><b>Withdrawal stopped</b><small>${e.at ? new Date(e.at).toLocaleDateString(S.lang === "fr" ? "fr-CA" : "en-US", { month: "short", day: "numeric" }) : ""}${e.n ? ` · ${amt(e.n, e.a === "usdc" ? "usdc" : "native")} ${e.a === "usdc" ? "USDC" : NETS[e.k]?.unit || ""}` : ""}</small></span><em>Kept</em></div>`).join("")
       : `<div class="sb-empty"><b>Nothing has tried to leave.</b><span>If anything ever does, even with your own key, it waits ${dl ? delay(dl) : "the delay"} and you can stop it right here.</span></div>`}</div>
-    ${open.length ? safeHoldings(pend, t, isMine, ring, hms) : ""}
+    ${open.length ? safeHoldings([], t, isMine, ring, hms) : ""}
+    ${safeTimeline()}
     <button class="earn-card" data-act="panel" data-p="earn"><span class="ec-ic">${I.spark}</span><span class="ec-t"><b>Earn on your Safe</b><small>Stake SOL without taking it out · about ${STAKE_APY_TEXT} a year</small></span><span class="soon">Coming soon</span></button>
   </div>`;
+}
+/** The Safe's story, newest first: opened, protected, withdrawals started, stopped and released, freezes. */
+function safeTimeline() {
+  const K = { vault: [I.lock, "Safe opened", ""], protect: [I.protect, "Protected", "in"], auto: [I.protect, "Protected automatically", "in"], withdraw: [I.clock, "Withdrawal started", "wait"], cancel: [I.shield, "Withdrawal stopped", "stop"], release: [I.recv, "Released to your Wallet", "out"], freeze: [I.snow, "Safe frozen", "stop"] };
+  const ev = (S.activity || []).filter((e) => K[e.t]).slice(0, 8);
+  if (!ev.length) return "";
+  return `<div class="list-h"><b>History</b><span>${ev.length === 8 ? "latest 8" : `${ev.length} event${ev.length > 1 ? "s" : ""}`}</span></div>
+    <ol class="sf-tl">${ev.map((e) => { const [ic, label, cls] = K[e.t], N = NETS[e.k] || NETS[S.net], unit = e.a === "usdc" ? "USDC" : N.unit;
+      const v = e.n ? `${mask(amt(e.n, e.a || "native"))} ${unit}` : "", when = e.at ? new Date(e.at).toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+      return `<li class="${cls}"><i class="tl-dot">${ic}</i><span class="tl-t"><b>${label}</b><small>${when}${N ? ` · ${N.name}` : ""}</small></span>${v ? `<b class="tl-v">${v}</b>` : ""}</li>`; }).join("")}</ol>`;
 }
 /** Everything in your Safe as one list, coin by coin (ETH on several networks adds up into one row), then anything
  *  on its way out, each with its countdown. Tapping a coin opens its page, where Protect and Withdraw are. */

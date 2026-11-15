@@ -3252,3 +3252,39 @@ html:root[data-skin="ecrin"] .brand-sig.real i { color: #ffd27a !important; back
 .mo > .mo-x { position: absolute !important; top: 12px; right: 12px; left: auto; margin: 0; }
 .mo-ln svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 :root[data-theme="light"] .mo-steps li.now .mo-dot .spin { border-color: rgba(47, 91, 255, .25); border-top-color: #2f5bff; }
+/* ---------- the Safe: withdrawals as big countdown rings, and its history ---------- */
+.sf-lh { margin-top: 6px; }
+.sf-outs { display: grid; gap: 12px; }
+.sf-outs.many { grid-auto-flow: column; grid-auto-columns: 86%; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; margin: 0 -4px; padding-left: 4px; padding-right: 4px; scrollbar-width: none; }
+.sf-outs.many::-webkit-scrollbar { display: none; }
+.sf-out { scroll-snap-align: center; display: grid; grid-template-columns: 124px 1fr; gap: 14px 16px; align-items: center; padding: 16px; border-radius: 22px;
+  background: linear-gradient(160deg, rgba(91, 124, 255, .16), rgba(91, 124, 255, .04) 60%); box-shadow: inset 0 0 0 1px rgba(125, 151, 255, .28), 0 18px 40px -26px rgba(47, 91, 255, .7); animation: done-in .45s ease both; }
+.so-ring { position: relative; width: 124px; height: 124px; }
+.so-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.so-ring circle { fill: none; stroke-width: 7; stroke-linecap: round; } .so-ring .b { stroke: rgba(127, 127, 127, .16); }
+.so-ring .p { stroke: #5b7cff; filter: drop-shadow(0 0 6px rgba(91, 124, 255, .7)); transition: stroke-dasharray 1s linear; }
+.so-mid { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.so-mid b { font-size: 19px; font-weight: 650; letter-spacing: -.01em; font-variant-numeric: tabular-nums; } .so-mid small { font-size: 11px; color: var(--muted); }
+.so-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.so-amt { display: flex; align-items: center; gap: 8px; } .so-amt .coin { width: 24px; height: 24px; } .so-amt b { font-size: 19px; font-weight: 650; letter-spacing: -.01em; }
+.so-usd { color: var(--muted); font-size: 13px; } .so-to { font-size: 13px; color: var(--text); opacity: .85; } .so-when { font-size: 12px; color: var(--muted); }
+.so-x, .so-go { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 8px; height: 48px; border: 0; border-radius: 15px; font: 600 15px var(--font); cursor: pointer; }
+.so-x { color: #fff; background: #2f5bff; box-shadow: 0 10px 24px -12px rgba(47, 91, 255, .9); } .so-x:active { transform: scale(.98); }
+.so-x svg, .so-go svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.9; }
+.sf-out.ready { background: linear-gradient(160deg, rgba(60, 200, 140, .16), rgba(60, 200, 140, .04) 60%); box-shadow: inset 0 0 0 1px rgba(60, 200, 140, .3); } .sf-out.ready .so-ring .p { stroke: #3cc88c; filter: none; }
+.sf-tl { list-style: none; margin: 0 0 8px; padding: 6px 14px; border-radius: 18px; background: rgba(127, 127, 127, .07); box-shadow: inset 0 0 0 1px rgba(127, 127, 127, .12); }
+.sf-tl li { position: relative; display: flex; align-items: center; gap: 12px; padding: 11px 0; }
+.sf-tl li:not(:last-child)::after { content: ""; position: absolute; left: 15px; top: 42px; bottom: -11px; width: 1.5px; background: rgba(127, 127, 127, .2); }
+.tl-dot { position: relative; z-index: 1; display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 11px; color: #9db0ff; background: rgba(91, 124, 255, .14); }
+.tl-dot svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.sf-tl li.stop .tl-dot { color: #ff8a96; background: rgba(255, 90, 106, .13); } .sf-tl li.out .tl-dot { color: #5fd3a2; background: rgba(60, 200, 140, .13); } .sf-tl li.wait .tl-dot { color: #ffc35a; background: rgba(255, 176, 32, .13); }
+.tl-t { display: flex; flex-direction: column; flex: 1; min-width: 0; } .tl-t b { font-size: 14px; font-weight: 550; } .tl-t small { font-size: 12px; color: var(--muted); }
+.tl-v { font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+:root[data-theme="dark"] .so-x { background: var(--ivory); color: var(--ivory-ink); box-shadow: none; } :root[data-theme="dark"] .so-ring .p { stroke: var(--ivory); filter: drop-shadow(0 0 6px rgba(242, 239, 232, .4)); }
+:root[data-theme="dark"] .sf-out { background: linear-gradient(160deg, rgba(242, 239, 232, .07), rgba(242, 239, 232, .02) 60%); box-shadow: inset 0 0 0 1px rgba(242, 239, 232, .12); }
+:root[data-theme="light"] .sf-out { background: #fff; box-shadow: 0 0 0 1px rgba(16, 17, 20, .08), 0 14px 30px -20px rgba(47, 91, 255, .45); } :root[data-theme="light"] .sf-tl { background: #fff; box-shadow: 0 0 0 1px rgba(16, 17, 20, .08); }
+.sf-out { grid-template-columns: 100px minmax(0, 1fr); gap: 14px; padding: 14px; }
+.so-ring { width: 100px; height: 100px; } .so-mid b { font-size: 16.5px; } .so-mid small { font-size: 10.5px; }
+.so-to, .so-when, .so-usd { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.so-amt b { font-size: 18px; white-space: nowrap; }
+.sf-outs.many { grid-auto-columns: 90%; }
