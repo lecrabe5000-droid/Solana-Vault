@@ -9,6 +9,7 @@ import { SOL_USDC } from "../../app/config-tokens.js";
 import { EVM_NETS, EVM_MAIN } from "../../app/config-evm.js";
 import { TRON, TRON_MAIN, tronEngine } from "./tron.js";
 import { SUI, SUI_MAIN, suiEngine } from "./sui.js";
+import { emitSent } from "./netmode.js";
 
 // When a network's public server is busy or down, try the next one. Only connection problems (refused, timed out,
 // rate limited, 5xx) move on to a backup; an answer from the network, even an error, is final.
@@ -100,6 +101,7 @@ function solEngine({ web3, acct, N, dev }) {
     const tx = new web3.Transaction({ feePayer: me, blockhash, lastValidBlockHeight }).add(...list);
     tx.sign(kp);
     const sig = await conn.sendRawTransaction(tx.serialize(), { maxRetries: 5 });
+    emitSent(sig);
     const r = await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
     if (r.value.err) throw new Error("The transaction failed on-chain.");
     return sig;
@@ -245,7 +247,7 @@ function evmEngine({ ethers, acct, N, dev }) {
   const client = E.address ? createEvmClient({ ethers, EVM: E, readProvider: provider, getSigner: async () => wallet }) : null;
   const usdc = E.usdc && new ethers.Contract(E.usdc, ["function balanceOf(address) view returns (uint256)", "function transfer(address,uint256) returns (bool)"], wallet);
   const GWEI = 1_000_000_000n;
-  const done = async (t) => { const r = await t.wait(); if (!r || r.status !== 1) throw new Error("The transaction failed on-chain."); return t.hash; };
+  const done = async (t) => { emitSent(t.hash); const r = await t.wait(); if (!r || r.status !== 1) throw new Error("The transaction failed on-chain."); return t.hash; };
   const vt = client && E.usdc ? client.token(E.usdc) : null;
   async function feeFor(speed) {
     if (!speed || speed === "normal") return {};

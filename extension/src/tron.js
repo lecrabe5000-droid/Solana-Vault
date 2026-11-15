@@ -4,6 +4,7 @@
 // it can't change the receiver or the amount. The server is TronGrid's public API for the Nile test network.
 import { sha256 } from "@noble/hashes/sha256";
 import bs58 from "bs58";
+import { emitSent } from "./netmode.js";
 
 export const TRON = {
   key: "tron", fam: "tron", name: "Tron", net: "Nile", unit: "TRX", cg: "tron", usdc: null, contract: null,
@@ -74,6 +75,7 @@ export function tronEngine({ ethers, acct, dev = {}, N = TRON }) {
     const t = signRaw(raw, w.signingKey);
     const r = await call("/wallet/broadcasthex", { transaction: hex(t.bytes) });
     if (!r.result) { let m = r.message || r.code || "rejected"; try { if (/^[0-9a-f]+$/i.test(m)) m = new TextDecoder().decode(unhex(m)); } catch (_) {} throw new Error(`Tron refused the transaction: ${m}`); }
+    emitSent(t.id);
     return t.id;
   }
   const usdtBal = async () => {

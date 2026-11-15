@@ -6,6 +6,7 @@ import { ethers } from "ethers";
 import qrcode from "qrcode-generator";
 import { newPhrase, isPhrase, normalize, seal, open, deriveAccount, strength, WORDS } from "./keyring.js";
 import { NETS, BASE, USDC_BASE, engine, modeNets } from "./chains.js";
+import { txEvents } from "./netmode.js";
 import { makeApprovals } from "./approve.js";
 import { mountVault3d } from "./vault3d.js";
 import { bioEnable, bioUnlock, bioName, bioPossible, bioForget } from "./bio.js";
@@ -1346,8 +1347,7 @@ function xtokView() {
   const P = S.panel, t = (S.extra || []).find((x) => x.mint === P.m && x.k === P.n);
   if (!t) return `${phead("Token")}<p class="fine pad">This token isn't in this account anymore.</p>`;
   const N = NETS[t.k], m = S.nftMeta?.[t.mint] || {}, hidden = tokHidden(t);
-  if (P.step === "sending") return `${phead("Sending")}<div class="sending"><i class="spin"></i><p>Sending ${esc(tokName(t))}…</p></div>`;
-  if (P.step === "done") return doneView("Sent", `${esc(P.amount)} ${esc(t.symbol || tokName(t))} is on its way.`);
+  if (P.step === "sending" || P.step === "done") return motionView(P, { kind: "send", N, title: ["Sending", "Sent"], amount: `${esc(P.amount)} ${esc(t.symbol || tokName(t))}`, line: `to <span class="mono">${esc(short(P.to))}</span>`, rows: [["To", `<span class="mono wrap">${esc(P.to)}</span>`]] });
   if (P.step === "review") return `${phead("Review")}
     <div class="rv-amt">${letterIc(t)}<b>${esc(P.amount)} <small>${esc(t.symbol || "")}</small></b><span>${esc(tokName(t))}</span></div>
     <div class="tk-info"><div><span>From</span><b>${esc(curAcct().name)}</b></div><div><span>To</span><b class="mono wrap">${esc(P.to)}</b></div><div><span>Network</span><b>${N.name} ${N.net}</b></div><div><span>Network fee</span><b>${esc(N.fam === "sol" ? "≈ 0.000005 SOL" : "a little " + N.unit + " for gas")}</b></div></div>
@@ -1759,8 +1759,13 @@ function sendMax() { const a = S.panel.asset; return a === "native" ? Math.max(0
 
 function sendView() {
   const P = S.panel, e = ENG, a = P.asset, units = parseAmt(P.amount, a);
-  if (P.step === "done") return doneView("Sent", `${amt(P.sent, a)} ${A(a).unit} is on its way${bookName(P.to.trim()) ? ` to ${esc(bookName(P.to.trim()))}` : ""}.`, bookName(P.to.trim()) ? "" : `<div class="book-save"><input data-bookname placeholder="Name this address (optional)" maxlength="24" autocomplete="off"/><button class="btn sm" data-act="book-save">Save</button></div>`);
-  if (P.step === "review" || P.step === "sending") {
+  if (P.step === "done" || P.step === "sending") {
+    const to = P.to.trim(), nm = bookName(to), usd = usdOf(P.sent, a);
+    return motionView(P, { kind: "send", N: NETS[S.net], title: ["Sending", "Sent"], amount: `${amt(P.sent, a)} ${A(a).unit}`, usd: usd != null ? money(usd) : "", line: `to ${nm ? `<b>${esc(nm)}</b>` : `<span class="mono">${esc(short(to))}</span>`}`,
+      rows: [["To", `<span class="mono wrap">${esc(to)}</span>`], ["From", `${esc(curAcct().name)} · <span class="mono">${esc(short(e?.address))}</span>`], ["Network fee", esc(e?.feeText?.() || "")]],
+      extra: nm ? "" : `<div class="book-save"><input data-bookname placeholder="Name this address (optional)" maxlength="24" autocomplete="off"/><button class="btn sm" data-act="book-save">Save</button></div>` });
+  }
+  if (P.step === "review") {
     const self = P.to.trim() === e.address;
     return `${phead("Review")}
       <div class="rev rev-card"><i class="sheet-h" aria-hidden="true"></i>
@@ -1887,6 +1892,43 @@ function hold(label, busy) {
 const dcheck = (cls = "") => `<svg class="dck ${cls}" viewBox="0 0 120 120" aria-hidden="true"><g transform="rotate(45 60 60)">
   <rect class="p" x="26" y="26" width="68" height="68" rx="20"/><rect class="o" x="26" y="26" width="68" height="68" rx="20" pathLength="100"/>
   <rect class="f" x="34" y="34" width="52" height="52" rx="15"/></g><path class="t" pathLength="100" d="M47 61 L56 70 L74 51"/></svg>`;
+// ------------------------------------------------------------------ money in motion
+// Every send, protect, withdrawal and swap shows its journey live: signed on this device, sent to the network (with
+// its explorer link the moment it exists), confirmed (and how long it took), then a receipt. The Safe's diamond
+// carries it: light runs while it travels and the diamond closes with a check when it lands.
+const STEPS = (N, last = "Confirmed") => [{ k: "sign", run: "Signing on this device", ok: "Signed on this device" }, { k: "sent", run: `Sending to ${N.name}`, ok: `Sent to ${N.name}` }, { k: "conf", run: "Waiting for confirmation", ok: last }];
+function motionStart(P, steps, auto = true) {
+  P.mo = { steps, at: 0, t0: performance.now(), t1: 0 };
+  if (auto) setTimeout(() => { if (P.mo?.at === 0 && P.step === "sending") { P.mo.at = 1; if (S.panel === P) patchPanel(); } }, 280); // signing is instant: on this device
+  txEvents.sent = (id) => { if (!P.mo || P.step !== "sending") return; P.sig = P.sig || id; const i = P.mo.steps.findIndex((x) => x.k === "sent"); if (i >= 0 && P.mo.at <= i) P.mo.at = i + 1; if (S.panel === P) patchPanel(); };
+}
+function motionStep(P, k) { const i = P.mo?.steps.findIndex((x) => x.k === k); if (i >= 0 && P.mo.at < i) { P.mo.at = i; if (S.panel === P) patchPanel(); } }
+function motionEnd(P) { if (P.mo) { P.mo.at = P.mo.steps.length; P.mo.t1 = performance.now(); } txEvents.sent = null; }
+const MO_IC = { send: I.send, protect: I.protect, withdraw: I.clock, swap: I.swap };
+/** o: { kind, N, title: [while, done], amount, usd, line, rows: [[label, value]], note, extra } */
+function motionView(P, o) {
+  const m = P.mo || { steps: STEPS(o.N), at: P.step === "done" ? 9 : 1, t0: 0, t1: 0 }, done = P.step === "done";
+  const link = P.sig && !/^demo/.test(P.sig) ? o.N.explorer("tx", P.sig) : null, took = done && m.t1 && m.t0 ? ((m.t1 - m.t0) / 1000).toFixed(1) : null;
+  const R = (c, x, r) => `<rect class="${c}" x="${x}" y="${x}" width="${220 - 2 * x}" height="${220 - 2 * x}" rx="${r}" pathLength="100"/>`;
+  const steps = m.steps.map((x, i) => { const st = done || i < m.at ? "ok" : i === m.at ? "now" : "";
+    return `<li class="${st}"><i class="mo-dot">${st === "ok" ? `<svg viewBox="0 0 24 24"><path d="M6 12.5l4 4L18 8"/></svg>` : st === "now" ? `<i class="spin"></i>` : ""}</i><span>${st === "ok" ? x.ok : x.run}${x.k === "sent" && link && st === "ok" ? ` <a class="mo-ln" href="${link}" target="_blank">View ${I.ext}</a>` : ""}</span>${x.k === "conf" && took ? `<small>in ${took} s</small>` : ""}</li>`; }).join("");
+  const when = new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  const rows = done ? [...(o.rows || []), ["Network", `${o.N.name} ${o.N.net}`], ["Time", when], ...(P.sig && !/^demo/.test(P.sig) ? [["Transaction", `<span class="mono">${esc(short(P.sig))}</span> <button class="ib sm" data-act="copy" data-v="${esc(P.sig)}" aria-label="Copy transaction id">${I.copy}</button>`]] : [])] : [];
+  return `<div class="mo lk2 ${done ? "ok" : "run"}">
+    ${done ? "" : `<button class="ib mo-x" data-act="close" aria-label="Close (it keeps going)">${I.x}</button>`}
+    <div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
+    <div class="lk-hero mo-hero" aria-hidden="true"><svg class="lk-lz" viewBox="0 0 220 220"><defs><linearGradient id="lkg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b6c4ff"/><stop offset=".5" stop-color="#4b74ff"/><stop offset="1" stop-color="#00c8ff"/></linearGradient></defs>
+      <g transform="rotate(45 110 110)">${R("lk-base", 38, 30)}${R("lk-in", 51, 24)}${R("lk-run", 38, 30)}${R("lk-run2", 51, 24)}${R("lk-full", 38, 30)}</g></svg>
+      <span class="lk-ic"><span class="lk-l">${MO_IC[o.kind] || I.send}</span><svg class="lk-ok" viewBox="0 0 24 24"><path d="M6 12.5l4 4L18 8"/></svg></span></div>
+    <p class="mo-k">${done ? o.title[1] : o.title[0]}</p>
+    <div class="mo-amt"><b>${o.amount}</b>${o.usd ? `<small>${o.usd}</small>` : ""}</div>
+    ${o.line ? `<p class="mo-line">${o.line}</p>` : ""}
+    <ol class="mo-steps">${steps}</ol>
+    ${done && o.note ? `<div class="mo-note">${I.shield}<span>${o.note}</span></div>` : ""}
+    ${done ? `<div class="mo-rc">${rows.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("")}</div>${o.extra || ""}` : ""}
+    <div class="pfoot">${done ? `<button class="btn primary xl" data-act="close">Done</button>` : `<p class="mo-wait">You can close this. It keeps going, and Activity shows when it lands.</p>`}</div>
+  </div>`;
+}
 function doneView(title, text, extra = "") {
   const mark = `<div class="done-dck">${dcheck()}</div>`;
   if (mark) return `<div class="done">${mark}<h2>${title}</h2><p>${text}</p>
@@ -2032,7 +2074,14 @@ function moveView() {
   const vv = v || { main: openRows()[0].v.main, usdc: null };
   const units = parseAmt(P.amount, a), main = vv.main, tv = a === "usdc" ? vv.usdc : v ? main : null;
   const max = isIn ? sendMaxProtect() : tv?.available || 0;
-  if (P.step === "done") return isIn ? doneView("Protected", `${amt(P.sent, a)} ${A(a).unit} is in your Safe. Anything leaving it waits ${delay(main.withdrawDelay)}.`) : doneView("Withdrawal started", `${amt(P.sent, a)} ${A(a).unit} reaches your Wallet in ${delay(main.withdrawDelay)}. You can cancel it until then.`);
+  if (P.step === "done" || P.step === "sending") {
+    const n = P.sent || units, usd = usdOf(n, a), d = delay(main.withdrawDelay);
+    return motionView(P, isIn
+      ? { kind: "protect", N: NETS[S.net], title: ["Protecting", "Protected"], amount: `${amt(n, a)} ${A(a).unit}`, usd: usd != null ? money(usd) : "", line: "Wallet → Safe",
+          note: `It's in your Safe now. Anything leaving it waits ${d}, and you can cancel it the whole time.`, rows: [["Withdrawals wait", d]] }
+      : { kind: "withdraw", N: NETS[S.net], title: ["Starting your withdrawal", "Withdrawal started"], amount: `${amt(n, a)} ${A(a).unit}`, usd: usd != null ? money(usd) : "", line: "Safe → Wallet",
+          note: `It reaches your Wallet in ${d}. Until then you can cancel it from your Safe.`, rows: [["Arrives", new Date(Date.now() + main.withdrawDelay * 1000).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })]] });
+  }
   const lim = a === "usdc" ? vv.usdc?.dailyLimit : main.dailyLimit, overLim = !isIn && lim && units > lim;
   const valid = units > 0 && units <= max && !overLim;
   // Rail + keypad: where the money goes, how much, what each side holds after, then slide to confirm.
@@ -2324,12 +2373,12 @@ async function logActivity(e) { const k = actKey(), list = await readActivity();
 
 async function txRun(fn, after, log) {
   if (S.upd?.must) return toast("A security update is required before you can send. Update Ecrin Wallet first.", "err");
-  const P = S.panel; P.step = "sending"; renderPanel();
-  try { S.lastTx = Date.now(); const sig = await fn(); S.lastTx = Date.now(); P.sig = typeof sig === "string" ? sig : null; await after?.(); if (log) await logActivity({ ...log, sig: P.sig }); P.step = "done"; haptic("success");
+  const P = S.panel; P.step = "sending"; P.sig = null; motionStart(P, STEPS(NETS[S.net], log?.t === "protect" ? "In your Safe" : log?.t === "withdraw" ? "Withdrawal started" : "Confirmed")); renderPanel();
+  try { S.lastTx = Date.now(); const sig = await fn(); S.lastTx = Date.now(); P.sig = typeof sig === "string" ? sig : P.sig; motionEnd(P); await after?.(); if (log) await logActivity({ ...log, sig: P.sig }); P.step = "done"; haptic("success");
     // Show it done now and move the numbers on screen at once; the network's own numbers replace them a moment later.
     if (log && S.bal && (log.t === "send" || log.t === "protect") && log.n) { const k = log.a === "usdc" ? "usdc" : "native"; S.bal = { ...S.bal, [k]: Math.max(0, Number(S.bal[k] || 0) - Number(log.n)) }; }
     renderPanel(); refresh().then(() => { loadActivity(); loadAll(); }); return; }
-  catch (e) { console.warn(e); P.step = "form"; toast(errText(e), "err"); }
+  catch (e) { console.warn(e); txEvents.sent = null; P.mo = null; P.step = "form"; toast(errText(e), "err"); }
   renderPanel();
 }
 
@@ -2684,7 +2733,7 @@ const actions = {
     // Opened from Protect: carry straight on to protecting, no detour through a done screen.
     if (back === "protect" && S.panel === P && P.step === "done") { P.step = "form"; if (!(P.opened?.done?.length > 1)) toast("Your Safe is open", "win"); const e = await eng(); P.reserve = await e.reserve(P.asset); renderPanel(); }
   },
-  "do-protect": () => { const P = S.panel, units = parseAmt(P.amount, P.asset); P.sent = units;
+  "do-protect": () => { const P = S.panel, units = parseAmt(P.amount, P.asset); if (!units) return; P.sent = units;
     txRun(async () => { const e = await eng(); if (!S.vault) { await e.createVault(safeKind() || "strong"); S.vault = await e.vault().catch(() => null) || S.vault; await syncRulesTo(S.net, e); } return e.protect(P.asset, units); }, null, { t: "protect", a: P.asset, n: units }); },
   "safe-pick": (el) => { S.panel = null; openPanel("pick", { back: el.dataset.p }); },
   faucet: async (el) => {
@@ -2773,12 +2822,12 @@ async function xSendNow() {
   const P = S.panel, t = (S.extra || []).find((x) => x.mint === P.m && x.k === P.n);
   if (S.upd?.must) return toast("A security update is required before you can send. Update Ecrin Wallet first.", "err");
   const { dev } = await local.get("dev"); const e = engine({ web3, ethers, acct: ACCT, net: t.k, dev: dev || {} });
-  P.step = "sending"; renderPanel();
+  P.step = "sending"; P.sig = null; motionStart(P, STEPS(NETS[t.k])); renderPanel();
   try {
-    const sig = await e.sendToken(t, P.to, BigInt(P.raw)); P.sig = typeof sig === "string" ? sig : null; await rememberDest(P.to); P.step = "done"; loadExtras(dev);
+    const sig = await e.sendToken(t, P.to, BigInt(P.raw)); P.sig = typeof sig === "string" ? sig : P.sig; motionEnd(P); await rememberDest(P.to); P.step = "done"; loadExtras(dev);
     const k = `act:${t.k}:${e.address}`, o = await local.get(k); await local.set({ [k]: [{ at: Date.now(), t: "tsend", to: P.to, n: Number(P.amount), sym: t.symbol || tokName(t), sig: P.sig }, ...(o[k] || [])].slice(0, 60) });
   }
-  catch (err) { console.warn(err); P.step = "review"; toast(errText(err), "err"); }
+  catch (err) { console.warn(err); txEvents.sent = null; P.mo = null; P.step = "review"; toast(errText(err), "err"); }
   renderPanel();
 }
 async function confirmSend() {
@@ -3250,21 +3299,25 @@ async function swapNow() {
   if (S.upd?.must) return toast("A security update is required before you can swap. Update Ecrin Wallet first.", "err");
   if (!raw) return;
   const usd = P.quote?.inUsdValue ? Number(P.quote.inUsdValue) : null, lim = await limitCheck(usd); if (lim) { P.step = "form"; renderPanel(); return toast(lim, "err"); }
-  P.step = "sending"; renderPanel();
+  P.step = "sending"; P.sig = null; renderPanel();
+  motionStart(P, [{ k: "route", run: "Finding the best route", ok: "Best route found" }, { k: "check", run: "Ecrin is checking the swap", ok: "Checked by Ecrin: nothing extra leaves" }, { k: "sent", run: "Sending to Solana", ok: "Sent to Solana" }, { k: "conf", run: "Waiting for confirmation", ok: "Confirmed" }], false);
+  txEvents.sent = null;
   try {
     const { dev } = await local.get("dev"), e = swapEng();
     const r = await fetch(`${SWAP.api}?` + new URLSearchParams({ inputMint: P.from.mint, outputMint: P.to.mint, amount: String(raw), taker: e.address }), { cache: "no-store" });
     const d = await r.json().catch(() => ({}));
     if (!r.ok || !d.transaction) throw new Error(SWAP_ERR[d.errorCode] || (typeof d.error === "string" ? d.error : d.error?.message) || d.errorMessage || "Jupiter couldn't build this swap. Try again.");
+    motionStep(P, "check");
     const signed = await e.swapSign(d.transaction, { inMint: P.from.mint, inRaw: String(raw) });
+    motionStep(P, "sent");
     const x = await fetch(SWAP.api, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ signedTransaction: signed, requestId: d.requestId }) });
     const res = await x.json().catch(() => ({}));
     if (res.status !== "Success") throw new Error(res.error || "The swap didn't go through" + (res.code ? ` (${res.code})` : "") + ". Nothing left your wallet.");
-    P.sig = res.signature || null; P.got = d.outAmount; P.step = "done"; haptic("success");
+    P.sig = res.signature || null; P.got = d.outAmount; P.inUsd = Number(d.inUsdValue) || null; motionEnd(P); P.step = "done"; haptic("success");
     await logActivity({ t: "swap", k: SWAP_NET, from: P.from.sym, to: P.to.sym, sig: P.sig });
     if (usd != null) await countSpend(usd);
     refresh().then(() => { loadActivity(); loadAll(); loadExtras(dev || {}); });
-  } catch (err) { console.warn(err); P.step = "form"; toast(errText(err), "err"); }
+  } catch (err) { console.warn(err); P.mo = null; P.step = "form"; toast(errText(err), "err"); }
   renderPanel();
 }
 
@@ -3276,8 +3329,11 @@ function swapView() {
   P.from ||= coins[0]; P.to ||= coins[1];
   const fresh = (c) => coins.find((x) => x.mint === c.mint) || { ...c, raw: "0" };
   P.from = fresh(P.from); P.to = fresh(P.to);
-  if (P.step === "done") return doneView("Swapped", `${esc(P.amount)} ${esc(P.from.sym)} for ${fromRaw(P.got || 0, P.to.dec).toLocaleString("en-US", { maximumFractionDigits: P.to.dec > 4 ? 4 : P.to.dec })} ${esc(P.to.sym)}.`, `<p class="fine">On Solana mainnet. It shows in your Wallet in a few seconds.</p>`)
-    .replace(NETS[S.net].explorer("tx", P.sig || ""), N.explorer("tx", P.sig || ""));
+  if (P.step === "done" || P.step === "sending") {
+    const got = P.got ? fromRaw(P.got, P.to.dec) : P.quote ? fromRaw(P.quote.outAmount, P.to.dec) : 0, nf = (v) => v.toLocaleString("en-US", { maximumFractionDigits: P.to.dec > 4 ? 4 : P.to.dec });
+    return motionView(P, { kind: "swap", N, title: ["Swapping", "Swapped"], amount: `${esc(P.amount)} ${esc(P.from.sym)} → ${nf(got)} ${esc(P.to.sym)}`, usd: P.inUsd || P.quote?.inUsdValue ? money(Number(P.inUsd || P.quote.inUsdValue)) : "", line: "on Solana mainnet",
+      rows: [["You paid", `${esc(P.amount)} ${esc(P.from.sym)}`], ["You got", `${nf(got)} ${esc(P.to.sym)}`], ["Ecrin fee", `${(SWAP.feeBps / 100).toFixed(1)}% (included)`], ["Route", `Jupiter${P.quote?.router ? " · " + esc(String(P.quote.router)) : ""}`]] });
+  }
   if (P.pick) return swapPickView();
   const raw = toRaw(P.amount, P.from.dec), max = swapMaxRaw(P.from), over = raw > max, q = P.quote;
   const out = q ? fromRaw(q.outAmount, P.to.dec) : 0, inAmt = fromRaw(raw, P.from.dec);

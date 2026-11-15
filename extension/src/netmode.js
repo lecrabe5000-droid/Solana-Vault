@@ -20,3 +20,8 @@ export const evmOfMode = (mode) => Object.values(mode === "main" ? EVM_MAIN : EV
 export const evmByChain = (id) => [...Object.values(EVM_NETS), ...Object.values(EVM_MAIN)].find((n) => n.chainId === Number(id));
 // Solana servers per mode (mainnet: Ecrin's route first, so a private node can serve it).
 export const SOL_RPC = { test: "https://api.devnet.solana.com", main: "https://ecrinprotocol.app/api/rpc/solm" };
+
+/** The moment a transaction reaches the network (before it's confirmed): engines call txEvents.sent(id), and the
+ *  wallet's progress sheet listens, so "Sent to the network" lights up with its explorer link. */
+export const txEvents = { sent: null };
+export const emitSent = (id) => { try { txEvents.sent?.(id); } catch (_) {} };

@@ -6,6 +6,7 @@
 import { ed25519 } from "@noble/curves/ed25519";
 import { blake2b } from "@noble/hashes/blake2b";
 import bs58 from "bs58";
+import { emitSent } from "./netmode.js";
 
 export const SUI = {
   key: "sui", fam: "sui", name: "Sui", net: "Testnet", unit: "SUI", cg: "sui", contract: null,
@@ -177,6 +178,7 @@ export function suiEngine({ acct, dev = {}, N = SUI }) {
   }
   async function execute(tx) {
     const { signature, digest } = signTx(tx, priv);
+    emitSent(digest);
     const d = await gql(`mutation($t:Base64!,$s:[Base64!]!){executeTransaction(transactionDataBcs:$t,signatures:$s){effects{digest status executionError{message}}}}`, { t: b64(tx), s: [signature] });
     const e = d.executeTransaction?.effects;
     if (e?.status && e.status !== "SUCCESS") throw new Error(`Sui refused the transaction: ${e.executionError?.message || e.status}`);

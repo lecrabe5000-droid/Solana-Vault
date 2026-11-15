@@ -5,6 +5,7 @@ import { ethers } from "ethers";
 import { NETS, BASE, USDC_BASE, modeNets } from "./chains.js";
 import { toTron, fromTron } from "./tron.js";
 import { suiAddress, normAddr } from "./sui.js";
+import { emitSent } from "./netmode.js";
 import { ed25519 } from "@noble/curves/ed25519";
 export { NETS, BASE, USDC_BASE, modeNets };
 
@@ -19,7 +20,8 @@ export function engine({ acct, net }) {
   const side = (a) => (a === "usdc" ? B.vault.usdc : B.vault.main);
   const free = (t) => t.balance - t.withdrawals.reduce((s, w) => s + w.amount, 0);
   const view = () => B.vault && { main: { ...B.vault.main, available: free(B.vault.main) }, usdc: { ...B.vault.usdc, available: free(B.vault.usdc) } };
-  const act = async (fn) => { await wait(700 + Math.random() * 600); fn(); return null; };
+  // Like a real network: a moment to reach it, then a moment to confirm.
+  const act = async (fn) => { await wait(450 + Math.random() * 300); const id = "demo" + Math.random().toString(36).slice(2, 10); emitSent(id); await wait(700 + Math.random() * 600); fn(); return id; };
   return {
     N, address, explain: (e) => ({ message: e.message }),
     isAddress: (s) => { if (N.fam === "tron") return !!fromTron(s); if (N.fam === "sui") return !!normAddr(s); try { if (sol) new web3.PublicKey(String(s).trim()); else ethers.getAddress(String(s).trim()); return true; } catch (_) { return false; } },
