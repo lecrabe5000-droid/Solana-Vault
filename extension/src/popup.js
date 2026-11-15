@@ -1057,6 +1057,7 @@ function homeView() {
     <header class="top">
       <button class="acct" data-act="panel" data-p="accts" title="Your accounts">${acctIc(curAcct())}<span class="acct-n">${esc(curAcct().name)}</span><span class="top-total">${loading ? "" : mask(money(w.total))}</span>${I.chev}</button>
       <div class="top-r">
+        <button class="net-chip" data-act="panel" data-p="nets" aria-label="Network: ${esc(NETS[S.net].name)}. Change network">${coin(S.net)}<span>${esc(NETS[S.net].name)}</span>${I.chev}</button>
         <button class="ib" data-act="settings" aria-label="Settings">${I.gear}</button>
       </div>
     </header>
@@ -1275,7 +1276,7 @@ async function loadAll() {
   S.all = rows; queueMicrotask(checkIncoming);
   loadExtras(dev);
   if (S.panel?.p === "all") { S.panel.rows = rows; renderPanel(); }
-  if (S.panel?.p === "vault" || S.panel?.p === "rules") renderPanel();
+  if (S.panel?.p === "vault" || S.panel?.p === "rules" || S.panel?.p === "nets") renderPanel();
   if (S.screen === "home" && !S.scrubbing) render();
   loadSeries();
 }
@@ -1553,6 +1554,27 @@ function allView() {
     ${rows.some((r) => !r.ok) ? `<p class="fine pad">Couldn't reach ${rows.filter((r) => !r.ok).map((r) => NETS[r.k].name).join(", ")} right now.</p>` : ""}`;
 }
 
+/** The network picker: Mainnet or Testnet, your networks first with what you hold on each, then every other one. */
+function netsView() {
+  const rows = Object.fromEntries((S.all || []).map((r) => [r.k, r])), w = worth();
+  const usdOn = (k) => w.items.filter((i) => i.k === k).reduce((t, i) => t + (i.usd || 0), 0);
+  const addrOf = (k) => { const N = NETS[k]; return N.fam === "sol" ? ACCT?.sol?.publicKey?.toBase58?.() : N.fam === "tron" ? (ACCT?.tron ? toTron(ACCT.tron.address) : "") : N.fam === "sui" ? suiOf(ACCT) : ACCT?.evm?.address; };
+  const keys = netKeys(), mine = keys.filter((k) => usdOn(k) > 0 || rows[k]?.v).sort((a, b) => usdOn(b) - usdOn(a)), rest = keys.filter((k) => !mine.includes(k));
+  const row = (k) => { const N = NETS[k], r = rows[k], st = !S.all ? "" : r?.ok ? "ok" : "down", v = usdOn(k);
+    return `<button class="nr${k === S.net ? " on" : ""}" data-act="net-go" data-n="${k}">${coin(k)}
+      <span class="nr-t"><b>${esc(N.name)}${r?.v ? `<i class="nr-safe">${I.lock}Safe</i>` : ""}</b><small><i class="nr-st ${st}"></i>${st === "down" ? "Can't reach it right now" : `${esc(N.net)} · <span class="mono">${esc(short(addrOf(k) || ""))}</span>`}</small></span>
+      <span class="nr-r">${v ? `<b>${mask(money(v))}</b>` : `<small>—</small>`}</span>${k === S.net ? `<i class="nr-ck">${I.check}</i>` : ""}</button>`; };
+  return `${phead("Networks")}
+    <div class="nets">
+      <div class="nets-mode"><span class="seg">${[["main", "Mainnet"], ["test", "Testnet"]].map(([m, l]) => `<button data-act="net-mode" data-v="${m}" aria-pressed="${(S.mode || DEFAULT_MODE) === m}">${l}</button>`).join("")}</span>
+        <p>${isMain() ? "Real money." : "Test coins with no value."} ${keys.length} networks.</p></div>
+      ${mine.length ? `<div class="list-h"><b>Your networks</b><span>${mask(money(mine.reduce((t, k) => t + usdOn(k), 0)))}</span></div><section class="list nlist">${mine.map(row).join("")}</section>` : ""}
+      <div class="list-h"><b>${mine.length ? "Other networks" : "All networks"}</b><span>${rest.length}</span></div>
+      <section class="list nlist">${rest.map(row).join("")}</section>
+      <p class="fine pad">Ethereum-style networks share one address. Coins sent on the wrong network can be lost: check the network before you send.</p>
+    </div>`;
+}
+
 const host = (o) => { try { return new URL(o).hostname.replace(/^www\./, ""); } catch (_) { return String(o || "a website"); } };
 const nameFor = (k, a) => (a && S.book?.[NETS[k]?.fam]?.[a]) || null;
 const who = (k, a) => esc(nameFor(k, a) || short(a));
@@ -1724,7 +1746,7 @@ function renderPanel(enter = false) {
   queueMicrotask(syncTabbar);
   const el = $("#panel"), P = S.panel;
   if (!P) return;
-  const body = ({ send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, news: newsView, report: reportHTML, txd: txdView, contacts: contactsView, pkey: pkeyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView, wc: wcView, payreq: payreqView, alerts: alertsView })[P.p]();
+  const body = ({ nets: netsView, send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, news: newsView, report: reportHTML, txd: txdView, contacts: contactsView, pkey: pkeyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView, wc: wcView, payreq: payreqView, alerts: alertsView })[P.p]();
   if (enter || P.fresh) P.openedAt = performance.now();
   const since = P.openedAt ? performance.now() - P.openedAt : 9999;
   el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}${since < 2300 ? " trace" : ""}" style="--tt:${-Math.round(since)}ms">${body}</div>`; translate(el, S.lang);

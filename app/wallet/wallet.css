@@ -3288,6 +3288,27 @@ html:root[data-skin="ecrin"] .brand-sig.real i { color: #ffd27a !important; back
 .so-to, .so-when, .so-usd { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .so-amt b { font-size: 18px; white-space: nowrap; }
 .sf-outs.many { grid-auto-columns: 90%; }
+/* ---------- network chip and picker ---------- */
+.net-chip { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px 0 5px; border: 0; border-radius: 999px; font: 600 13px var(--font); color: var(--text); background: rgba(127, 127, 127, .12); box-shadow: inset 0 0 0 1px rgba(127, 127, 127, .14); cursor: pointer; max-width: 150px; }
+.net-chip .coin { width: 24px; height: 24px; flex: none; } .net-chip span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.net-chip > svg { width: 12px; height: 12px; flex: none; opacity: .6; fill: none; stroke: currentColor; stroke-width: 2; }
+.nc-t { font-style: normal; font-size: 9.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 2px 5px; border-radius: 6px; color: #9db0ff; background: rgba(91, 124, 255, .16); }
+.top-r { display: flex; align-items: center; gap: 8px; }
+.nets-mode { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 4px 16px 6px; text-align: center; }
+.nets-mode .seg { width: 100%; max-width: 320px; display: grid; grid-template-columns: 1fr 1fr; } .nets-mode .seg button { height: 38px; font-size: 14px; }
+.nets-mode p { margin: 0; font-size: 12.5px; color: var(--muted); }
+.nlist .nr { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.nlist .nr + .nr { box-shadow: 0 -1px 0 rgba(127, 127, 127, .1); }
+.nlist .nr .coin { width: 36px; height: 36px; flex: none; }
+.nr-t { display: flex; flex-direction: column; flex: 1; min-width: 0; } .nr-t b { display: flex; align-items: center; gap: 6px; font-size: 15px; } .nr-t small { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; }
+.nr-st { flex: none; width: 7px; height: 7px; border-radius: 50%; background: rgba(127, 127, 127, .45); } .nr-st.ok { background: #3cc88c; box-shadow: 0 0 0 3px rgba(60, 200, 140, .15); } .nr-st.down { background: #ffb020; }
+.nr-safe { display: inline-flex; align-items: center; gap: 3px; font-style: normal; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 6px; border-radius: 6px; color: #9db0ff; background: rgba(91, 124, 255, .15); }
+.nr-safe svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 2.2; }
+.nr-r { text-align: right; flex: none; } .nr-r b { font-size: 14.5px; font-variant-numeric: tabular-nums; } .nr-r small { color: var(--muted); }
+.nr-ck { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; flex: none; background: #2f5bff; color: #fff; } .nr-ck svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.6; }
+.nlist .nr.on { background: rgba(91, 124, 255, .08); }
+:root[data-theme="dark"] .nr-ck { background: var(--ivory); color: var(--ivory-ink); } :root[data-theme="dark"] .nlist .nr.on { background: rgba(242, 239, 232, .05); }
+:root[data-theme="light"] .net-chip { background: #fff; box-shadow: 0 0 0 1px rgba(16, 17, 20, .1); }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
