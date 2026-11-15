@@ -6,7 +6,7 @@ import { ethers } from "ethers";
 import qrcode from "qrcode-generator";
 import { newPhrase, isPhrase, normalize, seal, open, deriveAccount, strength, WORDS } from "./keyring.js";
 import { NETS, BASE, USDC_BASE, engine, modeNets } from "./chains.js";
-import { txEvents } from "./netmode.js";
+import { txEvents, setPrivate, PROXY } from "./netmode.js";
 import { makeApprovals } from "./approve.js";
 import { mountVault3d } from "./vault3d.js";
 import { bioEnable, bioUnlock, bioName, bioPossible, bioForget } from "./bio.js";
@@ -198,6 +198,9 @@ async function boot() {
   const pr = await local.get(["book", "hideSmall", "order", "recvNotify", "guard", "alertsOn", "showNfts", "goal", "cur", "palerts", "sounds", "obHide"]); S.obHide = !!pr.obHide; S.palerts = pr.palerts || {}; S.sounds = !!pr.sounds; S.showNfts = !!pr.showNfts; S.goal = pr.goal || null; S.cur = pr.cur || "USD"; Object.assign(S, { book: pr.book || {}, hideSmall: !!pr.hideSmall, order: pr.order || "value", recvNotify: pr.recvNotify, guard: { auto: 0, daily: 0, cool: 0, coolOver: 500, late: 1, bet: 0, ...(pr.guard || {}) }, alertsOn: !!pr.alertsOn });
   const st = await local.get(["box", "net", "theme", "autolock", "hide", "nums", "range", "dev", "prices", "bio", "lang", "netMode"]);
   S.mode = st.netMode === "main" || st.netMode === "test" ? st.netMode : DEFAULT_MODE;
+  // Which mainnet networks have a private server at Ecrin: the last known list now, a fresh one in the background (hourly).
+  local.get("privRpc").then(({ privRpc }) => { setPrivate(privRpc?.list); if (privRpc && Date.now() - privRpc.at < 3600_000) return;
+    fetch(PROXY + "status").then((r) => r.json()).then((d) => { setPrivate(d.private); local.set({ privRpc: { at: Date.now(), list: d.private || [] } }); }).catch(() => {}); }).catch(() => {});
   S.lang = st.lang || (/^fr/i.test(navigator.language || "") ? "fr" : "en"); document.documentElement.lang = S.lang;
   S.bio = globalThis.ECRIN_WEB && st.bio ? st.bio : null;
   // The phone app opens on the spinning Ecrin mark for a moment.
@@ -2848,6 +2851,9 @@ const actions = {
   "net-mode": async (el) => {
     const m = el.dataset.v; if (m === (S.mode || DEFAULT_MODE)) return;
     const was = NETS[S.net]; S.mode = m; await local.set({ netMode: m });
+    // Apps connected through WalletConnect were given the other mode's networks: disconnect them, so none keeps
+    // talking to the wrong one. They reconnect with a fresh code.
+    local.get("wcOn").then(({ wcOn }) => (WC || wcOn) && wcClient().then(async (c) => { const list = c.sessions(); for (const x of list) await c.disconnect(x.topic).catch(() => {}); if (list.length) toast(`Disconnected ${list.length} app${list.length > 1 ? "s" : ""}. Reconnect them on ${m === "main" ? "Mainnet" : "Testnet"}.`); })).catch(() => {});
     const keys = netKeys(); S.net = keys.find((k) => NETS[k].name === was?.name) || keys[0]; await local.set({ net: S.net });
     Object.assign(S, { bal: null, vault: undefined, all: null, extra: null, hist: null, histAt: 0, activity: null, series: {}, drawChart: true, lzT0: 0 }); ENG = null;
     toast(m === "main" ? "Mainnet: real money" : "Testnet: test coins with no value", m === "main" ? "" : "win");

@@ -25,3 +25,19 @@ export const SOL_RPC = { test: "https://api.devnet.solana.com", main: "https://e
  *  wallet's progress sheet listens, so "Sent to the network" lights up with its explorer link. */
 export const txEvents = { sent: null };
 export const emitSent = (id) => { try { txEvents.sent?.(id); } catch (_) {} };
+
+// Private servers: the mainnet networks Ecrin's server has a private node for (ecrinprotocol.app/api/rpc/status).
+// Only those go through Ecrin first; if it can't answer, the network's public server takes over.
+export const PROXY = "https://ecrinprotocol.app/api/rpc/";
+const priv = new Set();
+export const setPrivate = (list) => { priv.clear(); for (const k of Array.isArray(list) ? list : []) priv.add(String(k)); };
+export const viaProxy = (key, direct) => (priv.has(key) ? [PROXY + key, direct] : [direct]).filter(Boolean);
+/** POSTs to the first server that answers; a busy or missing one (429, 404, 5xx, no connection) passes to the next. */
+export async function fetchFirst(urls, path, init) {
+  let last;
+  for (let i = 0; i < urls.length; i++) {
+    try { const r = await fetch(urls[i] + path, init); if (i < urls.length - 1 && (r.status === 429 || r.status === 404 || r.status >= 500)) { last = new Error(`HTTP ${r.status}`); continue; } return r; }
+    catch (e) { last = e; }
+  }
+  throw last;
+}

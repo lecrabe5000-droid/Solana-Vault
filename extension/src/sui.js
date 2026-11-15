@@ -6,7 +6,7 @@
 import { ed25519 } from "@noble/curves/ed25519";
 import { blake2b } from "@noble/hashes/blake2b";
 import bs58 from "bs58";
-import { emitSent } from "./netmode.js";
+import { emitSent, viaProxy, fetchFirst } from "./netmode.js";
 
 export const SUI = {
   key: "sui", fam: "sui", name: "Sui", net: "Testnet", unit: "SUI", cg: "sui", contract: null,
@@ -104,9 +104,9 @@ export function signTx(tx, priv) {
 export const txDigest = (tx) => bs58.encode(h256(cat(new TextEncoder().encode("TransactionData::"), tx)));
 
 export function suiEngine({ acct, dev = {}, N = SUI }) {
-  const api = dev.suiApi || N.api, priv = acct.sui, me = dev.as || suiAddress(ed25519.getPublicKey(priv));
+  const apis = dev.suiApi ? [dev.suiApi] : viaProxy(N.key, N.api), priv = acct.sui, me = dev.as || suiAddress(ed25519.getPublicKey(priv));
   async function gql(query, variables = {}) {
-    const r = await fetch(api, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query, variables }) });
+    const r = await fetchFirst(apis, "", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query, variables }) });
     if (!r.ok) throw new Error(`Sui network error (${r.status})`);
     const j = await r.json();
     if (j.errors?.length) throw new Error(`Sui: ${j.errors[0].message}`);

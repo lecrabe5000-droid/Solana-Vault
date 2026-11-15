@@ -6,6 +6,7 @@
 import { AlertHub } from "./hub.js";
 import { handleSwap } from "./swap.js";
 import { handleRpc } from "./rpc.js";
+import { handleRpc2 } from "./rpc2.js";
 import { handleTokens } from "./tokens.js";
 import { handlePrices } from "./prices.js";
 
@@ -26,6 +27,7 @@ export default {
     if (url.pathname === "/api/swap" || url.pathname === "/api/swap/status") return handleSwap(request, env);
     if (url.pathname === "/api/rpc/sol") return handleRpc(request, env);
     if (url.pathname === "/api/rpc/solm") return handleRpc(request, env, "solm");
+    if (url.pathname.startsWith("/api/rpc/")) return handleRpc2(request, env, url.pathname.slice(9));
     if (url.pathname === "/api/tokens") return handleTokens(request);
     if (url.pathname === "/api/prices") return handlePrices(request, env);
     const route = { "/api/faucet": "/faucet", "/api/alerts/start": "/start", "/api/alerts/status": "/status", "/api/alerts/email": "/email", "/api/alerts/confirm": "/confirm", "/api/alerts/unsub": "/unsub", "/api/telegram": "/telegram", "/api/waitlist": "/waitlist", "/api/waitlist/confirm": "/wconfirm", "/api/stats": "/stats", "/api/push/key": "/pushkey", "/api/push/subscribe": "/pushsub", "/api/push/unsubscribe": "/pushunsub" }[url.pathname];

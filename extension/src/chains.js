@@ -9,7 +9,7 @@ import { SOL_USDC } from "../../app/config-tokens.js";
 import { EVM_NETS, EVM_MAIN } from "../../app/config-evm.js";
 import { TRON, TRON_MAIN, tronEngine } from "./tron.js";
 import { SUI, SUI_MAIN, suiEngine } from "./sui.js";
-import { emitSent } from "./netmode.js";
+import { emitSent, viaProxy } from "./netmode.js";
 
 // When a network's public server is busy or down, try the next one. Only connection problems (refused, timed out,
 // rate limited, 5xx) move on to a backup; an answer from the network, even an error, is final.
@@ -33,7 +33,7 @@ export function solConnection(web3, url, local = false, backups = SOL_RPC_BACKUP
   return new web3.Connection(url, { commitment: "confirmed", fetch: local ? undefined : failover });
 }
 export function evmProvider(ethers, E, rpcOverride) {
-  const urls = rpcOverride ? [rpcOverride] : [E.rpc, E.rpc2].filter(Boolean);
+  const urls = rpcOverride ? [rpcOverride] : [...viaProxy(E.key, E.rpc), E.rpc2].filter(Boolean);
   class Failover extends ethers.JsonRpcProvider {
     constructor() { super(urls[0], E.chainId, { staticNetwork: true }); this.at = 0; }
     async _send(payload) {
