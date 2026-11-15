@@ -3353,3 +3353,7 @@ body.stacked.grow-open #root, :root[data-theme] body.stacked.grow-open #root { t
 :root[lang="fr"] .seg:not(.wide) { flex-wrap: wrap; justify-content: flex-end; }
 .nlist .nr { box-sizing: border-box; } .nr-r b { white-space: nowrap; }
 .seg.wide { flex-wrap: wrap; } .seg.wide button { flex: 1 1 auto; min-width: 0; white-space: nowrap; }
+/* tap areas: the network chip, the hide-balances eye and the auto-lock choices reach 44px without growing on screen */
+.net-chip, .eye { position: relative; } :is(.net-chip, .eye)::before { content: ""; position: absolute; inset: -8px -4px; }
+.eye::before { inset: -12px; }
+.srow .seg button { min-width: 34px; }

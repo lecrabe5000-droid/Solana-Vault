@@ -30,6 +30,8 @@ function dur(s) {
 const EXACT = {
   // shell
   "Get": "Obtenez", "for Chrome or your phone.": "pour Chrome ou votre téléphone.",
+  "for Chrome, or": "pour Chrome, ou", "on your phone": "sur votre téléphone",
+  "Leaving your Safe": "En train de quitter votre Coffre", "Ready to leave your Safe": "Prêt à quitter votre Coffre", "Keep it safe": "Le garder en sécurité", "Not you?": "Pas vous?", "Freeze everything": "Tout geler",
   "Install Ecrin Wallet for Chrome, then come back here and connect.": "Installez Ecrin Wallet pour Chrome, puis revenez ici pour vous connecter.",
   "View on the explorer": "Voir sur l'explorateur",
   "Connect Ecrin Wallet": "Connecter Ecrin Wallet", "Get Ecrin Wallet": "Obtenir Ecrin Wallet", "Open Ecrin Wallet": "Ouvrir Ecrin Wallet", "Or use another wallet": "Ou utilisez un autre portefeuille",
@@ -187,6 +189,7 @@ const EXACT = {
 };
 
 const RULES = [
+  [/^to (.+) · unlocks (.+?)( · )?$/, "vers $1 · se débloque $2$3"], [/^to (.+) · only leaves if you press send( · )?$/, "vers $1 · ne part que si vous l'envoyez$2"], [/^\+(\d+) more$/, "+$1 de plus"],
   [/^Amount \((\w+)\)$/, "Montant ($1)"],
   [/^Available: (.+?) (\w+)\. This waits (.+?)( and until the lock ends)?\. You can cancel any time\.$/, (m) => `Disponible : ${m[1]} ${m[2]}. Ce retrait attend ${dur(m[3])}${m[4] ? " et la fin du verrou" : ""}. Vous pouvez l'annuler en tout temps.`],
   [/^Wallet: (.+?) (\w+)\. Deposits go straight in\.(.*)$/, (m) => `Portefeuille : ${m[1]} ${m[2]}. Les dépôts entrent directement.${m[3].replace(" Your wallet asks you to allow the amount first, then to deposit it.", " Votre portefeuille demande d'abord d'autoriser le montant, puis de le déposer.")}`],
