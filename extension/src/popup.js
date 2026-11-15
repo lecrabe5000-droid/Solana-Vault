@@ -1084,7 +1084,7 @@ function homeView() {
     <header class="top">
       <button class="acct" data-act="panel" data-p="accts" title="Your accounts">${acctIc(curAcct())}<span class="acct-n">${esc(curAcct().name)}</span><span class="top-total">${loading ? "" : mask(money(w.total))}</span>${I.chev}</button>
       <div class="top-r">
-        <button class="net-chip" data-act="panel" data-p="nets" aria-label="Network: ${esc(NETS[S.net].name)}. Change network">${coin(S.net)}<span>${esc(NETS[S.net].name)}</span>${I.chev}</button>
+        <button class="ib" data-act="panel" data-p="nets" aria-label="Networks" title="Networks">${I.globe}</button>
         <button class="ib" data-act="settings" aria-label="Settings">${I.gear}</button>
       </div>
     </header>
@@ -1207,7 +1207,7 @@ function marketList() {
 
 /** The change over the chart's range, as plain text: "+$122.17 (4.48%) · 1W". */
 function chip() {
-  const c = chartData(); if (!c) return `<span class="delta" data-chg></span>`;
+  const c = chartData(); if (!c || !worth().total) return `<span class="delta" data-chg></span>`; // nothing held: no gain or loss to show
   const d = c.vals[c.vals.length - 1] - c.vals[0], ch = (d / (c.vals[0] || 1)) * 100;
   if (!Number.isFinite(ch)) return "";
   return deltaHTML(d, ch, { 1: "1D", 7: "1W", 30: "1M", 365: "1Y" }[S.range], c.coinOnly);
@@ -2383,7 +2383,7 @@ function settingsView() {
 const NEWS = [
   ["Follow your money", "Every send, protect, withdrawal and swap now shows its journey live, then a receipt with the details."],
   ["Your Safe at a glance", "Anything leaving your Safe gets its own countdown ring and a big Cancel button, and the Safe keeps its history."],
-  ["Pick a network", "Tap the network at the top of the home screen to see every network and what you hold on each."],
+  ["Every network in one place", "Tap the globe at the top of the home screen to see every network and what you hold on each."],
   ["Sui", "Send and receive SUI and USDC on Sui with the same recovery phrase."],
   ["A new unlock screen", "The Safe's diamond greets you, with a show-password eye and a Caps Lock warning."],
   ["Free test coins, built in", "On Solana, \"Get free test SOL\" now sends test coins straight to your Wallet. No outside faucet, no sign-in."],
