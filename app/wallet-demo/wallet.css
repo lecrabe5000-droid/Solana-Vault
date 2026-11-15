@@ -3336,3 +3336,12 @@ html[data-fp-dash="1"] #panel .pane { box-shadow: -40px 0 80px -40px rgba(0, 0, 
 html[data-fp-dash="1"] .home > header.top:not(.aura):not(.dk-side), html[data-fp-dash="1"] .home > .banner:not(.aura):not(.dk-side), html[data-fp-dash="1"] .home > .offline:not(.aura):not(.dk-side) { grid-column: 1 / -1; }
 html[data-fp-dash="1"] .home > .banner:not(.aura):not(.dk-side), html[data-fp-dash="1"] .home > .offline:not(.aura):not(.dk-side) { grid-column: 1; }
 html[data-fp-dash="1"] body.stacked #root, html[data-fp-dash="1"]:root[data-theme] body.stacked #root { transform: none !important; filter: brightness(.6) !important; border-radius: 0 !important; transition: filter .25s; }
+/* a coin's page grows out of the row you tapped */
+#panel .pane.grow { transform: scale(.9) !important; opacity: 0; transform-origin: var(--gx, 50%) var(--gy, 50%); border-radius: 26px; transition: transform .42s cubic-bezier(.2, .9, .2, 1), opacity .22s ease, border-radius .42s ease !important; }
+#panel.in .pane.grow { transform: none !important; opacity: 1; border-radius: 0; }
+body.stacked.grow-open #root, :root[data-theme] body.stacked.grow-open #root { transform: scale(.96) !important; filter: brightness(.55) !important; border-radius: 22px !important; transition: transform .42s cubic-bezier(.2, .9, .2, 1), filter .3s !important; }
+@media (prefers-reduced-motion: reduce) { #panel .pane.grow { transition: opacity .2s !important; transform: none !important; } }
+.sx-warn { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; font-size: 13px; line-height: 1.45; background: rgba(255, 176, 32, .1); box-shadow: inset 0 0 0 1px rgba(255, 176, 32, .35); }
+.sx-warn.hi { background: rgba(255, 90, 106, .1); box-shadow: inset 0 0 0 1px rgba(255, 90, 106, .4); }
+.sx-warn svg { width: 18px; height: 18px; flex: none; fill: none; stroke: #ffb020; stroke-width: 1.9; } .sx-warn.hi svg { stroke: #ff5a6a; }
+.sx-kv .bad { color: #ff5a6a; text-decoration: none; }

@@ -1773,7 +1773,11 @@ function renderPanel(enter = false) {
   const body = ({ nets: netsView, send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, news: newsView, report: reportHTML, txd: txdView, contacts: contactsView, pkey: pkeyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView, wc: wcView, payreq: payreqView, alerts: alertsView })[P.p]();
   if (enter || P.fresh) P.openedAt = performance.now();
   const since = P.openedAt ? performance.now() - P.openedAt : 9999;
-  el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}${since < 2300 ? " trace" : ""}" style="--tt:${-Math.round(since)}ms">${body}</div>`; translate(el, S.lang);
+  // A coin's page grows out of the row you tapped (the home screen stays where it is); other pages slide in.
+  if (enter) { P.grow = S.grow || null; S.grow = null; }
+  const grow = P.grow && performance.now() - (P.openedAt || 0) < 700 ? P.grow : null;
+  el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}${since < 2300 ? " trace" : ""}${grow ? " grow" : ""}" style="--tt:${-Math.round(since)}ms${grow ? `;--gx:${Math.round(grow.x)}px;--gy:${Math.round(grow.y)}px` : ""}">${body}</div>`; translate(el, S.lang);
+  if (enter) document.body.classList.toggle("grow-open", !!grow);
   P.fresh = false;
   if (enter) requestAnimationFrame(() => { el.classList.add("in"); document.body.classList.add("stacked"); });
   bindHolds(el); depth(el); mountVault3d(el); bindTokChart(el);
@@ -2628,7 +2632,7 @@ const actions = {
   "rc-cancel": async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).cancelChange(Number(el.dataset.id)); toast("Change cancelled", "win"); } catch (e) { toast(errText(e), "err"); } await loadAll(); },
   "al-tg": async () => { try { const r = await alertCall("/api/alerts/start", {}); if (!r.url) throw new Error(r.error || "Alerts aren't available right now."); window.open(r.url, "_blank"); S.alertsOn = true; local.set({ alertsOn: true }); toast("Telegram opened: tap Start in the chat.", "win"); } catch (e) { toast(e.message, "err"); } },
   "al-mail": async () => { const email = ($("#panel [data-mail]")?.value || "").trim(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast("Enter your email address", "err"); try { const r = await alertCall("/api/alerts/email", { email }); if (r.error) throw new Error(r.error); S.alertsOn = true; local.set({ alertsOn: true }); toast(r.already ? "Email alerts are already on." : "Check your inbox to confirm.", "win"); } catch (e) { toast(e.message, "err"); } },
-  tok: (el) => { S.tkDrawKey = null; const u = el.dataset.u, cg = u === "USDC" ? null : { SOL: "solana", ETH: "ethereum", HYPE: "hyperliquid", POL: "polygon-ecosystem-token", BNB: "binancecoin", AVAX: "avalanche-2", TRX: "tron", SUI: "sui" }[u]; openPanel("tok", { u, cg, n: el.dataset.n }); if (cg) loadSeriesFor(cg).then(() => S.panel?.p === "tok" && renderPanel()); },
+  tok: (el) => { S.tkDrawKey = null; if (el.isConnected && !S.panel) { const r = el.getBoundingClientRect(), pr = $("#panel").getBoundingClientRect(); S.grow = { x: r.left + r.width / 2 - pr.left, y: r.top + r.height / 2 - pr.top }; } const u = el.dataset.u, cg = u === "USDC" ? null : { SOL: "solana", ETH: "ethereum", HYPE: "hyperliquid", POL: "polygon-ecosystem-token", BNB: "binancecoin", AVAX: "avalanche-2", TRX: "tron", SUI: "sui" }[u]; openPanel("tok", { u, cg, n: el.dataset.n }); if (cg) loadSeriesFor(cg).then(() => S.panel?.p === "tok" && renderPanel()); },
   "tok-do": async (el) => { const P = S.panel, w = worth(), list = w.items.filter((i) => i.unit === P.u), p = el.dataset.p;
     const best = list.filter((i) => (p === "withdraw" ? i.sav : i.chq) > 0).sort((x, y) => (y.usd || 0) - (x.usd || 0))[0] || list[0];
     const k = best?.k || P.n || (P.u === "SOL" ? "sol" : P.u === "POL" ? "pol" : "eth"), a = P.u === "USDC" ? "usdc" : "native";
@@ -3440,7 +3444,8 @@ function swapView() {
       </div>
     </div>
     <div class="sx-rate"><span class="sx-live"><i></i>${q && inAmt && out ? `1 ${esc(P.from.sym)} ≈ ${nf(out / inAmt, 6)} ${esc(P.to.sym)}` : "Best price"}</span><span class="sx-route">via Jupiter</span></div>
-    <div class="sx-kv"><div><span>Ecrin fee</span><b>${(SWAP.feeBps / 100).toFixed(1)}%</b></div><div><span>Network fee</span><b>&lt; 0.001 SOL</b></div><div><span>Price impact</span><b>${loss == null ? "—" : loss < 0.1 ? "< 0.1%" : loss.toFixed(2) + "%"}</b></div></div>
+    <div class="sx-kv"><div><span>Ecrin fee</span><b>${(SWAP.feeBps / 100).toFixed(1)}%</b></div><div><span>Network fee</span><b>&lt; 0.001 SOL</b></div><div><span>Price impact</span><b class="${loss >= 10 ? "bad" : ""}">${loss == null ? "—" : loss < 0.1 ? "< 0.1%" : loss.toFixed(2) + "%"}</b></div><div><span>Slippage</span><b>Automatic · Jupiter</b></div></div>
+    ${loss >= 4 ? `<div class="sx-warn${loss >= 10 ? " hi" : ""}">${I.warn}<span>${loss >= 10 ? `<b>You'd lose about ${loss.toFixed(0)}%.</b> This coin has very little trading at this size. Try a smaller amount.` : `<b>About ${loss.toFixed(1)}% goes to price impact and fees.</b> A smaller amount usually gets a better rate.`}</span></div>` : ""}
     <div class="sx-note">${I.lock}<span>Swaps use your Wallet on Solana mainnet. Money in your Safe never moves without its delay.</span></div>
     ${(P.flipped = false, "")}<button class="sx-go" data-act="swap-review" ${SWAP.live && raw && !over && q ? "" : "disabled"}>${btn}</button>
   </div>`;
