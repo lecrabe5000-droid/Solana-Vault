@@ -1572,10 +1572,10 @@ function allView() {
     <div class="all-total"><span class="lbl">Across every network</span><div class="big">${mask(fig(money(total)))}</div>
       <span class="sub">${total ? `${Math.round((saved / total) * 100)}% protected in your Safe` : "Nothing here yet"}</span></div>
     ${total ? `<div class="alloc">${coins.map((c) => `<i style="flex:${c.usd || 0.0001};background:${COL[c.unit] || "#888"}"></i>`).join("")}</div>
-    <div class="alloc-l">${coins.map((c) => `<span><i style="background:${COL[c.unit] || "#888"}"></i>${c.unit} ${Math.round((c.usd / total) * 100)}%</span>`).join("")}</div>` : ""}
+    <div class="alloc-l">${coins.filter((c) => c.usd / total >= 0.005).map((c) => `<span><i style="background:${COL[c.unit] || "#888"}"></i>${c.unit} ${Math.round((c.usd / total) * 100)}%</span>`).join("")}</div>` : ""}
     <div class="list-h"><b>By network</b><span>Wallet · Safe</span></div>
     <section class="list">${items.length ? items.sort((a, b) => (b.usd || 0) - (a.usd || 0)).map((i) => `<button class="arow" data-act="net-go" data-n="${i.k}"><span class="cstack">${coin(i.coin)}${i.coin === "usdc" || i.coin !== i.k ? `<span class="cmini">${coin(i.k)}</span>` : ""}</span>
-      <span class="ar-t"><b>${i.name}</b><small>${i.net} · ${mask(n(i.chq, i.dec))}${i.sav ? ` <span class="sv">${I.lock}${mask(n(i.sav, i.dec))}</span>` : ""}</small></span>
+      <span class="ar-t"><b>${i.net}</b><small>${i.unit} · ${mask(n(i.chq, i.dec))}${i.sav ? ` <span class="sv">${I.lock}${mask(n(i.sav, i.dec))}</span>` : ""}</small></span>
       <span class="ar-r"><b>${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}</small></span></button>`).join("")
       : `<div class="empty">${I.shield}<b>No coins yet</b><span>${isMain() ? "Use Receive to add coins on any network." : "Use Receive to get test coins on any network."}</span></div>`}</section>
     ${rows.some((r) => !r.ok) ? `<p class="fine pad">Couldn't reach ${rows.filter((r) => !r.ok).map((r) => NETS[r.k].name).join(", ")} right now.</p>` : ""}`;
@@ -2381,6 +2381,11 @@ function settingsView() {
 }
 // What's new: shown once after an update (never on a fresh install), and any time from Settings → About.
 const NEWS = [
+  ["Follow your money", "Every send, protect, withdrawal and swap now shows its journey live, then a receipt with the details."],
+  ["Your Safe at a glance", "Anything leaving your Safe gets its own countdown ring and a big Cancel button, and the Safe keeps its history."],
+  ["Pick a network", "Tap the network at the top of the home screen to see every network and what you hold on each."],
+  ["Sui", "Send and receive SUI and USDC on Sui with the same recovery phrase."],
+  ["A new unlock screen", "The Safe's diamond greets you, with a show-password eye and a Caps Lock warning."],
   ["Free test coins, built in", "On Solana, \"Get free test SOL\" now sends test coins straight to your Wallet. No outside faucet, no sign-in."],
   ["Steadier on busy networks", "When a network's main server is busy, Ecrin quietly switches to a backup, and tells you plainly if something needs a retry."],
   ["A calmer look", "Quieter Settings icons, the Ecrin mark on the welcome screen, and cleaner badges for tokens without a logo."],
@@ -3776,7 +3781,7 @@ async function alertCall(path, extra) {
 function rulesView() {
   const P = S.panel, vs = openVaults();
   if (!S.all) return `${phead("Rules and alerts")}<div class="ap-card ap-load"><span class="sk">&nbsp;</span></div>`;
-  if (!vs.length) return `${phead("Rules and alerts")}<div class="empty">${I.shield}<b>Open your Safe first</b><span>Rules and alerts apply to your Safe on every network.</span></div>`;
+  if (!vs.length) return `${phead("Rules and alerts")}<div class="cv"><div class="cv-art">${I.shield}</div><h2>Open your Safe first</h2><p class="sub">Rules and alerts apply to your Safe on every network.</p></div><div class="pfoot"><button class="btn primary xl" data-act="panel" data-p="protect">${I.protect}Open my Safe</button></div>`;
   const m = vs[0].v.main, t = now() + (S.clockOff || 0);
   const busy = P.busy ? `<div class="ap-b note">${I.clock}<span>Updating every network…</span></div>` : "";
   const fmtLim = (r) => (r.v.main.dailyLimit ? `${amt(r.v.main.dailyLimit, "native")} ${NETS[r.k].unit}` : "No limit");

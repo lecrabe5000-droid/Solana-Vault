@@ -3358,6 +3358,28 @@ body.stacked.grow-open #root, :root[data-theme] body.stacked.grow-open #root { t
 .eye::before { inset: -12px; }
 .srow .seg button { min-width: 34px; }
 
+/* ---------- polish pass ---------- */
+/* message screens (coming soon, not here yet): a calm icon tile above the title */
+.cv > .cv-art:not(:has(.mv)):not(:has(.sf)) { display: grid; place-items: center; width: 64px; height: 64px; margin: 18px auto 14px; border-radius: 20px; color: #9db0ff; background: rgba(91, 124, 255, .13); box-shadow: inset 0 0 0 1px rgba(125, 151, 255, .22); }
+.cv > .cv-art:not(:has(.mv)):not(:has(.sf)) > svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+:root[data-theme="dark"] .cv > .cv-art:not(:has(.mv)):not(:has(.sf)) { color: var(--ivory); background: rgba(242, 239, 232, .07); box-shadow: inset 0 0 0 1px rgba(242, 239, 232, .1); }
+/* forms: every label has air above it */
+.pane p + .fld, .pane .fld + .fld, .pane .dd + .fld, .pane .tk-net + .fld, .pane .note + .fld, .pane .fld + .note, .pane .fine + .fld { margin-top: 14px; }
+.pane .fld + .btn, .pane .fld + .err + .btn { margin-top: 14px; }
+/* lists: a touch more room between rows and a soft press */
+.arow, .nr, .srow { transition: background .15s ease, transform .15s ease; } .arow:active, .nlist .nr:active { transform: scale(.985); }
+@media (hover: hover) { button.arow:hover, .nlist .nr:hover, button.srow:hover, a.srow:hover { background: rgba(127, 127, 127, .07); } }
+/* primary buttons: a soft press everywhere */
+.btn, .hold, .sx-go, .sf-go, .so-x { transition: transform .12s ease, filter .15s ease, background .15s ease; } .btn:active:not(:disabled), .sx-go:active:not(:disabled), .sf-go:active { transform: scale(.975); }
+.btn:disabled, .sx-go:disabled { cursor: default; }
+/* focus you can see with a keyboard, never on tap */
+:is(button, a, input, [role="tab"]):focus-visible { outline: 2px solid #7d97ff; outline-offset: 2px; border-radius: 10px; } input:focus-visible { outline: none; }
+/* numbers line up: tabular figures wherever money shows */
+.ar-r b, .ar-r small, .big, .mo-amt b, .so-amt b, .tl-v, .nr-r b, .dk-big, .sx-out, .sx-in { font-variant-numeric: tabular-nums; }
+/* scroll areas glide and never show a bar */
+#root, #panel .pane { scroll-behavior: smooth; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+@media (prefers-reduced-motion: reduce) { #root, #panel .pane { scroll-behavior: auto; } .arow:active, .btn:active { transform: none !important; } }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
 #root, #panel { top: 0; bottom: 0; }

@@ -299,6 +299,11 @@ export const LANGS = [["en", "English"], ["fr", "Français"]];
 export function trText(t, lang) { if (lang !== "fr" || !t) return t; const k = String(t).trim(); if (FR[k]) return FR[k]; for (const [re, to] of FR_RE) if (re.test(k)) return k.replace(re, to); return t; }
 // ---- 0.27–0.28: unlock screen, networks, mainnet, swap, money in motion, the Safe's cards and history, desktop column
 Object.assign(FR, {
+  "Follow your money": "Suivez votre argent", "Every send, protect, withdrawal and swap now shows its journey live, then a receipt with the details.": "Chaque envoi, protection, retrait et échange montre maintenant son trajet en direct, puis un reçu détaillé.",
+  "Your Safe at a glance": "Votre Coffre en un coup d'œil", "Anything leaving your Safe gets its own countdown ring and a big Cancel button, and the Safe keeps its history.": "Tout ce qui quitte votre Coffre a son compte à rebours et un grand bouton Annuler, et le Coffre garde son historique.",
+  "Pick a network": "Choisissez un réseau", "Tap the network at the top of the home screen to see every network and what you hold on each.": "Touchez le réseau en haut de l'accueil pour voir tous les réseaux et ce que vous détenez sur chacun.",
+  "Send and receive SUI and USDC on Sui with the same recovery phrase.": "Envoyez et recevez des SUI et des USDC sur Sui avec la même phrase de récupération.",
+  "A new unlock screen": "Un nouvel écran de déverrouillage", "The Safe's diamond greets you, with a show-password eye and a Caps Lock warning.": "Le diamant du Coffre vous accueille, avec un œil pour afficher le mot de passe et un avertissement de majuscules.",
   "Your keys never leave this device": "Vos clés ne quittent jamais cet appareil", "Show password": "Afficher le mot de passe", "Hide password": "Masquer le mot de passe",
   "Caps Lock is on": "Le verrouillage des majuscules est activé", "Enter your password": "Entrez votre mot de passe", "That password doesn't match. Try again.": "Ce mot de passe ne correspond pas. Réessayez.",
   "That's not it either. Check Caps Lock, or use your recovery phrase.": "Ce n'est pas ça non plus. Vérifiez les majuscules, ou utilisez votre phrase de récupération.",
