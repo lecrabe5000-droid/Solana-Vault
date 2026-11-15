@@ -920,7 +920,7 @@ function welcome() {
     <div class="onb-art">${welcomeArt()}</div>
     <div class="onb-copy"><h1 class="onb-wm">${WORDMARK("lg")}<span class="sr-only">Ecrin Wallet</span></h1><p>Set up takes a minute, in a full tab with room for your recovery phrase.</p></div>
     <div class="onb-acts"><button class="btn primary xl" data-act="open-full">Set up in a new tab</button><button class="link center" data-act="stay-popup">Continue here instead</button></div>
-    <p class="fine">Beta · not audited · Solana mainnet is real money, every other network is test coins</p></div>`;
+    <p class="fine">Beta · not audited · starts on test networks</p></div>`;
   if (S.tour != null && S.tour < TOUR.length) return tourView();
   if (S.tour === TOUR.length && S.askGoal) return goalView();
   return `<div class="onb onb-w"><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
@@ -931,7 +931,7 @@ function welcome() {
       <button class="btn ghost xl" data-act="start-import">I have a recovery phrase</button>
       ${globalThis.ECRIN_DEMO ? `<button class="link center" data-act="demo-quick">Skip setup: open a demo wallet ${I.arrow}</button>` : ""}
     </div>
-    <p class="fine">Beta · not audited · Solana mainnet is real money, every other network is test coins</p>
+    <p class="fine">Beta · not audited · starts on test networks</p>
   </div>`;
 }
 
@@ -1832,7 +1832,7 @@ function sendView() {
         ${self ? `<p class="warn-n">That's your own address.</p>` : P.fresh ? `<p class="warn-n">${I.shield}<span>You've never sent to this address from Ecrin. Check the first and last characters against where you copied it.</span></p>` : ""}
       </div>
       ${P.coolUntil > Date.now() ? `<div class="cool"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17"/><circle class="cl-p" cx="20" cy="20" r="17" style="stroke-dashoffset:${(106.8 * (P.coolUntil - Date.now())) / (S.guard.cool * 1000)}"/></svg><span><b data-cool>${Math.ceil((P.coolUntil - Date.now()) / 1000)}s</b><small>Cooling-off pause for big sends. Take a breath: is this really who you think it is?</small></span></div>` : ""}
-      ${NETS[S.net].real ? `<div class="sx-real">${I.warn}<span><b>Real money.</b> This is Solana mainnet. Sent coins can't be brought back.</span></div>` : ""}
+      ${NETS[S.net].real ? `<div class="sx-real">${I.warn}<span><b>Real money.</b> These are real coins. Once sent, they can't be brought back.</span></div>` : ""}
       <div class="pfoot">${P.coolUntil > Date.now() ? `<button class="hold" disabled><span class="hold-t">${I.clock}Wait for the pause</span></button>` : hold(P.step === "sending" ? "Sending…" : "Hold to send", P.step === "sending")}</div>`;
   }
   const nm = P.named && P.named.name === P.to.trim() ? P.named : null, nmOk = !!(nm?.addr && e.isAddress(nm.addr));
