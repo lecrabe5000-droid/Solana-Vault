@@ -24,6 +24,7 @@ const VERSION = chrome.runtime.getManifest().version;
 const IS_EXT = !globalThis.ECRIN_WEB && !globalThis.ECRIN_DEMO && !!globalThis.chrome?.tabs;
 const FULL = IS_EXT && new URLSearchParams(location.search).has("full");
 const openFull = () => { chrome.tabs.create({ url: chrome.runtime.getURL("popup.html?full=1") }); if (!FULL) window.close(); };
+if (FULL) addEventListener("resize", () => { const d = S.screen === "home" && innerWidth >= 1100 ? "1" : ""; if (document.documentElement.dataset.fpDash !== d) { document.documentElement.dataset.fpDash = d; } });
 if (FULL) {
   document.documentElement.dataset.full = "1";
   const box = document.createElement("div"); box.className = "device fp-frame";
@@ -689,6 +690,7 @@ function render() {
   root.dataset.screen = S.screen;
   if (S.screen === "home" && S.lastScreen !== "home") { S.homeT0 = performance.now(); S.homeSynced = false; } // arriving on home: the entrance plays once
   S.lastScreen = S.screen;
+  if (FULL) document.documentElement.dataset.fpDash = S.screen === "home" && innerWidth >= 1100 ? "1" : "";
   if (FULL) document.documentElement.dataset.fpSetup = ["welcome", "createPw", "createPhrase", "createVerify", "importPhrase", "ready"].includes(S.screen) ? "1" : "";
   const html = ({ ready: readyView, loading: () => `<div class="splash boot"><div class="boot-mark">${WORDMARK("lg")}</div><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div></div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
   S.homeSig = S.screen === "home" ? viewSig(html) : null;
@@ -1049,6 +1051,28 @@ function totals() {
   return { chq: usd(b.native, "native") + usd(b.usdc, "usdc"), sav: usd(vn, "native") + usd(vu, "usdc"), b, vn, vu };
 }
 
+/** The extension's full tab on a wide screen: a second column with the Safe at a glance and recent activity. */
+function dashSide(w, loading) {
+  const rows = openRows(), t = now() + (S.clockOff || 0);
+  const pend = rows.flatMap((r) => [...r.v.main.withdrawals.map((x) => ({ ...x, a: "native", r })), ...(r.v.usdc?.withdrawals || []).map((x) => ({ ...x, a: "usdc", r }))]).sort((x, y) => x.readyAt - y.readyAt);
+  const next = pend[0], share = w.total ? Math.round((w.sav / w.total) * 100) : 0, safeHere = netKeys().some(canSafe);
+  const hms = (sec) => { sec = Math.max(0, Math.floor(sec)); return `${String(Math.floor(sec / 3600)).padStart(2, "0")}:${String(Math.floor((sec % 3600) / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`; };
+  const acts = (S.activity || []).slice(0, 6);
+  return `<aside class="dk-side">
+    <section class="dk-card dk-safe">
+      <div class="dk-h"><span class="dk-ic">${I.lock}</span><b>Safe</b><button class="see-all" data-act="panel" data-p="vault">Open ${I.arrow}</button></div>
+      ${!safeHere ? `<p class="dk-sub">The Safe comes to mainnet after its audit. Try it on Testnet.</p>`
+        : `<div class="dk-big">${loading ? `<b class="sk">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</b>` : mask(fig(money(w.sav)))}</div>
+      <div class="dk-bar"><i style="width:${share}%"></i></div><p class="dk-sub">${share}% of everything you own is protected${rows.length ? "" : " · no Safe open yet"}</p>
+      ${next ? `<button class="dk-next" data-act="panel" data-p="vault"><span class="dk-ic">${I.clock}</span><span><b>${amt(next.amount, next.a)} ${next.a === "usdc" ? "USDC" : NETS[next.r.k].unit} leaving</b><small>${pend.length > 1 ? `+${pend.length - 1} more · ` : ""}tap to cancel</small></span><b class="cd" data-until="${next.readyAt}">${hms(next.readyAt - t)}</b></button>` : `<p class="dk-quiet">${I.shield}Nothing is leaving. All quiet.</p>`}
+      <button class="btn primary dk-go" data-act="panel" data-p="protect">${I.protect}${rows.length ? "Protect more" : "Open my Safe"}</button>`}
+    </section>
+    <section class="dk-card">
+      <div class="dk-h"><span class="dk-ic">${I.clock}</span><b>Recent activity</b><button class="see-all" data-act="tab" data-t="activity">See all ${I.arrow}</button></div>
+      ${acts.length ? `<div class="dk-acts">${actRows(acts)}</div>` : `<p class="dk-sub">Nothing yet. What you send, receive and protect shows here.</p>`}
+    </section>
+  </aside>`;
+}
 function homeView() {
   const N = NETS[S.net], e = ENG, w = worth(), loading = !w.ready;
   const pct = w.total ? Math.round((w.sav / w.total) * 100) : 0;
@@ -1085,8 +1109,8 @@ function homeView() {
     <div class="tabs ${S.showNfts ? "t3" : ""}" role="tablist">${[["tokens", "Tokens"], ...(S.showNfts ? [["nfts", "Collectibles"]] : []), ["activity", "Activity"]].map(([t, l]) => `<button role="tab" data-act="tab" data-t="${t}" aria-selected="${S.tab === t}">${l}</button>`).join("")}<i class="tab-ind" style="--i:${{ tokens: 0, nfts: 1, activity: S.showNfts ? 2 : 1 }[S.tab] || 0}"></i></div>
     <div class="tab-body">${S.tab === "activity" ? activityList() : S.tab === "nfts" && S.showNfts ? nftGrid() : tokenList(w)}</div>
     ${S.tab === "tokens" && !loading ? homeMore() : ""}
-    <footer class="home-end"><span>${LOGO}</span>Ecrin Wallet · testnet beta</footer>
-
+    <footer class="home-end"><span>${LOGO}</span>Ecrin Wallet · ${isMain() ? "beta" : "testnet beta"}</footer>
+    ${FULL ? dashSide(w, loading) : ""}
   </div>`;
 }
 

@@ -3309,6 +3309,33 @@ html:root[data-skin="ecrin"] .brand-sig.real i { color: #ffd27a !important; back
 .nlist .nr.on { background: rgba(91, 124, 255, .08); }
 :root[data-theme="dark"] .nr-ck { background: var(--ivory); color: var(--ivory-ink); } :root[data-theme="dark"] .nlist .nr.on { background: rgba(242, 239, 232, .05); }
 :root[data-theme="light"] .net-chip { background: #fff; box-shadow: 0 0 0 1px rgba(16, 17, 20, .1); }
+/* ---------- the extension's full tab on a wide screen: a two-column dashboard ---------- */
+.dk-side { display: none; }
+html[data-fp-dash="1"] .fp-frame { width: min(1140px, calc(100vw - 48px)); height: calc(100vh - 96px); min-height: 640px; }
+html[data-fp-dash="1"] .home { display: grid !important; grid-template-columns: minmax(0, 620px) 380px; justify-content: center; column-gap: 32px; align-content: start; padding-left: 28px; padding-right: 28px; }
+html[data-fp-dash="1"] .home > *:not(.aura):not(.dk-side) { grid-column: 1; min-width: 0; }
+html[data-fp-dash="1"] .home > header.top, html[data-fp-dash="1"] .home > .banner, html[data-fp-dash="1"] .home > .offline { grid-column: 1 / -1; }
+html[data-fp-dash="1"] .dk-side { display: flex; flex-direction: column; gap: 16px; grid-column: 2; grid-row: 2 / span 40; align-self: start; position: sticky; top: 12px; padding-top: 8px; }
+.dk-card { padding: 16px 18px; border-radius: 22px; background: rgba(127, 127, 127, .07); box-shadow: inset 0 0 0 1px rgba(127, 127, 127, .12); }
+.dk-h { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; } .dk-h b { font-size: 15px; flex: 1; }
+.dk-ic { display: grid; place-items: center; width: 30px; height: 30px; flex: none; border-radius: 10px; color: #9db0ff; background: rgba(91, 124, 255, .14); }
+.dk-ic svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.dk-h .see-all { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; color: var(--muted); font: 500 13px var(--font); cursor: pointer; } .dk-h .see-all svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; }
+.dk-big { font-size: 30px; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.dk-bar { height: 6px; margin: 10px 0 8px; border-radius: 999px; background: rgba(127, 127, 127, .16); overflow: hidden; } .dk-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #4b74ff, #00c8ff); }
+.dk-sub { margin: 0; font-size: 13px; line-height: 1.45; color: var(--muted); }
+.dk-next { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 14px; padding: 12px; border: 0; border-radius: 16px; text-align: left; color: inherit; font: inherit; cursor: pointer; background: rgba(255, 176, 32, .1); box-shadow: inset 0 0 0 1px rgba(255, 176, 32, .3); }
+.dk-next .dk-ic { color: #ffc35a; background: rgba(255, 176, 32, .15); } .dk-next > span:not(.dk-ic) { display: flex; flex-direction: column; flex: 1; min-width: 0; } .dk-next small { color: var(--muted); font-size: 12px; } .dk-next .cd { font-variant-numeric: tabular-nums; font-size: 15px; }
+.dk-quiet { display: flex; align-items: center; gap: 8px; margin: 14px 0 0; font-size: 13px; color: var(--muted); } .dk-quiet svg { width: 16px; height: 16px; fill: none; stroke: #5fd3a2; stroke-width: 1.9; }
+.dk-go { width: 100%; margin-top: 14px; } .dk-go svg { width: 16px; height: 16px; }
+.dk-acts .act-day { display: none; } .dk-acts .act-row, .dk-acts > * { margin: 0; }
+html[data-fp-dash="1"] #panel { left: auto !important; right: 0; width: 460px !important; }
+html[data-fp-dash="1"] #panel .pane { box-shadow: -40px 0 80px -40px rgba(0, 0, 0, .7), inset 1px 0 0 rgba(255, 255, 255, .06); }
+:root[data-theme="dark"] .dk-go { background: var(--ivory); color: var(--ivory-ink); }
+:root[data-theme="light"] .dk-card { background: #fff; box-shadow: 0 0 0 1px rgba(16, 17, 20, .08), 0 10px 30px -22px rgba(16, 17, 20, .3); }
+html[data-fp-dash="1"] .home > header.top:not(.aura):not(.dk-side), html[data-fp-dash="1"] .home > .banner:not(.aura):not(.dk-side), html[data-fp-dash="1"] .home > .offline:not(.aura):not(.dk-side) { grid-column: 1 / -1; }
+html[data-fp-dash="1"] .home > .banner:not(.aura):not(.dk-side), html[data-fp-dash="1"] .home > .offline:not(.aura):not(.dk-side) { grid-column: 1; }
+html[data-fp-dash="1"] body.stacked #root, html[data-fp-dash="1"]:root[data-theme] body.stacked #root { transform: none !important; filter: brightness(.6) !important; border-radius: 0 !important; transition: filter .25s; }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
