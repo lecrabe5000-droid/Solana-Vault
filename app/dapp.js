@@ -1069,6 +1069,21 @@ function slideSwitch(sw, from) {
   t.style.transition = ""; sw.style.setProperty("--i", to);
 }
 
+/** Portfolio, top: anything leaving the Safe, impossible to miss. Its countdown, where it goes, and the button that
+ *  keeps it (free, instant). Several waiting: the first one, and a link to all of them on the Safe tab. */
+function leavingAlert(v) {
+  const list = allWithdrawals(v).sort((x, y) => x.readyAt - y.readyAt);
+  if (!list.length || S.view === "guardian") return "";
+  const w = list[0], a = A(w.asset || "native"), left = w.readyAt - now(), ready = left <= 0;
+  return `<section class="lv-alert${ready ? " ready" : ""}" role="alert">
+    <div class="lv-dial">${ready ? `<span class="lv-ok">${I.clock}</span>` : dialHTML(w.readyAt, Math.max(v.withdrawDelay, 1))}</div>
+    <div class="lv-t"><span class="lv-k">${ready ? "Ready to leave your Safe" : "Leaving your Safe"}</span>
+      <b>${sol(w.amount, a)} ${a.unit}</b>
+      <small>to ${label(w.dest)} · ${ready ? "only leaves if you press send" : `unlocks ${when(w.readyAt)}`}${list.length > 1 ? ` · <button class="link" data-act="tab" data-t="vault">+${list.length - 1} more</button>` : ""}</small></div>
+    <div class="lv-acts"><button class="keep lv-keep" data-act="cancel-w" data-id="${w.id}" data-asset="${a.id}" data-amt="${w.amount}" ${S.busy ? "disabled" : ""}>${I.shield}<span>Keep it safe</span></button>
+      <span class="lv-note">Not you? <button class="link" data-act="freeze">Freeze everything</button></span></div>
+  </section>`;
+}
 function portfolioView(v) {
   const na = A("native"), list = assets();
   const coinTotal = v.balance + (S.walletSol || 0);
@@ -1078,7 +1093,7 @@ function portfolioView(v) {
   const pct = totalUsd ? Math.round((protUsd / totalUsd) * 100) : coinTotal ? Math.round((v.balance / coinTotal) * 100) : 0, ch = S.price?.change;
   const recent = history().slice(0, 4);
   return `
-    ${frozenBanner(v)}
+    ${frozenBanner(v)}${leavingAlert(v)}
     <section class="pf-hero">
       <div class="pf-head">
         <div class="pf-total">

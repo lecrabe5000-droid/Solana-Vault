@@ -25,7 +25,11 @@
   --pos: #3ccf8e; --neg: #ff7088; --warn: #f0b04a;
   color-scheme: dark;
 }
-:root { --r: 18px; --num: "Unbounded", "Manrope", ui-sans-serif, system-ui, sans-serif; --font: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+/* One typeface with the wallet: IBM Plex Sans for the interface and for money. Unbounded stays for the brand's headlines. */
+@font-face { font-family: "IBM Plex Sans"; font-weight: 400; font-display: swap; src: url("fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 500; font-display: swap; src: url("fonts/ibm-plex-sans-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 600 700; font-display: swap; src: url("fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2"); }
+:root { --brand: "Unbounded", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; --r: 18px; --num: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; --font: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font: 400 15px/1.5 var(--font); -webkit-font-smoothing: antialiased; transition: background .25s, color .25s; }
 a { color: var(--ink); text-underline-offset: 3px; text-decoration-color: var(--line-2); }
@@ -483,9 +487,9 @@ section.glass { border-radius: 20px; }
 .d-in b { font-size: clamp(22px, 5vw, 30px); letter-spacing: -.03em; }
 .seal b { font: 500 22px/1.2 var(--num); letter-spacing: -.02em; }
 .ring-in b { font-family: var(--num); font-weight: 500; font-size: 24px; }
-.case-mark b { font-family: var(--num); font-weight: 500; letter-spacing: .28em; font-size: 11px; }
-.brand span { font-family: var(--num); font-weight: 500; letter-spacing: -.02em; }
-.hello h1, .create-h h1 { font-family: var(--num); font-weight: 500; letter-spacing: -.04em; line-height: 1.12; }
+.case-mark b { font-family: var(--brand); font-weight: 500; letter-spacing: .28em; font-size: 11px; }
+.brand span { font-family: var(--brand); font-weight: 500; letter-spacing: -.02em; }
+.hello h1, .create-h h1 { font-family: var(--brand); font-weight: 500; letter-spacing: -.04em; line-height: 1.12; }
 .sec-h h2 { font-weight: 700; letter-spacing: -.01em; }
 .pill-i, .btn, .qa button { font-weight: 600; }
 @media (max-width: 900px) { .home-top .big { font-size: clamp(36px, 10vw, 52px); } .vs-facts b { font-size: 22px; } }
@@ -864,7 +868,7 @@ body { background: radial-gradient(1200px 600px at 80% -10%, color-mix(in srgb, 
   box-shadow: inset 0 0 0 1px var(--line), 0 30px 60px -44px rgba(10, 12, 30, .4); }
 .wc-mark { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); }
 .wc-mark svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.wc-mark b { font: 500 11px var(--num); letter-spacing: .28em; text-transform: uppercase; }
+.wc-mark b { font: 500 11px var(--brand); letter-spacing: .28em; text-transform: uppercase; }
 .wc-tag { padding: 4px 10px; border: 1px solid var(--line-2); border-radius: 999px; color: var(--muted); font-size: 11.5px; font-weight: 600; }
 .wc-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--muted); }
 .wcase .case-id .ava { width: 18px; height: 18px; }
@@ -1171,3 +1175,29 @@ section.glass { padding: 26px 26px; }
 .protected i { display: inline-block; vertical-align: 1px; margin-right: 8px; }
 /* activity rows: the whole row lights up evenly on hover, with room around the icon and the link */
 @media (hover: hover) { .feed li { margin: 0 -10px; padding-left: 12px; padding-right: 12px; border-radius: 12px; transition: background-color .18s; } .feed li:hover { background-color: var(--h2); } .feed li:hover + li { border-top-color: transparent !important; } }
+
+/* ---------- Portfolio: anything leaving the Safe, at the top ---------- */
+.lv-alert { display: grid; grid-template-columns: 84px minmax(0, 1fr) auto; align-items: center; gap: 18px; margin: 0 0 18px; padding: 16px 18px; border-radius: 22px;
+  background: linear-gradient(135deg, rgba(242, 163, 58, .14), rgba(242, 163, 58, .04)); box-shadow: inset 0 0 0 1px rgba(242, 163, 58, .38), 0 18px 40px -28px rgba(242, 163, 58, .6); animation: lv-in .5s cubic-bezier(.2, .9, .2, 1) both; }
+.lv-dial { width: 84px; height: 84px; position: relative; }
+.lv-dial .dial { width: 84px !important; height: 84px !important; margin: 0 !important; }
+.lv-dial .dial .ticks, .lv-dial .dial small, .lv-dial .dial .d-in span { display: none; }
+.lv-dial .dial .d-in b { font-size: 13px !important; letter-spacing: -.01em; }
+.lv-ok { display: grid; place-items: center; width: 84px; height: 84px; border-radius: 50%; color: #22c37f; background: rgba(34, 195, 127, .12); } .lv-ok svg { width: 30px; height: 30px; }
+.lv-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lv-k { font-size: 11.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #c9821c; }
+.lv-t b { font-size: 24px; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.lv-t small { font-size: 13px; color: var(--muted); } .lv-t small .link { font-size: inherit; }
+.lv-acts { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.lv-keep { white-space: nowrap; }
+.lv-note { font-size: 12px; color: var(--muted); }
+.lv-alert.ready { background: linear-gradient(135deg, rgba(34, 195, 127, .12), rgba(34, 195, 127, .03)); box-shadow: inset 0 0 0 1px rgba(34, 195, 127, .35); } .lv-alert.ready .lv-k { color: #1a9e66; }
+@keyframes lv-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@media (max-width: 640px) {
+  .lv-alert { grid-template-columns: 72px minmax(0, 1fr); gap: 14px; }
+  .lv-dial, .lv-dial .dial, .lv-ok { width: 72px !important; height: 72px !important; }
+  .lv-acts { grid-column: 1 / -1; align-items: stretch; } .lv-keep { justify-content: center; }
+}
+@media (prefers-reduced-motion: reduce) { .lv-alert { animation: none; } }
+.lv-dial .dial .d-in b { font-size: 12.5px !important; font-weight: 600; }
+@media (max-width: 640px) { .lv-dial .dial .d-in b { font-size: 11px !important; } }
