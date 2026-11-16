@@ -29,6 +29,15 @@ export default {
     if (url.pathname === "/api/rpc/solm") return handleRpc(request, env, "solm");
     if (url.pathname.startsWith("/api/rpc/")) return handleRpc2(request, env, url.pathname.slice(9));
     if (url.pathname === "/api/tokens") return handleTokens(request);
+    // Where to reach Ecrin (set in Cloudflare): the wallet and the Support page read this, so a link can change without a release.
+    if (url.pathname === "/api/links") {
+      const ok = (v, re) => (re.test(String(v || "")) ? String(v) : null);
+      return Response.json({
+        email: ok(env.SUPPORT_EMAIL, /^[^\s@<>"]+@[^\s@<>"]+\.[a-z]{2,}$/i),
+        telegram: ok(env.TELEGRAM_GROUP_URL, /^https:\/\/t\.me\/[\w+/-]+$/),
+        x: ok(env.X_URL, /^https:\/\/(x|twitter)\.com\/\w+\/?$/),
+      }, { headers: { "cache-control": "public, max-age=300", "access-control-allow-origin": "*" } });
+    }
     if (url.pathname === "/api/prices") return handlePrices(request, env);
     const route = { "/api/faucet": "/faucet", "/api/alerts/start": "/start", "/api/alerts/status": "/status", "/api/alerts/email": "/email", "/api/alerts/confirm": "/confirm", "/api/alerts/unsub": "/unsub", "/api/telegram": "/telegram", "/api/waitlist": "/waitlist", "/api/waitlist/confirm": "/wconfirm", "/api/stats": "/stats", "/api/push/key": "/pushkey", "/api/push/subscribe": "/pushsub", "/api/push/unsubscribe": "/pushunsub", "/api/report": "/report" }[url.pathname];
     if (route) return hub(env).fetch(new Request("https://hub" + route + url.search, request));

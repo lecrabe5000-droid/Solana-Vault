@@ -3405,3 +3405,13 @@ body.stacked.grow-open #root, :root[data-theme] body.stacked.grow-open #root { t
 .bug { display: grid; gap: 14px; padding: 4px 2px; } .bug .sub { margin: 0; color: var(--muted); }
 .bug textarea { width: 100%; min-height: 128px; resize: vertical; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--s1); color: var(--ink); font: inherit; font-size: 15px; line-height: 1.45; box-sizing: border-box; }
 .bug textarea:focus { outline: none; border-color: var(--accent); }
+
+/* Help & support */
+.help { display: grid; gap: 16px; padding: 4px 2px; }
+.help-qa { display: grid; gap: 8px; }
+.hq { border: 1px solid var(--line); border-radius: 14px; background: var(--s1); padding: 0 14px; }
+.hq summary { cursor: pointer; padding: 13px 0; font-weight: 600; font-size: 14px; color: var(--ink); list-style: none; display: flex; justify-content: space-between; gap: 10px; }
+.hq summary::-webkit-details-marker { display: none; } .hq summary::after { content: "+"; color: var(--muted); font-weight: 400; } .hq[open] summary::after { content: "–"; }
+.hq p { margin: 0 0 13px; color: var(--text, var(--muted)); font-size: 13.5px; line-height: 1.5; }
+.help-ways { display: grid; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; } .help-ways .srow { border-radius: 0; } .help-ways .srow + .srow { border-top: 1px solid var(--line); }
+.help-ways .sv { max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

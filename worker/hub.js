@@ -158,12 +158,13 @@ export class AlertHub extends DurableObject {
     if (this.sql.exec("SELECT COUNT(*) AS n FROM reports WHERE ip = ? AND at > ?", ip, now - 86400_000).one().n >= 10) return json({ error: "Thanks, we have your reports. Send more tomorrow." }, 429);
     const details = ["version", "net", "screen", "platform", "lang", "size", "agent", "error"].map((k) => [k, clip(info[k], k === "agent" ? 200 : 160)]).filter(([, v]) => v);
     this.sql.exec("INSERT INTO reports (at, ip, text, contact, info) VALUES (?, ?, ?, ?, ?)", now, ip, text, contact, JSON.stringify(Object.fromEntries(details)));
-    const body = `Ecrin report\n\n${text}\n\nFrom: ${contact || "anonymous"}\n${details.map(([k, v]) => `${k}: ${v}`).join("\n")}`;
+    const support = b.kind === "support", title = support ? "Ecrin support request" : "Ecrin report";
+    const body = `${title}\n\n${text}\n\nFrom: ${contact || "anonymous"}\n${details.map(([k, v]) => `${k}: ${v}`).join("\n")}${contact ? "" : "\n(no contact given: they can't be answered directly)"}`;
     const tasks = [];
     if (this.env.REPORT_TELEGRAM_CHAT && this.env.TELEGRAM_BOT_TOKEN) tasks.push(this.tg("sendMessage", { chat_id: this.env.REPORT_TELEGRAM_CHAT, text: body.slice(0, 4000), link_preview_options: { is_disabled: true } }));
     if (/@/.test(this.env.REPORT_EMAIL || "") && this.env.RESEND_API_KEY) {
       const h = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-      tasks.push(this.mail(this.env.REPORT_EMAIL, `Ecrin report: ${text.slice(0, 60)}`, `<pre style="white-space:pre-wrap;font:14px/1.5 -apple-system,Segoe UI,sans-serif">${h(body)}</pre>`));
+      tasks.push(this.mail(this.env.REPORT_EMAIL, `${support ? "Support" : "Report"}: ${text.slice(0, 60)}`, `<pre style="white-space:pre-wrap;font:14px/1.5 -apple-system,Segoe UI,sans-serif">${h(body)}</pre>`));
     }
     await Promise.allSettled(tasks);
     return json({ ok: true });

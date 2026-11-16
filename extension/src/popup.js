@@ -1809,7 +1809,7 @@ function renderPanel(enter = false) {
   queueMicrotask(syncTabbar);
   const el = $("#panel"), P = S.panel;
   if (!P) return;
-  const body = ({ nets: netsView, send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, news: newsView, report: reportHTML, txd: txdView, contacts: contactsView, pkey: pkeyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView, wc: wcView, payreq: payreqView, alerts: alertsView, bug: bugView })[P.p]();
+  const body = ({ nets: netsView, send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, news: newsView, report: reportHTML, txd: txdView, contacts: contactsView, pkey: pkeyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView, wc: wcView, payreq: payreqView, alerts: alertsView, bug: bugView, help: helpView })[P.p]();
   if (enter || P.fresh) P.openedAt = performance.now();
   const since = P.openedAt ? performance.now() - P.openedAt : 9999;
   // A coin's page grows out of the row you tapped (the home screen stays where it is); other pages slide in.
@@ -2446,6 +2446,7 @@ function settingsView() {
       <a class="srow" href="https://ecrinprotocol.app/" target="_blank"><span>${I.globe}Website</span><span class="sv">${I.ext}</span></a>
       <a class="srow" href="https://ecrinprotocol.app/how-it-works/" target="_blank"><span>${I.shield}How the Safe works</span><span class="sv">${I.ext}</span></a>
       <a class="srow" href="https://ecrinprotocol.app/security/" target="_blank"><span>${I.check}Security and audits</span><span class="sv">${I.ext}</span></a>
+      ${row("panel", I.shield, "Help & support", I.arrow, 'data-p="help"')}
       ${row("panel", I.link, "Report a problem or an idea", I.arrow, 'data-p="bug"')}
       <a class="srow" href="https://ecrinprotocol.app/privacy/" target="_blank"><span>${I.lock}Privacy</span><span class="sv">${I.ext}</span></a>
       <a class="srow" href="https://ecrinprotocol.app/terms/" target="_blank"><span>${I.card}Terms</span><span class="sv">${I.ext}</span></a>`)}
@@ -2462,23 +2463,48 @@ function bugInfo() {
     lang: S.lang, size: `${innerWidth}x${innerHeight}, turned ${screen.orientation?.angle ?? 0}°`, agent: navigator.userAgent, error: e ? e.text : "",
   };
 }
+// ---- Help & support: quick answers, then the ways to reach a person (links set by the team on the server).
+const SITE_URL = "https://ecrinprotocol.app";
+async function loadLinks() { if (S.links) return S.links; try { S.links = await (await fetch(SITE_URL + "/api/links")).json(); } catch (_) { S.links = {}; } return S.links; }
+const HELP_QA = [
+  ["My withdrawal hasn't arrived", "Every withdrawal waits the delay you chose, longer if your Safe is locked. Your Safe shows the countdown; when it ends, open the Safe to finish it. Until then you can cancel it."],
+  ["I can't get test coins", "On Testnet, tap Get free test SOL (once a day). If Ecrin's faucet is empty or busy, Solana's own faucet opens with your address copied."],
+  ["Can Ecrin reverse a transaction?", "No. Ecrin never holds your keys or your money. You can cancel your own withdrawal while it waits; money that has left can't be brought back by anyone."],
+  ["Someone offered help in my messages", "That isn't Ecrin. We never message you first, and never ask for your recovery phrase or private key."],
+];
+function helpView() {
+  if (!S.links) loadLinks().then(() => S.panel?.p === "help" && renderPanel());
+  const L = S.links || {};
+  return `${phead("Help & support")}
+  <div class="help">
+    <div class="help-qa">${HELP_QA.map(([q, a]) => `<details class="hq"><summary>${q}</summary><p>${a}</p></details>`).join("")}</div>
+    <div class="help-ways">
+      <button class="srow" data-act="panel" data-p="bug" data-k="support"><span>${I.send || I.link}Message support</span><span class="sv">${I.arrow}</span></button>
+      ${L.email ? `<a class="srow" href="mailto:${esc(L.email)}"><span>${I.recv}Email</span><span class="sv">${esc(L.email)}</span></a>` : ""}
+      ${L.telegram ? `<a class="srow" href="${esc(L.telegram)}" target="_blank" rel="noopener"><span>${I.link}Telegram community</span><span class="sv">${I.ext}</span></a>` : ""}
+      <a class="srow" href="${SITE_URL}/${S.lang === "fr" ? "fr/assistance" : "support"}/" target="_blank" rel="noopener"><span>${I.globe}All answers</span><span class="sv">${I.ext}</span></a>
+    </div>
+    <div class="note">${I.shield}<span>We never ask for your recovery phrase or private key, and never message you first.</span></div>
+  </div>`;
+}
 function bugView() {
-  const P = S.panel;
-  if (P.sent) return `${phead("Report a problem")}<div class="cv"><div class="cv-art">${I.check}</div><h2>Thank you</h2>
-    <p class="sub">Your report is with the Ecrin team. Reports like yours are how Ecrin gets better before mainnet.</p></div>
+  const P = S.panel, sup = P.k === "support" || P.kind === "support", title = sup ? "Contact support" : "Report a problem";
+  if (P.sent) return `${phead(title)}<div class="cv"><div class="cv-art">${I.check}</div><h2>Thank you</h2>
+    <p class="sub">${sup ? "Your message is with the Ecrin team. If you left a way to reach you, we'll answer there." : "Your report is with the Ecrin team. Reports like yours are how Ecrin gets better before mainnet."}</p></div>
     <div class="pfoot"><button class="btn xl" data-act="close">Done</button></div>`;
   const info = bugInfo();
-  return `${phead("Report a problem")}
+  return `${phead(title)}
   <div class="bug">
-    <p class="sub">A bug, something confusing, or an idea: it goes straight to the Ecrin team.</p>
+    <p class="sub">${sup ? "Tell us what you need. A person from the Ecrin team reads every message." : "A bug, something confusing, or an idea: it goes straight to the Ecrin team."}</p>
     <label class="fld"><span>What happened?</span><textarea data-bugtext rows="6" maxlength="2000" placeholder="What did you do, what did you expect, and what happened instead?">${esc(P.text || "")}</textarea></label>
-    <label class="fld"><span>How can we reach you? (optional)</span><input data-bugwho maxlength="80" placeholder="@telegram or email" value="${esc(P.who || "")}" autocomplete="off"/></label>
+    <label class="fld"><span>${sup ? "How can we answer you?" : "How can we reach you? (optional)"}</span><input data-bugwho maxlength="80" placeholder="@telegram or email" value="${esc(P.who || "")}" autocomplete="off"/></label>
     <div class="note">${I.shield}<span>Added to help us fix it: version ${esc(info.version)}, ${esc(info.net)}, ${esc(info.platform)}${info.error ? ", the last error" : ""}. Never your recovery phrase, keys or balances.</span></div>
   </div>
   <div class="pfoot"><button class="btn primary xl" data-act="bug-send" ${P.busy ? "disabled" : ""}>${P.busy ? "Sending…" : "Send report"}</button></div>`;
 }
 // What's new: shown once after an update (never on a fresh install), and any time from Settings → About.
 const NEWS = [
+  ["Help & support", "Settings → Help & support: quick answers, and a way to reach a person on the Ecrin team."],
   ["Withdraw anywhere, after a last look", "Choose your Wallet or any address, then review the amount, the destination and when it can leave before the countdown starts."],
   ["Report a problem", "Settings → Report a problem or an idea: it goes straight to the Ecrin team. Thank you to every tester."],
   ["Safe alerts on your phone", "Settings → Safe alerts on this phone: a notification the moment a withdrawal starts, so you can cancel it in time."],
@@ -2881,8 +2907,8 @@ const actions = {
       const best = w.items.filter((i) => (p === "withdraw" ? i.sav : i.chq) > 0).sort((x, y) => (y.usd || 0) - (x.usd || 0))[0];
       if (!here.length && best && best.k !== S.net) { await useNet(best.k); el = { dataset: { p, a: best.a } }; }
     }
-    if (S.panel && p !== S.panel.p) { S.panel = { p, step: "form", asset: el.dataset.a || "native", amount: "", to: "" }; renderPanel(); }
-    else openPanel(p, { a: el.dataset.a });
+    if (S.panel && p !== S.panel.p) { S.panel = { p, step: "form", asset: el.dataset.a || "native", amount: "", to: "", k: el.dataset.k }; renderPanel(); }
+    else openPanel(p, { a: el.dataset.a, k: el.dataset.k });
     if (p === "send" || p === "protect" || p === "swap") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); }
     if (p === "all" || p === "vault" || p === "rules") loadAll();
     if (p === "sites") loadSites();
@@ -2959,7 +2985,7 @@ const actions = {
     if (String(P.text || "").trim().length < 5) { const keep = S.lastErr; toast("Tell us a little more about what happened.", "err"); S.lastErr = keep; return; }
     P.busy = true; renderPanel();
     try {
-      const r = await fetch(REPORT_URL, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: P.text, contact: P.who || "", info: bugInfo() }) });
+      const r = await fetch(REPORT_URL, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: P.k === "support" ? "support" : "report", text: P.text, contact: P.who || "", info: bugInfo() }) });
       const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || "Couldn't send it. Try again in a minute.");
       P.sent = true; haptic("success");
     } catch (e) { toast(e.message || "Couldn't reach Ecrin. Check your connection and try again.", "err"); }
