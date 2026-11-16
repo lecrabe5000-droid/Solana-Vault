@@ -249,7 +249,7 @@ export class AlertHub extends DurableObject {
         : `Confirm that you want an email the moment anything happens to ${todo.length > 1 ? "vaults" : "vault"} ${what}: withdrawals, deposits and rule changes.<br><br>If you didn't ask for this, ignore this email and nothing will be sent.`,
       button: [fr ? "Confirmer les alertes" : "Confirm alerts", `${SITE}/api/alerts/confirm?t=${t}`], lang,
     }));
-    return ok ? json({ ok: true, sent: true }) : json({ error: "We couldn't send the email. Try again in a minute.", reason: this.mailErr }, 502);
+    return ok ? json({ ok: true, sent: true }) : json({ error: "We couldn't send the email. Try again in a minute." }, 502);
   }
 
   confirmEmail(t) {
@@ -317,7 +317,7 @@ export class AlertHub extends DurableObject {
         : "Confirm that you want to hear when Ecrin Wallet opens: the wallet where your savings sit in a vault by default.<br><br>If you didn't ask for this, ignore this email.",
       button: [fr ? "Confirmer" : "Confirm", `${SITE}/api/waitlist/confirm?t=${t}`], lang,
     }));
-    return ok ? json({ ok: true, sent: true }) : json({ error: fr ? "Impossible d'envoyer le courriel. Réessayez dans une minute." : "We couldn't send the email. Try again in a minute." , reason: this.mailErr }, 502);
+    return ok ? json({ ok: true, sent: true }) : json({ error: fr ? "Impossible d'envoyer le courriel. Réessayez dans une minute." : "We couldn't send the email. Try again in a minute."  }, 502);
   }
 
   confirmWaitlist(t) {
