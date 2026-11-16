@@ -1,4 +1,5 @@
-// Sui for Ecrin Wallet: SUI and USDC, send and receive, on Sui Testnet and mainnet. No Safe on Sui yet.
+// Sui for Ecrin Wallet: SUI and USDC, send and receive, on Sui Testnet and mainnet, and the Safe (sui/sources/safe.move)
+// where it is published (Testnet for now).
 // Keys: the recovery phrase at m/44'/784'/i'/0'/0' (ed25519, the path Sui Wallet and Slush use), so the same phrase
 // works there. Every transaction is built and signed here, byte by byte (Sui's BCS format); the server only estimates
 // gas and relays the signed bytes, so it can't change the receiver or the amount. The server is Sui's public GraphQL
@@ -7,9 +8,10 @@ import { ed25519 } from "@noble/curves/ed25519";
 import { blake2b } from "@noble/hashes/blake2b";
 import bs58 from "bs58";
 import { emitSent, viaProxy, fetchFirst } from "./netmode.js";
+import { SUI_SAFE } from "../../app/deployments-sui.js";
 
 export const SUI = {
-  key: "sui", fam: "sui", name: "Sui", net: "Testnet", unit: "SUI", cg: "sui", contract: null,
+  key: "sui", fam: "sui", name: "Sui", net: "Testnet", unit: "SUI", cg: "sui", contract: SUI_SAFE.testnet?.package || null, safe: SUI_SAFE.testnet || null,
   api: "https://graphql.testnet.sui.io/graphql", faucet: "https://faucet.sui.io/?network=testnet",
   // Circle's test USDC on Sui Testnet (developers.circle.com, USDC contract addresses)
   usdc: "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC",
@@ -17,7 +19,7 @@ export const SUI = {
 };
 // Mainnet, real money. USDC is Circle's (developers.circle.com), checked on-chain (symbol USDC, 6 decimals).
 export const SUI_MAIN = {
-  ...SUI, key: "suim", net: "Mainnet", real: true, api: "https://graphql.mainnet.sui.io/graphql", faucet: null,
+  ...SUI, key: "suim", net: "Mainnet", real: true, api: "https://graphql.mainnet.sui.io/graphql", faucet: null, contract: null, safe: null,
   usdc: "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC",
   explorer: (k, id) => `https://suiscan.xyz/mainnet/${k === "tx" ? "tx" : k === "token" ? "coin" : "account"}/${id}`,
 };
@@ -95,6 +97,54 @@ export function transfer({ sender, to, type, amount, coins = [], fromBalance = 0
   cmd(transferObjects([out], recipient));
   return txData({ sender, inputs, commands, gas });
 }
+
+// ---- The Safe
+// CallArg Object(SharedObject { id, initial_shared_version, mutability })
+const shared = (o, mutable) => cat(Uint8Array.of(1, 1), addr(o.id), u64(o.isv), Uint8Array.of(mutable ? 1 : 0));
+export const optU64 = (v) => (v == null ? Uint8Array.of(0) : cat(Uint8Array.of(1), u64(v)));
+export const optAddr = (a) => (a == null ? Uint8Array.of(0) : cat(Uint8Array.of(1), addr(a)));
+export const CLOCK = { id: "0x6", isv: 1 };
+/**
+ * One call to `<pkg>::safe::<fn><SUI>`. Each arg is { obj: { id, isv }, mut } for a shared object, { clock: true },
+ * { pure: bytes }, or { deposit: amount }: a SUI coin of that amount, split from the gas coin when gas is paid with
+ * coins, otherwise withdrawn from the address balance.
+ */
+export function safeTx({ sender, pkg, fn, args, gas }) {
+  const inputs = [], commands = [], add = (x) => (inputs.push(x), input(inputs.length - 1)), cmd = (x) => (commands.push(x), commands.length - 1);
+  const a = args.map((x) => {
+    if (x.obj) return add(shared(x.obj, x.mut !== false));
+    if (x.clock) return add(shared(CLOCK, false));
+    if (x.pure) return add(pure(x.pure));
+    if (x.deposit != null) return gas.payment.length
+      ? nested(cmd(splitCoins(GAS, [add(pure(u64(x.deposit)))])), 0)
+      : nested(cmd(moveCall("0x2", "coin", "redeem_funds", [SUI_COIN], [add(withdrawal(BigInt(x.deposit), SUI_COIN))])), 0);
+    throw new Error("Unknown Safe argument");
+  });
+  cmd(moveCall(pkg, "safe", fn, [SUI_COIN], a));
+  return txData({ sender, inputs, commands, gas });
+}
+/** The Safe's rules as the wallet's presets (the same as on Solana and the EVM networks). */
+export const SUI_PRESETS = { gentle: [24 * 3600, 3 * 86400], strong: [72 * 3600, 7 * 86400], locked: [72 * 3600, 7 * 86400] };
+// Move abort codes in sui/sources/safe.move, in vault-core's order.
+const SAFE_ERRORS = ["Only the Safe's owner can do that.", "Only the guardian can do that.", "This Safe has no guardian.", "Enter an amount above zero.",
+  "Not enough in the Safe (some may already be waiting to leave).", "That address isn't trusted yet.", "The Safe is locked until its unlock date.",
+  "It isn't time yet.", "That's over the Safe's daily limit.", "That request isn't there anymore.", "Too many requests waiting: cancel or finish one first.",
+  "You can trust at most 8 addresses.", "That value isn't allowed.", "That number is too large.", "This wallet already has a Safe on Sui."];
+/** Turns "MoveAbort(... safe ..., 7)" into words. */
+export function explainSuiSafe(text) {
+  const m = /MoveAbort[\s\S]*?safe[\s\S]*?,\s*(\d+)\)/.exec(String(text || ""));
+  return m && SAFE_ERRORS[Number(m[1])] ? SAFE_ERRORS[Number(m[1])] : null;
+}
+/** A Move enum or Option as GraphQL's JSON gives it, read leniently. */
+const variantOf = (c) => {
+  if (!c || typeof c !== "object") return { kind: null, value: null };
+  const kind = c["@variant"] || c.variant || c.$kind || Object.keys(c).find((k) => /^[A-Z]/.test(k));
+  const rest = Object.entries(c).filter(([k]) => !["@variant", "variant", "$kind"].includes(k));
+  let v = c[kind] !== undefined ? c[kind] : rest.length ? rest[0][1] : null;
+  if (v && typeof v === "object" && !Array.isArray(v)) { const vals = Object.values(v); if (vals.length === 1) v = vals[0]; }
+  return { kind, value: v };
+};
+const opt = (v) => (v == null ? null : Array.isArray(v) ? (v.length ? v[0] : null) : typeof v === "object" && "vec" in v ? (v.vec.length ? v.vec[0] : null) : v);
 
 /** Signs transaction bytes: ed25519 over blake2b-256(intent ‖ tx). Returns Sui's serialized signature (base64) and the digest. */
 export function signTx(tx, priv) {
@@ -176,6 +226,79 @@ export function suiEngine({ acct, dev = {}, N = SUI }) {
     let budget = (cost * 13n) / 10n + 1_000_000n; if (budget > cap) budget = cap;
     return build(budget);
   }
+  // ---- The Safe on Sui
+  const SAFE = N.safe, pkg = SAFE?.package;
+  let safeId = null;
+  const isvCache = {};
+  async function sharedRef(id) {
+    if (isvCache[id]) return isvCache[id];
+    const d = await gql(`query($a:SuiAddress!){object(address:$a){owner{... on Shared{initialSharedVersion}}}}`, { a: id });
+    const isv = d.object?.owner?.initialSharedVersion; if (isv == null) throw new Error("Sui couldn't find the Safe.");
+    return (isvCache[id] = { id, isv: Number(isv) });
+  }
+  /** This wallet's Safe: found from the SafeCreated event it emitted (one Safe per owner and coin). */
+  async function findSafe() {
+    if (safeId || !pkg) return safeId;
+    const d = await gql(`query($t:String!,$s:SuiAddress!){events(last:20,filter:{type:$t,sender:$s}){nodes{contents{json}}}}`, { t: `${pkg}::safe::SafeCreated`, s: me });
+    const hit = (d.events?.nodes || []).map((n) => n.contents?.json).find((j) => j && normAddr(j.owner) === normAddr(me) && /::sui::SUI$/.test(String(j.coin?.name || j.coin || "")));
+    return (safeId = hit ? normAddr(hit.safe) : null);
+  }
+  const num = (x) => (x == null ? 0 : Number(typeof x === "object" ? x.value ?? 0 : x));
+  async function readSafe() {
+    const id = await findSafe(); if (!id) return null;
+    const d = await gql(`query($a:SuiAddress!){object(address:$a){asMoveObject{contents{json}}}}`, { a: id });
+    const j = d.object?.asMoveObject?.contents?.json; if (!j) return null;
+    const p = j.policy || {}, A = (a) => ({ a: normAddr(a), toBase58() { return this.a; }, toString() { return this.a; }, equals(o) { return !!o && normAddr(String(o)) === this.a; } });
+    const withdrawals = (j.withdrawals || []).map((w) => ({ id: Number(w.id), amount: Number(w.amount), dest: A(w.dest), readyAt: Number(w.ready_at) }));
+    const balance = num(j.balance);
+    const change = (c) => {
+      const { kind, value } = variantOf(c);
+      const v = kind === "SetDailyLimit" ? (opt(value) == null ? null : Number(opt(value)))
+        : kind === "SetLockedUntil" ? (opt(value) == null ? null : Number(opt(value)))
+        : kind === "SetGuardian" ? (opt(value) ? A(opt(value)) : null)
+        : kind === "AddTrusted" || kind === "RemoveTrusted" ? A(value) : Number(value);
+      return { kind, value: v };
+    };
+    return {
+      owner: A(j.owner), address: A(id), balance, available: Math.max(0, balance - withdrawals.reduce((s, w) => s + w.amount, 0)),
+      withdrawDelay: Number(p.withdraw_delay), ruleDelay: Number(p.rule_delay),
+      dailyLimit: opt(p.daily_limit) == null ? null : Number(opt(p.daily_limit)), lockedUntil: opt(p.locked_until) == null ? null : Number(opt(p.locked_until)),
+      guardian: opt(p.guardian) ? A(opt(p.guardian)) : null,
+      trusted: (j.trusted || []).map(A), withdrawals,
+      changes: (j.changes || []).map((c) => ({ id: Number(c.id), change: change(c.change), readyAt: Number(c.ready_at) })),
+      spentDay: Number(j.spent_day || 0), spentToday: Number(j.spent_today || 0),
+    };
+  }
+  /** Builds, checks (dry run), signs and sends one Safe call. Gas from the address balance when it can, else SUI coins. */
+  async function safeRun(fn, args, depositAmount = 0n) {
+    if (!pkg) throw new Error("The Safe isn't on this Sui network yet.");
+    const [sc, sb, ep] = await Promise.all([coins(SUI_COIN), balance(SUI_COIN), gql(`{epoch{epochId referenceGasPrice} chainIdentifier}`)]);
+    const price = BigInt(ep.epoch.referenceGasPrice), dep = BigInt(depositAmount);
+    let gas, cap;
+    if (sb.inBalance >= dep + 2_000_000n) {
+      const room = sb.inBalance - dep; cap = room < CAP ? room : CAP;
+      gas = { payment: [], price, epoch: ep.epoch.epochId, chain: ep.chainIdentifier, nonce: crypto.getRandomValues(new Uint32Array(1))[0] };
+    } else {
+      const payment = sc.slice(0, 200), held = payment.reduce((n, c) => n + c.balance, 0n);
+      if (held < dep + 2_000_000n) throw new Error(dep ? "Not enough SUI for this amount and the network fee." : "You need a little SUI to pay the network fee.");
+      const room = held - dep; cap = room < CAP ? room : CAP; gas = { payment, price };
+    }
+    const build = (budget) => safeTx({ sender: me, pkg, fn, args: typeof args === "function" ? args() : args, gas: { ...gas, budget } });
+    try { return await execute(await finish(build, cap)); }
+    catch (e) { const w = explainSuiSafe(e?.message); if (w) throw new Error(w); throw e; }
+  }
+  const safeObj = async () => { const id = await findSafe(); if (!id) throw new Error("Open your Safe on Sui first."); return { obj: await sharedRef(id) }; };
+  const toSecs = (v) => BigInt(Math.round(Number(v)));
+  async function propose(c) {
+    const s = await safeObj(), v = c.value, fns = {
+      SetWithdrawDelay: ["set_withdraw_delay", u64(toSecs(v))], SetRuleDelay: ["set_rule_delay", u64(toSecs(v))],
+      SetDailyLimit: ["set_daily_limit", optU64(v == null ? null : BigInt(Math.round(Number(v))))], SetLockedUntil: ["set_locked_until", optU64(v == null ? null : toSecs(v))],
+      SetGuardian: ["set_guardian", optAddr(v == null ? null : String(v))], AddTrusted: ["add_trusted", addr(String(v))], RemoveTrusted: ["remove_trusted", addr(String(v))],
+    }[c.kind];
+    if (!fns) throw new Error("Unknown rule change " + c.kind);
+    return safeRun(fns[0], [s, { pure: fns[1] }, { clock: true }]);
+  }
+
   async function execute(tx) {
     const { signature, digest } = signTx(tx, priv);
     emitSent(digest);
@@ -193,7 +316,23 @@ export function suiEngine({ acct, dev = {}, N = SUI }) {
       const [s, u] = await Promise.all([balance(SUI_COIN), balance(N.usdc).catch(() => ({ total: 0n }))]);
       return { native: Number(s.total), usdc: Number(u.total) };
     },
-    vault: async () => null,
+    hasVaults: !!pkg,
+    async vault() { const v = pkg ? await readSafe() : null; return v ? { main: v, usdc: null } : null; },
+    vaultAddress: () => safeId,
+    async createVault(kind = "strong", { guardian = null, until = null } = {}) {
+      const [wd, rd] = SUI_PRESETS[kind] || SUI_PRESETS.strong;
+      const r = await safeRun("create", [{ obj: await sharedRef(normAddr(SAFE.registry)) }, { pure: u64(wd) }, { pure: u64(rd) }, { pure: optU64(null) }, { pure: optU64(until) }, { pure: optAddr(guardian) }, { clock: true }]);
+      safeId = null; await findSafe().catch(() => {}); return r;
+    },
+    async protect(asset, amount) { if (asset !== "native") throw new Error("On Sui, the Safe holds SUI for now."); return safeRun("deposit", [await safeObj(), { deposit: BigInt(Math.round(amount)) }], BigInt(Math.round(amount))); },
+    async request(asset, dest, amount) { if (asset !== "native") throw new Error("On Sui, the Safe holds SUI for now."); return safeRun("request_withdrawal", [await safeObj(), { pure: addr(String(dest)) }, { pure: u64(BigInt(Math.round(amount))) }, { clock: true }]); },
+    async sendTrusted(asset, dest, amount) { return safeRun("send_to_trusted", [await safeObj(), { pure: addr(String(dest)) }, { pure: u64(BigInt(Math.round(amount))) }, { clock: true }]); },
+    async cancel(asset, id) { return safeRun("cancel_withdrawal", [await safeObj(), { pure: u64(id) }]); },
+    async execute(asset, id) { return safeRun("execute_withdrawal", [await safeObj(), { pure: u64(id) }, { clock: true }]); },
+    propose,
+    async cancelChange(id) { return safeRun("cancel_change", [await safeObj(), { pure: u64(id) }]); },
+    async applyChange(id) { return safeRun("apply_change", [await safeObj(), { pure: u64(id) }, { clock: true }]); },
+    async chainTime() { const d = await gql(`{checkpoint{timestamp}}`); return Math.floor(Date.parse(d.checkpoint.timestamp) / 1000); },
     reserve: (asset) => (asset === "native" ? 10_000_000 : 0), // keep 0.01 SUI for fees
     feeText: () => "≈ 0.002 SUI",
     async send(asset, to, amount) {
