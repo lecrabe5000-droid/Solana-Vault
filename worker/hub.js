@@ -398,7 +398,11 @@ export class AlertHub extends DurableObject {
     if (request.headers.get("x-telegram-bot-api-secret-token") !== (await webhookSecret(this.env.TELEGRAM_BOT_TOKEN))) return json({ ok: false }, 401);
     const update = await request.json();
     const msg = update.message, chat = msg?.chat?.id, text = (msg?.text || "").trim();
-    if (!chat || msg.chat.type !== "private") return json({ ok: true });
+    if (!chat) return json({ ok: true });
+    // Links for the community (groups and private chats): /x /website /wallet /app /ca /chart /links
+    const link = this.linkReply(text.split(/\s+/)[0].replace(/@\w+$/, "").toLowerCase(), msg.from?.language_code);
+    if (link) { await this.tg("sendMessage", { chat_id: chat, text: link, parse_mode: "HTML", link_preview_options: { is_disabled: true }, ...(msg.chat.type !== "private" ? { reply_parameters: { message_id: msg.message_id, allow_sending_without_reply: true } } : {}) }); return json({ ok: true }); }
+    if (msg.chat.type !== "private") return json({ ok: true });
     const [cmd, arg] = text.split(/\s+/);
     const fr = /^fr/i.test(msg.from?.language_code || "") || this.sql.exec("SELECT lang FROM subs WHERE chat = ? AND lang = 'fr' LIMIT 1", String(chat)).toArray().length > 0;
     if (cmd === "/start" && arg) {
@@ -425,12 +429,49 @@ export class AlertHub extends DurableObject {
     return json({ ok: true });
   }
 
+  /** The community link commands. Ecrin has no token: /ca and /chart say so plainly, so a fake address
+   *  posted in a group can't pass for the real one. X_URL (the official X account) is set in Cloudflare. */
+  linkReply(cmd, lang) {
+    const fr = /^fr/i.test(lang || ""), x = /^https:\/\/(x|twitter)\.com\/\w+\/?$/.test(this.env.X_URL || "") ? this.env.X_URL : null;
+    const store = "https://chromewebstore.google.com/detail/nmehcocofmbhkjgjhbhbnfmhcbjpcpbd";
+    const noToken = fr
+      ? "⚠️ <b>Ecrin n'a pas de jeton.</b>\nIl n'y a ni adresse de contrat (CA), ni graphique, ni prévente, ni airdrop. Toute adresse de contrat qui circule au nom d'Ecrin est une arnaque : n'achetez rien et ne connectez pas votre portefeuille.\n\nNous ne vous écrirons jamais en privé pour vous demander de l'argent ou votre phrase de récupération."
+      : "⚠️ <b>Ecrin has no token.</b>\nThere is no contract address (CA), no chart, no presale and no airdrop. Any contract address shared in Ecrin's name is a scam: don't buy it and don't connect your wallet.\n\nWe will never DM you asking for money or your recovery phrase.";
+    const lines = {
+      x: x ? `𝕏 ${x}` : null,
+      website: `🌐 ${SITE}`,
+      wallet: fr ? `🛡 Portefeuille Ecrin\n• Extension Chrome : ${store}\n• Sur téléphone : ${SITE}/wallet` : `🛡 Ecrin Wallet\n• Chrome extension: ${store}\n• On your phone: ${SITE}/wallet`,
+      app: fr ? `🔐 Application du coffre : ${SITE}/app` : `🔐 Safe app: ${SITE}/app`,
+      faucet: fr ? `🚰 SOL de test gratuits : ouvrez le portefeuille Ecrin (Testnet) et touchez <b>Obtenir des SOL de test</b>.\n${SITE}/wallet` : `🚰 Free test SOL: open Ecrin Wallet (Testnet) and tap <b>Get free test SOL</b>.\n${SITE}/wallet`,
+    };
+    const all = () => [fr ? "<b>Liens officiels Ecrin</b>" : "<b>Official Ecrin links</b>", lines.website, lines.x, lines.wallet, lines.app, "", fr ? "Ecrin n'a pas de jeton : /ca" : "Ecrin has no token: /ca"].filter((l) => l !== null).join("\n");
+    switch (cmd) {
+      case "/x": case "/twitter": return lines.x || all();
+      case "/website": case "/site": case "/web": return lines.website;
+      case "/wallet": case "/extension": case "/download": return lines.wallet;
+      case "/app": case "/safe": return lines.app;
+      case "/faucet": return lines.faucet;
+      case "/ca": case "/contract": case "/chart": case "/token": case "/buy": case "/airdrop": case "/presale": return noToken;
+      case "/links": case "/help": case "/socials": return all();
+      default: return null;
+    }
+  }
+
   async ensureWebhook() {
     if (!this.env.TELEGRAM_BOT_TOKEN) return;
     const want = `${SITE}/api/telegram`;
     if (this.get("webhook") === want) return;
     const r = await this.tg("setWebhook", { url: want, secret_token: await webhookSecret(this.env.TELEGRAM_BOT_TOKEN), allowed_updates: ["message"] });
     if (r.ok) this.set("webhook", want);
+    // The command menu people see when they type "/" in a group or a chat with the bot.
+    const v = "cmds-2";
+    if (this.get("cmds") !== v) {
+      const group = [["links", "Official Ecrin links"], ["website", "Website"], ["x", "Ecrin on X"], ["wallet", "Get Ecrin Wallet"], ["app", "The Safe app"], ["faucet", "Free test coins"], ["ca", "Is there a token? (No)"]];
+      const priv = [...group, ["list", "Safes you get alerts for"], ["stop", "Turn alerts off"]];
+      const a = await this.tg("setMyCommands", { commands: group.map(([command, description]) => ({ command, description })), scope: { type: "all_group_chats" } });
+      const b = await this.tg("setMyCommands", { commands: priv.map(([command, description]) => ({ command, description })), scope: { type: "all_private_chats" } });
+      if (a.ok && b.ok) this.set("cmds", v);
+    }
   }
 
   async tick() {
