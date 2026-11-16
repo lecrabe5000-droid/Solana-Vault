@@ -3380,6 +3380,10 @@ body.stacked.grow-open #root, :root[data-theme] body.stacked.grow-open #root { t
 #root, #panel .pane { scroll-behavior: smooth; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 @media (prefers-reduced-motion: reduce) { #root, #panel .pane { scroll-behavior: auto; } .arow:active, .btn:active { transform: none !important; } }
 
+.upd-w { position: relative; } .upd-w .upd { padding-right: 44px; }
+.upd-x { position: absolute; top: 50%; right: 6px; translate: 0 -50%; display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 10px; background: none; color: var(--muted); cursor: pointer; }
+.upd-x::before { content: ""; position: absolute; inset: -5px; } .upd-x svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; } .upd-x:hover { color: var(--ink); }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
 #root, #panel { top: 0; bottom: 0; }

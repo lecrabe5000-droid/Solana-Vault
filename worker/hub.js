@@ -138,6 +138,10 @@ export class AlertHub extends DurableObject {
   }
 
   // Test coins: one claim per wallet a day, three per connection a day, and a daily cap for the whole faucet.
+  /** Solana devnet for the faucet and alerts: SOL_RPC (a private node, e.g. Helius devnet) when set. Solana's public
+   *  server refuses Cloudflare's addresses ("Your IP or provider is blocked"), so without it these calls fail. */
+  get solRpc() { return /^https:\/\//.test(this.env.SOL_RPC || "") ? this.env.SOL_RPC : CONFIG.rpc; }
+
   async faucet(request) {
     const { address } = await request.json().catch(() => ({})), addr = String(address || "").trim();
     const ip = request.headers.get("cf-connecting-ip") || "?", now = Date.now(), day = now - 86400_000;
@@ -147,10 +151,14 @@ export class AlertHub extends DurableObject {
     if (this.sql.exec("SELECT COUNT(*) AS n FROM faucet WHERE ip = ?", ip).one().n >= 3) return json({ error: "Too many claims from this connection today. Try again tomorrow." }, 429);
     if (this.sql.exec("SELECT COUNT(*) AS n FROM faucet").one().n >= 400) return json({ error: "The faucet has given out today's test coins. Try again tomorrow." }, 429);
     try {
-      const r = await faucetSend(this.env, CONFIG.rpc, addr);
+      const r = await faucetSend(this.env, this.solRpc, addr);
       this.sql.exec("INSERT INTO faucet (addr, ip, at) VALUES (?, ?, ?)", addr, ip, now);
       return json({ ok: true, sig: r.sig, sol: r.lamports / 1e9 });
-    } catch (e) { return json({ error: e.status ? e.message : "The test network is busy. Try again in a minute." }, e.status || 502); }
+    } catch (e) {
+      console.error("faucet", e?.message || e); // shows in Cloudflare's logs with the real reason
+      const blocked = /blocked|403/i.test(String(e?.message || ""));
+      return json({ error: e.status ? e.message : blocked ? "Test coins are paused while Ecrin's test-network server is set up. Try again soon." : "The test network is busy. Try again in a minute." }, e.status || 502);
+    }
   }
 
   async fetch(request) {
@@ -329,11 +337,11 @@ export class AlertHub extends DurableObject {
     if (CONFIG.programId) {
       out.networks++;
       const disc = async (name) => base58(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("account:" + name))).slice(0, 8));
-      const vaults = await rpc(CONFIG.rpc, "getProgramAccounts", [CONFIG.programId, { encoding: "base64", commitment: "confirmed", dataSlice: { offset: 41, length: 8 }, filters: [{ memcmp: { offset: 0, bytes: await disc("VaultAccount") } }] }]);
+      const vaults = await rpc(this.solRpc, "getProgramAccounts", [CONFIG.programId, { encoding: "base64", commitment: "confirmed", dataSlice: { offset: 41, length: 8 }, filters: [{ memcmp: { offset: 0, bytes: await disc("VaultAccount") } }] }]);
       let lamports = 0n;
       for (const a of vaults) { const d = b64(a.account.data[0]); if (d.length === 8) lamports += new DataView(d.buffer, d.byteOffset, 8).getBigUint64(0, true); }
       out.vaults += vaults.length; out.sol = String(lamports);
-      const tv = await rpc(CONFIG.rpc, "getProgramAccounts", [CONFIG.programId, { encoding: "base64", commitment: "confirmed", dataSlice: { offset: 0, length: 0 }, filters: [{ memcmp: { offset: 0, bytes: await disc("TokenVaultAccount") } }] }]).catch(() => []);
+      const tv = await rpc(this.solRpc, "getProgramAccounts", [CONFIG.programId, { encoding: "base64", commitment: "confirmed", dataSlice: { offset: 0, length: 0 }, filters: [{ memcmp: { offset: 0, bytes: await disc("TokenVaultAccount") } }] }]).catch(() => []);
       out.tokenVaults = tv.length;
     }
     // Ethereum-style networks: count VaultCreated logs, scanning only blocks not seen yet.
@@ -434,7 +442,7 @@ export class AlertHub extends DurableObject {
         keys.push(w.vault);
         if (mint) { const t = (w.t ||= await tokenVaultAddresses(w.owner, mint, CONFIG.programId).catch(() => null)); keys.push(t?.vault || w.vault, t?.holds || w.vault); }
       }
-      const res = await rpc(CONFIG.rpc, "getMultipleAccounts", [keys, { encoding: "base64", commitment: "confirmed" }]);
+      const res = await rpc(this.solRpc, "getMultipleAccounts", [keys, { encoding: "base64", commitment: "confirmed" }]);
       for (let j = 0; j < batch.length; j++) {
         const w = batch[j], base = j * per;
         const data = is(res.value[base], dv);

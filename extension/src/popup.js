@@ -2675,6 +2675,7 @@ const actions = {
     if (k === "showNfts" && !S.showNfts && S.tab === "nfts") S.tab = "tokens";
     await local.set({ [k]: S[k] }); renderPanel(); render();
   },
+  "upd-hide": async () => { await local.set({ updHide: S.upd?.latest }); S.upd = null; render(); },
   "upd-go": () => { if (globalThis.ECRIN_WEB) location.reload(); else window.open("https://chromewebstore.google.com/detail/ecrin-wallet/nmehcocofmbhkjgjhbhbnfmhcbjpcpbd", "_blank"); },
   "bk-later": async () => { await local.set({ backup: { ...S.backup, at: Date.now() } }); S.backup = { ...S.backup, at: Date.now() }; render(); },
   "bk-check": async () => {
@@ -3521,14 +3522,18 @@ async function checkUpdate() {
   if (globalThis.ECRIN_DEMO) return;
   try {
     const j = await (await fetch("https://ecrinprotocol.app/wallet-version.json", { cache: "no-store" })).json();
-    const mine = chrome.runtime.getManifest().version;
-    S.upd = older(mine, j.latest) ? { latest: j.latest, must: older(mine, j.minimum), notes: j.notes || "" } : null;
+    const mine = chrome.runtime.getManifest().version, must = older(mine, j.minimum);
+    // The extension: Chrome updates it by itself from the Web Store (each upload is reviewed first, so the website can
+    // be ahead of the store). Only a required security update shows here. The phone app: a newer version is one reload away.
+    const newer = globalThis.ECRIN_WEB ? older(mine, j.latest) : must;
+    const { updHide } = await local.get("updHide");
+    S.upd = newer && (must || updHide !== j.latest) ? { latest: j.latest, must, notes: j.notes || "" } : null;
     if (S.screen === "home") render();
   } catch (_) {}
 }
 function updateBanner() {
   const u = S.upd; if (!u) return "";
-  return `<button class="upd ${u.must ? "must" : ""}" data-act="upd-go">${I.warn}<span><b>${u.must ? "Security update required" : "Update available"}</b><small>${u.must ? "Sending and signing are paused until you update." : `Version ${esc(u.latest)} is ready.`} ${globalThis.ECRIN_WEB ? "Tap to reload." : "Tap to download."}</small></span></button>`;
+  return `<div class="upd-w"><button class="upd ${u.must ? "must" : ""}" data-act="upd-go">${I.warn}<span><b>${u.must ? "Security update required" : "Update available"}</b><small>${u.must ? "Sending and signing are paused until you update." : `Version ${esc(u.latest)} is ready.`} ${globalThis.ECRIN_WEB ? "Tap to reload." : "Tap to update."}</small></span></button>${u.must ? "" : `<button class="upd-x" data-act="upd-hide" aria-label="Hide until the next version">${I.x}</button>`}</div>`;
 }
 
 const BK_DAYS = 3;
