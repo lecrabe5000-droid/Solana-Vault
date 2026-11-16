@@ -108,7 +108,11 @@ export class AlertHub extends DurableObject {
       method: "POST", headers: { authorization: `Bearer ${this.env.RESEND_API_KEY}`, "content-type": "application/json" },
       body: JSON.stringify({ from: this.env.ALERTS_FROM || "Ecrin Alerts <alerts@ecrinprotocol.app>", to: [to], subject, html, headers }),
     });
-    if (!r.ok) console.error("resend", r.status, await r.text().catch(() => ""));
+    if (!r.ok) {
+      // Resend's own explanation (e.g. "The ecrinprotocol.app domain is not verified"): never contains the key.
+      const j = await r.json().catch(() => ({})); this.mailErr = `${r.status} ${j.name || ""}: ${String(j.message || "").slice(0, 200)}`.trim();
+      console.error("resend", this.mailErr);
+    }
     return r.ok;
   }
   async emailAlert(row, text, net, links) {
@@ -245,7 +249,7 @@ export class AlertHub extends DurableObject {
         : `Confirm that you want an email the moment anything happens to ${todo.length > 1 ? "vaults" : "vault"} ${what}: withdrawals, deposits and rule changes.<br><br>If you didn't ask for this, ignore this email and nothing will be sent.`,
       button: [fr ? "Confirmer les alertes" : "Confirm alerts", `${SITE}/api/alerts/confirm?t=${t}`], lang,
     }));
-    return ok ? json({ ok: true, sent: true }) : json({ error: "We couldn't send the email. Try again in a minute." }, 502);
+    return ok ? json({ ok: true, sent: true }) : json({ error: "We couldn't send the email. Try again in a minute.", reason: this.mailErr }, 502);
   }
 
   confirmEmail(t) {
@@ -313,7 +317,7 @@ export class AlertHub extends DurableObject {
         : "Confirm that you want to hear when Ecrin Wallet opens: the wallet where your savings sit in a vault by default.<br><br>If you didn't ask for this, ignore this email.",
       button: [fr ? "Confirmer" : "Confirm", `${SITE}/api/waitlist/confirm?t=${t}`], lang,
     }));
-    return ok ? json({ ok: true, sent: true }) : json({ error: fr ? "Impossible d'envoyer le courriel. Réessayez dans une minute." : "We couldn't send the email. Try again in a minute." }, 502);
+    return ok ? json({ ok: true, sent: true }) : json({ error: fr ? "Impossible d'envoyer le courriel. Réessayez dans une minute." : "We couldn't send the email. Try again in a minute." , reason: this.mailErr }, 502);
   }
 
   confirmWaitlist(t) {
