@@ -143,7 +143,7 @@ public fun create<T>(
     // Being your own guardian would let one key release any withdrawal at once, so every delay would be void.
     assert!(guardian != option::some(owner), EInvalidValue);
     if (locked_until.is_some()) assert!(*locked_until.borrow() <= now(clock) + MAX_LOCK, EInvalidValue);
-    let key = Key { owner, coin: type_name::get<T>() };
+    let key = Key { owner, coin: type_name::with_defining_ids<T>() };
     assert!(!registry.safes.contains(key), EAlreadyHasSafe);
     let safe = Safe<T> {
         id: object::new(ctx),
@@ -319,7 +319,7 @@ public fun trusted<T>(safe: &Safe<T>): vector<address> { safe.trusted }
 public fun withdrawal_count<T>(safe: &Safe<T>): u64 { safe.withdrawals.length() }
 public fun change_count<T>(safe: &Safe<T>): u64 { safe.changes.length() }
 public fun safe_of<T>(registry: &Registry, owner: address): Option<ID> {
-    let key = Key { owner, coin: type_name::get<T>() };
+    let key = Key { owner, coin: type_name::with_defining_ids<T>() };
     if (registry.safes.contains(key)) option::some(*registry.safes.borrow(key)) else option::none()
 }
 
