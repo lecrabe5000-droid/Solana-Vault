@@ -1,0 +1,6 @@
+[package]
+name = "ecrin_safe"
+edition = "2024"
+
+[addresses]
+ecrin_safe = "0x0"

@@ -1,0 +1,82 @@
+name: sui-safe
+# Builds and tests the Sui Safe (sui/), and on request publishes it to Sui Testnet.
+# Publishing needs the SUI_DEPLOYER_KEY secret: a TESTNET-ONLY key (suiprivkey...) holding some test SUI.
+on:
+  push:
+    paths: ["sui/**", ".github/workflows/sui.yml"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish to Sui Testnet"
+        type: boolean
+        default: false
+
+jobs:
+  move:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the Sui CLI (Mysten Labs' latest testnet release)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release list -R MystenLabs/sui --limit 40 --json tagName -q '.[].tagName' | grep -m1 '^testnet-v')
+          echo "Sui CLI $tag"
+          gh release download "$tag" -R MystenLabs/sui -p "sui-$tag-ubuntu-x86_64.tgz" -D /tmp/sui
+          mkdir -p "$HOME/.local/bin" && tar -xzf /tmp/sui/*.tgz -C /tmp/sui
+          find /tmp/sui -type f -name sui -perm -u+x -exec cp {} "$HOME/.local/bin/sui" \;
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/sui" --version
+      - name: Build
+        working-directory: sui
+        run: sui move build
+      - name: Test
+        working-directory: sui
+        run: sui move test
+
+      - name: Publish to Sui Testnet
+        if: ${{ inputs.publish }}
+        working-directory: sui
+        env:
+          KEY: ${{ secrets.SUI_DEPLOYER_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then echo "::error::Add the SUI_DEPLOYER_KEY secret first (a testnet-only key)."; exit 1; fi
+          mkdir -p ~/.sui/sui_config
+          echo '[]' > ~/.sui/sui_config/sui.keystore
+          cat > ~/.sui/sui_config/client.yaml <<EOF
+          keystore:
+            File: $HOME/.sui/sui_config/sui.keystore
+          envs:
+            - alias: testnet
+              rpc: "https://fullnode.testnet.sui.io:443"
+              ws: ~
+          active_env: testnet
+          active_address: ~
+          EOF
+          sui keytool import "$KEY" ed25519 > /dev/null
+          addr=$(sui keytool list --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s)[0].suiAddress))')
+          sui client switch --address "$addr"
+          echo "Deployer $addr"
+          sui client gas --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const t=JSON.parse(s).reduce((a,c)=>a+Number(c.mistBalance),0);console.log("Balance",t/1e9,"SUI");if(t<3e8){console.log("::error::The deployer needs about 0.3 test SUI. Send some to '"$addr"' from faucet.sui.io (Testnet).");process.exit(1)}})'
+          sui client publish --gas-budget 300000000 --json > /tmp/pub.json
+          node - <<'JS'
+          const fs = require("fs"), r = JSON.parse(fs.readFileSync("/tmp/pub.json", "utf8"));
+          if (r.effects?.status?.status !== "success") { console.error(JSON.stringify(r.effects?.status)); process.exit(1); }
+          const ch = r.objectChanges || [];
+          const pkg = ch.find((c) => c.type === "published")?.packageId;
+          const registry = ch.find((c) => c.type === "created" && /::safe::Registry$/.test(c.objectType))?.objectId;
+          if (!pkg || !registry) { console.error("Couldn't find the package or the registry", JSON.stringify(ch)); process.exit(1); }
+          const out = "../app/deployments-sui.js";
+          fs.writeFileSync(out, `// Written by the sui-safe workflow after each publish (sui/). Sui Testnet.\nexport const SUI_SAFE = ${JSON.stringify({ testnet: { package: pkg, registry, digest: r.digest } }, null, 2)};\n`);
+          console.log("Published", pkg, "registry", registry);
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Ecrin Safe on Sui Testnet\n\nPackage \`${pkg}\`, registry \`${registry}\` ([tx](https://suiscan.xyz/testnet/tx/${r.digest}))\n`);
+          JS
+      - name: Point the wallet at it
+        if: ${{ inputs.publish }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/deployments-sui.js
+          git diff --cached --quiet || { git commit -m "Sui Safe published on testnet"; git pull --rebase origin main && git push; }
