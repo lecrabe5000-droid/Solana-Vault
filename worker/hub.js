@@ -82,6 +82,7 @@ export class AlertHub extends DurableObject {
       DELETE FROM pushes;`);
     try { this.sql.exec("ALTER TABLE pending ADD COLUMN also TEXT"); } catch (_) {}
     this.sql.exec("CREATE TABLE IF NOT EXISTS faucet (addr TEXT, ip TEXT, at INTEGER)");
+    this.sql.exec("CREATE TABLE IF NOT EXISTS reports (at INTEGER, ip TEXT, text TEXT, contact TEXT, info TEXT)");
   }
 
   get(k) { return this.sql.exec("SELECT v FROM kv WHERE k = ?", k).toArray()[0]?.v ?? null; }
@@ -146,14 +147,37 @@ export class AlertHub extends DurableObject {
    *  server refuses Cloudflare's addresses ("Your IP or provider is blocked"), so without it these calls fail. */
   get solRpc() { return /^https:\/\//.test(this.env.SOL_RPC || "") ? this.env.SOL_RPC : CONFIG.rpc; }
 
+  /** A tester's "Report a problem": kept here, and sent to the team by email (REPORT_EMAIL) and/or Telegram
+   *  (REPORT_TELEGRAM_CHAT, through the alerts bot). Never holds keys or balances: the wallet doesn't send them. */
+  async report(request) {
+    const b = await request.json().catch(() => ({})), clip = (v, n) => String(v ?? "").replace(/[\u0000-\u0008\u000b-\u001f]/g, "").trim().slice(0, n);
+    const text = clip(b.text, 2000), contact = clip(b.contact, 80), info = b.info && typeof b.info === "object" ? b.info : {};
+    if (text.length < 5) return json({ error: "Tell us a little more about what happened." }, 400);
+    const ip = request.headers.get("cf-connecting-ip") || "?", now = Date.now();
+    this.sql.exec("DELETE FROM reports WHERE at < ?", now - 90 * 86400_000);
+    if (this.sql.exec("SELECT COUNT(*) AS n FROM reports WHERE ip = ? AND at > ?", ip, now - 86400_000).one().n >= 10) return json({ error: "Thanks, we have your reports. Send more tomorrow." }, 429);
+    const details = ["version", "net", "screen", "platform", "lang", "size", "agent", "error"].map((k) => [k, clip(info[k], k === "agent" ? 200 : 160)]).filter(([, v]) => v);
+    this.sql.exec("INSERT INTO reports (at, ip, text, contact, info) VALUES (?, ?, ?, ?, ?)", now, ip, text, contact, JSON.stringify(Object.fromEntries(details)));
+    const body = `Ecrin report\n\n${text}\n\nFrom: ${contact || "anonymous"}\n${details.map(([k, v]) => `${k}: ${v}`).join("\n")}`;
+    const tasks = [];
+    if (this.env.REPORT_TELEGRAM_CHAT && this.env.TELEGRAM_BOT_TOKEN) tasks.push(this.tg("sendMessage", { chat_id: this.env.REPORT_TELEGRAM_CHAT, text: body.slice(0, 4000), link_preview_options: { is_disabled: true } }));
+    if (/@/.test(this.env.REPORT_EMAIL || "") && this.env.RESEND_API_KEY) {
+      const h = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+      tasks.push(this.mail(this.env.REPORT_EMAIL, `Ecrin report: ${text.slice(0, 60)}`, `<pre style="white-space:pre-wrap;font:14px/1.5 -apple-system,Segoe UI,sans-serif">${h(body)}</pre>`));
+    }
+    await Promise.allSettled(tasks);
+    return json({ ok: true });
+  }
+
   async faucet(request) {
     const { address } = await request.json().catch(() => ({})), addr = String(address || "").trim();
     const ip = request.headers.get("cf-connecting-ip") || "?", now = Date.now(), day = now - 86400_000;
     this.sql.exec("DELETE FROM faucet WHERE at < ?", day);
     const last = this.sql.exec("SELECT MAX(at) AS at FROM faucet WHERE addr = ?", addr).one().at;
     if (last) return json({ error: "You already got test coins today. Come back tomorrow.", retryAt: last + 86400_000 }, 429);
-    if (this.sql.exec("SELECT COUNT(*) AS n FROM faucet WHERE ip = ?", ip).one().n >= 3) return json({ error: "Too many claims from this connection today. Try again tomorrow." }, 429);
-    if (this.sql.exec("SELECT COUNT(*) AS n FROM faucet").one().n >= 400) return json({ error: "The faucet has given out today's test coins. Try again tomorrow." }, 429);
+    // Phones on mobile data often share one address with many strangers (carrier NAT), so this is generous.
+    if (this.sql.exec("SELECT COUNT(*) AS n FROM faucet WHERE ip = ?", ip).one().n >= 10) return json({ error: "Too many claims from this connection today.", busy: true }, 429);
+    if (this.sql.exec("SELECT COUNT(*) AS n FROM faucet").one().n >= 400) return json({ error: "Ecrin's faucet has given out today's test coins.", busy: true }, 429);
     try {
       const r = await faucetSend(this.env, this.solRpc, addr);
       this.sql.exec("INSERT INTO faucet (addr, ip, at) VALUES (?, ?, ?)", addr, ip, now);
@@ -175,6 +199,7 @@ export class AlertHub extends DurableObject {
       if (url.pathname === "/confirm") return this.confirmEmail(url.searchParams.get("t") || "");
       if (url.pathname === "/unsub") return await this.unsubscribe(url.searchParams.get("t") || "", request);
       if (url.pathname === "/tick") { await this.tick(); return json({ ok: true }); }
+      if (url.pathname === "/report" && request.method === "POST") return await this.report(request);
       if (url.pathname === "/waitlist" && request.method === "POST") return mail ? await this.joinWaitlist(await request.json()) : json({ error: "The waitlist isn't open yet." }, 503);
       if (url.pathname === "/wconfirm") return this.confirmWaitlist(url.searchParams.get("t") || "");
       if (url.pathname === "/stats") return this.stats();

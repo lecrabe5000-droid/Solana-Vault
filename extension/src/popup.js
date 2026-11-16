@@ -1809,7 +1809,7 @@ function renderPanel(enter = false) {
   queueMicrotask(syncTabbar);
   const el = $("#panel"), P = S.panel;
   if (!P) return;
-  const body = ({ nets: netsView, send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, news: newsView, report: reportHTML, txd: txdView, contacts: contactsView, pkey: pkeyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView, wc: wcView, payreq: payreqView, alerts: alertsView })[P.p]();
+  const body = ({ nets: netsView, send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, news: newsView, report: reportHTML, txd: txdView, contacts: contactsView, pkey: pkeyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView, wc: wcView, payreq: payreqView, alerts: alertsView, bug: bugView })[P.p]();
   if (enter || P.fresh) P.openedAt = performance.now();
   const since = P.openedAt ? performance.now() - P.openedAt : 9999;
   // A coin's page grows out of the row you tapped (the home screen stays where it is); other pages slide in.
@@ -2168,11 +2168,13 @@ function moveView() {
     return motionView(P, isIn
       ? { kind: "protect", N: NETS[S.net], title: ["Protecting", "Protected"], amount: `${amt(n, a)} ${A(a).unit}`, usd: usd != null ? money(usd) : "", line: "Wallet → Safe",
           note: `It's in your Safe now. Anything leaving it waits ${d}, and you can cancel it the whole time.`, rows: [["Withdrawals wait", d]] }
-      : { kind: "withdraw", N: NETS[S.net], title: ["Starting your withdrawal", "Withdrawal started"], amount: `${amt(n, a)} ${A(a).unit}`, usd: usd != null ? money(usd) : "", line: "Safe → Wallet",
-          note: `It reaches your Wallet in ${d}. Until then you can cancel it from your Safe.`, rows: [["Arrives", new Date(Date.now() + main.withdrawDelay * 1000).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })]] });
+      : { kind: "withdraw", N: NETS[S.net], title: ["Starting your withdrawal", "Withdrawal started"], amount: `${amt(n, a)} ${A(a).unit}`, usd: usd != null ? money(usd) : "", line: `Safe → ${P.dest ? short(P.dest) : "Wallet"}`,
+          note: `It ${P.dest ? `can leave for ${short(P.dest)}` : "reaches your Wallet"} in ${d}. Until then you can cancel it from your Safe.`, rows: [["Arrives", new Date(Date.now() + main.withdrawDelay * 1000).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })]] });
   }
   const lim = a === "usdc" ? vv.usdc?.dailyLimit : main.dailyLimit, overLim = !isIn && lim && units > lim;
   const valid = units > 0 && units <= max && !overLim;
+  if (!isIn && P.step === "to") return wdToView(P);
+  if (!isIn && P.step === "review" && valid) return wdReviewView(P, { units, main, a });
   // Rail + keypad: where the money goes, how much, what each side holds after, then slide to confirm.
   const bal = isIn ? (S.bal?.[a] || 0) : (tv?.balance || 0), other = isIn ? (tv?.balance || 0) : (S.bal?.[a] || 0), u = A(a).unit;
   const f = max ? Math.min(1, units / max) : 0, usd = usdOf(units, a);
@@ -2188,6 +2190,7 @@ function moveView() {
       ${side("to", isIn ? "Safe" : "Wallet", other, other + (valid ? units : 0), isIn ? I.lock : I.card)}
     </div>
     <div class="mv-src">${fromRow()}</div>
+    ${isIn ? "" : `<button class="mv-to" data-act="wd-to"><span>To</span><b>${P.dest ? esc(short(P.dest)) : "Your Wallet"}</b><i>${P.dest ? "Change" : "Another address"}</i></button>`}
     <div class="mv-amt${units > max || overLim ? " over" : ""}">${pad ? `<b>${esc(P.amount || "0")}</b>` : `<input data-amount inputmode="decimal" placeholder="0" value="${esc(P.amount)}" autocomplete="off" autofocus style="width:${Math.max(1, (P.amount || "0").length) + 0.6}ch"/>`}<span>${u}</span></div>
     <div class="mv-sub">${units > max ? `<span class="bad">More than ${isIn ? "your Wallet has" : "can leave right now"}</span>` : overLim ? `<span class="bad">Over your daily limit of ${amt(lim, a)} ${u}</span>` : usd != null && units ? money(usd) : `${amt(max, a)} ${u} available${usdOf(max, a) != null && !A(a).stable && max ? ` · ≈ ${money(usdOf(max, a))}` : ""}`}</div>
     ${feeNote(a)}${isIn && !v ? `<p class="mv-note first">${I.shield}<span>First time on ${NETS[S.net].name}: your Safe opens here as part of this deposit, with the same rules.</span></p>` : ""}
@@ -2206,6 +2209,39 @@ const canSafe = (k) => !!NETS[k]?.contract; // Solana devnet has its program; ma
 const openRows = () => (S.all || []).filter((r) => r.ok && (r.k === S.net && S.vault !== undefined ? S.vault : r.v));
 const anySafe = () => !!S.vault || openRows().length > 0;
 /** The rules your Safe already uses (from any network), so a new network gets the same. */
+// ---- Withdraw: where it goes, then a last look before the countdown starts.
+const mineAddr = (k) => { const m = String(ENG?.address || ""); return !!m && (String(k) === m || String(k).toLowerCase() === m.toLowerCase()); };
+function wdToView(P) {
+  const N = NETS[S.net], book = Object.entries(S.book?.[N.fam] || {}).map(([addr, name]) => ({ addr, name })).slice(0, 6);
+  return `<header class="phead"><button class="ib" data-act="wd-back" aria-label="Back">${I.back}</button><b>Withdraw to</b><span></span></header>
+  <div class="wd-to">
+    <button class="wd-opt ${P.dest ? "" : "on"}" data-act="wd-mine"><span class="wd-ic">${I.card}</span><span><b>Your Wallet</b><small>${esc(short(String(ENG.address)))} · the usual choice</small></span></button>
+    <label class="fld to"><span>Or another ${N.name} address</span><div class="in-btn"><input data-wdto placeholder="${addrHint(N)}" value="${esc(P.to || "")}" spellcheck="false" autocomplete="off"/><button type="button" class="ib sm" data-act="paste" aria-label="Paste">${I.paste}</button></div></label>
+    ${book.length ? `<div class="wd-book">${book.map((c) => `<button class="chip" data-act="wd-pick" data-a="${esc(c.addr)}">${esc(c.name)}</button>`).join("")}</div>` : ""}
+    <p class="mv-note">${I.clock}<span>It still waits <b>${delay(S.vault?.main?.withdrawDelay || 0)}</b> in your Safe, and you can cancel it the whole time.</span></p>
+  </div>
+  <div class="pfoot"><button class="btn primary xl" data-act="wd-to-ok">Use this address</button></div>`;
+}
+function wdReviewView(P, { units, main, a }) {
+  const N = NETS[S.net], u = A(a).unit, usd = usdOf(units, a), dest = P.dest || String(ENG.address);
+  const arrive = new Date(Math.max(Date.now() + main.withdrawDelay * 1000, (main.lockedUntil || 0) * 1000));
+  const when = arrive.toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  const trusted = (main.trusted || []).some((t) => String(t).toLowerCase() === dest.toLowerCase());
+  const row = (k, v) => `<div class="rv-r"><span>${k}</span><b>${v}</b></div>`;
+  return `<header class="phead"><button class="ib" data-act="wd-back" aria-label="Back">${I.back}</button><b>Review withdrawal</b><span></span></header>
+  <div class="rv">
+    <div class="rv-amt"><b>${amt(units, a)} ${u}</b>${usd != null ? `<small>${money(usd)}</small>` : ""}</div>
+    <div class="rv-card">
+      ${row("From", `Your Safe · ${N.name}`)}
+      ${row("To", P.dest ? `<span class="rv-addr">${esc(dest)}</span>` : `Your Wallet <small>${esc(short(dest))}</small>`)}
+      ${row("Can leave", `${esc(when)} <small>in ${delay(Math.max(0, Math.round((arrive - Date.now()) / 1000)))}</small>`)}
+      ${row("Network fee", N.fam === "sol" ? "under 0.001 SOL" : `a little ${N.unit}`)}
+    </div>
+    ${P.dest && !trusted ? `<div class="note warn">${I.shield}<span>Check this address carefully: once it leaves your Safe it can't come back. Until then, you can cancel.</span></div>`
+      : `<p class="mv-note">${I.clock}<span>The countdown starts when you confirm. You can cancel it any time before it ends.</span></p>`}
+  </div>
+  <div class="pfoot"><button class="btn primary xl" data-act="do-withdraw">Start the countdown</button></div>`;
+}
 function safeKind() { const r = S.vault ? { v: S.vault } : openRows()[0]; return r?.v ? (r.v.main.withdrawDelay >= 72 * 3600 ? "strong" : "gentle") : null; }
 const feeFloor = (k) => (NETS[k].fam === "sol" ? 3_000_000 : 1);
 async function openSafeEverywhere(kind) {
@@ -2410,14 +2446,41 @@ function settingsView() {
       <a class="srow" href="https://ecrinprotocol.app/" target="_blank"><span>${I.globe}Website</span><span class="sv">${I.ext}</span></a>
       <a class="srow" href="https://ecrinprotocol.app/how-it-works/" target="_blank"><span>${I.shield}How the Safe works</span><span class="sv">${I.ext}</span></a>
       <a class="srow" href="https://ecrinprotocol.app/security/" target="_blank"><span>${I.check}Security and audits</span><span class="sv">${I.ext}</span></a>
-      <a class="srow" href="https://github.com/lecrabe5000-droid/Solana-Vault/issues" target="_blank"><span>${I.link}Report a bug or give feedback</span><span class="sv">${I.ext}</span></a>
+      ${row("panel", I.link, "Report a problem or an idea", I.arrow, 'data-p="bug"')}
       <a class="srow" href="https://ecrinprotocol.app/privacy/" target="_blank"><span>${I.lock}Privacy</span><span class="sv">${I.ext}</span></a>
       <a class="srow" href="https://ecrinprotocol.app/terms/" target="_blank"><span>${I.card}Terms</span><span class="sv">${I.ext}</span></a>`)}
     <div class="sets danger-z"><button class="srow danger" data-act="forget"><span>Remove wallet from this browser</span><span></span></button></div>
     <div class="set-sig">${WORDMARK("md")}<b>Wallet</b><small>Version ${VERSION} · beta · not audited</small></div>`;
 }
+// ---- Report a problem: straight to the team, with what helps fix it (never keys, the phrase or balances).
+const REPORT_URL = "https://ecrinprotocol.app/api/report";
+function bugInfo() {
+  const N = NETS[S.net] || {}, e = S.lastErr && Date.now() - S.lastErr.at < 30 * 60_000 ? S.lastErr : null;
+  return {
+    version: VERSION, net: `${N.name || S.net} ${N.net || ""}`.trim(), screen: S.panel?.from || S.screen || "",
+    platform: IS_EXT ? (FULL ? "extension (tab)" : "extension") : globalThis.ECRIN_WEB ? (navigator.standalone || matchMedia("(display-mode: standalone)").matches ? "phone app (home screen)" : "phone browser") : "web",
+    lang: S.lang, size: `${innerWidth}x${innerHeight}, turned ${screen.orientation?.angle ?? 0}°`, agent: navigator.userAgent, error: e ? e.text : "",
+  };
+}
+function bugView() {
+  const P = S.panel;
+  if (P.sent) return `${phead("Report a problem")}<div class="cv"><div class="cv-art">${I.check}</div><h2>Thank you</h2>
+    <p class="sub">Your report is with the Ecrin team. Reports like yours are how Ecrin gets better before mainnet.</p></div>
+    <div class="pfoot"><button class="btn xl" data-act="close">Done</button></div>`;
+  const info = bugInfo();
+  return `${phead("Report a problem")}
+  <div class="bug">
+    <p class="sub">A bug, something confusing, or an idea: it goes straight to the Ecrin team.</p>
+    <label class="fld"><span>What happened?</span><textarea data-bugtext rows="6" maxlength="2000" placeholder="What did you do, what did you expect, and what happened instead?">${esc(P.text || "")}</textarea></label>
+    <label class="fld"><span>How can we reach you? (optional)</span><input data-bugwho maxlength="80" placeholder="@telegram or email" value="${esc(P.who || "")}" autocomplete="off"/></label>
+    <div class="note">${I.shield}<span>Added to help us fix it: version ${esc(info.version)}, ${esc(info.net)}, ${esc(info.platform)}${info.error ? ", the last error" : ""}. Never your recovery phrase, keys or balances.</span></div>
+  </div>
+  <div class="pfoot"><button class="btn primary xl" data-act="bug-send" ${P.busy ? "disabled" : ""}>${P.busy ? "Sending…" : "Send report"}</button></div>`;
+}
 // What's new: shown once after an update (never on a fresh install), and any time from Settings → About.
 const NEWS = [
+  ["Withdraw anywhere, after a last look", "Choose your Wallet or any address, then review the amount, the destination and when it can leave before the countdown starts."],
+  ["Report a problem", "Settings → Report a problem or an idea: it goes straight to the Ecrin team. Thank you to every tester."],
   ["Safe alerts on your phone", "Settings → Safe alerts on this phone: a notification the moment a withdrawal starts, so you can cancel it in time."],
   ["Follow your money", "Every send, protect, withdrawal and swap now shows its journey live, then a receipt with the details."],
   ["Your Safe at a glance", "Anything leaving your Safe gets its own countdown ring and a big Cancel button, and the Safe keeps its history."],
@@ -2468,7 +2531,7 @@ function revealView() {
 
 // ------------------------------------------------------------------ actions
 
-function toast(text, kind = "") { const t = $("#toast"); t.innerHTML = `<i class="t-ic" aria-hidden="true"></i><span>${esc(trText(text, S.lang))}</span>`; t.className = "toast show " + kind; clearTimeout(t._t); t._t = setTimeout(() => (t.className = "toast " + kind), 2600); }
+function toast(text, kind = "") { if (kind === "err") S.lastErr = { text: String(text).slice(0, 160), at: Date.now(), net: S.net }; const t = $("#toast"); t.innerHTML = `<i class="t-ic" aria-hidden="true"></i><span>${esc(trText(text, S.lang))}</span>`; t.className = "toast show " + kind; clearTimeout(t._t); t._t = setTimeout(() => (t.className = "toast " + kind), 2600); }
 const errText = (e) => {
   const raw = String(e?.shortMessage || e?.message || e);
   if (/429|too many requests|failed to fetch|fetch failed|networkerror|network error|timed? ?out|ECONN|\b50[234]\b|block height exceeded|blockhash not found|server error/i.test(raw)) return `The ${isMain() ? "" : "test "}network is busy right now. Check Activity in a minute, and try again if it didn't go through.`;
@@ -2869,7 +2932,8 @@ const actions = {
       const r = await fetch(FAUCET_URL, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address: String(ENG.address) }) });
       const j = await r.json().catch(() => ({}));
       if (r.ok && j.ok) { haptic("success"); toast(`${j.sol} test SOL is on its way`, "win"); setTimeout(refresh, 2500); setTimeout(() => { refresh(); loadAll(); }, 8000); }
-      else if (r.status === 503 && /switched on/i.test(j.error || "")) window.open(N.faucet, "_blank");
+      // Ecrin's faucet is empty, paused or busy: Solana's own faucet always works (sign in with GitHub there).
+      else if (r.status >= 500 || j.busy) { toast(`${j.error ? j.error + " " : ""}Opening Solana's faucet instead: paste your address there.`, "err"); try { await navigator.clipboard.writeText(String(ENG.address)); } catch (_) {} window.open(N.faucet, "_blank"); }
       else toast(j.error || "Couldn't get test coins. Try again in a minute.", "err");
     } catch (_) { toast("Couldn't reach Ecrin. Check your connection and try again.", "err"); }
     finally { S.fauBusy = false; if (btn?.isConnected) { btn.classList.remove("busy"); btn.innerHTML = was; } }
@@ -2880,7 +2944,29 @@ const actions = {
       if (c !== "go") { closePanel(); toast("Your Safe has it. Sleep well.", "win"); return; }
       P.lateOk = true;
     }
-    const units = parseAmt(P.amount, P.asset); P.sent = units; txRun(async () => (await eng()).request(P.asset, ENG.address, units), null, { t: "withdraw", a: P.asset, n: units }); },
+    if (P.step !== "review") { P.step = "review"; renderPanel(); return; } // look it over first
+    const units = parseAmt(P.amount, P.asset), dest = P.dest || ENG.address; P.sent = units; P.step = null;
+    txRun(async () => (await eng()).request(P.asset, dest, units), null, { t: "withdraw", a: P.asset, n: units }); },
+  "wd-to": () => { const P = S.panel; P.to = P.dest || ""; P.step = "to"; renderPanel(); setTimeout(() => $("#panel [data-wdto]")?.focus(), 60); },
+  "wd-to-ok": () => { const P = S.panel, v = String(P.to || "").trim();
+    if (!v) { P.dest = null; P.step = null; renderPanel(); return; }
+    if (!ENG?.isAddress(v)) return toast(`That isn't a ${addrHint(NETS[S.net])}.`, "err");
+    const k = ENG.key?.(v) || v;
+    P.dest = mineAddr(k) ? null : String(k); P.step = null; renderPanel(); },
+  "wd-mine": () => { const P = S.panel; P.dest = null; P.to = ""; P.step = null; renderPanel(); },
+  "bug-send": async () => {
+    const P = S.panel; if (P.busy) return;
+    if (String(P.text || "").trim().length < 5) { const keep = S.lastErr; toast("Tell us a little more about what happened.", "err"); S.lastErr = keep; return; }
+    P.busy = true; renderPanel();
+    try {
+      const r = await fetch(REPORT_URL, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: P.text, contact: P.who || "", info: bugInfo() }) });
+      const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || "Couldn't send it. Try again in a minute.");
+      P.sent = true; haptic("success");
+    } catch (e) { toast(e.message || "Couldn't reach Ecrin. Check your connection and try again.", "err"); }
+    P.busy = false; renderPanel();
+  },
+  "wd-pick": (el) => { const P = S.panel; P.to = el.dataset.a; renderPanel(); },
+  "wd-back": () => { const P = S.panel; P.step = null; renderPanel(); },
   "safe-go": async (el) => { el.disabled = true; await useNet(el.dataset.n); S.panel = null; openPanel(el.dataset.p); if (el.dataset.p === "protect") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); } },
   "cancel-w": async (el) => {
     const was = el.innerHTML;
@@ -2996,6 +3082,9 @@ document.addEventListener("input", (e) => {
   } else if (t.matches("[data-reqamt]") || t.matches("[data-reqlabel]")) { const k = t.matches("[data-reqamt]") ? "amount" : "label", sel = k === "amount" ? "[data-reqamt]" : "[data-reqlabel]"; S.panel[k] = k === "amount" ? t.value.replace(/[^\d.,]/g, "").replace(",", ".") : t.value; const pos = t.selectionStart; renderPanel(); const n = $("#panel " + sel); n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {}
   } else if (t.matches("[data-to]") && (/^wc:/i.test(t.value.trim()) || parsePayLink(t.value))) { const v = t.value.trim(); t.value = ""; onScanned(v);
   } else if (t.matches("[data-to]")) { lookupTo(t.value); S.panel.to = t.value; patchPanel(); }
+  else if (t.matches("[data-bugtext]")) S.panel.text = t.value;
+  else if (t.matches("[data-bugwho]")) S.panel.who = t.value;
+  else if (t.matches("[data-wdto]")) { S.panel.to = t.value; const ok = !t.value.trim() || !!ENG?.isAddress(t.value.trim()); t.closest(".fld")?.classList.toggle("bad-in", !ok); }
   else if (t.matches("[data-tick]")) { S.wrote = t.checked; const b = $("#root [data-act='to-verify']"); if (b) b.disabled = !(S.revealed && S.wrote); else render(); }
   else if (t.name === "pw" && t.closest("form")?.querySelector("[data-meter]")) { const m = t.closest("form").querySelector("[data-meter]"); m.dataset.s = strength(t.value); }
 });

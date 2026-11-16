@@ -376,6 +376,23 @@ FR_RE.push(
   [/^Not enough (\S+)$/, "Pas assez de $1"], [/^Balance (.+)$/, "Solde $1"], [/^\+(\d+) more · $/, "+$1 de plus · "],
 );
 
+Object.assign(FR, {
+  "Report a problem or an idea": "Signaler un problème ou une idée", "Report a problem": "Signaler un problème",
+  "A bug, something confusing, or an idea: it goes straight to the Ecrin team.": "Un bogue, quelque chose de confus ou une idée : ça va directement à l'équipe Ecrin.",
+  "What happened?": "Que s'est-il passé ?", "How can we reach you? (optional)": "Comment vous joindre ? (facultatif)", "@telegram or email": "@telegram ou courriel",
+  "What did you do, what did you expect, and what happened instead?": "Qu'avez-vous fait, à quoi vous attendiez-vous, et que s'est-il passé ?",
+  "Send report": "Envoyer", "Sending…": "Envoi…", "Thank you": "Merci",
+  "Your report is with the Ecrin team. Reports like yours are how Ecrin gets better before mainnet.": "Votre signalement est entre les mains de l'équipe Ecrin. C'est grâce à vous qu'Ecrin s'améliore avant le réseau principal.",
+  "Tell us a little more about what happened.": "Dites-nous-en un peu plus.", "Couldn't send it. Try again in a minute.": "Envoi impossible. Réessayez dans une minute.",
+  "Withdraw to": "Retirer vers", "Your Wallet": "Votre portefeuille", "Another address": "Autre adresse", "Change": "Modifier", "To": "Vers",
+  "Use this address": "Utiliser cette adresse", "Review withdrawal": "Vérifier le retrait", "From": "De", "Can leave": "Peut partir", "Network fee": "Frais de réseau",
+  "Start the countdown": "Lancer le compte à rebours",
+  "Withdraw anywhere, after a last look": "Retirez vers n'importe quelle adresse, après vérification",
+  "Choose your Wallet or any address, then review the amount, the destination and when it can leave before the countdown starts.": "Choisissez votre portefeuille ou une autre adresse, puis vérifiez le montant, la destination et le moment du départ avant de lancer le compte à rebours.",
+  "Settings → Report a problem or an idea: it goes straight to the Ecrin team. Thank you to every tester.": "Réglages → Signaler un problème ou une idée : ça va directement à l'équipe Ecrin. Merci à tous les testeurs.",
+  "The countdown starts when you confirm. You can cancel it any time before it ends.": "Le compte à rebours commence quand vous confirmez. Vous pouvez l'annuler à tout moment avant la fin.",
+  "Check this address carefully: once it leaves your Safe it can't come back. Until then, you can cancel.": "Vérifiez bien cette adresse : une fois sorti du coffre, l'argent ne revient pas. D'ici là, vous pouvez annuler.",
+});
 export function translate(root, lang) {
   if (lang !== "fr" || !root) return;
   const tr = (t) => { const k = t.trim(); if (!k) return null; if (FR[k]) return t.replace(k, FR[k]); for (const [re, to] of FR_RE) if (re.test(k)) return t.replace(k, k.replace(re, to)); return null; };

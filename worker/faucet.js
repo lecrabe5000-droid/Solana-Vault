@@ -2,7 +2,7 @@
 // The faucet wallet's secret key is the FAUCET_SOL_KEY secret (base58, as wallets export it, or a JSON byte array).
 // Devnet only: the transfer is signed here with WebCrypto Ed25519, no Solana library needed.
 
-export const FAUCET_LAMPORTS = 500_000_000; // 0.5 SOL per claim
+export const FAUCET_LAMPORTS = 250_000_000; // 0.25 SOL per claim: plenty to open a Safe and try everything, and the faucet lasts twice as long
 const SYSTEM = new Uint8Array(32); // 11111111111111111111111111111111
 
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";

@@ -16,8 +16,11 @@ const lockNow = () => { const had = !!mem.phrase; mem = {}; clearTimeout(timer);
 globalThis.ECRIN_WEB = true;
 // Keep the app upright when the phone turns sideways (see the phone stylesheet). Phones only, never a computer.
 const keepUpright = () => {
-  const touch = matchMedia("(pointer: coarse)").matches, a = typeof window.orientation === "number" ? window.orientation : screen.orientation?.angle ?? 0;
-  const side = touch && Math.min(screen.width, screen.height) < 600 && innerWidth > innerHeight ? (a === -90 || a === 270 ? "-90" : "90") : null;
+  // The phone's real orientation (its angle), not the page's shape: on Android the keyboard shrinks the page until it is
+  // wider than tall, and that must not turn the app sideways while you type.
+  const touch = matchMedia("(pointer: coarse)").matches, a = Number(screen.orientation?.angle ?? (typeof window.orientation === "number" ? window.orientation : 0));
+  const turned = a === 90 || a === -90 || a === 270;
+  const side = touch && Math.min(screen.width, screen.height) < 600 && turned && innerWidth > innerHeight ? (a === -90 || a === 270 ? "-90" : "90") : null;
   if (side) document.documentElement.dataset.rot = side; else delete document.documentElement.dataset.rot;
 };
 keepUpright(); addEventListener("resize", keepUpright); addEventListener("orientationchange", () => setTimeout(keepUpright, 60));
