@@ -250,8 +250,44 @@ async function home() {
   loadPrices();
   // Phone app shortcuts (long-press the icon): Send, Receive, Freeze.
   const go = !S.wentTo && new URLSearchParams(location.search).get("go"); S.wentTo = true;
-  if (go && ["send", "receive", "safety"].includes(go)) setTimeout(() => openPanel(go), 400);
+  if (go && ["send", "receive", "safety", "vault"].includes(go)) setTimeout(() => openPanel(go), 400);
+  if (globalThis.ECRIN_WEB) pushCheck();
   if (S.offerBio) { S.offerBio = false; if (globalThis.ECRIN_WEB && bioPossible() && !S.bio) setTimeout(offerBio, 1400); }
+}
+// ---- Safe alerts as notifications on this phone (Web Push from Ecrin's server, the same alerts as Telegram and email).
+// Every network where your Safe is open is followed: a withdrawal starting, a rule change waiting, money moving.
+// Tapping one opens the Safe screen here (the service worker remembers that the wallet turned them on).
+const pushPossible = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+const b64uBytes = (x) => Uint8Array.from(atob(x.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((x.length + 3) % 4)), (c) => c.charCodeAt(0));
+/** The Safes to follow, in the server's shape: one Solana, one Ethereum-style (the server follows its whole family). */
+function pushTargets() {
+  const rows = openRows(), out = [];
+  const sol = rows.find((r) => NETS[r.k].fam === "sol" && NETS[r.k].test), evm = rows.find((r) => NETS[r.k].fam === "evm" && NETS[r.k].test);
+  if (sol && ACCT?.sol) out.push({ net: sol.k, owner: ACCT.sol.publicKey.toBase58(), vault: sol.v.main.address?.toBase58?.() || ENG?.vaultAddress?.() || "" });
+  if (evm && ACCT?.evm) out.push({ net: evm.k, owner: ACCT.evm.address });
+  return out.filter((t) => t.net !== "sol" || t.vault);
+}
+async function pushCheck() {
+  if (!pushPossible() || Notification.permission !== "granted") { S.pushOn = false; return; }
+  try { const reg = await navigator.serviceWorker.getRegistration("/"); S.pushOn = !!(await reg?.pushManager.getSubscription()) && !!(await local.get("pushOn")).pushOn; } catch (_) { S.pushOn = false; }
+}
+async function pushStart() {
+  const t = pushTargets();
+  if (!t.length) throw new Error(isMain() ? "Safe alerts follow your Safe, which runs on Testnet for now." : "Open your Safe first: alerts follow what's in it.");
+  if ((await Notification.requestPermission()) !== "granted") throw new Error(/iPhone|iPad/.test(navigator.userAgent) && !navigator.standalone ? "On iPhone, add Ecrin to your Home Screen first (Share → Add to Home Screen), then turn this on from there." : "Notifications are blocked for this site. Allow them in your browser's settings, then try again.");
+  const reg = await navigator.serviceWorker.register("/sw.js").then(() => navigator.serviceWorker.ready);
+  const { key } = await fetch("/api/push/key").then((r) => r.json());
+  const sub = (await reg.pushManager.getSubscription()) || (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uBytes(key) }));
+  const [first, ...also] = t;
+  const r = await fetch("/api/push/subscribe", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...first, lang: S.lang, sub: sub.toJSON(), also }) });
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || "Alerts aren't available right now. Try again in a minute.");
+  reg.active?.postMessage({ type: "ecrin-open", app: "wallet" }); // taps open the wallet's Safe screen
+  await local.set({ pushOn: true }); S.pushOn = true;
+}
+async function pushStop() {
+  try { const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription();
+    if (sub) { await fetch("/api/push/unsubscribe", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ endpoint: sub.endpoint }) }).catch(() => {}); await sub.unsubscribe().catch(() => {}); } } catch (_) {}
+  await local.set({ pushOn: false }); S.pushOn = false;
 }
 async function offerBio() {
   const c = await choose({ icon: I.face, title: `Unlock with ${bioName()}?`, text: `<p>Open Ecrin with a glance instead of typing your password. Your recovery phrase stays encrypted on this device.</p>`, safe: "Turn on", go: "Not now", fine: "You can change this any time in Settings." });
@@ -2363,6 +2399,7 @@ function settingsView() {
       ${row("panel", I.recv, "Contacts", `${Object.values(S.book || {}).reduce((t, m) => t + Object.keys(m || {}).length, 0) || ""} ${I.arrow}`, 'data-p="contacts"')}
       ${row("report", I.spark, "Monthly report")}`)}
     ${sec("Home screen", `
+      ${globalThis.ECRIN_WEB && pushPossible() ? row("push-toggle", I.bell, "Safe alerts on this phone", `${S.pushBusy ? "…" : S.pushOn ? "On" : "Off"} ${I.arrow}`) : ""}
       ${row("tog", I.recv, "Notify when I receive coins", onOff(S.recvNotify !== false && !(globalThis.ECRIN_WEB && window.Notification && Notification.permission === "denied")), 'data-k="recvNotify"')}
       ${row("tog", I.spark, "Sounds", onOff(S.sounds), 'data-k="sounds"')}
       ${row("tog", I.img, "Show collectibles (NFTs)", onOff(S.showNfts), 'data-k="showNfts"')}
@@ -2381,6 +2418,7 @@ function settingsView() {
 }
 // What's new: shown once after an update (never on a fresh install), and any time from Settings → About.
 const NEWS = [
+  ["Safe alerts on your phone", "Settings → Safe alerts on this phone: a notification the moment a withdrawal starts, so you can cancel it in time."],
   ["Follow your money", "Every send, protect, withdrawal and swap now shows its journey live, then a receipt with the details."],
   ["Your Safe at a glance", "Anything leaving your Safe gets its own countdown ring and a big Cancel button, and the Safe keeps its history."],
   ["Every network in one place", "Tap the globe at the top of the home screen to see every network and what you hold on each."],
@@ -2674,6 +2712,12 @@ const actions = {
     else S[k] = !S[k];
     if (k === "showNfts" && !S.showNfts && S.tab === "nfts") S.tab = "tokens";
     await local.set({ [k]: S[k] }); renderPanel(); render();
+  },
+  "push-toggle": async () => {
+    if (S.pushBusy) return; S.pushBusy = true; renderPanel();
+    try { if (S.pushOn) { await pushStop(); toast("Safe alerts are off on this phone."); } else { await pushStart(); toast("Safe alerts are on. You'll see a withdrawal the moment it starts.", "win"); } }
+    catch (e) { toast(e.message, "err"); }
+    S.pushBusy = false; renderPanel();
   },
   "upd-hide": async () => { await local.set({ updHide: S.upd?.latest }); S.upd = null; render(); },
   "upd-go": () => { if (globalThis.ECRIN_WEB) location.reload(); else window.open("https://chromewebstore.google.com/detail/ecrin-wallet/nmehcocofmbhkjgjhbhbnfmhcbjpcpbd", "_blank"); },

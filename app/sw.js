@@ -1,6 +1,6 @@
 // Ecrin service worker: makes the app installable and keeps its shell available on a bad connection.
 // Network first for everything; the cache is only a fallback. Never caches the API or other origins.
-const CACHE = "ecrin-v36";
+const CACHE = "ecrin-v37";
 const SHELL = ["/app", "/app.css", "/dapp.js", "/chain.js", "/evm.js", "/vault.js", "/config.js", "/config-evm.js", "/deployments-evm.js", "/config-tokens.js", "/config-wc.js", "/i18n.js", "/theme.js", "/vendor/solana-web3.min.js", "/vendor/ethers.umd.min.js", "/icon2-192.png"];
 
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {}).then(() => self.skipWaiting())); });
@@ -20,12 +20,25 @@ self.addEventListener("push", (e) => {
   try { d = e.data ? e.data.json() : {}; } catch (_) { d = { title: "Ecrin", body: e.data ? e.data.text() : "" }; }
   e.waitUntil(self.registration.showNotification(d.title || "Ecrin", { body: d.body || "", icon: "/icon2-192.png", badge: "/icon2-192.png", tag: d.tag, renotify: true, data: { url: d.url || "/app" } }));
 });
+// Which app turned alerts on (the phone wallet or the protocol app), kept so a tap opens that one.
+self.addEventListener("message", (e) => { if (e.data?.type === "ecrin-open" && ["wallet", "app"].includes(e.data.app)) e.waitUntil(caches.open("ecrin-prefs").then((c) => c.put("/__open", new Response(e.data.app)))); });
+const openWith = () => caches.open("ecrin-prefs").then((c) => c.match("/__open")).then((r) => (r ? r.text() : "app")).catch(() => "app");
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
+  e.waitUntil(openWith().then((app) => {
+    if (app === "wallet") return self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      const open = list.find((c) => new URL(c.url).pathname.startsWith("/wallet"));
+      if (open) { open.navigate("/wallet/?go=vault").catch(() => {}); return open.focus(); }
+      return self.clients.openWindow("/wallet/?go=vault");
+    });
+    return openApp(e);
+  }));
+});
+function openApp(e) {
   const url = e.notification.data?.url || "/app";
-  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+  return self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
     const open = list.find((c) => new URL(c.url).pathname.startsWith("/app"));
     if (open) { open.navigate(url).catch(() => {}); return open.focus(); }
     return self.clients.openWindow(url);
-  }));
-});
+  });
+}

@@ -1356,6 +1356,7 @@ async function startPush() {
     const r = await fetch("/api/push/subscribe", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || "Notifications aren't available right now.");
+    reg.active?.postMessage({ type: "ecrin-open", app: "app" });
     markOn("push");
     toast("Notifications are on for this device.", "win");
   } catch (e) { toast(esc(e.message), "err"); }
