@@ -17,10 +17,12 @@ async function main() {
   const [deployer] = await ethers.getSigners();
   if (!deployer) throw new Error("No deployer key. Set the EVM_DEPLOYER_KEY (or SEPOLIA_DEPLOYER_KEY) secret.");
 
-  // The USDC the site will offer on this network must really be a 6-decimal USDC.
-  const usdc = new ethers.Contract(cfg.usdc, ERC20, ethers.provider);
-  const [symbol, decimals] = await Promise.all([usdc.symbol(), usdc.decimals()]).catch(() => [null, null]);
-  if (symbol !== "USDC" || Number(decimals) !== 6) throw new Error(`${cfg.usdc} on ${network.name} isn't USDC (got ${symbol}, ${decimals} decimals). Fix app/config-evm.js.`);
+  // The USDC the site will offer on this network must really be a 6-decimal USDC (networks without one show the coin only).
+  if (cfg.usdc) {
+    const usdc = new ethers.Contract(cfg.usdc, ERC20, ethers.provider);
+    const [symbol, decimals] = await Promise.all([usdc.symbol(), usdc.decimals()]).catch(() => [null, null]);
+    if (symbol !== "USDC" || Number(decimals) !== 6) throw new Error(`${cfg.usdc} on ${network.name} isn't USDC (got ${symbol}, ${decimals} decimals). Fix app/config-evm.js.`);
+  }
 
   const factory = await ethers.getContractFactory("EcrinVault");
   const bal = await ethers.provider.getBalance(deployer.address);
