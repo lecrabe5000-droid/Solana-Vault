@@ -31,7 +31,7 @@ async function settle(check, what) { for (let i = 0; i < 20; i++) { const v = aw
 say("wallet", me.slice(0, 10) + "…", "SUI", (await e.balances()).native / 1e9);
 
 let v = await e.vault();
-if (!v) { say("open a Safe (gentle):", await e.createVault("gentle")); v = await settle((x) => x.withdrawDelay > 0, "the new Safe"); }
+if (!v) { say("open a Safe (gentle):", await e.createVault("gentle")); v = await settle((x) => x.main.withdrawDelay > 0, "the new Safe"); }
 assert.equal(v.main.owner.toBase58(), me);
 say(`Safe ${v.main.address.toBase58().slice(0, 10)}… · withdrawals wait ${v.main.withdrawDelay / 3600} h · rules wait ${v.main.ruleDelay / 86400} days`);
 
