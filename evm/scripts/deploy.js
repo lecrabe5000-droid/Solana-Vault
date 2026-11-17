@@ -5,6 +5,8 @@ const fs = require("fs"), path = require("path");
 
 const OUT = path.join(__dirname, "..", "..", "app", "deployments-evm.js");
 const ERC20 = ["function symbol() view returns (string)", "function decimals() view returns (uint8)"];
+// 2 = the contract holds tokens too; 3 = it also has the emergency brake on new deposits.
+const VERSION = 3;
 
 async function main() {
   const { EVM_NETS } = await import(path.join(__dirname, "..", "..", "app", "config-evm.js"));
@@ -13,7 +15,7 @@ async function main() {
   // "all" leaves networks that already have a current contract alone, so vaults people made there keep working.
   // Picking one network by name redeploys it on purpose (REDEPLOY=1).
   const text0 = fs.readFileSync(OUT, "utf8"), have = JSON.parse(text0.slice(text0.indexOf("{"), text0.lastIndexOf("}") + 1))[network.name];
-  if (have?.v === 2 && process.env.REDEPLOY !== "1") { console.log(`Already live on ${network.name} at ${have.address}; skipping. Pick ${network.name} by itself to replace it.`); return; }
+  if (have?.v >= VERSION && process.env.REDEPLOY !== "1") { console.log(`Already live on ${network.name} at ${have.address}; skipping. Pick ${network.name} by itself to replace it.`); return; }
   const [deployer] = await ethers.getSigners();
   if (!deployer) throw new Error("No deployer key. Set the EVM_DEPLOYER_KEY (or SEPOLIA_DEPLOYER_KEY) secret.");
 
@@ -40,8 +42,8 @@ async function main() {
 
   const text = fs.readFileSync(OUT, "utf8");
   const deployed = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
-  deployed[network.name] = { address, fromBlock: receipt.blockNumber, v: 2 };
-  fs.writeFileSync(OUT, `// Written by the deploy-evm workflow after each deploy (evm/scripts/deploy.js). v 2 = the contract holds tokens too.
+  deployed[network.name] = { address, fromBlock: receipt.blockNumber, v: VERSION };
+  fs.writeFileSync(OUT, `// Written by the deploy-evm workflow after each deploy (evm/scripts/deploy.js). v 2 = holds tokens too; v 3 = has the deposit brake.
 export const DEPLOYED = ${JSON.stringify(deployed, null, 2)};
 `);
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Ecrin is on ${cfg.name} ${cfg.net}\n\nContract: [\`${address}\`](${cfg.explorer}/address/${address})\n\n`);
