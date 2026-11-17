@@ -42,3 +42,12 @@ console.log("sui ok");
   assert.equal(explainSuiSafe('MoveAbort(MoveLocation { module: ModuleId { address: 0x12, name: Identifier("safe") }, function: 9 }, 7) in command 0'), "It isn't time yet.");
   assert.equal(explainSuiSafe("Sui would refuse this: InsufficientGas"), null);
 }
+
+// Each rule change encodes only its own value (a number for delays/limits, an address for guardians and trusted).
+{
+  const { suiEngine } = await import("../src/sui.js");
+  const e = suiEngine({ acct: { sui: new Uint8Array(32).fill(7) }, dev: { suiApi: "http://127.0.0.1:9/none" }, N: { ...SUI, safe: { package: "0x2", registry: "0x3" } } });
+  for (const c of [{ kind: "SetDailyLimit", value: 5 }, { kind: "SetWithdrawDelay", value: 3600 }, { kind: "AddTrusted", value: "0x" + "ab".repeat(32) }]) {
+    await assert.rejects(e.propose(c), (err) => !/isn't a Sui address/.test(err.message), `${c.kind} must not fail while encoding`);
+  }
+}

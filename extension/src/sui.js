@@ -291,13 +291,15 @@ export function suiEngine({ acct, dev = {}, N = SUI }) {
   const safeObj = async () => { const id = await findSafe(); if (!id) throw new Error("Open your Safe on Sui first."); return { obj: await sharedRef(id) }; };
   const toSecs = (v) => BigInt(Math.round(Number(v)));
   async function propose(c) {
-    const s = await safeObj(), v = c.value, fns = {
-      SetWithdrawDelay: ["set_withdraw_delay", u64(toSecs(v))], SetRuleDelay: ["set_rule_delay", u64(toSecs(v))],
-      SetDailyLimit: ["set_daily_limit", optU64(v == null ? null : BigInt(Math.round(Number(v))))], SetLockedUntil: ["set_locked_until", optU64(v == null ? null : toSecs(v))],
-      SetGuardian: ["set_guardian", optAddr(v == null ? null : String(v))], AddTrusted: ["add_trusted", addr(String(v))], RemoveTrusted: ["remove_trusted", addr(String(v))],
+    // Only the requested change is encoded (each kind takes a different value type).
+    const v = c.value, make = {
+      SetWithdrawDelay: () => ["set_withdraw_delay", u64(toSecs(v))], SetRuleDelay: () => ["set_rule_delay", u64(toSecs(v))],
+      SetDailyLimit: () => ["set_daily_limit", optU64(v == null ? null : BigInt(Math.round(Number(v))))], SetLockedUntil: () => ["set_locked_until", optU64(v == null ? null : toSecs(v))],
+      SetGuardian: () => ["set_guardian", optAddr(v == null ? null : String(v))], AddTrusted: () => ["add_trusted", addr(String(v))], RemoveTrusted: () => ["remove_trusted", addr(String(v))],
     }[c.kind];
-    if (!fns) throw new Error("Unknown rule change " + c.kind);
-    return safeRun(fns[0], [s, { pure: fns[1] }, { clock: true }]);
+    if (!make) throw new Error("Unknown rule change " + c.kind);
+    const [fn, arg] = make(), s = await safeObj();
+    return safeRun(fn, [s, { pure: arg }, { clock: true }]);
   }
 
   async function execute(tx) {
