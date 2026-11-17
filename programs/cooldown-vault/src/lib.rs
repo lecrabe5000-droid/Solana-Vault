@@ -218,16 +218,16 @@ pub mod cooldown_vault {
             }, &[stake_seeds]),
             rent, STAKE_SPACE as u64, &stake_ix::STAKE_ID,
         )?;
-        // The SOL to stake moves straight from the vault (this program owns it) into the new stake account.
-        let (from, to) = (ctx.accounts.vault.to_account_info(), ctx.accounts.stake.to_account_info());
-        **from.try_borrow_mut_lamports()? = from.lamports().checked_sub(amount).ok_or(VaultErr::Overflow)?;
-        **to.try_borrow_mut_lamports()? = to.lamports().checked_add(amount).ok_or(VaultErr::Overflow)?;
-
         let auth = stake_ix::Authorized { staker: vault_key, withdrawer: vault_key };
         anchor_lang::solana_program::program::invoke(
             &stake_ix::initialize(&ctx.accounts.stake.key(), &auth, &stake_ix::Lockup::default()),
             &[ctx.accounts.stake.to_account_info(), ctx.accounts.rent.to_account_info()],
         )?;
+        // The SOL to stake moves straight from the vault (this program owns it) into the stake account. Done right
+        // before delegating, whose call includes both accounts (the runtime checks balances per call).
+        let (from, to) = (ctx.accounts.vault.to_account_info(), ctx.accounts.stake.to_account_info());
+        **from.try_borrow_mut_lamports()? = from.lamports().checked_sub(amount).ok_or(VaultErr::Overflow)?;
+        **to.try_borrow_mut_lamports()? = to.lamports().checked_add(amount).ok_or(VaultErr::Overflow)?;
         let owner_key = ctx.accounts.vault.owner;
         let vault_seeds: &[&[u8]] = &[b"vault", owner_key.as_ref(), &[ctx.accounts.vault.bump]];
         anchor_lang::solana_program::program::invoke_signed(
