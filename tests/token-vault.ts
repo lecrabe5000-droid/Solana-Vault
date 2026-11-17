@@ -137,6 +137,16 @@ describe("token vaults", () => {
     assert.equal(v.trusted.length, 1);
   });
 
+  it("never pays the vault into itself, even if the owner trusted its own address", async () => {
+    await program.methods.proposeChange({ addTrusted: { address: tvault } }).accountsPartial({ owner: owner.publicKey, vault }).signers([owner]).rpc();
+    const change = (await program.account.vaultAccount.fetch(vault)).changes.at(-1)!;
+    await program.methods.guardianApproveChange(change.id).accountsPartial({ guardian: guardian.publicKey, vault }).signers([guardian]).rpc();
+    const was = await held(vaultTokens);
+    await expectError(program.methods.sendTokenToTrusted(new BN(USDC)).accountsPartial({ owner: owner.publicKey, vault, tokenVault: tvault, mint, vaultTokens, dest: tvault, destTokens: vaultTokens }).signers([owner]).rpc(), "WrongDestination");
+    assert.equal(await held(vaultTokens), was);
+    await program.methods.proposeChange({ removeTrusted: { address: tvault } }).accountsPartial({ owner: owner.publicKey, vault }).signers([owner]).rpc();
+  });
+
   // Last, because it deposits one more USDC than the tests above expect.
   it("refuses new token deposits while the brake is on, and takes them again after", async () => {
     const config = configAddress(program), dep = () => program.methods.depositToken(new BN(USDC)).accountsPartial({ owner: owner.publicKey, tokenVault: tvault, mint, from: ownerTokens, vaultTokens }).signers([owner]).rpc();

@@ -297,6 +297,9 @@ pub mod cooldown_vault {
 fn pay<'info>(vault: &Account<'info, VaultAccount>, dest: &AccountInfo<'info>, out: rules::Outcome) -> Result<()> {
     let rules::Outcome::Send { amount, dest: want } = out else { return Ok(()) };
     require_keys_eq!(dest.key(), Pubkey::new_from_array(want), VaultErr::WrongDestination);
+    // Paying the vault into itself would take the amount off its books while the lamports stay: stuck for good.
+    // (Reachable only if the owner trusted their own vault address; refused here whatever the rules said.)
+    require_keys_neq!(dest.key(), vault.key(), VaultErr::WrongDestination);
     let from = vault.to_account_info();
     **from.try_borrow_mut_lamports()? = from.lamports().checked_sub(amount).ok_or(VaultErr::Overflow)?;
     **dest.try_borrow_mut_lamports()? = dest.lamports().checked_add(amount).ok_or(VaultErr::Overflow)?;
@@ -317,6 +320,8 @@ fn pay_token<'info>(
     let rules::Outcome::Send { amount, dest: want } = out else { return Ok(()) };
     require_keys_eq!(dest.key(), Pubkey::new_from_array(want), VaultErr::WrongDestination);
     require_keys_eq!(dest_tokens.owner, dest.key(), VaultErr::WrongDestination);
+    // Same for tokens: never pay the token vault's own account (its books would drop, the coins would stay).
+    require_keys_neq!(dest_tokens.key(), from.key(), VaultErr::WrongDestination);
     let seeds: &[&[u8]] = &[b"tvault", tv.owner.as_ref(), tv.mint.as_ref(), &[tv.bump]];
     token::transfer_checked(
         CpiContext::new_with_signer(token_program.to_account_info(), TransferChecked {
