@@ -1,4 +1,4 @@
-// Written by the deploy-evm workflow after each deploy (evm/scripts/deploy.js). v 2 = holds tokens too; v 3 = has the deposit brake.
+// Written by the deploy-evm workflow after each deploy (evm/scripts/deploy.js). v 2 = holds tokens too; v 3 = has the deposit brake; v 4 = staking (on where staking: true).
 export const DEPLOYED = {
   "sepolia": {
     "address": "0xADfA45D7Fbf0896345c77C79585A334f37bbC254",
@@ -24,5 +24,16 @@ export const DEPLOYED = {
     "address": "0x82d2828DA942eE0ECEE70aC6BB1DcC8389760be2",
     "fromBlock": 53054982,
     "v": 3
+  },
+  "hoodi": {
+    "address": "0x069dE522A8F2cB91677A3f74632b9c75D852844C",
+    "fromBlock": 4036943,
+    "v": 4,
+    "staking": true,
+    "args": [
+      "0x3508A952176b3c15387C97BE809eaffB1982176a",
+      "0x7E99eE3C66636DE415D2d7C880938F2f40f94De4",
+      "0xfe56573178f1bcdf53F01A6E9977670dcBBD9186"
+    ]
   }
 };
