@@ -1,4 +1,4 @@
-// Written by the deploy-evm workflow after each deploy (evm/scripts/deploy.js). v 2 = the contract holds tokens too.
+// Written by the deploy-evm workflow after each deploy (evm/scripts/deploy.js). v 2 = holds tokens too; v 3 = has the deposit brake.
 export const DEPLOYED = {
   "sepolia": {
     "address": "0x147305C4d4Bab9b03A10e798f3d8f4B8bDE51e46",
@@ -6,23 +6,23 @@ export const DEPLOYED = {
     "v": 2
   },
   "baseSepolia": {
-    "address": "0x069dE522A8F2cB91677A3f74632b9c75D852844C",
-    "fromBlock": 52918435,
-    "v": 2
+    "address": "0x3e651897985A443c0d584c2a194FA6912a2AaAF6",
+    "fromBlock": 59778609,
+    "v": 3
   },
   "optimismSepolia": {
-    "address": "0x069dE522A8F2cB91677A3f74632b9c75D852844C",
-    "fromBlock": 50851512,
-    "v": 2
+    "address": "0x82d2828DA942eE0ECEE70aC6BB1DcC8389760be2",
+    "fromBlock": 51537529,
+    "v": 3
   },
   "arbitrumSepolia": {
-    "address": "0x069dE522A8F2cB91677A3f74632b9c75D852844C",
-    "fromBlock": 324873462,
-    "v": 2
+    "address": "0x82d2828DA942eE0ECEE70aC6BB1DcC8389760be2",
+    "fromBlock": 329941635,
+    "v": 3
   },
   "polygonAmoy": {
-    "address": "0x069dE522A8F2cB91677A3f74632b9c75D852844C",
-    "fromBlock": 51845141,
-    "v": 2
+    "address": "0x82d2828DA942eE0ECEE70aC6BB1DcC8389760be2",
+    "fromBlock": 53054982,
+    "v": 3
   }
 };
