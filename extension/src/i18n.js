@@ -363,7 +363,7 @@ Object.assign(FR, {
   "Tron addresses start with T. USDT shows with your tokens.": "Les adresses Tron commencent par T. L'USDT s'affiche avec vos jetons.", "Recent activity": "Activité récente",
 });
 FR_RE.push(
-  [/^(.+) leaving your Safe$/, "$1 quittent votre coffre"],
+  [/^([\d.,\s]+[A-Z]{2,6}) leaving$/, "$1 sur le départ"],
   [/^It starts and ends like (.+), but the middle is different\. Scammers create look-alike addresses to trick you\. Check every character, or pick the address from your contacts\.$/, "Elle commence et finit comme $1, mais le milieu est différent. Les escrocs créent des adresses ressemblantes pour vous piéger. Vérifiez chaque caractère, ou choisissez l'adresse dans vos contacts."],
   [/^Test coins with no value\. (\d+) networks\.$/, "Cryptos de test sans valeur. $1 réseaux."], [/^Real money\. (\d+) networks\.$/, "Argent réel. $1 réseaux."],
   [/^Network: (.+)\. Change network$/, "Réseau : $1. Changer de réseau"], [/^Disconnected (\d+) apps?\. Reconnect them on (.+)\.$/, "$1 application(s) déconnectée(s). Reconnectez-les sur $2."],

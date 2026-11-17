@@ -3421,13 +3421,23 @@ body.stacked.grow-open #root, :root[data-theme] body.stacked.grow-open #root { t
 #panel .note.bad-n b { color: var(--bad); display: block; margin-bottom: 2px; }
 #panel .note.bad-n svg { flex: none; width: 18px; height: 18px; color: var(--bad); stroke: var(--bad); margin-top: 1px; }
 
-/* Home: money leaving the Safe, with Cancel right there */
-.lv-ban { display: flex; align-items: center; gap: 12px; margin: 4px 0 10px; position: relative; z-index: 2; padding: 12px 12px 12px 14px; border-radius: 18px; background: color-mix(in srgb, #f2a33a 12%, var(--s1)); border: 1px solid color-mix(in srgb, #f2a33a 40%, transparent); }
-.lv-ic { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 12px; background: color-mix(in srgb, #f2a33a 18%, transparent); color: #f2a33a; }
-.lv-ic svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; }
-.lv-t { display: grid; gap: 2px; flex: 1; min-width: 0; } .lv-t > b { font-size: 14px; color: var(--ink); } .lv-t small { color: var(--muted); font-size: 12.5px; } .lv-t small b { color: #f2a33a; font-variant-numeric: tabular-nums; }
-.lv-x { display: inline-flex; align-items: center; gap: 6px; flex: none; height: 38px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--ink); color: var(--bg); font: inherit; font-weight: 600; font-size: 14px; cursor: pointer; }
-.lv-x svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; } .lv-x.busy { opacity: .7; }
+/* Home: money leaving the Safe, with Cancel right there. Soft, in Ecrin blue, never alarming. */
+.lv-ban { display: flex; align-items: center; gap: 12px; margin: 4px 0 10px; padding: 10px 10px 10px 12px; position: relative; z-index: 2; border-radius: 20px;
+  background: linear-gradient(135deg, rgba(79, 109, 255, .16), rgba(79, 109, 255, .06)); border: 1px solid rgba(124, 146, 255, .18);
+  box-shadow: 0 10px 30px -18px rgba(47, 91, 255, .55); backdrop-filter: blur(8px); animation: lvIn .5s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes lvIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.lv-ic { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 12px; background: rgba(124, 146, 255, .14); color: #9fb0ff; }
+.lv-ic svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.lv-t { display: grid; gap: 2px; flex: 1; min-width: 0; } .lv-t > b { font-size: 13.5px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lv-t small { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .lv-t small b { color: #9fb0ff; font-weight: 600; font-variant-numeric: tabular-nums; }
+.lv-x { display: inline-flex; align-items: center; gap: 6px; flex: none; height: 34px; padding: 0 14px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 999px;
+  background: rgba(255, 255, 255, .08); color: var(--ink); font: inherit; font-weight: 600; font-size: 13.5px; cursor: pointer; transition: background .2s, transform .15s; }
+.lv-x:hover { background: rgba(255, 255, 255, .14); } .lv-x:active { transform: scale(.97); }
+.lv-x svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; } .lv-x.busy { opacity: .7; }
+:root[data-theme="light"] .lv-ban { background: linear-gradient(135deg, rgba(47, 91, 255, .09), rgba(47, 91, 255, .03)); border-color: rgba(47, 91, 255, .16); box-shadow: 0 10px 30px -20px rgba(47, 91, 255, .45); }
+:root[data-theme="light"] .lv-ic { background: rgba(47, 91, 255, .1); color: #2f5bff; } :root[data-theme="light"] .lv-t small b { color: #2f5bff; }
+:root[data-theme="light"] .lv-x { background: #fff; border-color: rgba(16, 17, 20, .1); }
+@media (prefers-reduced-motion: reduce) { .lv-ban { animation: none; } }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */

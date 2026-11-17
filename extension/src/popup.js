@@ -1101,7 +1101,7 @@ function leaveBanner() {
   const hms = (sec) => { sec = Math.max(0, Math.floor(sec)); return `${String(Math.floor(sec / 3600)).padStart(2, "0")}:${String(Math.floor((sec % 3600) / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`; };
   return `<section class="lv-ban" role="alert">
     <span class="lv-ic">${I.clock}</span>
-    <span class="lv-t"><b>${amt(x.amount, x.a)} ${unit} leaving your Safe</b><small>to ${esc(short(String(x.dest)))} · ${left > 0 ? `<b class="cd" data-until="${x.readyAt}">${hms(left)}</b>` : "ready to leave"}${pend.length > 1 ? ` · +${pend.length - 1} more` : ""}</small></span>
+    <span class="lv-t"><b>${amt(x.amount, x.a)} ${unit} leaving</b><small>→ ${esc(short(String(x.dest)))} · ${left > 0 ? `<b class="cd" data-until="${x.readyAt}">${hms(left)}</b>` : "ready to leave"}${pend.length > 1 ? ` · +${pend.length - 1} more` : ""}</small></span>
     <button class="lv-x" data-act="cancel-w" data-n="${x.r.k}" data-id="${x.id}" data-a="${x.a}">${I.shield}Cancel</button>
   </section>`;
 }
