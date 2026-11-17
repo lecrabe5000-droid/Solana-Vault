@@ -363,6 +363,7 @@ Object.assign(FR, {
   "Tron addresses start with T. USDT shows with your tokens.": "Les adresses Tron commencent par T. L'USDT s'affiche avec vos jetons.", "Recent activity": "Activité récente",
 });
 FR_RE.push(
+  [/^It starts and ends like (.+), but the middle is different\. Scammers create look-alike addresses to trick you\. Check every character, or pick the address from your contacts\.$/, "Elle commence et finit comme $1, mais le milieu est différent. Les escrocs créent des adresses ressemblantes pour vous piéger. Vérifiez chaque caractère, ou choisissez l'adresse dans vos contacts."],
   [/^Test coins with no value\. (\d+) networks\.$/, "Cryptos de test sans valeur. $1 réseaux."], [/^Real money\. (\d+) networks\.$/, "Argent réel. $1 réseaux."],
   [/^Network: (.+)\. Change network$/, "Réseau : $1. Changer de réseau"], [/^Disconnected (\d+) apps?\. Reconnect them on (.+)\.$/, "$1 application(s) déconnectée(s). Reconnectez-les sur $2."],
   [/^Sending to (.+)$/, "Envoi vers $1"], [/^in ([\d.]+) s$/, "en $1 s"],
@@ -381,7 +382,7 @@ Object.assign(FR, {
   "A bug, something confusing, or an idea: it goes straight to the Ecrin team.": "Un bogue, quelque chose de confus ou une idée : ça va directement à l'équipe Ecrin.",
   "What happened?": "Que s'est-il passé ?", "How can we reach you? (optional)": "Comment vous joindre ? (facultatif)", "@telegram or email": "@telegram ou courriel",
   "What did you do, what did you expect, and what happened instead?": "Qu'avez-vous fait, à quoi vous attendiez-vous, et que s'est-il passé ?",
-  "Send report": "Envoyer", "Settings → Help & support: quick answers, and a way to reach a person on the Ecrin team.": "Réglages → Aide et assistance : des réponses rapides, et un moyen de joindre une personne de l'équipe Ecrin.", "Your message is with the Ecrin team. If you left a way to reach you, we'll answer there.": "Votre message est entre les mains de l'équipe Ecrin. Si vous avez laissé un moyen de vous joindre, nous vous répondrons.", "Help & support": "Aide et assistance", "Contact support": "Joindre l'assistance", "Message support": "Écrire à l'assistance",
+  "Send report": "Envoyer", "Careful: this is not the address you used before.": "Attention : ce n'est pas l'adresse que vous avez utilisée.", "Settings → Help & support: quick answers, and a way to reach a person on the Ecrin team.": "Réglages → Aide et assistance : des réponses rapides, et un moyen de joindre une personne de l'équipe Ecrin.", "Your message is with the Ecrin team. If you left a way to reach you, we'll answer there.": "Votre message est entre les mains de l'équipe Ecrin. Si vous avez laissé un moyen de vous joindre, nous vous répondrons.", "Help & support": "Aide et assistance", "Contact support": "Joindre l'assistance", "Message support": "Écrire à l'assistance",
   "Telegram community": "Communauté Telegram", "All answers": "Toutes les réponses", "Email": "Courriel", "How can we answer you?": "Comment vous répondre ?",
   "Tell us what you need. A person from the Ecrin team reads every message.": "Dites-nous ce dont vous avez besoin. Une personne de l'équipe Ecrin lit chaque message.",
   "We never ask for your recovery phrase or private key, and never message you first.": "Nous ne demandons jamais votre phrase de récupération ni votre clé privée, et ne vous écrivons jamais en premier.",

@@ -1415,7 +1415,7 @@ function xtokView() {
   if (P.step === "review") return `${phead("Review")}
     <div class="rv-amt">${letterIc(t)}<b>${esc(P.amount)} <small>${esc(t.symbol || "")}</small></b><span>${esc(tokName(t))}</span></div>
     <div class="tk-info"><div><span>From</span><b>${esc(curAcct().name)}</b></div><div><span>To</span><b class="mono wrap">${esc(P.to)}</b></div><div><span>Network</span><b>${N.name} ${N.net}</b></div><div><span>Network fee</span><b>${esc(N.fam === "sol" ? "≈ 0.000005 SOL" : "a little " + N.unit + " for gas")}</b></div></div>
-    ${P.fresh ? `<div class="note warn">${I.shield}<span>You've never sent to this address from Ecrin. Check the first and last characters against where you copied it.</span></div>` : ""}
+    ${P.lookalike ? lookalikeNote(P) : P.fresh ? `<div class="note warn">${I.shield}<span>You've never sent to this address from Ecrin. Check the first and last characters against where you copied it.</span></div>` : ""}
     <div class="pfoot">${hold("Hold to send")}<button class="btn ghost" data-act="x-back">Back</button></div>`;
   return `${phead(t.nft ? "Collectible" : esc(t.symbol || "Token"))}
     ${t.nft ? `<div class="nft-big">${m.img ? `<img src="${esc(m.img)}" alt="" referrerpolicy="no-referrer"/>` : `<span class="nft-ph">${I.img}</span>`}</div>` : `<div class="tk-top">${letterIc(t)}<span><b>${esc(tokName(t))}</b><small>${N.name}</small></span></div>
@@ -1865,7 +1865,7 @@ function sendView() {
           <div><dt>Network</dt><dd>${NETS[S.net].name} ${NETS[S.net].net}</dd></div>
           <div><dt>Network fee</dt><dd>${NETS[S.net].fam === "evm" ? `<span class="seg fee-seg">${[["slow", "Slow"], ["normal", "Normal"], ["fast", "Fast"]].map(([k, l]) => `<button data-act="speed" data-v="${k}" aria-pressed="${(P.speed || "normal") === k}">${l}</button>`).join("")}</span>` : e.feeText()}</dd></div>
         </dl>
-        ${self ? `<p class="warn-n">That's your own address.</p>` : P.fresh ? `<p class="warn-n">${I.shield}<span>You've never sent to this address from Ecrin. Check the first and last characters against where you copied it.</span></p>` : ""}
+        ${self ? `<p class="warn-n">That's your own address.</p>` : P.lookalike ? lookalikeNote(P) : P.fresh ? `<p class="warn-n">${I.shield}<span>You've never sent to this address from Ecrin. Check the first and last characters against where you copied it.</span></p>` : ""}
       </div>
       ${P.coolUntil > Date.now() ? `<div class="cool"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17"/><circle class="cl-p" cx="20" cy="20" r="17" style="stroke-dashoffset:${(106.8 * (P.coolUntil - Date.now())) / (S.guard.cool * 1000)}"/></svg><span><b data-cool>${Math.ceil((P.coolUntil - Date.now()) / 1000)}s</b><small>Cooling-off pause for big sends. Take a breath: is this really who you think it is?</small></span></div>` : ""}
       ${NETS[S.net].real ? `<div class="sx-real">${I.warn}<span><b>Real money.</b> These are real coins. Once sent, they can't be brought back.</span></div>` : ""}
@@ -2590,6 +2590,17 @@ async function txRun(fn, after, log) {
 }
 
 async function knownDest(to) { const { sent = {} } = await local.get("sent"); return !!sent[`${S.net}:${to}`]; }
+/** Address poisoning: scammers send dust from an address that starts and ends like one you use, hoping you copy it
+ *  from your history. Returns the real address it imitates (from your past sends, contacts or own accounts), or null. */
+async function lookalikeOf(to) {
+  const N = NETS[S.net], ci = N.fam === "evm" || N.fam === "sui", norm = (a) => { const x = String(a || "").trim().replace(/^0x/i, ""); return ci ? x.toLowerCase() : x; };
+  const t = norm(to); if (t.length < 20) return null;
+  const { sent = {} } = await local.get("sent");
+  const known = [...Object.keys(sent).filter((k) => k.startsWith(S.net + ":")).map((k) => k.slice(S.net.length + 1)), ...Object.keys(S.book?.[N.fam] || {}), String(ENG?.address || "")];
+  for (const k of known) { const n = norm(k); if (n && n !== t && n.length === t.length && n.slice(0, 4) === t.slice(0, 4) && n.slice(-4) === t.slice(-4)) return k; }
+  return null;
+}
+const lookalikeNote = (P) => P.lookalike ? `<div class="note bad-n">${I.shield}<span><b>Careful: this is not the address you used before.</b> It starts and ends like ${esc(short(P.lookalike))}, but the middle is different. Scammers create look-alike addresses to trick you. Check every character, or pick the address from your contacts.</span></div>` : "";
 async function rememberDest(to) { const { sent = {} } = await local.get("sent"); sent[`${S.net}:${to}`] = Date.now(); await local.set({ sent }); }
 
 async function useNet(n) {
@@ -2707,7 +2718,7 @@ const actions = {
     const [w, f = ""] = P.amount.split("."); if (f.length > t.dec) return toast(`This token has ${t.dec} decimals at most.`, "err");
     const raw = BigInt(w || "0") * 10n ** BigInt(t.dec) + BigInt((f + "0".repeat(t.dec)).slice(0, t.dec) || "0");
     if (raw > BigInt(t.raw)) return toast("You don't have that much.", "err");
-    P.raw = String(raw); P.fresh = !(await knownDest(P.to)); P.step = "review"; renderPanel();
+    P.raw = String(raw); P.fresh = !(await knownDest(P.to)); P.lookalike = P.fresh ? await lookalikeOf(P.to) : null; P.step = "review"; renderPanel();
   },
   "x-back": () => { S.panel.step = "form"; renderPanel(); },
   "acct-switch": (el) => el.dataset.id === S.sel ? closePanel() : switchAccount(el.dataset.id),
@@ -2935,7 +2946,7 @@ const actions = {
     if (S.panel.named?.addr && S.panel.named.name === S.panel.to.trim()) { S.panel.toName = S.panel.named.name; S.panel.to = S.panel.named.addr; }
     const P = S.panel, usd = usdOf(parseAmt(P.amount, P.asset), P.asset);
     const lim = await limitCheck(usd); if (lim) return toast(lim, "err");
-    P.fresh = !(await knownDest(P.to.trim())); P.step = "review"; P.anim = true;
+    P.fresh = !(await knownDest(P.to.trim())); P.lookalike = P.fresh ? await lookalikeOf(P.to.trim()) : null; P.step = "review"; P.anim = true;
     const G = S.guard; P.coolUntil = G.cool && usd != null && usd >= G.coolOver ? Date.now() + G.cool * 1000 : 0; if (P.coolUntil) bump("cool");
     renderPanel(); if (P.coolUntil) coolTick();
   },

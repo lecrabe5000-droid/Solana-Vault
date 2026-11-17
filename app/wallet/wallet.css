@@ -3416,6 +3416,11 @@ body.stacked.grow-open #root, :root[data-theme] body.stacked.grow-open #root { t
 .help-ways { display: grid; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; } .help-ways .srow { border-radius: 0; } .help-ways .srow + .srow { border-top: 1px solid var(--line); }
 .help-ways .sv { max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Address poisoning warning */
+#panel .note.bad-n { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; color: var(--ink); text-align: left; background: color-mix(in srgb, var(--bad) 14%, transparent); border: 1px solid color-mix(in srgb, var(--bad) 45%, transparent); }
+#panel .note.bad-n b { color: var(--bad); display: block; margin-bottom: 2px; }
+#panel .note.bad-n svg { flex: none; width: 18px; height: 18px; color: var(--bad); stroke: var(--bad); margin-top: 1px; }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
 #root, #panel { top: 0; bottom: 0; }
