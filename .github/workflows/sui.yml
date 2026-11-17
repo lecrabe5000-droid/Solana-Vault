@@ -59,7 +59,11 @@ jobs:
           addr=$(sui keytool list --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s)[0].suiAddress))')
           sui client switch --address "$addr"
           echo "Deployer $addr"
-          sui client gas --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const t=JSON.parse(s).reduce((a,c)=>a+Number(c.mistBalance),0);console.log("Balance",t/1e9,"SUI");if(t<3e8){console.log("::error::The deployer needs about 0.3 test SUI. Send some to '"$addr"' from faucet.sui.io (Testnet).");process.exit(1)}})'
+          # Balance from Sui's own GraphQL service (coins and the address balance both count).
+          bal=$(curl -sS https://graphql.testnet.sui.io/graphql -H 'content-type: application/json' --data "{\"query\":\"{address(address:\\\"$addr\\\"){balance(coinType:\\\"0x2::sui::SUI\\\"){totalBalance coinBalance}}}\"}")
+          echo "Balance: $bal"
+          total=$(echo "$bal" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).data?.address?.balance?.totalBalance||0))')
+          if [ "$total" -lt 300000000 ]; then echo "::error::The deployer needs about 0.3 test SUI. Send some to $addr from faucet.sui.io (Testnet)."; exit 1; fi
           sui client publish --gas-budget 300000000 --json > /tmp/pub.json
           node - <<'JS'
           const fs = require("fs"), r = JSON.parse(fs.readFileSync("/tmp/pub.json", "utf8"));
