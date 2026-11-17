@@ -57,7 +57,7 @@ async function main() {
 
   const text = fs.readFileSync(OUT, "utf8");
   const deployed = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
-  deployed[network.name] = { address, fromBlock: receipt.blockNumber, v: VERSION, staking: !!cfg.lidoLocator };
+  deployed[network.name] = { address, fromBlock: receipt.blockNumber, v: VERSION, staking: !!cfg.lidoLocator, args: lidoArgs };
   fs.writeFileSync(OUT, `// Written by the deploy-evm workflow after each deploy (evm/scripts/deploy.js). v 2 = holds tokens too; v 3 = has the deposit brake; v 4 = staking (on where staking: true).
 export const DEPLOYED = ${JSON.stringify(deployed, null, 2)};
 `);

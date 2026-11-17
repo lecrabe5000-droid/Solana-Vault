@@ -10,7 +10,7 @@ on:
         description: Network
         type: choice
         default: sepolia
-        options: [sepolia, baseSepolia, arbitrumSepolia, optimismSepolia, polygonAmoy, bscTestnet, avalancheFuji]
+        options: [sepolia, hoodi, baseSepolia, arbitrumSepolia, optimismSepolia, polygonAmoy, bscTestnet, avalancheFuji]
 
 jobs:
   verify:
@@ -36,6 +36,7 @@ jobs:
           if [ -z "$ETHERSCAN_API_KEY" ]; then echo "::error::Add the ETHERSCAN_API_KEY secret first."; exit 1; fi
           ADDR=$(node -e 'const t=require("fs").readFileSync("../app/deployments-evm.js","utf8");console.log(JSON.parse(t.slice(t.indexOf("{"),t.lastIndexOf("}")+1))[process.argv[1]]?.address||"")' "${{ inputs.network }}")
           if [ -z "$ADDR" ]; then echo "::error::No contract on ${{ inputs.network }} in app/deployments-evm.js. Deploy first."; exit 1; fi
-          npx hardhat verify --network ${{ inputs.network }} "$ADDR" 2>&1 | tee /tmp/verify.log
+          ARGS=$(node -e 'const t=require("fs").readFileSync("../app/deployments-evm.js","utf8");console.log((JSON.parse(t.slice(t.indexOf("{"),t.lastIndexOf("}")+1))[process.argv[1]]?.args||[]).join(" "))' "${{ inputs.network }}")
+          npx hardhat verify --network ${{ inputs.network }} "$ADDR" $ARGS 2>&1 | tee /tmp/verify.log
           grep -Eiq "successfully verified|already verified" /tmp/verify.log
           echo "### Source published for \`$ADDR\` on ${{ inputs.network }}" >> "$GITHUB_STEP_SUMMARY"

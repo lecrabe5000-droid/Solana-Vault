@@ -65,7 +65,8 @@ jobs:
           sleep 30
           for n in $(cat /tmp/deployed); do
             addr=$(node -e 'const t=require("fs").readFileSync("../app/deployments-evm.js","utf8");console.log(JSON.parse(t.slice(t.indexOf("{"),t.lastIndexOf("}")+1))[process.argv[1]].address)' "$n")
-            npx hardhat verify --network "$n" "$addr" || echo "::warning::Couldn't verify on $n yet; run verify-evm later."
+            args=$(node -e 'const t=require("fs").readFileSync("../app/deployments-evm.js","utf8");const d=JSON.parse(t.slice(t.indexOf("{"),t.lastIndexOf("}")+1))[process.argv[1]];console.log((d.args||[]).join(" "))' "$n")
+            npx hardhat verify --network "$n" "$addr" $args || echo "::warning::Couldn't verify on $n yet; run verify-evm later."
           done
       - name: Point the website at it
         working-directory: .

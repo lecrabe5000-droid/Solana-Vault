@@ -29,6 +29,7 @@ module.exports = {
     apiKey: ETHERSCAN_API_KEY || "",
     // Networks this plugin version doesn't list yet; Etherscan's v2 API covers them with the same key.
     customChains: [
+      { network: "hoodi", chainId: 560048, urls: { apiURL: "https://api.etherscan.io/v2/api", browserURL: "https://hoodi.etherscan.io" } },
       { network: "optimismSepolia", chainId: 11155420, urls: { apiURL: "https://api.etherscan.io/v2/api", browserURL: "https://sepolia-optimism.etherscan.io" } },
     ],
   },
