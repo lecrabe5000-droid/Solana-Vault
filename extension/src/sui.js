@@ -132,7 +132,8 @@ const SAFE_ERRORS = ["Only the Safe's owner can do that.", "Only the guardian ca
   "You can trust at most 8 addresses.", "That value isn't allowed.", "That number is too large.", "This wallet already has a Safe on Sui."];
 /** Turns "MoveAbort(... safe ..., 7)" into words. */
 export function explainSuiSafe(text) {
-  const m = /MoveAbort[\s\S]*?safe[\s\S]*?,\s*(\d+)\)/.exec(String(text || ""));
+  // Sui words it two ways: "MoveAbort(... name: Identifier("safe") ..., 7)" and "from '0x…::safe::create' (instruction 64), abort code: 14"
+  const t = String(text || ""), m = /::safe::\w+'?[^]*?abort code:\s*(\d+)/.exec(t) || /MoveAbort[^]*?safe[^]*?,\s*(\d+)\)/.exec(t);
   return m && SAFE_ERRORS[Number(m[1])] ? SAFE_ERRORS[Number(m[1])] : null;
 }
 /** A Move enum or Option as GraphQL's JSON gives it, read leniently. */

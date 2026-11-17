@@ -34,3 +34,11 @@ assert.equal(raw.length, 97); assert.equal(raw[0], 0);
 assert.ok(ed25519.verify(raw.subarray(1, 65), blake2b(Uint8Array.of(0, 0, 0, ...t1), { dkLen: 32 }), raw.subarray(65)));
 assert.equal(digest, txDigest(t1));
 console.log("sui ok");
+
+// The Safe's errors in plain words, in both ways Sui words an abort (the second one seen live on testnet).
+{
+  const { explainSuiSafe } = await import("../src/sui.js");
+  assert.equal(explainSuiSafe("Sui would refuse this: Error in 1st command, from '0x010f::safe::create' (instruction 64), abort code: 14"), "This wallet already has a Safe on Sui.");
+  assert.equal(explainSuiSafe('MoveAbort(MoveLocation { module: ModuleId { address: 0x12, name: Identifier("safe") }, function: 9 }, 7) in command 0'), "It isn't time yet.");
+  assert.equal(explainSuiSafe("Sui would refuse this: InsufficientGas"), null);
+}
