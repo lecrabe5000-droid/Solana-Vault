@@ -93,7 +93,10 @@ jobs:
           set -euo pipefail
           id=$(solana address -k target/deploy/cooldown_vault-keypair.json)
           # Own ports and ledger, so a validator left over from anchor test can't collide.
-          solana-test-validator --reset --quiet --ledger /tmp/client-ledger --rpc-port 8999 --faucet-port 9999 --bpf-program "$id" target/deploy/cooldown_vault.so &
+          # Upgradeable, with the local wallet as upgrade authority, so it can set up the deposit brake like on devnet.
+          solana-test-validator --reset --quiet --ledger /tmp/client-ledger --rpc-port 8999 --faucet-port 9999 --upgradeable-program "$id" target/deploy/cooldown_vault.so "$(solana address)" &
           for i in $(seq 1 90); do solana cluster-version -u http://127.0.0.1:8999 >/dev/null 2>&1 && break; sleep 1; done
           solana cluster-version -u http://127.0.0.1:8999
+          solana airdrop 10 -u http://127.0.0.1:8999 >/dev/null
+          RPC=http://127.0.0.1:8999 PROGRAM_ID="$id" node scripts/init-config.mjs
           RPC=http://127.0.0.1:8999 node tests/client.test.mjs
