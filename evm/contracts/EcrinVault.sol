@@ -195,7 +195,7 @@ contract EcrinVault {
     function requestWithdrawal(address dest, uint256 amount) external returns (uint32 id) {
         Vault storage v = _vault(msg.sender);
         if (amount == 0) revert ZeroAmount();
-        if (dest == address(0)) revert InvalidValue();
+        if (dest == address(0) || dest == address(this)) revert InvalidValue(); // paying the contract itself would strand the coins
         if (amount > available(msg.sender)) revert InsufficientFunds();
         // More than a day's limit could never run (each run counts against the day), so it would sit there forever.
         if (v.dailyLimit != 0 && amount > v.dailyLimit) revert DailyLimit();
@@ -317,7 +317,7 @@ contract EcrinVault {
         Vault storage v = _vault(msg.sender);
         TokenVault storage t = tokenVaults[msg.sender][token];
         if (amount == 0) revert ZeroAmount();
-        if (dest == address(0)) revert InvalidValue();
+        if (dest == address(0) || dest == address(this)) revert InvalidValue(); // paying the contract itself would strand the coins
         if (amount > availableToken(msg.sender, token)) revert InsufficientFunds();
         if (t.dailyLimit != 0 && amount > t.dailyLimit) revert DailyLimit();
         if (t.withdrawals.length >= MAX_PENDING_WITHDRAWALS) revert TooManyPending();
@@ -496,7 +496,7 @@ contract EcrinVault {
         else if (c.kind == Kind.SetLockedUntil) { if (c.value > block.timestamp + MAX_LOCK) revert InvalidValue(); }
         else if (c.kind == Kind.SetGuardian) { if (c.addr == owner) revert InvalidValue(); }
         else if (c.kind == Kind.AddTrusted) {
-            if (c.addr == address(0) || _isTrusted(v, c.addr)) revert InvalidValue();
+            if (c.addr == address(0) || c.addr == address(this) || _isTrusted(v, c.addr)) revert InvalidValue();
             if (v.trusted.length >= MAX_TRUSTED) revert TooManyTrusted();
         } else if (c.kind == Kind.RemoveTrusted) { if (!_isTrusted(v, c.addr)) revert NotFound(); }
         // SetDailyLimit: any value; 0 means no limit.

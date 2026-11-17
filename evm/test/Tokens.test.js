@@ -159,4 +159,11 @@ describe("EcrinVault tokens", () => {
     expect((await tv(f)).withdrawals).to.have.length(1);
     expect((await tv(f)).balance).to.equal(usd(500));
   });
+
+  it("never pays the contract itself: not as a withdrawal destination, not as a trusted address", async () => {
+    const f = await withVault();
+    await expect(f.vault.requestTokenWithdrawal(f.usdc.target, f.vault.target, usd(1))).to.be.revertedWithCustomError(f.vault, "InvalidValue");
+    await expect(f.vault.requestWithdrawal(f.vault.target, 1)).to.be.revertedWithCustomError(f.vault, "InvalidValue");
+    await expect(f.vault.proposeChange({ kind: K.AddTrusted, value: 0, addr: f.vault.target })).to.be.revertedWithCustomError(f.vault, "InvalidValue");
+  });
 });

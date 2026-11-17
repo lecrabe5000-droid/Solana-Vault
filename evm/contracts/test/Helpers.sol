@@ -80,3 +80,33 @@ contract NoReturnToken {
         allowance[from][msg.sender] -= amount; balanceOf[from] -= amount; balanceOf[to] += amount;
     }
 }
+
+/// Test-only: a hostile token. On every transfer it tries to call back into the vault (to deposit again, or to
+/// run or release a withdrawal) before the vault has finished, and it can lie about balances.
+contract EvilToken {
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+    EcrinVault public vault;
+    address public victim;
+    uint32 public victimId;
+    uint8 public mode; // 0 honest, 1 re-enter on transfer, 2 re-enter on transferFrom
+    bool public reentered; // set if a callback ever got through
+
+    function setup(EcrinVault v, address who, uint32 id, uint8 m) external { vault = v; victim = who; victimId = id; mode = m; }
+    function mint(address to, uint256 amount) external { balanceOf[to] += amount; }
+    function approve(address spender, uint256 amount) external returns (bool) { allowance[msg.sender][spender] = amount; return true; }
+
+    function transfer(address to, uint256 amount) external returns (bool) {
+        if (mode == 1) _poke();
+        require(balanceOf[msg.sender] >= amount); balanceOf[msg.sender] -= amount; balanceOf[to] += amount; return true;
+    }
+    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
+        if (mode == 2) _poke();
+        require(allowance[from][msg.sender] >= amount && balanceOf[from] >= amount);
+        allowance[from][msg.sender] -= amount; balanceOf[from] -= amount; balanceOf[to] += amount; return true;
+    }
+    function _poke() private {
+        try vault.executeTokenWithdrawal(victim, address(this), victimId) { reentered = true; } catch {}
+        try vault.depositToken(address(this), 1) { reentered = true; } catch {}
+    }
+}
