@@ -10,7 +10,7 @@ describe("app/evm.js client", () => {
   before(async () => {
     mod = await import(pathToFileURL(path.join(__dirname, "..", "..", "app", "evm.js")).href);
     [owner, guardian, bank] = await ethers.getSigners();
-    vaultAddr = await (await (await ethers.getContractFactory("EcrinVault")).deploy()).getAddress();
+    vaultAddr = await (await (await ethers.getContractFactory("EcrinVault")).deploy(ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress)).getAddress();
     const EVM = { chainId: 31337, address: vaultAddr };
     client = mod.createEvmClient({ ethers, EVM, readProvider: ethers.provider, getSigner: async () => owner });
     gclient = mod.createEvmClient({ ethers, EVM, readProvider: ethers.provider, getSigner: async () => guardian });
@@ -76,7 +76,7 @@ describe("app/evm.js token client", () => {
   before(async () => {
     mod = await import(pathToFileURL(path.join(__dirname, "..", "..", "app", "evm.js")).href);
     [owner, guardian, bank] = await ethers.getSigners();
-    const vaultAddr = await (await (await ethers.getContractFactory("EcrinVault")).deploy()).getAddress();
+    const vaultAddr = await (await (await ethers.getContractFactory("EcrinVault")).deploy(ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress)).getAddress();
     usdc = await (await ethers.getContractFactory("TestToken")).deploy("USDC", 0);
     await usdc.mint(owner.address, 500 * USD);
     const EVM = { chainId: 31337, address: vaultAddr };

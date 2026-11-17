@@ -43,7 +43,7 @@ async function run(seed, steps) {
   const r = rng(seed);
   const [owner1, owner2, guardian, stranger, ...places] = await ethers.getSigners();
   const dests = places.slice(0, 5).map((s) => s.address);
-  const vault = await (await ethers.getContractFactory("EcrinVault")).deploy();
+  const vault = await (await ethers.getContractFactory("EcrinVault")).deploy(ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress);
   const T = await ethers.getContractFactory("TestToken"), NR = await ethers.getContractFactory("NoReturnToken");
   const plain = await T.deploy("USDC", 0), feeTok = await T.deploy("FEE", 100), usdt = await NR.deploy();
   const tokens = [plain, feeTok, usdt];
@@ -228,7 +228,7 @@ describe("EcrinVault stress", function () {
 
   it("a hostile token can't re-enter the vault, on the way in or out", async () => {
     const [owner, guardian, dest] = await ethers.getSigners();
-    const vault = await (await ethers.getContractFactory("EcrinVault")).deploy();
+    const vault = await (await ethers.getContractFactory("EcrinVault")).deploy(ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress);
     const evil = await (await ethers.getContractFactory("EvilToken")).deploy();
     await evil.mint(owner.address, 1000n); await evil.connect(owner).approve(vault.target, ethers.MaxUint256);
     await vault.createVault(1, guardian.address, 0);

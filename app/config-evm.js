@@ -35,6 +35,15 @@ const NETWORKS = {
     usdc: "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582",
     faucet: "https://faucet.polygon.technology", faucetName: "the Polygon faucet",
   },
+  // Ethereum's Hoodi test network: the one where Lido runs, so the Safe can stake test ETH here. Lido's addresses
+  // are read at deploy from its on-chain directory (LidoLocator, from github.com/lidofinance/core deployed-hoodi.json).
+  // Chain id, servers, explorer and faucet: viem's hoodi definition and hoodi.ethpandaops.io. No official test USDC.
+  hoodi: {
+    hardhat: "hoodi", name: "Ethereum", net: "Hoodi", chainId: 560048, unit: "ETH", cg: "ethereum",
+    rpc: "https://hoodi.drpc.org", rpc2: "https://rpc.hoodi.ethpandaops.io", explorer: "https://hoodi.etherscan.io",
+    usdc: null, lidoLocator: "0xe2EF9536DAAAEBFf5b1c130957AB3E80056b06D8",
+    faucet: "https://hoodi-faucet.pk910.de", faucetName: "the pk910 Hoodi faucet (no balance needed)",
+  },
   // Circle has no official test USDC on BNB Chain, so that network shows BNB only.
   bnb: {
     hardhat: "bscTestnet", name: "BNB Chain", net: "Testnet", chainId: 97, unit: "BNB", cg: "binancecoin",

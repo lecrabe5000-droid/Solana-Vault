@@ -15,6 +15,11 @@ pragma solidity 0.8.24;
 /// Emergency brake: the pauser can stop NEW deposits (ETH and tokens), and nothing else. Withdrawals, cancels,
 /// rule changes and guardian actions always work, paused or not, so the brake can never trap anyone's money.
 /// The deployer starts as pauser and hands the role to a multisig (two steps) before mainnet.
+/// Staking (where Lido exists; the three Lido addresses are fixed at deploy, all zero = off): the owner can stake
+/// free ETH from the vault. It becomes wstETH held by this contract and booked to that owner. Unstaking goes
+/// through Lido's exit queue, owned by this contract; when Lido pays out, the ETH can only come back into that
+/// owner's vault (anyone may run the claim). Nothing staked can be sent anywhere else, so a key thief can stake
+/// or unstake, never take. Trust: Lido's contracts (upgradeable by the Lido DAO) hold the staked value.
 contract EcrinVault {
     uint64 public constant HOUR = 3600;
     uint64 public constant DAY = 86400;
@@ -58,6 +63,15 @@ contract EcrinVault {
         Withdrawal[] withdrawals;
         PendingChange[] changes;
     }
+
+    /// Staked ETH of one vault: wstETH booked to it, and its open requests in Lido's exit queue.
+    struct Stake { uint256 wst; uint256[] requests; }
+    uint256 public constant MAX_PENDING_UNSTAKES = 4;
+    ILido public immutable lido;
+    IWstETH public immutable wstETH;
+    IWithdrawalQueue public immutable withdrawalQueue;
+    mapping(address => Stake) private stakes;
+    uint256 public totalStakedWst;
 
     mapping(address => Vault) private vaults;
     mapping(address => mapping(address => TokenVault)) private tokenVaults; // owner => token => state
@@ -103,6 +117,10 @@ contract EcrinVault {
     event TokenLimitApplied(address indexed owner, address indexed token, uint256 limit);
     event TokenLimitCancelled(address indexed owner, address indexed token, uint32 id);
     event DepositsPausedSet(bool paused);
+    event Staked(address indexed owner, uint256 eth, uint256 wst);
+    event UnstakeRequested(address indexed owner, uint256 wst, uint256 stEth, uint256 requestId);
+    event Unstaked(address indexed owner, uint256 requestId, uint256 eth);
+    error StakingOff();
     event PauserChanged(address pauser);
 
     modifier whenDepositsOpen() {
@@ -110,7 +128,12 @@ contract EcrinVault {
         _;
     }
 
-    constructor() {
+    /// Pass Lido's stETH, wstETH and withdrawal queue, or three zero addresses where Lido doesn't exist.
+    constructor(address lido_, address wstETH_, address withdrawalQueue_) {
+        bool on = lido_ != address(0);
+        if (on != (wstETH_ != address(0)) || on != (withdrawalQueue_ != address(0))) revert InvalidValue();
+        if (on && (IWstETH(wstETH_).stETH() != lido_ || IWithdrawalQueue(withdrawalQueue_).WSTETH() != wstETH_)) revert InvalidValue();
+        (lido, wstETH, withdrawalQueue) = (ILido(lido_), IWstETH(wstETH_), IWithdrawalQueue(withdrawalQueue_));
         pauser = msg.sender;
         emit PauserChanged(msg.sender);
     }
@@ -409,6 +432,72 @@ contract EcrinVault {
         return t.balance > queued ? t.balance - queued : 0;
     }
 
+    // ------------------------------------------------------------------ staking (Lido), stays inside the vault
+
+    /// Stakes `amount` of the vault's free ETH (not promised to a queued withdrawal) with Lido.
+    function stakeEth(uint256 amount) external nonReentrant {
+        if (address(lido) == address(0)) revert StakingOff();
+        Vault storage v = _vault(msg.sender);
+        if (amount == 0) revert ZeroAmount();
+        if (amount > available(msg.sender)) revert InsufficientFunds();
+        v.balance -= amount;
+        uint256 st0 = lido.balanceOf(address(this));
+        lido.submit{value: amount}(address(0));
+        uint256 st = lido.balanceOf(address(this)) - st0;
+        if (st == 0) revert ZeroAmount();
+        if (!lido.approve(address(wstETH), st)) revert TransferFailed();
+        uint256 w0 = wstETH.balanceOf(address(this));
+        wstETH.wrap(st);
+        uint256 got = wstETH.balanceOf(address(this)) - w0;
+        if (got == 0) revert ZeroAmount();
+        stakes[msg.sender].wst += got;
+        totalStakedWst += got;
+        emit Staked(msg.sender, amount, got);
+    }
+
+    /// Starts unstaking `wst` of the vault's staked wstETH through Lido's exit queue (usually 1 to 5 days).
+    function unstakeEth(uint256 wst) external nonReentrant returns (uint256 requestId) {
+        if (address(lido) == address(0)) revert StakingOff();
+        _vault(msg.sender);
+        Stake storage k = stakes[msg.sender];
+        if (wst == 0) revert ZeroAmount();
+        if (wst > k.wst) revert InsufficientFunds();
+        if (k.requests.length >= MAX_PENDING_UNSTAKES) revert TooManyPending();
+        k.wst -= wst;
+        totalStakedWst -= wst;
+        uint256 st0 = lido.balanceOf(address(this));
+        wstETH.unwrap(wst);
+        uint256 st = lido.balanceOf(address(this)) - st0;
+        if (!lido.approve(address(withdrawalQueue), st)) revert TransferFailed();
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = st;
+        requestId = withdrawalQueue.requestWithdrawals(amounts, address(this))[0];
+        k.requests.push(requestId);
+        emit UnstakeRequested(msg.sender, wst, st, requestId);
+    }
+
+    /// Once Lido has paid out a request, brings the ETH back into the owner's vault. Anyone may run it; the ETH
+    /// can only land in that vault.
+    function claimUnstaked(address owner, uint256 requestId) external nonReentrant {
+        Vault storage v = _vault(owner);
+        uint256[] storage r = stakes[owner].requests;
+        uint256 i;
+        while (i < r.length && r[i] != requestId) i++;
+        if (i == r.length) revert NotFound();
+        r[i] = r[r.length - 1];
+        r.pop();
+        uint256 before = address(this).balance;
+        withdrawalQueue.claimWithdrawal(requestId);
+        uint256 got = address(this).balance - before;
+        v.balance += got;
+        emit Unstaked(owner, requestId, got);
+    }
+
+    function getStake(address owner) external view returns (uint256 wst, uint256[] memory requests) {
+        Stake storage k = stakes[owner];
+        return (k.wst, k.requests);
+    }
+
     // ------------------------------------------------------------------ views
 
     function hasVault(address owner) external view returns (bool) { return vaults[owner].exists; }
@@ -447,8 +536,9 @@ contract EcrinVault {
         return false; // SetGuardian, AddTrusted
     }
 
-    /// Plain ETH transfers would be stuck with no owner, so they are refused.
-    receive() external payable { revert InvalidValue(); }
+    /// Plain ETH transfers would be stuck with no owner, so they are refused. Only Lido's exit queue pays in
+    /// (inside claimUnstaked, which books it to the owner's vault).
+    receive() external payable { if (address(withdrawalQueue) == address(0) || msg.sender != address(withdrawalQueue)) revert InvalidValue(); }
 
     // ------------------------------------------------------------------ internals
 
@@ -580,4 +670,25 @@ contract EcrinVault {
     }
 
     function _max(uint64 a, uint64 b) private pure returns (uint64) { return a > b ? a : b; }
+}
+
+/// The parts of Lido this contract uses.
+interface ILido {
+    function submit(address referral) external payable returns (uint256);
+    function balanceOf(address who) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+}
+
+interface IWstETH {
+    function wrap(uint256 stETHAmount) external returns (uint256);
+    function unwrap(uint256 wstETHAmount) external returns (uint256);
+    function balanceOf(address who) external view returns (uint256);
+    function stETH() external view returns (address);
+    function getStETHByWstETH(uint256 wstETHAmount) external view returns (uint256);
+}
+
+interface IWithdrawalQueue {
+    function requestWithdrawals(uint256[] calldata amounts, address owner) external returns (uint256[] memory);
+    function claimWithdrawal(uint256 requestId) external;
+    function WSTETH() external view returns (address);
 }

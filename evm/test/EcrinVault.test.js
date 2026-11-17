@@ -12,7 +12,7 @@ const ch = (kind, value = 0, addr = ZERO) => ({ kind, value, addr });
 
 async function deploy() {
   const [owner, guardian, bank, casino, thief] = await ethers.getSigners();
-  const vault = await (await ethers.getContractFactory("EcrinVault")).deploy();
+  const vault = await (await ethers.getContractFactory("EcrinVault")).deploy(ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress);
   return { vault, owner, guardian, bank, casino, thief };
 }
 const idOf = async (tx, vault, event) => {

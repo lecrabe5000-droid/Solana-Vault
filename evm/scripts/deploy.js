@@ -5,8 +5,11 @@ const fs = require("fs"), path = require("path");
 
 const OUT = path.join(__dirname, "..", "..", "app", "deployments-evm.js");
 const ERC20 = ["function symbol() view returns (string)", "function decimals() view returns (uint8)"];
-// 2 = the contract holds tokens too; 3 = it also has the emergency brake on new deposits.
-const VERSION = 3;
+// 2 = the contract holds tokens too; 3 = it also has the emergency brake on new deposits; 4 = staking (with Lido
+// where the network has it, off elsewhere).
+const VERSION = 4;
+const LOCATOR = ["function lido() view returns (address)", "function withdrawalQueue() view returns (address)"];
+const QUEUE = ["function WSTETH() view returns (address)", "function STETH() view returns (address)"];
 
 async function main() {
   const { EVM_NETS } = await import(path.join(__dirname, "..", "..", "app", "config-evm.js"));
@@ -15,7 +18,8 @@ async function main() {
   // "all" leaves networks that already have a current contract alone, so vaults people made there keep working.
   // Picking one network by name redeploys it on purpose (REDEPLOY=1).
   const text0 = fs.readFileSync(OUT, "utf8"), have = JSON.parse(text0.slice(text0.indexOf("{"), text0.lastIndexOf("}") + 1))[network.name];
-  if (have?.v >= VERSION && process.env.REDEPLOY !== "1") { console.log(`Already live on ${network.name} at ${have.address}; skipping. Pick ${network.name} by itself to replace it.`); return; }
+  // Networks without Lido gain nothing from v 4, so their v 3 contracts (and the Safes in them) stay.
+  if (have?.v >= (cfg.lidoLocator ? VERSION : 3) && process.env.REDEPLOY !== "1") { console.log(`Already live on ${network.name} at ${have.address}; skipping. Pick ${network.name} by itself to replace it.`); return; }
   const [deployer] = await ethers.getSigners();
   if (!deployer) throw new Error("No deployer key. Set the EVM_DEPLOYER_KEY (or SEPOLIA_DEPLOYER_KEY) secret.");
 
@@ -26,9 +30,20 @@ async function main() {
     if (symbol !== "USDC" || Number(decimals) !== 6) throw new Error(`${cfg.usdc} on ${network.name} isn't USDC (got ${symbol}, ${decimals} decimals). Fix app/config-evm.js.`);
   }
 
+  // Staking: Lido's addresses come from its on-chain directory, never typed in, and must point at each other.
+  let lidoArgs = [ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress];
+  if (cfg.lidoLocator) {
+    const loc = new ethers.Contract(cfg.lidoLocator, LOCATOR, ethers.provider);
+    const [lido, queue] = await Promise.all([loc.lido(), loc.withdrawalQueue()]);
+    const q = new ethers.Contract(queue, QUEUE, ethers.provider);
+    const [wst, st] = await Promise.all([q.WSTETH(), q.STETH()]);
+    if (st.toLowerCase() !== lido.toLowerCase()) throw new Error(`Lido's withdrawal queue ${queue} doesn't point at stETH ${lido}`);
+    lidoArgs = [lido, wst, queue];
+    console.log(`Lido on ${network.name}: stETH ${lido}, wstETH ${wst}, withdrawal queue ${queue}`);
+  }
   const factory = await ethers.getContractFactory("EcrinVault");
   const bal = await ethers.provider.getBalance(deployer.address);
-  const gas = await ethers.provider.estimateGas(await factory.getDeployTransaction());
+  const gas = await ethers.provider.estimateGas(await factory.getDeployTransaction(...lidoArgs));
   const fee = await ethers.provider.getFeeData();
   const need = (gas * (fee.maxFeePerGas || fee.gasPrice || 0n) * 3n) / 2n;
   console.log(`Deployer ${deployer.address} has ${ethers.formatEther(bal)} ${cfg.unit} on ${network.name}; the deploy needs about ${ethers.formatEther(need)}`);
@@ -42,8 +57,8 @@ async function main() {
 
   const text = fs.readFileSync(OUT, "utf8");
   const deployed = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
-  deployed[network.name] = { address, fromBlock: receipt.blockNumber, v: VERSION };
-  fs.writeFileSync(OUT, `// Written by the deploy-evm workflow after each deploy (evm/scripts/deploy.js). v 2 = holds tokens too; v 3 = has the deposit brake.
+  deployed[network.name] = { address, fromBlock: receipt.blockNumber, v: VERSION, staking: !!cfg.lidoLocator };
+  fs.writeFileSync(OUT, `// Written by the deploy-evm workflow after each deploy (evm/scripts/deploy.js). v 2 = holds tokens too; v 3 = has the deposit brake; v 4 = staking (on where staking: true).
 export const DEPLOYED = ${JSON.stringify(deployed, null, 2)};
 `);
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Ecrin is on ${cfg.name} ${cfg.net}\n\nContract: [\`${address}\`](${cfg.explorer}/address/${address})\n\n`);

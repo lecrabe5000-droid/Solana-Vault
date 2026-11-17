@@ -11,7 +11,7 @@ const usd = (n) => ethers.parseUnits(String(n), 6);
 
 async function deploy() {
   const [owner, guardian, bank, casino, thief, other] = await ethers.getSigners();
-  const vault = await (await ethers.getContractFactory("EcrinVault")).deploy();
+  const vault = await (await ethers.getContractFactory("EcrinVault")).deploy(ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress);
   const T = await ethers.getContractFactory("TestToken");
   const usdc = await T.deploy("USDC", 0);
   for (const s of [owner, thief, other]) { await usdc.mint(s.address, usd(1000)); await usdc.connect(s).approve(vault.target, ethers.MaxUint256); }
