@@ -1,8 +1,8 @@
 // Written by the sui-safe workflow after each publish (sui/). Sui Testnet.
 export const SUI_SAFE = {
   "testnet": {
-    "package": "0x010f46c7c37522e0939e372932abea98772f2612b3142923c35a93fa721ca55c",
-    "registry": "0xd07c6d0b8247a67d0f8e86e5453d73d501cabc89f11001b663e815d3ed81e4da",
-    "digest": "CVNFwPzjGttt2YV6zm6EcQNvJVeaR8H6HoVebtch5EMo"
+    "package": "0x5d2b00768d47a3ce88d4213826440133543a58626002cface363e24cb0081bdb",
+    "registry": "0x85bdd933f0397c00cbca27af98fe14a677d47bf17526fce757977cd3a1d95fee",
+    "digest": "FBeR6z18SigiFrmAKuCX6RqnggXo3viW5ucfrvMsnWqZ"
   }
 };
