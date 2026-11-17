@@ -3438,3 +3438,4 @@ body.stacked.grow-open #root, :root[data-theme] body.stacked.grow-open #root { t
 :root[data-theme="light"] .lv-ic { background: rgba(47, 91, 255, .1); color: #2f5bff; } :root[data-theme="light"] .lv-t small b { color: #2f5bff; }
 :root[data-theme="light"] .lv-x { background: #fff; border-color: rgba(16, 17, 20, .1); }
 @media (prefers-reduced-motion: reduce) { .lv-ban { animation: none; } }
+.buy-seg { margin: 4px auto 14px; }

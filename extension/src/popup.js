@@ -3034,6 +3034,19 @@ const actions = {
   "wd-pick": (el) => { const P = S.panel; P.to = el.dataset.a; renderPanel(); },
   "wd-back": () => { const P = S.panel; P.step = null; renderPanel(); },
   "safe-go": async (el) => { el.disabled = true; await useNet(el.dataset.n); S.panel = null; openPanel(el.dataset.p); if (el.dataset.p === "protect") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); } },
+  "buy-coin": (el) => { BUY.coin = el.dataset.v === "usdc" ? "usdc" : "native"; renderPanel(); },
+  "buy-go": async () => {
+    if (BUY.busy) return;
+    const tab = globalThis.chrome?.tabs?.create, w = tab ? null : window.open("", "_blank"); // a blank tab first, so phones don't block it
+    BUY.busy = true; renderPanel();
+    try {
+      const N = NETS[S.net], q = new URLSearchParams({ net: S.net, addr: ENG.address, coin: N.usdc ? BUY.coin : "native", lang: S.lang === "fr" ? "fr" : "en", theme: S.theme === "light" ? "light" : "dark" });
+      const r = await fetch(`${BUY.api}?${q}`, { cache: "no-store" }), d = await r.json().catch(() => ({}));
+      if (!r.ok || !/^https:\/\/buy(-sandbox)?\.moonpay\.com\//.test(d.url || "")) throw new Error(d.error || "MoonPay can't be reached right now. Try again in a moment.");
+      if (tab) chrome.tabs.create({ url: d.url }); else if (w) w.location.href = d.url; else location.href = d.url;
+    } catch (e) { w?.close(); toast(errText(e), "err"); }
+    BUY.busy = false; renderPanel();
+  },
   "cancel-w": async (el) => {
     // Cancelling gets the same sheet as every other money move: live steps, then a clear receipt.
     const k = el.dataset.n, a = el.dataset.a, id = Number(el.dataset.id), N = NETS[k];
@@ -3523,16 +3536,32 @@ function sitesView() {
 // screen shows an estimate from current prices and the button says "Coming soon".
 // Buying with a card goes through a licensed partner (they handle payment and identity checks, Ecrin never sees
 // card details). It turns on when a partner key is set for mainnet; until then the screen says so.
-const ONRAMP = { provider: "Transak", key: "", url: (key, addr, net, coin) => `https://global.transak.com/?apiKey=${encodeURIComponent(key)}&walletAddress=${encodeURIComponent(addr)}&network=${net}&cryptoCurrencyCode=${coin}&disableWalletAddressForm=true` };
+const BUY = { api: "https://ecrinprotocol.app/api/buy", on: false, test: false, checked: 0, coin: "native", busy: false };
+async function buyStatus() {
+  if (Date.now() - BUY.checked < 60_000) return;
+  BUY.checked = Date.now();
+  try { const d = await (await fetch(BUY.api + "/status", { cache: "no-store" })).json(); BUY.on = !!d.on; BUY.test = !!d.test; } catch (_) {}
+  if (S.panel?.p === "buy") renderPanel();
+}
+/** Buying is open on Testnet with MoonPay's sandbox (a test key), and on Mainnet with a live key. Never in the demo. */
+const buyOpen = () => !globalThis.ECRIN_DEMO && BUY.on && (isMain() ? !BUY.test : BUY.test) && !!ENG?.address && !["rh", "hype", "rhm", "hypem"].includes(S.net);
 function buyView() {
   const N = NETS[S.net], addr = ENG?.address || "";
-  if (ONRAMP.key) return `${phead("Buy")}${fromRow()}<div class="cv"><div class="cv-art">${I.card}</div><h2>Buy ${N.unit} with a card</h2><p class="sub">You'll pay on ${ONRAMP.provider}'s secure page. The coins arrive straight in your Wallet at ${short(addr)}.</p>
-    <a class="btn primary xl" href="${ONRAMP.url(ONRAMP.key, addr, N.fam === "sol" ? "solana" : N.key === "eth" ? "ethereum" : N.key, N.unit)}" target="_blank">Continue to ${ONRAMP.provider} ${I.ext}</a></div>`;
+  buyStatus();
+  if (buyOpen()) {
+    const usdc = !!N.usdc && N.fam !== "tron", coin = usdc ? BUY.coin : "native", u = coin === "usdc" ? "USDC" : N.unit;
+    return `${phead("Buy")}${BUY.test ? `<div class="soon-row"><span class="soon">Test mode · no real money</span></div>` : ""}
+    <div class="cv"><div class="cv-art">${I.card}</div><h2>Buy ${u} with a card</h2>
+      ${usdc ? `<div class="seg buy-seg">${[["native", N.unit], ["usdc", "USDC"]].map(([v, l]) => `<button data-act="buy-coin" data-v="${v}" aria-pressed="${coin === v}">${l}</button>`).join("")}</div>` : ""}
+      <p class="sub">You'll pay on MoonPay's secure page. The ${u} arrives straight in your Wallet on ${esc(N.name)}, at <span class="mono" style="white-space:nowrap">${short(addr)}</span>.</p>
+      ${BUY.test ? `<div class="note">${I.shield}<span>This is MoonPay's test mode: use their test card, nothing is charged. Real purchases open with mainnet.</span></div>` : `<div class="note">${I.shield}<span>Ecrin never sees your card details: MoonPay handles payment and identity checks.</span></div>`}
+      <button class="btn primary xl" data-act="buy-go"${BUY.busy ? " disabled" : ""}>${BUY.busy ? `<span class="spin"></span>` : ""}Continue to MoonPay ${I.ext}</button></div>`;
+  }
   return `${phead("Buy")}
     <div class="soon-row"><span class="soon">Coming soon · opens with mainnet</span></div>
     <div class="cv"><div class="cv-art">${I.card}</div><h2>Buy crypto with a card</h2>
-      <p class="sub">Soon you'll buy SOL, ETH and USDC with a card or Apple Pay, through a licensed partner. The coins land straight in your Wallet, and you can protect them in your Safe right away.</p>
-      <div class="note">${I.shield}<span>Ecrin never sees your card details: the partner handles payment and identity checks.</span></div>
+      <p class="sub">Soon you'll buy SOL, ETH and USDC with a card or Apple Pay, through MoonPay. The coins land straight in your Wallet, and you can protect them in your Safe right away.</p>
+      <div class="note">${I.shield}<span>Ecrin never sees your card details: MoonPay handles payment and identity checks.</span></div>
       ${faucetBtn(N, "btn xl", `Get free test ${N.unit} for now`)}</div>`;
 }
 // Swaps run on Solana mainnet (real money) through Jupiter, with Ecrin's fee, via ecrinprotocol.app/api/swap. They

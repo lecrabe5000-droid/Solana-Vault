@@ -3438,6 +3438,7 @@ body.stacked.grow-open #root, :root[data-theme] body.stacked.grow-open #root { t
 :root[data-theme="light"] .lv-ic { background: rgba(47, 91, 255, .1); color: #2f5bff; } :root[data-theme="light"] .lv-t small b { color: #2f5bff; }
 :root[data-theme="light"] .lv-x { background: #fff; border-color: rgba(16, 17, 20, .1); }
 @media (prefers-reduced-motion: reduce) { .lv-ban { animation: none; } }
+.buy-seg { margin: 4px auto 14px; }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
