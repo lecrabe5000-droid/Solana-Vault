@@ -49,7 +49,7 @@ async function main() {
   console.log(`Deployer ${deployer.address} has ${ethers.formatEther(bal)} ${cfg.unit} on ${network.name}; the deploy needs about ${ethers.formatEther(need)}`);
   if (bal < need) throw new Error(`Not enough ${cfg.unit} on ${network.name}. Send some test ${cfg.unit} to ${deployer.address} (${cfg.faucetName}: ${cfg.faucet}).`);
 
-  const vault = await factory.deploy();
+  const vault = await factory.deploy(...lidoArgs);
   const receipt = await vault.deploymentTransaction().wait(2);
   const address = await vault.getAddress();
   console.log(`EcrinVault deployed at ${address} (block ${receipt.blockNumber}, tx ${receipt.hash})`);
