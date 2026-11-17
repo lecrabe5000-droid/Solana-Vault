@@ -4,7 +4,7 @@ For security reviewers. Everything here is in this repository, open source (MIT)
 
 ## Version to review
 
-The tag **`audit-candidate-1`** marks the frozen version of the contracts. Contract code (`crates/vault-core`,
+Commit **`8e8e92b`** on `main` (17 November 2026) is the frozen version of the contracts ("audit candidate 1"). Contract code (`crates/vault-core`,
 `programs/`, `evm/contracts/EcrinVault.sol`, `sui/sources/`) does not change after it except to fix what the audit
 finds; the wallet apps can keep moving.
 
