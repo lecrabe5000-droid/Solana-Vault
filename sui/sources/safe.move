@@ -191,6 +191,8 @@ public fun request_withdrawal<T>(safe: &mut Safe<T>, dest: address, amount: u64,
     owner_only(safe, ctx);
     let now = now(clock);
     assert!(amount > 0, EZeroAmount);
+    // A coin sent to the Safe's own address would be stuck there for good.
+    assert!(dest != object::id_address(safe), EInvalidValue);
     assert!(amount <= available(safe), EInsufficientFunds);
     // More than a day's limit could never run (each run counts against the day), so it would sit there forever.
     if (safe.policy.daily_limit.is_some()) assert!(amount <= *safe.policy.daily_limit.borrow(), EDailyLimit);
@@ -411,6 +413,7 @@ fun check_change<T>(safe: &Safe<T>, change: &Change, now: u64) {
             p.guardian = *g;
         },
         Change::AddTrusted(a) => {
+            assert!(*a != object::id_address(safe), EInvalidValue);
             assert!(!safe.trusted.contains(a), EInvalidValue);
             assert!(safe.trusted.length() < MAX_TRUSTED, ETooManyTrusted);
         },

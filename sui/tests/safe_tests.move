@@ -440,3 +440,25 @@ fun one_safe_per_owner_and_coin() {
     ts::return_shared(reg);
     done(sc, c);
 }
+
+#[test, expected_failure(abort_code = 12, location = ecrin_safe::safe)]
+fun the_safe_cant_withdraw_to_itself() {
+    let (mut sc, c) = start(option::none(), option::none());
+    sc.next_tx(OWNER);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    let me = object::id_address(&s);
+    s.request_withdrawal(me, 10, &c, sc.ctx());
+    ts::return_shared(s);
+    done(sc, c);
+}
+
+#[test, expected_failure(abort_code = 12, location = ecrin_safe::safe)]
+fun the_safe_cant_trust_itself() {
+    let (mut sc, c) = start(option::none(), option::none());
+    sc.next_tx(OWNER);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    let me = object::id_address(&s);
+    s.add_trusted(me, &c, sc.ctx());
+    ts::return_shared(s);
+    done(sc, c);
+}
