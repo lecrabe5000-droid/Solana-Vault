@@ -2,6 +2,12 @@
 
 For security reviewers. Everything here is in this repository, open source (MIT).
 
+## Version to review
+
+The tag **`audit-candidate-1`** marks the frozen version of the contracts. Contract code (`crates/vault-core`,
+`programs/`, `evm/contracts/EcrinVault.sol`, `sui/sources/`) does not change after it except to fix what the audit
+finds; the wallet apps can keep moving.
+
 ## What Ecrin is
 
 A self-custody wallet (Chrome extension and phone web app) with an on-chain **Safe**: money in the Safe can only
