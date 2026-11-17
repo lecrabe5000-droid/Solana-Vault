@@ -1,1 +1,1 @@
-{"latest": "0.30.2", "minimum": "0.2.0", "notes": "New Safe contracts on every Ethereum-style test network and Sui (with the emergency brake), plus look-alike address warnings."}
+{"latest": "0.30.3", "minimum": "0.2.0", "notes": "Anything leaving your Safe now shows at the top of the home screen, with a countdown and a Cancel button."}

@@ -1090,10 +1090,27 @@ function totals() {
   return { chq: usd(b.native, "native") + usd(b.usdc, "usdc"), sav: usd(vn, "native") + usd(vu, "usdc"), b, vn, vu };
 }
 
+/** Home: whenever money is leaving a Safe, the next withdrawal with its countdown and a Cancel button right there
+ *  (no need to open the Safe first: if it wasn't you, every second counts). */
+function leaveBanner() {
+  // The network you're on has the freshest copy in S.vault; the others come from the last scan.
+  const pend = openRows().flatMap((r) => { const v = r.k === S.net && S.vault ? S.vault : r.v; if (!v?.main) return [];
+    return [...v.main.withdrawals.map((x) => ({ ...x, a: "native", r })), ...(v.usdc?.withdrawals || []).map((x) => ({ ...x, a: "usdc", r }))]; }).sort((x, y) => x.readyAt - y.readyAt);
+  const x = pend[0]; if (!x) return "";
+  const left = x.readyAt - (now() + (S.clockOff || 0)), unit = x.a === "usdc" ? "USDC" : NETS[x.r.k].unit;
+  const hms = (sec) => { sec = Math.max(0, Math.floor(sec)); return `${String(Math.floor(sec / 3600)).padStart(2, "0")}:${String(Math.floor((sec % 3600) / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`; };
+  return `<section class="lv-ban" role="alert">
+    <span class="lv-ic">${I.clock}</span>
+    <span class="lv-t"><b>${amt(x.amount, x.a)} ${unit} leaving your Safe</b><small>to ${esc(short(String(x.dest)))} · ${left > 0 ? `<b class="cd" data-until="${x.readyAt}">${hms(left)}</b>` : "ready to leave"}${pend.length > 1 ? ` · +${pend.length - 1} more` : ""}</small></span>
+    <button class="lv-x" data-act="cancel-w" data-n="${x.r.k}" data-id="${x.id}" data-a="${x.a}">${I.shield}Cancel</button>
+  </section>`;
+}
+
 /** The extension's full tab on a wide screen: a second column with the Safe at a glance and recent activity. */
 function dashSide(w, loading) {
   const rows = openRows(), t = now() + (S.clockOff || 0);
-  const pend = rows.flatMap((r) => [...r.v.main.withdrawals.map((x) => ({ ...x, a: "native", r })), ...(r.v.usdc?.withdrawals || []).map((x) => ({ ...x, a: "usdc", r }))]).sort((x, y) => x.readyAt - y.readyAt);
+  const pend = rows.flatMap((r) => { const v = r.k === S.net && S.vault ? S.vault : r.v; if (!v?.main) return [];
+    return [...v.main.withdrawals.map((x) => ({ ...x, a: "native", r })), ...(v.usdc?.withdrawals || []).map((x) => ({ ...x, a: "usdc", r }))]; }).sort((x, y) => x.readyAt - y.readyAt);
   const next = pend[0], share = w.total ? Math.round((w.sav / w.total) * 100) : 0, safeHere = netKeys().some(canSafe);
   const hms = (sec) => { sec = Math.max(0, Math.floor(sec)); return `${String(Math.floor(sec / 3600)).padStart(2, "0")}:${String(Math.floor((sec % 3600) / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`; };
   const acts = (S.activity || []).slice(0, 6);
@@ -1125,6 +1142,7 @@ function homeView() {
       </div>
     </header>
     ${S.err ? `<div class="banner">${esc(S.err)}</div>` : ""}
+    ${loading ? "" : leaveBanner()}
     ${S.offline ? `<div class="offline"><i></i>You're offline · showing your last balances</div>` : ""}${updateBanner()}${backupCard()}
     ${isMain() ? `<div class="brand-sig">${WORDMARK()}</div>` : `<div class="brand-sig" title="Test networks: these coins have no value">${WORDMARK()}<i>Testnet</i></div>`}
     <section class="hero"><svg class="hero-g" viewBox="0 0 360 230" preserveAspectRatio="xMidYMin slice" aria-hidden="true">${Array.from({ length: 30 }, (_, i) => `<ellipse cx="${180 + Math.sin(i / 2.6) * 6}" cy="${-10 + Math.cos(i / 2.6) * 4}" rx="${40 + i * 9}" ry="${22 + i * 6.2}"/>`).join("")}</svg>
@@ -2206,7 +2224,9 @@ function moveView() {
    Safe" opens it on every network where you have coins for the fee, and any other network opens on its own, with the
    same rules, the first time you protect something there. */
 const canSafe = (k) => !!NETS[k]?.contract; // Solana devnet has its program; mainnet (real money) waits for the audit
-const openRows = () => (S.all || []).filter((r) => r.ok && (r.k === S.net && S.vault !== undefined ? S.vault : r.v));
+// Every network with an open Safe. The network you're on uses its fresh copy (S.vault), so callers never read a
+// stale or empty one right after a change there.
+const openRows = () => (S.all || []).filter((r) => r.ok).map((r) => (r.k === S.net && S.vault !== undefined ? { ...r, v: S.vault } : r)).filter((r) => r.v?.main);
 const anySafe = () => !!S.vault || openRows().length > 0;
 /** The rules your Safe already uses (from any network), so a new network gets the same. */
 // ---- Withdraw: where it goes, then a last look before the countdown starts.
@@ -2504,6 +2524,7 @@ function bugView() {
 }
 // What's new: shown once after an update (never on a fresh install), and any time from Settings → About.
 const NEWS = [
+  ["Cancel from the home screen", "Anything leaving your Safe now shows at the top of the home screen, with its countdown and a Cancel button. If it wasn't you, one tap stops it."],
   ["Your Safe on Sui", "The Safe now runs on Sui Testnet too: open it, protect SUI, and every withdrawal waits like on Solana and Ethereum."],
   ["Look-alike addresses caught", "If an address starts and ends like one you've used but differs in the middle, a common scam, Ecrin warns you in red before you send."],
   ["Help & support", "Settings → Help & support: quick answers, and a way to reach a person on the Ecrin team."],
@@ -3010,7 +3031,7 @@ const actions = {
   "cancel-w": async (el) => {
     const was = el.innerHTML;
     try {
-      const keptAmt = (el.closest(".sf-alert, .sf-w")?.textContent.match(/([\d.,]+)\s+([A-Z]{2,6})/) || []).slice(1, 3).join(" ");
+      const keptAmt = (el.closest(".sf-alert, .sf-w, .lv-ban")?.textContent.match(/([\d.,]+)\s+([A-Z]{2,6})/) || []).slice(1, 3).join(" ");
       el.disabled = true; el.classList.add("busy"); el.innerHTML = `<i class="btn-spin"></i>${trText("Keeping it safe…", S.lang)}`;
       await useNet(el.dataset.n); await (await eng()).cancel(el.dataset.a, Number(el.dataset.id)); await logActivity({ t: "cancel", a: el.dataset.a });
       const played = await keepFx(el);
