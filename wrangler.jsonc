@@ -15,5 +15,14 @@
     "bindings": [{ "name": "HUB", "class_name": "AlertHub" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AlertHub"] }],
-  "triggers": { "crons": ["* * * * *"] }
+  "triggers": { "crons": ["* * * * *"] },
+  // Public links (shown on the site, in the wallet and by the bot). Kept here so a deploy never wipes them.
+  "vars": {
+    "X_URL": "https://x.com/ecrinprotocol",
+    "SUPPORT_EMAIL": "support@ecrinprotocol.app",
+    "TELEGRAM_GROUP_URL": "https://t.me/ecrinprotocolcommunity"
+  },
+  // Plain variables added in the Cloudflare dashboard survive deploys too. Anything private (REPORT_EMAIL,
+  // keys, tokens) belongs in Secrets, never in this file: the repository is public.
+  "keep_vars": true
 }
