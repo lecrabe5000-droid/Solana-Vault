@@ -160,14 +160,17 @@ export class AlertHub extends DurableObject {
     this.sql.exec("INSERT INTO reports (at, ip, text, contact, info) VALUES (?, ?, ?, ?, ?)", now, ip, text, contact, JSON.stringify(Object.fromEntries(details)));
     const support = b.kind === "support", title = support ? "Ecrin support request" : "Ecrin report";
     const body = `${title}\n\n${text}\n\nFrom: ${contact || "anonymous"}\n${details.map(([k, v]) => `${k}: ${v}`).join("\n")}${contact ? "" : "\n(no contact given: they can't be answered directly)"}`;
-    const tasks = [];
-    if (this.env.REPORT_TELEGRAM_CHAT && this.env.TELEGRAM_BOT_TOKEN) tasks.push(this.tg("sendMessage", { chat_id: this.env.REPORT_TELEGRAM_CHAT, text: body.slice(0, 4000), link_preview_options: { is_disabled: true } }));
+    const tasks = [], via = [];
+    if (this.env.REPORT_TELEGRAM_CHAT && this.env.TELEGRAM_BOT_TOKEN) { via.push("telegram"); tasks.push(this.tg("sendMessage", { chat_id: this.env.REPORT_TELEGRAM_CHAT, text: body.slice(0, 4000), link_preview_options: { is_disabled: true } }).then((r) => !!r?.ok)); }
     if (/@/.test(this.env.REPORT_EMAIL || "") && this.env.RESEND_API_KEY) {
       const h = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-      tasks.push(this.mail(this.env.REPORT_EMAIL, `${support ? "Support" : "Report"}: ${text.slice(0, 60)}`, `<pre style="white-space:pre-wrap;font:14px/1.5 -apple-system,Segoe UI,sans-serif">${h(body)}</pre>`));
+      via.push("email"); tasks.push(this.mail(this.env.REPORT_EMAIL, `${support ? "Support" : "Report"}: ${text.slice(0, 60)}`, `<pre style="white-space:pre-wrap;font:14px/1.5 -apple-system,Segoe UI,sans-serif">${h(body)}</pre>`));
     }
-    await Promise.allSettled(tasks);
-    return json({ ok: true });
+    const done = await Promise.allSettled(tasks);
+    // Whether the team was actually told (never where): stored either way, so nothing is lost.
+    const delivered = Object.fromEntries(via.map((k, i) => [k, done[i].status === "fulfilled" && done[i].value === true]));
+    if (!via.length || Object.values(delivered).some((v) => !v)) console.error("report not delivered", JSON.stringify(delivered), via.length ? this.mailErr || "" : "no REPORT_EMAIL / REPORT_TELEGRAM_CHAT set");
+    return json({ ok: true, delivered });
   }
 
   async faucet(request) {
