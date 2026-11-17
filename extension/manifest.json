@@ -3,7 +3,7 @@
   "name": "Ecrin Wallet",
   "short_name": "Ecrin",
   "version": "0.30.4",
-  "description": "A wallet for spending, a safe nobody can rush. Solana and Ethereum. Testnet beta.",
+  "description": "The wallet with an undo button: withdrawals from your Safe wait, and you can cancel them. Solana, Ethereum, Sui and more.",
   "action": {
     "default_popup": "popup.html",
     "default_title": "Ecrin Wallet",
