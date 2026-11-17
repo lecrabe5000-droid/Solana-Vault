@@ -2504,6 +2504,8 @@ function bugView() {
 }
 // What's new: shown once after an update (never on a fresh install), and any time from Settings → About.
 const NEWS = [
+  ["Your Safe on Sui", "The Safe now runs on Sui Testnet too: open it, protect SUI, and every withdrawal waits like on Solana and Ethereum."],
+  ["Look-alike addresses caught", "If an address starts and ends like one you've used but differs in the middle, a common scam, Ecrin warns you in red before you send."],
   ["Help & support", "Settings → Help & support: quick answers, and a way to reach a person on the Ecrin team."],
   ["Withdraw anywhere, after a last look", "Choose your Wallet or any address, then review the amount, the destination and when it can leave before the countdown starts."],
   ["Report a problem", "Settings → Report a problem or an idea: it goes straight to the Ecrin team. Thank you to every tester."],
