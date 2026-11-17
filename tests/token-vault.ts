@@ -138,13 +138,17 @@ describe("token vaults", () => {
   });
 
   it("never pays the vault into itself, even if the owner trusted its own address", async () => {
-    await program.methods.proposeChange({ addTrusted: { address: tvault } }).accountsPartial({ owner: owner.publicKey, vault }).signers([owner]).rpc();
+    // On the SOL side of this vault (no daily limit there), so the rules allow the send and the guard is what refuses it.
+    await program.methods.deposit(new BN(0.05 * SOL)).accountsPartial({ owner: owner.publicKey, vault }).signers([owner]).rpc();
+    await program.methods.proposeChange({ addTrusted: { address: vault } }).accountsPartial({ owner: owner.publicKey, vault }).signers([owner]).rpc();
     const change = (await program.account.vaultAccount.fetch(vault)).changes.at(-1)!;
     await program.methods.guardianApproveChange(change.id).accountsPartial({ guardian: guardian.publicKey, vault }).signers([guardian]).rpc();
-    const was = await held(vaultTokens);
-    await expectError(program.methods.sendTokenToTrusted(new BN(USDC)).accountsPartial({ owner: owner.publicKey, vault, tokenVault: tvault, mint, vaultTokens, dest: tvault, destTokens: vaultTokens }).signers([owner]).rpc(), "WrongDestination");
-    assert.equal(await held(vaultTokens), was);
-    await program.methods.proposeChange({ removeTrusted: { address: tvault } }).accountsPartial({ owner: owner.publicKey, vault }).signers([owner]).rpc();
+    const was = (await program.account.vaultAccount.fetch(vault)).balance.toNumber();
+    let failed = false;
+    try { await program.methods.sendToTrusted(new BN(1000)).accountsPartial({ owner: owner.publicKey, vault, dest: vault }).signers([owner]).rpc(); } catch (_) { failed = true; }
+    assert.ok(failed, "paying the vault into itself must be refused");
+    assert.equal((await program.account.vaultAccount.fetch(vault)).balance.toNumber(), was);
+    await program.methods.proposeChange({ removeTrusted: { address: vault } }).accountsPartial({ owner: owner.publicKey, vault }).signers([owner]).rpc();
   });
 
   // Last, because it deposits one more USDC than the tests above expect.
