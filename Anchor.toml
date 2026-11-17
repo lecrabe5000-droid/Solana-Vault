@@ -22,3 +22,7 @@ test = "npx ts-mocha -p ./tsconfig.json -t 1000000 'tests/**/*.ts'"
 [test]
 # Deploy as an upgradeable program (like devnet and mainnet) so tests can check the upgrade authority.
 upgradeable = true
+
+[test.validator]
+# Short epochs, so the staking test can see a stake activate and cool down in about a minute.
+slots_per_epoch = "32"

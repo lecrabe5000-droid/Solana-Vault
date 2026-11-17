@@ -178,6 +178,23 @@ impl Vault {
         Ok(())
     }
 
+    /// Staking: moves `amount` out of the free balance into a stake account the Safe itself controls (it is both
+    /// the staker and the only one who can withdraw). The money never leaves the Safe's control, so no delay,
+    /// lock or daily limit applies; only money not already promised to a queued withdrawal can be staked.
+    pub fn stake_out(&mut self, signer: &Address, amount: u64) -> Result<(), VaultError> {
+        self.owner_only(signer)?;
+        if amount == 0 { return Err(VaultError::ZeroAmount); }
+        if amount > self.available() { return Err(VaultError::InsufficientFunds); }
+        self.balance -= amount;
+        Ok(())
+    }
+
+    /// Staked money (plus its rewards) coming back into the Safe. It can only ever come back here.
+    pub fn stake_back(&mut self, amount: u64) -> Result<(), VaultError> {
+        self.balance = self.balance.checked_add(amount).ok_or(VaultError::Overflow)?;
+        Ok(())
+    }
+
     /// Instant send to an address the owner trusted earlier. Still blocked while locked.
     pub fn send_to_trusted(&mut self, signer: &Address, dest: Address, amount: u64, now: i64) -> Result<Outcome, VaultError> {
         self.owner_only(signer)?;

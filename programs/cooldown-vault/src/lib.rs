@@ -8,6 +8,13 @@
 //!
 //! No receipt token is ever minted, so there is nothing to sell to get around the delay.
 //!
+//! Staking: the owner can stake SOL from the Safe with a validator of their choice. Each stake account is a PDA
+//! (seeds ["stake", vault, index]) whose staker AND withdrawer is the vault itself, with no lockup or custodian,
+//! and this program never re-authorizes, splits or merges it. So staked SOL can only ever come back into the
+//! vault (`reclaim_stake`, which anyone may run once the stake is inactive), rewards included. Only SOL not
+//! promised to a queued withdrawal can be staked; to withdraw staked SOL the owner unstakes first, then
+//! withdraws as usual, with the usual delay. A thief with the owner's key can stake or unstake, never take.
+//!
 //! Emergency brake: one program-wide switch can stop NEW deposits (SOL and tokens), and nothing else.
 //! Withdrawals, cancels, rule changes and guardian actions always work, paused or not, so the switch can never
 //! trap anyone's money. It lives in its own account (seeds ["config"]); the program's upgrade authority sets it up
@@ -181,6 +188,102 @@ pub mod cooldown_vault {
 
     /// Opens the owner's vault for one token: a PDA that keeps its rules state and owns the token account
     /// (an associated token account) that holds the coins.
+    // ------------------------------------------------------------ staking (SOL only, stays inside the Safe)
+
+    /// Opens the record of this vault's stake accounts (once, before the first stake).
+    pub fn open_stakes(ctx: Context<OpenStakes>) -> Result<()> {
+        let b = &mut ctx.accounts.book;
+        b.vault = ctx.accounts.vault.key();
+        b.bump = ctx.bumps.book;
+        b.slots = Vec::new();
+        Ok(())
+    }
+
+    /// Stakes `amount` of the Safe's free SOL with `vote`, in a new stake account owned by the vault. The owner
+    /// pays the stake account's rent (it comes back to the Safe with the stake).
+    pub fn stake_sol(ctx: Context<StakeSol>, idx: u8, amount: u64) -> Result<()> {
+        let book = &mut ctx.accounts.book;
+        require!(book.slots.len() < MAX_STAKES, VaultErr::TooManyPending);
+        require!(!book.slots.iter().any(|x| x.idx == idx), VaultErr::InvalidValue);
+        let mut v = ctx.accounts.vault.load();
+        v.stake_out(&ctx.accounts.owner.key().to_bytes(), amount).map_err(err)?;
+
+        let vault_key = ctx.accounts.vault.key();
+        let stake_seeds: &[&[u8]] = &[b"stake", vault_key.as_ref(), &[idx], &[ctx.bumps.stake]];
+        let rent = Rent::get()?.minimum_balance(STAKE_SPACE);
+        anchor_lang::system_program::create_account(
+            CpiContext::new_with_signer(ctx.accounts.system_program.to_account_info(), anchor_lang::system_program::CreateAccount {
+                from: ctx.accounts.owner.to_account_info(),
+                to: ctx.accounts.stake.to_account_info(),
+            }, &[stake_seeds]),
+            rent, STAKE_SPACE as u64, &stake_ix::STAKE_ID,
+        )?;
+        // The SOL to stake moves straight from the vault (this program owns it) into the new stake account.
+        let (from, to) = (ctx.accounts.vault.to_account_info(), ctx.accounts.stake.to_account_info());
+        **from.try_borrow_mut_lamports()? = from.lamports().checked_sub(amount).ok_or(VaultErr::Overflow)?;
+        **to.try_borrow_mut_lamports()? = to.lamports().checked_add(amount).ok_or(VaultErr::Overflow)?;
+
+        let auth = stake_ix::Authorized { staker: vault_key, withdrawer: vault_key };
+        anchor_lang::solana_program::program::invoke(
+            &stake_ix::initialize(&ctx.accounts.stake.key(), &auth, &stake_ix::Lockup::default()),
+            &[ctx.accounts.stake.to_account_info(), ctx.accounts.rent.to_account_info()],
+        )?;
+        let owner_key = ctx.accounts.vault.owner;
+        let vault_seeds: &[&[u8]] = &[b"vault", owner_key.as_ref(), &[ctx.accounts.vault.bump]];
+        anchor_lang::solana_program::program::invoke_signed(
+            &stake_ix::delegate_stake(&ctx.accounts.stake.key(), &vault_key, &ctx.accounts.vote.key()),
+            &[ctx.accounts.stake.to_account_info(), ctx.accounts.vote.to_account_info(), ctx.accounts.clock.to_account_info(),
+              ctx.accounts.stake_history.to_account_info(), ctx.accounts.stake_config.to_account_info(), ctx.accounts.vault.to_account_info()],
+            &[vault_seeds],
+        )?;
+        book.slots.push(StakeSlot { idx, principal: amount, vote: ctx.accounts.vote.key(), unstaking: false });
+        emit!(StakeChanged { vault: vault_key, idx, amount, vote: ctx.accounts.vote.key(), kind: 0 });
+        let bump = ctx.accounts.vault.bump;
+        ctx.accounts.vault.store(&v, bump);
+        Ok(())
+    }
+
+    /// Starts unstaking: the stake cools down (about one epoch), then `reclaim_stake` brings it back.
+    pub fn unstake_sol(ctx: Context<UnstakeSol>, idx: u8) -> Result<()> {
+        let slot = ctx.accounts.book.slots.iter_mut().find(|x| x.idx == idx).ok_or(VaultErr::NotFound)?;
+        let vault_key = ctx.accounts.vault.key();
+        let owner_key = ctx.accounts.vault.owner;
+        let vault_seeds: &[&[u8]] = &[b"vault", owner_key.as_ref(), &[ctx.accounts.vault.bump]];
+        anchor_lang::solana_program::program::invoke_signed(
+            &stake_ix::deactivate_stake(&ctx.accounts.stake.key(), &vault_key),
+            &[ctx.accounts.stake.to_account_info(), ctx.accounts.clock.to_account_info(), ctx.accounts.vault.to_account_info()],
+            &[vault_seeds],
+        )?;
+        slot.unstaking = true;
+        emit!(StakeChanged { vault: vault_key, idx, amount: slot.principal, vote: slot.vote, kind: 1 });
+        Ok(())
+    }
+
+    /// Brings an inactive stake account back into the vault: everything in it, rewards and rent included. Anyone
+    /// may run it; the SOL can only go to the vault.
+    pub fn reclaim_stake(ctx: Context<ReclaimStake>, idx: u8) -> Result<()> {
+        let i = ctx.accounts.book.slots.iter().position(|x| x.idx == idx).ok_or(VaultErr::NotFound)?;
+        let vault_key = ctx.accounts.vault.key();
+        let owner_key = ctx.accounts.vault.owner;
+        let vault_seeds: &[&[u8]] = &[b"vault", owner_key.as_ref(), &[ctx.accounts.vault.bump]];
+        let all = ctx.accounts.stake.lamports();
+        let before = ctx.accounts.vault.to_account_info().lamports();
+        anchor_lang::solana_program::program::invoke_signed(
+            &stake_ix::withdraw(&ctx.accounts.stake.key(), &vault_key, &vault_key, all, None),
+            &[ctx.accounts.stake.to_account_info(), ctx.accounts.vault.to_account_info(), ctx.accounts.clock.to_account_info(),
+              ctx.accounts.stake_history.to_account_info(), ctx.accounts.vault.to_account_info()],
+            &[vault_seeds],
+        )?;
+        let back = ctx.accounts.vault.to_account_info().lamports().checked_sub(before).ok_or(VaultErr::Overflow)?;
+        let mut v = ctx.accounts.vault.load();
+        v.stake_back(back).map_err(err)?;
+        let slot = ctx.accounts.book.slots.remove(i);
+        emit!(StakeChanged { vault: vault_key, idx, amount: back, vote: slot.vote, kind: 2 });
+        let bump = ctx.accounts.vault.bump;
+        ctx.accounts.vault.store(&v, bump);
+        Ok(())
+    }
+
     pub fn open_token_vault(ctx: Context<OpenTokenVault>) -> Result<()> {
         let t = &mut ctx.accounts.token_vault;
         t.owner = ctx.accounts.owner.key();
@@ -436,6 +539,90 @@ pub struct GuardianOnly<'info> {
 }
 
 #[derive(Accounts)]
+pub struct OpenStakes<'info> {
+    #[account(mut)]
+    pub owner: Signer<'info>,
+    #[account(seeds = [b"vault", owner.key().as_ref()], bump = vault.bump)]
+    pub vault: Account<'info, VaultAccount>,
+    #[account(init, payer = owner, space = 8 + StakeBook::INIT_SPACE, seeds = [b"stakes", vault.key().as_ref()], bump)]
+    pub book: Account<'info, StakeBook>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(idx: u8)]
+pub struct StakeSol<'info> {
+    #[account(mut)]
+    pub owner: Signer<'info>,
+    #[account(mut, seeds = [b"vault", owner.key().as_ref()], bump = vault.bump)]
+    pub vault: Account<'info, VaultAccount>,
+    #[account(mut, seeds = [b"stakes", vault.key().as_ref()], bump = book.bump)]
+    pub book: Account<'info, StakeBook>,
+    /// CHECK: a fresh stake account at its PDA; created here (create_account fails if it already exists).
+    #[account(mut, seeds = [b"stake", vault.key().as_ref(), &[idx]], bump)]
+    pub stake: UncheckedAccount<'info>,
+    /// CHECK: the validator's vote account; the stake program checks it is one.
+    pub vote: UncheckedAccount<'info>,
+    /// CHECK: sysvar, by address.
+    #[account(address = anchor_lang::solana_program::sysvar::clock::ID)]
+    pub clock: UncheckedAccount<'info>,
+    /// CHECK: sysvar, by address.
+    #[account(address = anchor_lang::solana_program::sysvar::stake_history::ID)]
+    pub stake_history: UncheckedAccount<'info>,
+    /// CHECK: sysvar, by address.
+    #[account(address = anchor_lang::solana_program::sysvar::rent::ID)]
+    pub rent: UncheckedAccount<'info>,
+    /// CHECK: the (unused, still required) stake config account, by address.
+    #[account(address = stake_ix::CONFIG_ID)]
+    pub stake_config: UncheckedAccount<'info>,
+    /// CHECK: the stake program, by address.
+    #[account(address = stake_ix::STAKE_ID)]
+    pub stake_program: UncheckedAccount<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(idx: u8)]
+pub struct UnstakeSol<'info> {
+    pub owner: Signer<'info>,
+    #[account(seeds = [b"vault", owner.key().as_ref()], bump = vault.bump)]
+    pub vault: Account<'info, VaultAccount>,
+    #[account(mut, seeds = [b"stakes", vault.key().as_ref()], bump = book.bump)]
+    pub book: Account<'info, StakeBook>,
+    /// CHECK: this vault's stake account, by its PDA.
+    #[account(mut, seeds = [b"stake", vault.key().as_ref(), &[idx]], bump)]
+    pub stake: UncheckedAccount<'info>,
+    /// CHECK: sysvar, by address.
+    #[account(address = anchor_lang::solana_program::sysvar::clock::ID)]
+    pub clock: UncheckedAccount<'info>,
+    /// CHECK: the stake program, by address.
+    #[account(address = stake_ix::STAKE_ID)]
+    pub stake_program: UncheckedAccount<'info>,
+}
+
+#[derive(Accounts)]
+#[instruction(idx: u8)]
+pub struct ReclaimStake<'info> {
+    pub caller: Signer<'info>,
+    #[account(mut, seeds = [b"vault", vault.owner.as_ref()], bump = vault.bump)]
+    pub vault: Account<'info, VaultAccount>,
+    #[account(mut, seeds = [b"stakes", vault.key().as_ref()], bump = book.bump)]
+    pub book: Account<'info, StakeBook>,
+    /// CHECK: this vault's stake account, by its PDA.
+    #[account(mut, seeds = [b"stake", vault.key().as_ref(), &[idx]], bump)]
+    pub stake: UncheckedAccount<'info>,
+    /// CHECK: sysvar, by address.
+    #[account(address = anchor_lang::solana_program::sysvar::clock::ID)]
+    pub clock: UncheckedAccount<'info>,
+    /// CHECK: sysvar, by address.
+    #[account(address = anchor_lang::solana_program::sysvar::stake_history::ID)]
+    pub stake_history: UncheckedAccount<'info>,
+    /// CHECK: the stake program, by address.
+    #[account(address = stake_ix::STAKE_ID)]
+    pub stake_program: UncheckedAccount<'info>,
+}
+
+#[derive(Accounts)]
 pub struct OpenTokenVault<'info> {
     #[account(mut)]
     pub owner: Signer<'info>,
@@ -620,6 +807,33 @@ impl VaultAccount {
     }
 }
 
+/// Most stake accounts one vault can have at a time.
+pub const MAX_STAKES: usize = 4;
+/// Size of a stake account (StakeStateV2).
+const STAKE_SPACE: usize = 200;
+
+/// The stake program's interface (only the calls this program makes: initialize, delegate, deactivate, withdraw).
+mod stake_ix {
+    #![allow(deprecated)]
+    pub use anchor_lang::solana_program::stake::instruction::{deactivate_stake, delegate_stake, initialize, withdraw};
+    pub use anchor_lang::solana_program::stake::state::{Authorized, Lockup};
+    pub use anchor_lang::solana_program::stake::program::ID as STAKE_ID;
+    pub use anchor_lang::solana_program::stake::config::ID as CONFIG_ID;
+}
+
+/// A vault's stake accounts. The SOL in them is not in `VaultAccount.balance` while staked; it comes back there.
+#[account]
+#[derive(InitSpace)]
+pub struct StakeBook {
+    pub vault: Pubkey,
+    pub bump: u8,
+    #[max_len(4)]
+    pub slots: Vec<StakeSlot>,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, InitSpace)]
+pub struct StakeSlot { pub idx: u8, pub principal: u64, pub vote: Pubkey, pub unstaking: bool }
+
 /// One token held by a vault. Its rules come from the owner's main vault, except the daily limit, which is
 /// counted in this token's own units. Withdrawal and change ids come from the main vault's counter, so an id
 /// never means two things.
@@ -695,6 +909,10 @@ impl From<rules::Change> for ChangeArg {
 
 #[event]
 pub struct ConfigChanged { pub authority: Pubkey, pub deposits_paused: bool }
+
+/// kind: 0 staked, 1 unstaking started, 2 back in the vault (amount = everything that came back).
+#[event]
+pub struct StakeChanged { pub vault: Pubkey, pub idx: u8, pub amount: u64, pub vote: Pubkey, pub kind: u8 }
 
 #[event]
 pub struct WithdrawalQueued { pub owner: Pubkey, pub id: u32, pub amount: u64, pub dest: Pubkey, pub ready_at: i64 }

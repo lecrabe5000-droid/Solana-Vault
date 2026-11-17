@@ -177,3 +177,31 @@ fn audit_a_withdrawal_over_the_daily_limit_is_refused_up_front() {
     let Outcome::WithdrawalQueued { id, ready_at } = v.request_withdrawal(&OWNER, CASINO, 300, T0).unwrap() else { panic!() };
     assert_eq!(v.execute_withdrawal(id, ready_at), Ok(Outcome::Send { amount: 300, dest: CASINO }));
 }
+
+#[test]
+fn staking_uses_only_free_money_and_always_comes_back() {
+    let mut v = vault(Policy::strong(None));
+    let Outcome::WithdrawalQueued { id, ready_at } = v.request_withdrawal(&OWNER, BANK, 300, T0).unwrap() else { panic!() };
+    // 300 is promised to the withdrawal: only 700 can be staked, and only by the owner
+    assert_eq!(v.stake_out(&CASINO, 100), Err(VaultError::NotOwner));
+    assert_eq!(v.stake_out(&OWNER, 0), Err(VaultError::ZeroAmount));
+    assert_eq!(v.stake_out(&OWNER, 701), Err(VaultError::InsufficientFunds));
+    v.stake_out(&OWNER, 700).unwrap();
+    assert_eq!((v.balance, v.available()), (300, 0));
+    // the queued withdrawal still runs in full
+    assert_eq!(v.execute_withdrawal(id, ready_at), Ok(Outcome::Send { amount: 300, dest: BANK }));
+    // nothing free is left to ask for until the stake comes back, with its rewards
+    assert_eq!(v.request_withdrawal(&OWNER, BANK, 1, ready_at), Err(VaultError::InsufficientFunds));
+    v.stake_back(735).unwrap();
+    assert_eq!(v.available(), 735);
+}
+
+#[test]
+fn staking_works_while_locked_and_the_lock_still_holds_the_money() {
+    let mut v = vault(Policy::locked(T0 + 30 * DAY, GUARDIAN));
+    v.stake_out(&OWNER, 500).unwrap();
+    v.stake_back(500).unwrap();
+    assert_eq!(v.send_to_trusted(&OWNER, BANK, 1, T0), Err(VaultError::NotTrusted));
+    let Outcome::WithdrawalQueued { ready_at, .. } = v.request_withdrawal(&OWNER, BANK, 100, T0).unwrap() else { panic!() };
+    assert!(ready_at >= T0 + 30 * DAY);
+}
