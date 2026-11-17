@@ -57,14 +57,6 @@ describe("token vaults", () => {
     assert.equal(await held(ownerTokens), 300 * USDC);
   });
 
-  it("refuses new token deposits while the brake is on, and takes them again after", async () => {
-    const config = configAddress(program), dep = () => program.methods.depositToken(new BN(USDC)).accountsPartial({ owner: owner.publicKey, tokenVault: tvault, mint, from: ownerTokens, vaultTokens }).signers([owner]).rpc();
-    await program.methods.setDepositsPaused(true).accountsPartial({ authority: payer.publicKey, config }).rpc();
-    await expectError(dep(), "DepositsPaused");
-    await program.methods.setDepositsPaused(false).accountsPartial({ authority: payer.publicKey, config }).rpc();
-    const was = await held(vaultTokens); await dep(); assert.equal(await held(vaultTokens), was + USDC);
-  });
-
   it("counts coins sent straight to the vault's token account too", async () => {
     await transfer(conn, payer, ownerTokens, vaultTokens, owner, 10 * USDC);
     assert.equal(await held(vaultTokens), 210 * USDC);
@@ -143,5 +135,14 @@ describe("token vaults", () => {
     assert.equal(v.balance.toNumber(), 0);
     assert.equal(v.withdrawals.length, 0);
     assert.equal(v.trusted.length, 1);
+  });
+
+  // Last, because it deposits one more USDC than the tests above expect.
+  it("refuses new token deposits while the brake is on, and takes them again after", async () => {
+    const config = configAddress(program), dep = () => program.methods.depositToken(new BN(USDC)).accountsPartial({ owner: owner.publicKey, tokenVault: tvault, mint, from: ownerTokens, vaultTokens }).signers([owner]).rpc();
+    await program.methods.setDepositsPaused(true).accountsPartial({ authority: payer.publicKey, config }).rpc();
+    await expectError(dep(), "DepositsPaused");
+    await program.methods.setDepositsPaused(false).accountsPartial({ authority: payer.publicKey, config }).rpc();
+    const was = await held(vaultTokens); await dep(); assert.equal(await held(vaultTokens), was + USDC);
   });
 });
