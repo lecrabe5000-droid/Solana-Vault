@@ -205,5 +205,54 @@ export function createClient({ web3, connection, programId }) {
     return { mint, address: tvault, holds, build, fetch, walletBalance: (o) => amountOf(ata(o, mint)) };
   }
 
-  return { programId: PROGRAM, vaultAddress, build, fetchVault, chainTime, token, ata };
+  // ---------------------------------------------------------------- staking (SOL stays inside the Safe)
+
+  const STAKE = new web3.PublicKey("Stake11111111111111111111111111111111111111");
+  const STAKE_CONFIG = new web3.PublicKey("StakeConfig11111111111111111111111111111111");
+  const SYSVAR = { clock: new web3.PublicKey("SysvarC1ock11111111111111111111111111111111"), history: new web3.PublicKey("SysvarStakeHistory1111111111111111111111111"), rent: new web3.PublicKey("SysvarRent111111111111111111111111111111111") };
+  const bookAddress = (o) => web3.PublicKey.findProgramAddressSync([enc.encode("stakes"), vaultAddress(o).toBytes()], PROGRAM)[0];
+  const stakeAddress = (o, idx) => web3.PublicKey.findProgramAddressSync([enc.encode("stake"), vaultAddress(o).toBytes(), Uint8Array.of(idx)], PROGRAM)[0];
+  const MAX_STAKES = 4;
+  const staking = {
+    bookAddress, stakeAddress, MAX_STAKES,
+    build: {
+      open: (o) => ix("open_stakes", new Uint8Array(0), [meta(o, true, true), meta(vaultAddress(o), false, false), meta(bookAddress(o), false, true), meta(web3.SystemProgram.programId, false, false)]),
+      stake: (o, idx, lamports, vote) => ix("stake_sol", new W().u8(idx).u64(lamports).out(), [meta(o, true, true), meta(vaultAddress(o), false, true), meta(bookAddress(o), false, true),
+        meta(stakeAddress(o, idx), false, true), meta(vote, false, false), meta(SYSVAR.clock, false, false), meta(SYSVAR.history, false, false), meta(SYSVAR.rent, false, false),
+        meta(STAKE_CONFIG, false, false), meta(STAKE, false, false), meta(web3.SystemProgram.programId, false, false)]),
+      unstake: (o, idx) => ix("unstake_sol", Uint8Array.of(idx), [meta(o, true, false), meta(vaultAddress(o), false, false), meta(bookAddress(o), false, true), meta(stakeAddress(o, idx), false, true), meta(SYSVAR.clock, false, false), meta(STAKE, false, false)]),
+      reclaim: (caller, o, idx) => ix("reclaim_stake", Uint8Array.of(idx), [meta(caller, true, false), meta(vaultAddress(o), false, true), meta(bookAddress(o), false, true), meta(stakeAddress(o, idx), false, true), meta(SYSVAR.clock, false, false), meta(SYSVAR.history, false, false), meta(STAKE, false, false)]),
+    },
+    /** The Safe's stakes: null before the first one; otherwise each with its amount now (rewards included), its
+     *  validator and where it is: "activating" (earning from next epoch), "active", "cooling" (unstaked, coming back
+     *  at the end of the epoch), "ready" (can come back into the Safe now). */
+    async fetch(o) {
+      const info = await connection.getAccountInfo(bookAddress(o), "confirmed");
+      if (!info || !info.owner.equals(PROGRAM)) return null;
+      const r = new R(Uint8Array.from(info.data).subarray(8), web3);
+      r.key(); r.u8();
+      const slots = r.vec(() => ({ idx: r.u8(), principal: r.u64(), vote: r.key(), unstaking: !!r.u8() }));
+      const [ep, accts] = await Promise.all([connection.getEpochInfo("confirmed"), slots.length ? connection.getMultipleParsedAccounts(slots.map((x) => stakeAddress(o, x.idx)), { commitment: "confirmed" }) : { value: [] }]);
+      const U = 18446744073709551615n;
+      const list = slots.map((x, i) => {
+        const a = accts.value[i], p = a?.data?.parsed?.info, d = p?.stake?.delegation, reserve = Number(p?.meta?.rentExemptReserve || 0);
+        const act = d ? BigInt(d.activationEpoch) : U, deact = d ? BigInt(d.deactivationEpoch) : U, e = BigInt(ep.epoch);
+        const status = deact !== U ? (deact < e ? "ready" : "cooling") : act >= e ? "activating" : "active";
+        const lamports = a?.lamports || 0;
+        return { ...x, address: stakeAddress(o, x.idx), lamports, reserve, rewards: Math.max(0, lamports - reserve - x.principal), status };
+      });
+      const left = (ep.slotsInEpoch - ep.slotIndex) * 0.4; // seconds until the epoch turns, at ~400 ms a slot
+      return { list, epoch: ep.epoch, epochEndsIn: Math.round(left), freeIdx: [0, 1, 2, 3].find((i) => !slots.some((x) => x.idx === i)) ?? null };
+    },
+    /** A healthy validator to stake with: voting, not delinquent, low commission, among the larger ones. */
+    async pickValidator() {
+      const { current } = await connection.getVoteAccounts("confirmed");
+      const ok = current.filter((v) => v.commission <= 10 && v.epochVoteAccount).sort((a, b) => b.activatedStake - a.activatedStake);
+      const pool = ok.slice(0, 20); if (!pool.length) throw new Error("No validator is available right now. Try again in a moment.");
+      const v = pool[Math.floor(Math.random() * pool.length)];
+      return { vote: new web3.PublicKey(v.votePubkey), commission: v.commission };
+    },
+  };
+
+  return { programId: PROGRAM, vaultAddress, build, fetchVault, chainTime, token, ata, staking };
 }

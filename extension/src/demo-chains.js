@@ -30,6 +30,23 @@ export function engine({ acct, net }) {
     reserve: (a) => (a === "native" ? (sol ? 10_000 : 30_000) : 0),
     feeText: () => (sol ? "≈ 0.000005 SOL" : "a little ETH for gas") + " · demo",
     send: (a, to, amount) => act(() => { B[a] -= amount; }),
+    // Staking, pretend: a stake activates in ~20 s, earns at Solana's ~6.5% a year sped up so it visibly grows, and
+    // comes back ~30 s after unstaking. Only where the real wallet has staking (Solana, Ethereum Hoodi).
+    staking: sol || N.key === "hoodi" ? {
+      kind: sol ? "sol" : "lido", apy: sol ? "6–7%" : "3%", unstakeTime: sol ? "about 2 to 3 days" : "about 1 to 5 days",
+      async fetch() {
+        const t = Date.now() / 1000, list = (B.stakes ||= []);
+        const items = list.map((x) => {
+          const on = t >= x.at + 20, earned = x.off ? x.earned : on ? Math.floor(x.principal * 0.065 * ((t - x.at - 20) * 3600) / (365 * 86400)) : 0;
+          const status = x.off ? (t >= x.off + 30 ? "ready" : "cooling") : on ? "active" : "activating";
+          return { id: x.id, amount: x.principal + earned, principal: x.principal, rewards: earned, status, eta: status === "cooling" ? Math.ceil(x.off + 30 - t) : status === "activating" ? Math.ceil(x.at + 20 - t) : 0, who: sol ? "Demo validator" : "Lido", wst: "1" };
+        });
+        return { open: !!B.stakesOpen, staked: items.reduce((q, x) => q + x.amount, 0), rewards: items.reduce((q, x) => q + x.rewards, 0), items, room: list.length < 4 };
+      },
+      stake: (amount) => act(() => { const m = B.vault.main; if (amount > free(m)) throw new Error("Not enough funds that aren't already queued"); m.balance -= amount; B.stakesOpen = true; (B.stakes ||= []).push({ id: B.id++, principal: amount, at: Date.now() / 1000 }); }),
+      unstake: (item) => act(() => { const x = B.stakes.find((y) => y.id === item.id), t = Date.now() / 1000; x.earned = Math.floor(x.principal * 0.065 * (Math.max(0, t - x.at - 20) * 3600) / (365 * 86400)); x.off = t; }),
+      reclaim: (item) => act(() => { const x = B.stakes.find((y) => y.id === item.id); B.vault.main.balance += x.principal + (x.earned || 0); B.stakes = B.stakes.filter((y) => y.id !== item.id); }),
+    } : null,
     createVault: (kind) => act(() => {
       const d = kind === "gentle" ? 24 * 3600 : 72 * 3600;
       B.vault = { main: { balance: 0, withdrawDelay: d, ruleDelay: 7 * 86400, dailyLimit: null, lockedUntil: null, withdrawals: [], trusted: [], changes: [] }, usdc: { balance: 0, dailyLimit: null, withdrawals: [], changes: [] } };

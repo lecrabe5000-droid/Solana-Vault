@@ -21,6 +21,9 @@ export const ABI = [
   "function getVault(address owner) view returns (uint256 balance, uint64 withdrawDelay, uint64 ruleDelay, uint256 dailyLimit, uint64 lockedUntil, address guardian, uint64 spentDay, uint256 spentToday, address[] trusted, (uint32 id, uint256 amount, address dest, uint64 readyAt)[] withdrawals, (uint32 id, (uint8 kind, uint256 value, address addr) change, uint64 readyAt)[] changes)",
   ...ERRORS.map(([code]) => `error ${code}()`).filter((e) => !/Overflow|WrongDestination/.test(e)),
   "error VaultExists()", "error TransferFailed()", "error Reentered()",
+  // staking (Lido), where the contract has it
+  "function stakeEth(uint256 amount)", "function unstakeEth(uint256 wst) returns (uint256)", "function claimUnstaked(address owner, uint256 requestId)",
+  "function getStake(address owner) view returns (uint256 wst, uint256[] requests)", "error StakingOff()",
   // tokens
   "function depositToken(address token, uint256 amount)",
   "function sendTokenToTrusted(address token, address dest, uint256 amount)",
@@ -36,10 +39,12 @@ export const ABI = [
 
 const ERC20 = ["function balanceOf(address) view returns (uint256)", "function allowance(address owner, address spender) view returns (uint256)", "function approve(address spender, uint256 amount) returns (bool)"];
 
+const LIDO_WST = ["function getStETHByWstETH(uint256) view returns (uint256)"];
+const LIDO_QUEUE = ["function getWithdrawalStatus(uint256[] ids) view returns ((uint256 amountOfStETH, uint256 amountOfShares, address owner, uint256 timestamp, bool isFinalized, bool isClaimed)[])"];
 const KINDS = ["SetWithdrawDelay", "SetRuleDelay", "SetDailyLimit", "SetLockedUntil", "SetGuardian", "AddTrusted", "RemoveTrusted"];
 const PRESETS = { gentle: 0, strong: 1, locked: 2 };
 const GWEI = 1_000_000_000n;
-const EXTRA_ERRORS = { VaultExists: "This wallet already has a Safe.", TransferFailed: "The destination refused the transfer.", Reentered: "That call was refused." };
+const EXTRA_ERRORS = { StakingOff: "Staking isn't available on this network.", VaultExists: "This wallet already has a Safe.", TransferFailed: "The destination refused the transfer.", Reentered: "That call was refused." };
 
 /** Turns a failed call into { code, message }. */
 export function explainEvmError(err, iface) {
@@ -159,7 +164,31 @@ export function createEvmClient({ ethers, EVM, readProvider, getSigner }) {
     };
   }
 
+  /** Staking through Lido, on networks whose contract has it (deployment `staking: true`, `args` = Lido's stETH,
+   *  wstETH, withdrawal queue). Amounts in the app's 1e9 units, except `wst` (raw, a string) for unstaking all. */
+  const staking = EVM.staking && EVM.args?.[1] ? (() => {
+    const wstC = new ethers.Contract(EVM.args[1], LIDO_WST, read), queue = new ethers.Contract(EVM.args[2], LIDO_QUEUE, read);
+    return {
+      async fetch(owner) {
+        const o = String(owner);
+        if (!(await contract.hasVault(o))) return null;
+        const r = await contract.getStake(o), ids = [...r.requests];
+        const [value, st] = await Promise.all([r.wst > 0n ? wstC.getStETHByWstETH(r.wst) : 0n, ids.length ? queue.getWithdrawalStatus(ids) : []]);
+        return {
+          wst: r.wst.toString(), value: fromWei(value),
+          requests: ids.map((id, i) => ({ id: id.toString(), amount: fromWei(st[i].amountOfStETH), at: Number(st[i].timestamp), status: st[i].isClaimed ? "done" : st[i].isFinalized ? "ready" : "cooling" })).filter((x) => x.status !== "done"),
+        };
+      },
+      ops: {
+        stake: (units) => tx((c) => c.stakeEth(toWei(units))),
+        unstake: (wst) => tx((c) => c.unstakeEth(BigInt(wst))),
+        claim: (owner, id) => tx((c) => c.claimUnstaked(String(owner), BigInt(id))),
+      },
+    };
+  })() : null;
+
   return {
+    staking,
     key, fromWei, toWei, fetchVault, token, encodeChange, decodeChange, iface: contract.interface,
     balance: async (k) => fromWei(await read.getBalance(String(k))),
     chainTime: async () => (await read.getBlock("latest")).timestamp,

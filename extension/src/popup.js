@@ -1816,7 +1816,7 @@ function morph(a, b) {
 function patchPanel() {
   const el = $("#panel"), pane = el.querySelector(".pane"), P = S.panel;
   if (!P || !pane || S.holdPanel) return renderPanel();
-  const views = { send: sendView, protect: moveView, withdraw: moveView, swap: swapView, payreq: payreqView };
+  const views = { send: sendView, protect: moveView, withdraw: moveView, swap: swapView, payreq: payreqView, earn: earnView };
   const view = views[P.p]; if (!view) return renderPanel();
   const tmp = document.createElement("div"); tmp.innerHTML = view(); translate(tmp, S.lang);
   const next = pane.cloneNode(false); next.append(...tmp.childNodes); morph(pane, next);
@@ -2011,7 +2011,7 @@ function motionStart(P, steps, auto = true) {
 }
 function motionStep(P, k) { const i = P.mo?.steps.findIndex((x) => x.k === k); if (i >= 0 && P.mo.at < i) { P.mo.at = i; if (S.panel === P) patchPanel(); } }
 function motionEnd(P) { if (P.mo) { P.mo.at = P.mo.steps.length; P.mo.t1 = performance.now(); } txEvents.sent = null; }
-const MO_IC = { send: I.send, protect: I.protect, withdraw: I.clock, swap: I.swap, keep: I.shield };
+const MO_IC = { send: I.send, protect: I.protect, withdraw: I.clock, swap: I.swap, keep: I.shield, stake: I.spark };
 function keptView() {
   const P = S.panel, N = NETS[P.k], u = P.a === "usdc" ? "USDC" : N.unit, usd = usdOf(P.amount, P.a);
   return motionView(P, { kind: "keep", N, title: ["Cancelling", "Withdrawal cancelled"], amount: `${amt(P.amount, P.a)} ${u}`, usd: usd != null ? money(usd) : "",
@@ -2393,7 +2393,8 @@ function vaultView() {
       : `<div class="sb-empty"><b>Nothing has tried to leave.</b><span>If anything ever does, even with your own key, it waits ${dl ? delay(dl) : "the delay"} and you can stop it right here.</span></div>`}</div>
     ${open.length ? safeHoldings([], t, isMine, ring, hms) : ""}
     ${safeTimeline()}
-    <button class="earn-card" data-act="panel" data-p="earn"><span class="ec-ic">${I.spark}</span><span class="ec-t"><b>Earn on your Safe</b><small>Stake SOL without taking it out · about ${STAKE_APY_TEXT} a year</small></span><span class="soon">Coming soon</span></button>
+    ${stakeNets().length ? `<button class="earn-card" data-act="panel" data-p="earn"><span class="ec-ic">${I.spark}</span><span class="ec-t"><b>Earn on your Safe</b><small>Stake without taking it out · about ${STAKE_APY_TEXT} a year on SOL</small></span><span class="ec-go">${I.arrow}</span></button>`
+      : `<button class="earn-card" data-act="panel" data-p="earn"><span class="ec-ic">${I.spark}</span><span class="ec-t"><b>Earn on your Safe</b><small>Stake without taking it out · about ${STAKE_APY_TEXT} a year</small></span><span class="soon">${isMain() ? "After the audit" : "Coming soon"}</span></button>`}
   </div>`;
 }
 /** The Safe's story, newest first: opened, protected, withdrawals started, stopped and released, freezes. */
@@ -2530,6 +2531,8 @@ function bugView() {
 }
 // What's new: shown once after an update (never on a fresh install), and any time from Settings → About.
 const NEWS = [
+  ["Earn on your Safe", "Stake from your Safe: SOL with a Solana validator, ETH through Lido (on Hoodi for now). It stays inside your Safe the whole time, and when you unstake it can only come back there."],
+  ["Buy with a card", "Buy SOL, ETH and USDC through MoonPay, straight into your Wallet. Test mode on Testnet; real purchases open with mainnet."],
   ["Cancel from the home screen", "Anything leaving your Safe now shows at the top of the home screen, with its countdown and a Cancel button. If it wasn't you, one tap stops it."],
   ["Your Safe on Sui", "The Safe now runs on Sui Testnet too: open it, protect SUI, and every withdrawal waits like on Solana and Ethereum."],
   ["Look-alike addresses caught", "If an address starts and ends like one you've used but differs in the middle, a common scam, Ecrin warns you in red before you send."],
@@ -2609,7 +2612,7 @@ async function logActivity(e) { const k = actKey(), list = await readActivity();
 
 async function txRun(fn, after, log) {
   if (S.upd?.must) return toast("A security update is required before you can send. Update Ecrin Wallet first.", "err");
-  const P = S.panel; P.step = "sending"; P.sig = null; motionStart(P, STEPS(NETS[S.net], log?.t === "protect" ? "In your Safe" : log?.t === "withdraw" ? "Withdrawal started" : "Confirmed")); renderPanel();
+  const P = S.panel; P.step = "sending"; P.sig = null; motionStart(P, STEPS(NETS[S.net], log?.t === "protect" ? "In your Safe" : log?.t === "withdraw" ? "Withdrawal started" : log?.t === "stake" ? "Staked" : log?.t === "unstake" ? "Unstaking" : log?.t === "reclaim" ? "Back in your Safe" : "Confirmed")); renderPanel();
   try { S.lastTx = Date.now(); const sig = await fn(); S.lastTx = Date.now(); P.sig = typeof sig === "string" ? sig : P.sig; motionEnd(P); await after?.(); if (log) await logActivity({ ...log, sig: P.sig }); P.step = "done"; haptic("success");
     // Show it done now and move the numbers on screen at once; the network's own numbers replace them a moment later.
     if (log && S.bal && (log.t === "send" || log.t === "protect") && log.n) { const k = log.a === "usdc" ? "usdc" : "native"; S.bal = { ...S.bal, [k]: Math.max(0, Number(S.bal[k] || 0) - Number(log.n)) }; }
@@ -2965,7 +2968,7 @@ const actions = {
   },
   pct: (el) => {
     const P = S.panel, p = Number(el.dataset.v), a = P.asset;
-    const max = P.p === "send" || P.p === "swap" ? sendMax() : P.p === "protect" ? sendMaxProtect() : (a === "usdc" ? S.vault?.usdc?.available : S.vault?.main?.available) || 0;
+    const max = P.p === "earn" ? P.v?.main?.available || 0 : P.p === "send" || P.p === "swap" ? sendMax() : P.p === "protect" ? sendMaxProtect() : (a === "usdc" ? S.vault?.usdc?.available : S.vault?.main?.available) || 0;
     const units = Math.floor((max * p) / 100), x = A(a);
     P.pct = p; P.amount = units ? String(Math.floor((units / x.base) * 10 ** x.dec) / 10 ** x.dec) : "";
     patchPanel();
@@ -3047,6 +3050,15 @@ const actions = {
     } catch (e) { w?.close(); toast(errText(e), "err"); }
     BUY.busy = false; renderPanel();
   },
+  "earn-net": async (el) => { const P = S.panel, k = el.dataset.n; if (k === S.net) return; P.k = k; P.st = undefined; renderPanel(); await useNet(k); P.st = undefined; loadEarn(true); },
+  "earn-stake": () => { const P = S.panel; P.mode = "stake"; P.amount = ""; P.pct = null; P.asset = "native"; renderPanel(); },
+  "earn-unstake": (el) => { const P = S.panel; P.mode = "unstake"; P.id = el.dataset.id; renderPanel(); },
+  "do-stake": () => { const P = S.panel, units = parseAmt(P.amount, "native"); if (!units || units > (P.v?.main?.available || 0)) return;
+    P.kind = "stake"; P.sent = units; txRun(async () => (await eng()).staking.stake(units), () => { P.mode = "home"; P.st = undefined; }, { t: "stake", a: "native", n: units }); },
+  "do-unstake": () => { const P = S.panel, x = (P.st?.items || []).find((y) => String(y.id) === String(P.id)); if (!x) return;
+    P.kind = "unstake"; P.sent = x.amount; txRun(async () => (await eng()).staking.unstake(x), () => { P.mode = "home"; P.st = undefined; }, { t: "unstake", a: "native", n: x.amount }); },
+  "earn-reclaim": (el) => { const P = S.panel, x = (P.st?.items || []).find((y) => String(y.id) === el.dataset.id); if (!x) return;
+    P.kind = "reclaim"; P.sent = x.amount; txRun(async () => (await eng()).staking.reclaim(x), () => { P.mode = "home"; P.st = undefined; }, { t: "reclaim", a: "native", n: x.amount }); },
   "cancel-w": async (el) => {
     // Cancelling gets the same sheet as every other money move: live steps, then a clear receipt.
     const k = el.dataset.n, a = el.dataset.a, id = Number(el.dataset.id), N = NETS[k];
@@ -3568,7 +3580,7 @@ function buyView() {
 // open when the server says so (/api/swap/status → "on"); until then the screen shows a preview. Before signing,
 // the wallet dry-runs Jupiter's transaction and refuses anything that takes more than you chose (chains.js swapSign).
 const SWAP = { live: false, feeBps: 50, api: "https://ecrinprotocol.app/api/swap", checked: 0 };
-const STAKE_APY = 0.065, STAKE_APY_TEXT = "6–7%"; // Earn (coming soon): Solana staking from the Safe
+const STAKE_APY = 0.065, STAKE_APY_TEXT = "6–7%"; // Earn: Solana staking from the Safe (Ethereum: about 3% through Lido)
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 const SWAP_NET = "solm";
 const swapEng = () => (S.net === SWAP_NET && ENG ? ENG : engine({ web3, ethers, acct: ACCT, net: SWAP_NET, dev: {} }));
@@ -3723,22 +3735,155 @@ async function swapSearch(q) {
   }, 300);
 }
 
-function earnView() {
-  const v = S.vault?.main && S.net === "sol" ? S.vault.main.balance / BASE : (S.all || []).find((r) => r.k === "sol" && r.v)?.v.main.balance / BASE || 0;
-  const px = S.prices.solana?.usd, yr = v * STAKE_APY;
+/* ------------------------------------------------------------------ Earn: staking from the Safe */
+// The money stays the Safe's the whole time: on Solana in a stake account only the Safe controls, on Ethereum as
+// Lido's wstETH held by the Safe contract. Unstaked money can only come back into the Safe.
+const stakeable = (k) => !!NETS[k]?.staking || (!!globalThis.ECRIN_DEMO && (k === "sol" || k === "hoodi"));
+const stakeNets = () => netKeys().filter(stakeable);
+const ST_TXT = { activating: ["Starting", "Earns from the next epoch"], active: ["Earning", "Rewards add up every few days"], cooling: ["Unstaking", "Coming back to your Safe"], ready: ["Ready", "Bring it back into your Safe"] };
+/** Loads (or reloads) the stakes for the Earn screen, moving to a network that has staking first. */
+async function loadEarn(force) {
+  const P = S.panel; if (!P || P.p !== "earn" || (P.loading && !force)) return;
+  const nets = stakeNets(); if (!nets.length) return;
+  P.loading = true;
+  try {
+    if (!stakeable(S.net)) await useNet(P.k && nets.includes(P.k) ? P.k : nets[0]);
+    const e = await eng(); P.k = S.net;
+    const [st, v] = await Promise.all([e.staking ? e.staking.fetch() : null, e.vault().catch(() => null)]);
+    if (S.panel !== P) return;
+    P.st = st; P.v = v; P.err = null;
+  } catch (err) { if (S.panel === P) P.err = errText(err); }
+  finally { P.loading = false; }
+  if (S.panel === P && P.step !== "sending") (P.mode === "stake" ? patchPanel() : renderPanel());
+  // Countdowns and rewards move: refresh every 20 s while the screen is open (5 s in the demo, where time runs fast).
+  clearTimeout(S.earnT); S.earnT = setTimeout(() => { if (S.panel === P && P.mode !== "stake" && P.step !== "sending") loadEarn(); }, globalThis.ECRIN_DEMO ? 5000 : 20000);
+}
+function earnSoonView() {
+  const main = isMain();
   return `${phead("Earn")}
-    <div class="soon-row"><span class="soon">Coming soon · after the audit</span></div>
-    <div class="earn">
-      <div class="earn-hero"><span class="lbl">Estimated rewards</span><b>${yr ? `${yr.toLocaleString("en-US", { maximumFractionDigits: 3 })} SOL` : "—"}</b><small>${yr && px ? `≈ ${money(yr * px)} a year on the ${v.toLocaleString("en-US", { maximumFractionDigits: 2 })} SOL in your Safe` : "Protect some SOL in your Safe to see your estimate"}</small></div>
-      <div class="ap-card">
-        <div class="ap-li">${I.lock}<span>Your SOL stays inside your Safe while it earns. Every delay still applies.</span></div>
-        <div class="ap-li">${I.spark}<span>About ${STAKE_APY_TEXT} a year from Solana staking. Rates change; nothing is guaranteed.</span></div>
-        <div class="ap-li">${I.clock}<span>Unstaking takes about 2 days on Solana, then your Safe's usual delay.</span></div>
-        <div class="ap-li">${I.shield}<span>Ecrin keeps a small share of the rewards, shown before you stake.</span></div>
+    <div class="soon-row"><span class="soon">${main ? "After the audit" : "Coming soon"}</span></div>
+    <div class="ern ern-soon">
+      <div class="ern-stage">${earnGem(0, true)}<div class="ern-mid"><span class="ern-ic">${I.spark}</span><span class="lbl">Earn</span><b class="ern-big">${STAKE_APY_TEXT}</b><small>a year on SOL, about</small></div></div>
+      <div class="ap-card ern-how">
+        <div class="ap-li">${I.lock}<span>Your money stays inside your Safe while it earns. Every delay still applies.</span></div>
+        <div class="ap-li">${I.spark}<span>Native Solana staking, and Ethereum staking through Lido. Rates change; nothing is guaranteed.</span></div>
+        <div class="ap-li">${I.shield}<span>No Ecrin fee on rewards.</span></div>
       </div>
-      <p class="fine pad">Staking opens after Ecrin's security audit, on mainnet.</p>
+      <p class="fine pad">${main ? "Staking with real money opens after Ecrin's independent security audit." : "Staking opens on test networks with the next update."}</p>
+    </div>`;
+}
+/** The Earn diamond: the outer edge fills with how much of the Safe is staked; a point of light circles while it earns. */
+function earnGem(f, idle) {
+  return `<svg class="ern-gem${idle ? " idle" : ""}" viewBox="0 0 260 260" aria-hidden="true">
+    <defs><linearGradient id="erg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c8d3ff"/><stop offset=".5" stop-color="#5b7cff"/><stop offset="1" stop-color="#22d3ee"/></linearGradient>
+      <radialGradient id="erc" cx=".5" cy=".4" r=".75"><stop offset="0" stop-color="#3d63ff" stop-opacity=".5"/><stop offset=".65" stop-color="#18205a" stop-opacity=".3"/><stop offset="1" stop-color="#0b0d1c" stop-opacity="0"/></radialGradient></defs>
+    <g transform="rotate(45 130 130)">
+      <rect class="eg-tk" x="30" y="30" width="200" height="200" rx="46" pathLength="100"/>
+      <rect class="eg-base" x="46" y="46" width="168" height="168" rx="38"/>
+      <rect class="eg-arc" x="46" y="46" width="168" height="168" rx="38" pathLength="100" style="--p:${Math.max(0, Math.min(100, f * 100)).toFixed(2)}"/>
+      <rect class="eg-run" x="46" y="46" width="168" height="168" rx="38" pathLength="100"/>
+      <rect class="eg-core" x="60" y="60" width="140" height="140" rx="30"/>
+    </g></svg>`;
+}
+function earnView() {
+  const nets = stakeNets();
+  if (!nets.length) return earnSoonView();
+  const P = S.panel;
+  if (P.step === "sending" || P.step === "done") return earnMotion(P);
+  if (P.st === undefined) { queueMicrotask(() => loadEarn()); return earnShell(nets, true); }
+  if (P.mode === "stake") return earnStakeView(P);
+  if (P.mode === "unstake") return earnUnstakeView(P);
+  return earnShell(nets);
+}
+function earnShell(nets, loading) {
+  const P = S.panel, N = NETS[S.net], st = P.st, e = ENG?.staking;
+  const unit = N.unit, px = S.prices[N.cg]?.usd, money1 = (u) => (px != null ? money((u / BASE) * px) : "");
+  const free = P.v?.main?.available || 0, staked = st?.staked || 0, f = staked + free ? staked / (staked + free) : 0;
+  const rate = N.fam === "sol" ? STAKE_APY : 0.03, yr = (staked / BASE) * rate;
+  const seg = nets.length > 1 ? `<div class="seg ern-nets">${nets.map((k) => `<button data-act="earn-net" data-n="${k}" aria-pressed="${k === S.net}">${coin(k, "sm")}${NETS[k].name}</button>`).join("")}</div>` : "";
+  const rows = (st?.items || []).map((x) => {
+    const [t, sub] = ST_TXT[x.status] || ST_TXT.active, eta = x.eta > 0 ? (x.eta < 60 ? "<1m" : dur(x.eta)) : "";
+    const ring = x.status === "active" ? `<i class="er-dot"></i>` : `<svg viewBox="0 0 36 36" class="er-ring ${x.status}"><circle cx="18" cy="18" r="15"/><circle class="p" cx="18" cy="18" r="15" pathLength="100"/></svg>`;
+    const act = x.status === "ready" ? `<button class="btn sm primary" data-act="earn-reclaim" data-id="${esc(String(x.id))}">${I.lock}Back to Safe</button>`
+      : (x.status === "active" || x.status === "activating") && (x.wst || N.fam === "sol") ? `<button class="btn sm" data-act="earn-unstake" data-id="${esc(String(x.id))}">Unstake</button>` : "";
+    return `<article class="er-row s-${x.status}"><span class="er-st">${ring}</span>
+      <span class="er-t"><b>${mask(amt(x.amount, "native"))} ${unit}</b><small>${esc(x.who && !/\s/.test(x.who) && x.who.length > 20 ? short(x.who) : x.who || "")}${x.rewards ? ` · <em>+${amt(x.rewards, "native")}</em>` : ""}</small></span>
+      <span class="er-r"><span class="er-pill">${t}${eta ? ` · ${eta}` : ""}</span>${act || `<small>${sub}</small>`}</span></article>`;
+  }).join("");
+  const lido = N.fam === "evm";
+  return `${phead("Earn", seg ? "" : `<span class="ern-net">${coin(S.net, "sm")}${N.name} ${N.net}</span>`)}
+  <div class="ern${loading ? " loading" : ""}">
+    ${seg}
+    <section class="ern-hero">
+      <div class="ern-stage">${earnGem(f, !staked)}
+        <div class="ern-mid"><span class="ern-ic">${I.spark}</span><span class="lbl">Staked</span>
+          <b class="ern-big${loading ? " sk" : ""}">${loading ? "&nbsp;" : mask(amt(staked, "native"))}</b><small>${unit}${staked && px != null ? ` · ${mask(money1(staked))}` : ""}</small></div>
+      </div>
+      <div class="ern-earned">${st?.rewards ? `<span class="ern-pill">${I.spark}+${amt(st.rewards, "native")} ${unit} earned</span>` : `<span class="ern-pill dim">${I.spark}About ${e?.apy || (lido ? "3%" : STAKE_APY_TEXT)} a year</span>`}
+        ${staked ? `<span class="ern-yr">≈ ${yr.toLocaleString("en-US", { maximumFractionDigits: 4 })} ${unit} a year${px != null ? ` · ${mask(money(yr * px))}` : ""}</span>` : ""}</div>
+    </section>
+    <div class="ern-tiles">
+      <div class="ern-tile"><span class="st-ic">${I.lock}</span><span class="st-k">Free</span><b>${loading ? "—" : mask(amt(free, "native"))}</b><small>${unit} you can stake</small></div>
+      <div class="ern-tile"><span class="st-ic">${I.spark}</span><span class="st-k">${lido ? "With Lido" : "Validators"}</span><b>${(st?.items || []).filter((x) => x.status !== "cooling" && x.status !== "ready").length || "None"}</b><small>${lido ? "staked ETH, as wstETH" : `${st?.items?.length || 0} of 4 stakes`}</small></div>
+      <div class="ern-tile"><span class="st-ic">${I.clock}</span><span class="st-k">Unstaking</span><b>${N.fam === "sol" ? "2–3 days" : "1–5 days"}</b><small>then the Safe's delay</small></div>
     </div>
-    <div class="pfoot"><button class="btn primary xl" disabled>Coming soon</button></div>`;
+    ${rows ? `<div class="list-h"><b>Your stakes</b><span>stay inside your Safe</span></div><div class="er-list">${rows}</div>`
+      : loading ? "" : `<div class="ern-empty"><b>Nothing staked yet</b><span>Stake ${unit} from your Safe and it earns while every rule still holds.</span></div>`}
+    ${P.err ? `<p class="note bad-n">${I.shield}<span>${esc(P.err)}</span></p>` : ""}
+    <div class="ap-card ern-how">
+      <div class="ap-li">${I.lock}<span>${lido ? "Your ETH is staked with Lido and held by your Safe as wstETH." : "Your SOL sits in a stake account only your Safe controls."} It can only come back into your Safe.</span></div>
+      <div class="ap-li">${I.clock}<span>Unstaking takes ${e?.unstakeTime || "a few days"}. To take it out, withdraw from your Safe as usual: the delay still applies.</span></div>
+      <div class="ap-li">${I.shield}<span>No Ecrin fee. Rates change and nothing is guaranteed; ${lido ? "Lido's own risks apply" : "a validator's own risks apply"}.</span></div>
+    </div>
+  </div>
+  <div class="pfoot">${!P.v ? `<button class="btn primary xl" data-act="safe-go" data-n="${S.net}" data-p="protect">${I.protect}Open your Safe first</button>`
+    : free ? `<button class="btn primary xl" data-act="earn-stake"${st && !st.room ? " disabled" : ""}>${I.spark}Stake ${unit}</button>`
+    : `<button class="btn primary xl" data-act="safe-go" data-n="${S.net}" data-p="protect">${I.protect}Protect ${unit} to stake it</button>`}</div>`;
+}
+function earnStakeView(P) {
+  const N = NETS[S.net], max = P.v?.main?.available || 0, units = parseAmt(P.amount, "native"), valid = units > 0 && units <= max, f = max ? Math.min(1, units / max) : 0;
+  const staked = P.st?.staked || 0, usd = usdOf(units, "native"), pad = !!globalThis.ECRIN_WEB, u = N.unit;
+  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "del"];
+  const side = (k, name, b, after, ic) => `<div class="rt rt-${k}"><span class="rt-ic">${ic}</span><span class="rt-n">${name}</span><b>${mask(amt(Math.max(0, after), "native"))}</b><small>${units && valid ? `was ${mask(amt(b, "native"))}` : u}</small></div>`;
+  return `${phead(`Stake ${N.unit}`)}
+  <div class="mv2 in ern-mv">
+    <div class="rail" style="--f:${f.toFixed(3)}">
+      ${side("from", "Safe", max, max - (valid ? units : 0), I.lock)}
+      <div class="rl"><i class="rl-t"></i><i class="rl-f"></i><i class="rl-d"></i></div>
+      ${side("to", "Staked", staked, staked + (valid ? units : 0), I.spark)}
+    </div>
+    <div class="mv-amt${units > max ? " over" : ""}">${pad ? `<b>${esc(P.amount || "0")}</b>` : `<input data-amount inputmode="decimal" placeholder="0" value="${esc(P.amount)}" autocomplete="off" autofocus style="width:${Math.max(1, (P.amount || "0").length) + 0.6}ch"/>`}<span class="u">${u}</span></div>
+    <div class="mv-sub">${units > max ? `<span class="bad">More than your Safe has free</span>` : usd != null && units ? money(usd) : `${amt(max, "native")} ${u} free in your Safe`}</div>
+    <div class="mv-pcts">${[25, 50, 100].map((v) => `<button data-act="pct" data-v="${v}" class="${P.pct === v ? "on" : ""}">${v === 100 ? "Max" : v + "%"}</button>`).join("")}</div>
+    <p class="mv-note">${I.spark}<span>Earns about <b>${ENG?.staking?.apy || STAKE_APY_TEXT}</b> a year. Unstaking takes ${ENG?.staking?.unstakeTime || "a few days"}, then your Safe's delay.</span></p>
+    ${pad ? `<div class="kp">${keys.map((k) => `<button data-act="key" data-k="${k}" aria-label="${k === "del" ? "Delete" : k}">${k === "del" ? `<svg viewBox="0 0 24 24"><path d="M9 6h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5-6z"/><path d="M12.5 10l4 4M16.5 10l-4 4"/></svg>` : k}</button>`).join("")}</div>` : ""}
+    <div class="pfoot mv-foot"><div class="slide${valid ? "" : " off"}" data-slide="do-stake"><span class="sl-t">Slide to stake</span><i class="sl-k">${I.spark}</i></div>
+      <button class="sr-only" data-act="do-stake" ${valid ? "" : "disabled"}>Stake</button></div>
+  </div>`;
+}
+function earnUnstakeView(P) {
+  const N = NETS[S.net], x = (P.st?.items || []).find((y) => String(y.id) === String(P.id)); if (!x) { P.mode = "home"; return earnShell(stakeNets()); }
+  const usd = usdOf(x.amount, "native"), lido = N.fam === "evm";
+  return `${phead("Unstake")}
+  <div class="ern ern-review">
+    <div class="rv-hero"><span class="rv-ic">${I.spark}</span><b class="rv-amt">${amt(x.amount, "native")} ${N.unit}</b>${usd != null ? `<small>${money(usd)}</small>` : ""}<span class="rv-line">Staked → Safe</span></div>
+    <div class="rv-card">
+      <div class="rv-r"><span>From</span><b>${lido || /\s/.test(x.who || "") ? esc(x.who || "Lido") : `<span class="mono">${esc(short(x.who))}</span>`}</b></div>
+      <div class="rv-r"><span>Back in your Safe</span><b>in ${ENG?.staking?.unstakeTime || "a few days"}</b></div>
+      <div class="rv-r"><span>Stops earning</span><b>${lido ? "once Lido processes it" : "at the end of this epoch"}</b></div>
+    </div>
+    <p class="note">${I.lock}<span>It comes back into your Safe, never anywhere else. To take it out after, withdraw as usual: your Safe's delay still applies.</span></p>
+  </div>
+  <div class="pfoot mv-foot"><div class="slide" data-slide="do-unstake"><span class="sl-t">Slide to unstake</span><i class="sl-k">${I.clock}</i></div><button class="sr-only" data-act="do-unstake">Unstake</button></div>`;
+}
+function earnMotion(P) {
+  const N = NETS[S.net], k = P.kind || "stake", n = P.sent || 0, usd = usdOf(n, "native"), lido = N.fam === "evm";
+  const o = {
+    stake: { title: ["Staking", "Staked"], line: "Safe → Staked", note: `${lido ? "It's earning through Lido now" : "It starts earning at the next epoch, in a day or two"}, and it stays inside your Safe. Unstake any time: it comes back in ${ENG?.staking?.unstakeTime || "a few days"}.` },
+    unstake: { title: ["Unstaking", "Unstaking started"], line: "Staked → Safe", note: `It comes back into your Safe in ${ENG?.staking?.unstakeTime || "a few days"}. Then bring it back from Earn with one tap.` },
+    reclaim: { title: ["Bringing it back", "Back in your Safe"], line: "Staked → Safe", note: "It's in your Safe again, rewards included. Anything leaving the Safe still waits the delay." },
+  }[k];
+  return motionView(P, { kind: k === "stake" ? "stake" : "keep", N, title: o.title, amount: `${amt(n, "native")} ${N.unit}`, usd: usd != null ? money(usd) : "", line: o.line, note: o.note, rows: [] });
 }
 
 /* ------------------------------------------------------------------ updates and backup check */

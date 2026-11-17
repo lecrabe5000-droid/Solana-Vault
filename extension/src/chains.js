@@ -52,9 +52,9 @@ export function evmProvider(ethers, E, rpcOverride) {
 // Every network, test and main, like the network list in any major wallet. `test: true` networks show in Testnet
 // mode (Settings → Networks), the others in Mainnet mode; `real: true` marks real money. The Safe runs where a network
 // has a contract: the test networks for now, mainnet after the audit.
-const evmNet = (E, test) => [E.key, { key: E.key, fam: "evm", name: E.name, net: E.net, test, real: !test, unit: E.unit, cg: E.cg, explorer: (k, id) => (E.explorer ? `${E.explorer}/${k}/${id}` : null), usdc: E.usdc, contract: E.address, rpc: E.rpc, faucet: E.faucet, E, tokens: E.v >= 2 }];
+const evmNet = (E, test) => [E.key, { key: E.key, fam: "evm", name: E.name, net: E.net, test, real: !test, unit: E.unit, cg: E.cg, explorer: (k, id) => (E.explorer ? `${E.explorer}/${k}/${id}` : null), usdc: E.usdc, contract: E.address, rpc: E.rpc, faucet: E.faucet, E, tokens: E.v >= 2, staking: !!(E.address && E.staking) }];
 export const NETS = {
-  sol: { key: "sol", fam: "sol", name: "Solana", net: "Devnet", test: true, unit: "SOL", cg: "solana", explorer: (k, id) => `https://explorer.solana.com/${k}/${id}?cluster=devnet`, usdc: SOL_USDC.devnet, contract: CONFIG.programId, rpc: CONFIG.rpc, faucet: "https://faucet.solana.com" },
+  sol: { key: "sol", fam: "sol", name: "Solana", net: "Devnet", test: true, unit: "SOL", cg: "solana", explorer: (k, id) => `https://explorer.solana.com/${k}/${id}?cluster=devnet`, usdc: SOL_USDC.devnet, contract: CONFIG.programId, rpc: CONFIG.rpc, faucet: "https://faucet.solana.com", staking: CONFIG.staking === true },
   solm: { key: "solm", fam: "sol", name: "Solana", net: "Mainnet", test: false, real: true, unit: "SOL", cg: "solana", explorer: (k, id) => `https://solscan.io/${k === "address" ? "account" : k}/${id}`, usdc: SOL_USDC.mainnet, contract: null, rpc: "https://ecrinprotocol.app/api/rpc/solm", faucet: null },
   ...Object.fromEntries(Object.values(EVM_MAIN).map((E) => evmNet(E, false))),
   ...Object.fromEntries(Object.values(EVM_NETS).map((E) => evmNet(E, true))),
@@ -222,6 +222,25 @@ function solEngine({ web3, acct, N, dev }) {
       const data = new Uint8Array(10); data[0] = 12; new DataView(data.buffer).setBigUint64(1, BigInt(raw), true); data[9] = t.dec;
       return run(create, new web3.TransactionInstruction({ programId: pid, data, keys: [meta(ata(me), false, true), meta(m, false, false), meta(ata(dest), false, true), meta(me, true, false)] }));
     },
+    /** Staking from the Safe (native Solana staking): one shape for both networks (see evmEngine). */
+    staking: N.staking && programId ? {
+      kind: "sol", apy: "6–7%", unstakeTime: "about 2 to 3 days",
+      async fetch() {
+        const k = await client.staking.fetch(me);
+        if (!k) return { open: false, staked: 0, rewards: 0, items: [], room: true };
+        const items = k.list.map((x) => ({ id: x.idx, amount: Math.max(0, x.lamports - x.reserve), principal: x.principal, rewards: x.rewards, status: x.status,
+          eta: x.status === "cooling" || x.status === "activating" ? k.epochEndsIn : 0, who: x.vote.toBase58() }));
+        return { open: true, staked: items.reduce((t, x) => t + x.amount, 0), rewards: items.reduce((t, x) => t + x.rewards, 0), items, room: k.freeIdx !== null };
+      },
+      async stake(amount) {
+        const k = await client.staking.fetch(me), idx = k ? k.freeIdx : 0;
+        if (idx === null) throw new Error("Your Safe already has 4 stakes. Unstake one first.");
+        const { vote } = await client.staking.pickValidator();
+        return run(...(k ? [] : [client.staking.build.open(me)]), client.staking.build.stake(me, idx, amount, vote));
+      },
+      unstake: (item) => run(client.staking.build.unstake(me, item.id)),
+      reclaim: (item) => run(client.staking.build.reclaim(me, me, item.id)),
+    } : null,
     createVault: (kind) => run(client.build.initialize(me, { kind })),
     async protect(asset, amount) {
       if (asset === "native") return run(client.build.deposit(me, amount));
@@ -301,6 +320,20 @@ function evmEngine({ ethers, acct, N, dev }) {
     allowance: async (token, spender) => BigInt(await new ethers.Contract(token, ["function allowance(address,address) view returns (uint256)"], provider).allowance(wallet.address, spender)),
     revoke: async (t) => done(await new ethers.Contract(t.token, ["function approve(address,uint256) returns (bool)"], wallet).approve(t.spender, 0n)),
     sendToken: async (t, to, raw) => done(await new ethers.Contract(t.mint, ["function transfer(address,uint256) returns (bool)"], wallet).transfer(ethers.getAddress(to), BigInt(raw))),
+    /** Staking from the Safe through Lido: the staked ETH (as wstETH) and each unstake request in Lido's exit queue. */
+    staking: N.staking && client?.staking ? {
+      kind: "lido", apy: "3%", unstakeTime: "about 1 to 5 days",
+      async fetch() {
+        const k = await client.staking.fetch(wallet.address);
+        if (!k) return { open: false, staked: 0, rewards: 0, items: [], room: true };
+        const items = [...(BigInt(k.wst) > 0n ? [{ id: "wst", wst: k.wst, amount: k.value, status: "active", who: "Lido" }] : []),
+          ...k.requests.map((r) => ({ id: r.id, amount: r.amount, status: r.status, eta: 0, who: "Lido" }))];
+        return { open: true, staked: items.reduce((t, x) => t + x.amount, 0), rewards: null, items, room: k.requests.length < 4 };
+      },
+      stake: (amount) => client.staking.ops.stake(amount),
+      unstake: (item) => client.staking.ops.unstake(item.wst),
+      reclaim: (item) => client.staking.ops.claim(wallet.address, item.id),
+    } : null,
     createVault: (kind) => client.ops.create({ kind }),
     protect: (asset, amount) => (asset === "native" ? client.ops.deposit(amount) : vt.ops.deposit(amount)),
     request: (asset, dest, amount) => (asset === "native" ? client.ops.requestWithdrawal(dest, amount) : vt.ops.requestWithdrawal(dest, amount)),
