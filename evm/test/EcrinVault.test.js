@@ -224,4 +224,41 @@ describe("EcrinVault", () => {
       await expect(vault.createVault(Strong, owner.address, 0)).to.be.revertedWithCustomError(vault, "InvalidValue");
     });
   });
+
+  describe("emergency brake on new deposits", () => {
+    it("stops new deposits, and nothing else", async () => {
+      const { vault, owner, guardian, casino } = await loadFixture(deploy);
+      await vault.createVault(Strong, guardian.address, 0, { value: eth(10) });
+      await expect(vault.setDepositsPaused(true)).to.emit(vault, "DepositsPausedSet").withArgs(true);
+      await expect(vault.deposit({ value: eth(1) })).to.be.revertedWithCustomError(vault, "DepositsPaused");
+      await expect(vault.connect(casino).createVault(Gentle, ZERO, 0, { value: eth(1) })).to.be.revertedWithCustomError(vault, "DepositsPaused");
+      await vault.connect(casino).createVault(Gentle, ZERO, 0); // opening an empty Safe is fine
+      // Everything that protects or returns money still works while paused.
+      const { id } = await idOf(vault.requestWithdrawal(casino.address, eth(2)), vault, "WithdrawalQueued");
+      await expect(vault.connect(guardian).guardianRelease(owner.address, id)).to.changeEtherBalance(casino, eth(2));
+      const w2 = await idOf(vault.requestWithdrawal(casino.address, eth(1)), vault, "WithdrawalQueued");
+      await vault.cancelWithdrawal(w2.id);
+      const w3 = await idOf(vault.requestWithdrawal(casino.address, eth(1)), vault, "WithdrawalQueued");
+      await time.increaseTo(w3.readyAt);
+      await expect(vault.executeWithdrawal(owner.address, w3.id)).to.changeEtherBalance(casino, eth(1));
+      await vault.proposeChange(ch(K.SetDailyLimit, eth(5)));
+      await vault.setDepositsPaused(false);
+      await expect(vault.deposit({ value: eth(1) })).to.emit(vault, "Deposited");
+    });
+
+    it("only the pauser can pull it, and handing it over takes two steps", async () => {
+      const { vault, owner, guardian, thief } = await loadFixture(deploy);
+      expect(await vault.pauser()).to.equal(owner.address);
+      await expect(vault.connect(thief).setDepositsPaused(true)).to.be.revertedWithCustomError(vault, "NotPauser");
+      await expect(vault.connect(thief).proposePauser(thief.address)).to.be.revertedWithCustomError(vault, "NotPauser");
+      await vault.proposePauser(guardian.address);
+      await expect(vault.connect(thief).acceptPauser()).to.be.revertedWithCustomError(vault, "NotPauser");
+      expect(await vault.pauser()).to.equal(owner.address); // not until accepted
+      await expect(vault.connect(guardian).acceptPauser()).to.emit(vault, "PauserChanged").withArgs(guardian.address);
+      await expect(vault.setDepositsPaused(true)).to.be.revertedWithCustomError(vault, "NotPauser");
+      await vault.connect(guardian).setDepositsPaused(true);
+      expect(await vault.depositsPaused()).to.equal(true);
+    });
+  });
 });
+

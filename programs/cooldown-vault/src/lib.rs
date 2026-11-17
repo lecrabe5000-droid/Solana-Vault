@@ -7,6 +7,11 @@
 //! withdrawal waits, cancels and gets released exactly like a SOL one.
 //!
 //! No receipt token is ever minted, so there is nothing to sell to get around the delay.
+//!
+//! Emergency brake: one program-wide switch can stop NEW deposits (SOL and tokens), and nothing else.
+//! Withdrawals, cancels, rule changes and guardian actions always work, paused or not, so the switch can never
+//! trap anyone's money. It lives in its own account (seeds ["config"]); the program's upgrade authority sets it up
+//! once, and hands it to a multisig before mainnet.
 //! NOT AUDITED. Devnet only until an independent audit is done.
 
 use anchor_lang::prelude::*;
@@ -31,6 +36,42 @@ pub mod cooldown_vault {
         }
         let v = rules::Vault::new(ctx.accounts.owner.key().to_bytes(), policy).map_err(err)?;
         ctx.accounts.vault.store(&v, ctx.bumps.vault);
+        Ok(())
+    }
+
+    // ------------------------------------------------------------ emergency brake (new deposits only)
+
+    /// Creates the program-wide settings. Only the program's upgrade authority can, once.
+    pub fn init_config(ctx: Context<InitConfig>) -> Result<()> {
+        let c = &mut ctx.accounts.config;
+        c.authority = ctx.accounts.authority.key();
+        c.pending_authority = None;
+        c.deposits_paused = false;
+        c.bump = ctx.bumps.config;
+        emit!(ConfigChanged { authority: c.authority, deposits_paused: false });
+        Ok(())
+    }
+
+    /// Stops or restarts new deposits. Never touches withdrawals, cancels or rules.
+    pub fn set_deposits_paused(ctx: Context<ConfigAdmin>, paused: bool) -> Result<()> {
+        let c = &mut ctx.accounts.config;
+        c.deposits_paused = paused;
+        emit!(ConfigChanged { authority: c.authority, deposits_paused: paused });
+        Ok(())
+    }
+
+    /// Hands the switch to someone else (a multisig). Two steps, so a typo can't lose it: they must accept.
+    pub fn propose_config_authority(ctx: Context<ConfigAdmin>, next: Option<Pubkey>) -> Result<()> {
+        ctx.accounts.config.pending_authority = next;
+        Ok(())
+    }
+
+    pub fn accept_config_authority(ctx: Context<AcceptConfig>) -> Result<()> {
+        let c = &mut ctx.accounts.config;
+        require!(c.pending_authority == Some(ctx.accounts.next.key()), VaultErr::NotOwner);
+        c.authority = ctx.accounts.next.key();
+        c.pending_authority = None;
+        emit!(ConfigChanged { authority: c.authority, deposits_paused: c.deposits_paused });
         Ok(())
     }
 
@@ -307,6 +348,35 @@ pub struct Deposit<'info> {
     #[account(mut, seeds = [b"vault", owner.key().as_ref()], bump = vault.bump)]
     pub vault: Account<'info, VaultAccount>,
     pub system_program: Program<'info, System>,
+    #[account(seeds = [b"config"], bump = config.bump, constraint = !config.deposits_paused @ VaultErr::DepositsPaused)]
+    pub config: Account<'info, Config>,
+}
+
+#[derive(Accounts)]
+pub struct InitConfig<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    #[account(init, payer = authority, space = 8 + Config::INIT_SPACE, seeds = [b"config"], bump)]
+    pub config: Account<'info, Config>,
+    #[account(constraint = program.programdata_address()? == Some(program_data.key()) @ VaultErr::NotOwner)]
+    pub program: Program<'info, crate::program::CooldownVault>,
+    #[account(constraint = program_data.upgrade_authority_address == Some(authority.key()) @ VaultErr::NotOwner)]
+    pub program_data: Account<'info, ProgramData>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct ConfigAdmin<'info> {
+    pub authority: Signer<'info>,
+    #[account(mut, seeds = [b"config"], bump = config.bump, has_one = authority @ VaultErr::NotOwner)]
+    pub config: Account<'info, Config>,
+}
+
+#[derive(Accounts)]
+pub struct AcceptConfig<'info> {
+    pub next: Signer<'info>,
+    #[account(mut, seeds = [b"config"], bump = config.bump)]
+    pub config: Account<'info, Config>,
 }
 
 #[derive(Accounts)]
@@ -387,6 +457,8 @@ pub struct DepositToken<'info> {
     #[account(mut, associated_token::mint = mint, associated_token::authority = token_vault)]
     pub vault_tokens: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
+    #[account(seeds = [b"config"], bump = config.bump, constraint = !config.deposits_paused @ VaultErr::DepositsPaused)]
+    pub config: Account<'info, Config>,
 }
 
 #[derive(Accounts)]
@@ -445,6 +517,16 @@ pub struct TokenCrank<'info> {
 }
 
 // ---------------------------------------------------------------- state
+
+/// Program-wide settings: the emergency brake on new deposits, and who may pull it.
+#[account]
+#[derive(InitSpace)]
+pub struct Config {
+    pub authority: Pubkey,
+    pub pending_authority: Option<Pubkey>,
+    pub deposits_paused: bool,
+    pub bump: u8,
+}
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, InitSpace)]
 pub enum Preset {
@@ -607,6 +689,9 @@ impl From<rules::Change> for ChangeArg {
 // ---------------------------------------------------------------- events and errors
 
 #[event]
+pub struct ConfigChanged { pub authority: Pubkey, pub deposits_paused: bool }
+
+#[event]
 pub struct WithdrawalQueued { pub owner: Pubkey, pub id: u32, pub amount: u64, pub dest: Pubkey, pub ready_at: i64 }
 
 #[event]
@@ -629,6 +714,7 @@ pub enum VaultErr {
     #[msg("That value isn't allowed")] InvalidValue,
     #[msg("Arithmetic overflow")] Overflow,
     #[msg("Destination account doesn't match")] WrongDestination,
+    #[msg("New deposits are paused for now. Withdrawals still work.")] DepositsPaused,
 }
 
 fn err(e: rules::VaultError) -> anchor_lang::error::Error {

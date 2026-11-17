@@ -6,6 +6,7 @@ import { Program, BN } from "@coral-xyz/anchor";
 import { assert } from "chai";
 import { createMint, getAssociatedTokenAddressSync, getOrCreateAssociatedTokenAccount, mintTo, getAccount, transfer } from "@solana/spl-token";
 import { CooldownVault } from "../target/types/cooldown_vault";
+import { ensureConfig, configAddress } from "./config";
 
 const { Keypair, PublicKey, LAMPORTS_PER_SOL: SOL } = anchor.web3;
 const USDC = 1_000_000; // 6 decimals
@@ -31,6 +32,7 @@ describe("token vaults", () => {
   const payout = (caller: anchor.web3.PublicKey, dest: anchor.web3.PublicKey) => ({ caller, vault, tokenVault: tvault, mint, vaultTokens, dest, destTokens: ata(dest) });
 
   before(async () => {
+    await ensureConfig(program, payer.publicKey);
     for (const k of [owner, guardian, stranger]) await conn.confirmTransaction(await conn.requestAirdrop(k.publicKey, 2 * SOL));
     mint = await createMint(conn, payer, payer.publicKey, null, 6);
     ownerTokens = (await getOrCreateAssociatedTokenAccount(conn, payer, mint, owner.publicKey)).address;
@@ -53,6 +55,14 @@ describe("token vaults", () => {
     await program.methods.depositToken(new BN(200 * USDC)).accountsPartial({ owner: owner.publicKey, tokenVault: tvault, mint, from: ownerTokens, vaultTokens }).signers([owner]).rpc();
     assert.equal(await held(vaultTokens), 200 * USDC);
     assert.equal(await held(ownerTokens), 300 * USDC);
+  });
+
+  it("refuses new token deposits while the brake is on, and takes them again after", async () => {
+    const config = configAddress(program), dep = () => program.methods.depositToken(new BN(USDC)).accountsPartial({ owner: owner.publicKey, tokenVault: tvault, mint, from: ownerTokens, vaultTokens }).signers([owner]).rpc();
+    await program.methods.setDepositsPaused(true).accountsPartial({ authority: payer.publicKey, config }).rpc();
+    await expectError(dep(), "DepositsPaused");
+    await program.methods.setDepositsPaused(false).accountsPartial({ authority: payer.publicKey, config }).rpc();
+    const was = await held(vaultTokens); await dep(); assert.equal(await held(vaultTokens), was + USDC);
   });
 
   it("counts coins sent straight to the vault's token account too", async () => {

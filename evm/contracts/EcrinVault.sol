@@ -12,6 +12,9 @@ pragma solidity 0.8.24;
 /// Each token keeps its own balance, daily limit and queue; the delays, the lock, the guardian and the trusted
 /// addresses are the vault's, so one set of rules covers every coin.
 /// Tokens that change balances on their own (rebasing) are not supported; the app only offers stablecoins.
+/// Emergency brake: the pauser can stop NEW deposits (ETH and tokens), and nothing else. Withdrawals, cancels,
+/// rule changes and guardian actions always work, paused or not, so the brake can never trap anyone's money.
+/// The deployer starts as pauser and hands the role to a multisig (two steps) before mainnet.
 contract EcrinVault {
     uint64 public constant HOUR = 3600;
     uint64 public constant DAY = 86400;
@@ -60,6 +63,11 @@ contract EcrinVault {
     mapping(address => mapping(address => TokenVault)) private tokenVaults; // owner => token => state
     bool private entered;
 
+    /// Who can pull the emergency brake on new deposits, and who has been offered that role.
+    address public pauser;
+    address public pendingPauser;
+    bool public depositsPaused;
+
     error NotOwner();
     error NotGuardian();
     error NoGuardian();
@@ -76,6 +84,8 @@ contract EcrinVault {
     error VaultExists();
     error TransferFailed();
     error Reentered();
+    error DepositsPaused();
+    error NotPauser();
 
     event VaultCreated(address indexed owner, Preset preset, address guardian, uint64 lockedUntil);
     event Deposited(address indexed owner, uint256 amount);
@@ -92,6 +102,39 @@ contract EcrinVault {
     event TokenLimitQueued(address indexed owner, address indexed token, uint32 id, uint256 limit, uint64 readyAt);
     event TokenLimitApplied(address indexed owner, address indexed token, uint256 limit);
     event TokenLimitCancelled(address indexed owner, address indexed token, uint32 id);
+    event DepositsPausedSet(bool paused);
+    event PauserChanged(address pauser);
+
+    modifier whenDepositsOpen() {
+        if (depositsPaused) revert DepositsPaused();
+        _;
+    }
+
+    constructor() {
+        pauser = msg.sender;
+        emit PauserChanged(msg.sender);
+    }
+
+    // ------------------------------------------------------------------ emergency brake (new deposits only)
+
+    function setDepositsPaused(bool paused) external {
+        if (msg.sender != pauser) revert NotPauser();
+        depositsPaused = paused;
+        emit DepositsPausedSet(paused);
+    }
+
+    /// Offers the role to `next` (address(0) withdraws the offer). They must accept, so a typo can't lose it.
+    function proposePauser(address next) external {
+        if (msg.sender != pauser) revert NotPauser();
+        pendingPauser = next;
+    }
+
+    function acceptPauser() external {
+        if (msg.sender != pendingPauser || msg.sender == address(0)) revert NotPauser();
+        pauser = msg.sender;
+        pendingPauser = address(0);
+        emit PauserChanged(msg.sender);
+    }
 
     modifier nonReentrant() {
         if (entered) revert Reentered();
@@ -123,10 +166,14 @@ contract EcrinVault {
             } else if (lockUntil != 0) revert InvalidValue();
         }
         emit VaultCreated(msg.sender, preset, guardian, v.lockedUntil);
-        if (msg.value > 0) { v.balance = msg.value; emit Deposited(msg.sender, msg.value); }
+        if (msg.value > 0) {
+            if (depositsPaused) revert DepositsPaused();
+            v.balance = msg.value;
+            emit Deposited(msg.sender, msg.value);
+        }
     }
 
-    function deposit() external payable {
+    function deposit() external payable whenDepositsOpen {
         Vault storage v = _vault(msg.sender);
         if (msg.value == 0) revert ZeroAmount();
         v.balance += msg.value;
@@ -243,7 +290,7 @@ contract EcrinVault {
 
     /// Moves tokens from the owner into their vault. The caller approves this contract first. Only what
     /// actually arrived is counted, so a token that takes a fee on transfer can't inflate the balance.
-    function depositToken(address token, uint256 amount) external nonReentrant {
+    function depositToken(address token, uint256 amount) external nonReentrant whenDepositsOpen {
         _vault(msg.sender);
         if (amount == 0) revert ZeroAmount();
         if (token.code.length == 0) revert InvalidValue();

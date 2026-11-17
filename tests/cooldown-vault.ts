@@ -3,6 +3,7 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program, BN } from "@coral-xyz/anchor";
 import { assert } from "chai";
 import { CooldownVault } from "../target/types/cooldown_vault";
+import { ensureConfig, configAddress, programDataAddress } from "./config";
 
 const HOUR = 3600, DAY = 86400, SOL = anchor.web3.LAMPORTS_PER_SOL;
 
@@ -18,6 +19,19 @@ describe("cooldown-vault", () => {
     try { await call; } catch (e) { assert.include(String(e), code); return; }
     assert.fail(`expected ${code}`);
   };
+
+  const airdrop = async (k: anchor.web3.Keypair) => provider.connection.confirmTransaction(await provider.connection.requestAirdrop(k.publicKey, SOL));
+
+  before(async () => {
+    // Only the program's upgrade authority may set up the brake; a stranger trying first is refused.
+    if (!(await provider.connection.getAccountInfo(configAddress(program)))) {
+      const stranger = anchor.web3.Keypair.generate(); await airdrop(stranger);
+      await expectError(program.methods.initConfig()
+        .accountsPartial({ authority: stranger.publicKey, config: configAddress(program), program: program.programId, programData: programDataAddress(program) })
+        .signers([stranger]).rpc(), "NotOwner");
+    }
+    await ensureConfig(program, owner);
+  });
 
   it("creates a Strong vault", async () => {
     await program.methods.initialize({ strong: { guardian: null } }).accountsPartial({ owner, vault }).rpc();
@@ -85,5 +99,47 @@ describe("cooldown-vault", () => {
       await program.methods.cancelWithdrawal(1).accountsPartial({ owner: stranger.publicKey, vault }).signers([stranger]).rpc();
     } catch (_) { failed = true; }
     assert.ok(failed, "a stranger's signature must not open this vault");
+  });
+
+  describe("emergency brake on new deposits", () => {
+    const config = configAddress(program);
+    const pause = (paused: boolean, who = owner, signers: anchor.web3.Keypair[] = []) =>
+      program.methods.setDepositsPaused(paused).accountsPartial({ authority: who, config }).signers(signers).rpc();
+
+    it("stops new deposits, and nothing else", async () => {
+      await pause(true);
+      assert.equal((await program.account.config.fetch(config)).depositsPaused, true);
+      await expectError(program.methods.deposit(new BN(1000)).accountsPartial({ owner, vault }).rpc(), "DepositsPaused");
+      // Everything that protects or returns money still works while paused.
+      const before = await fetch();
+      await program.methods.requestWithdrawal(casino, new BN(1000)).accountsPartial({ owner, vault }).rpc();
+      const id = (await fetch()).withdrawals.at(-1)!.id;
+      await program.methods.cancelWithdrawal(id).accountsPartial({ owner, vault }).rpc();
+      await program.methods.proposeChange({ setDailyLimit: { limit: new BN(SOL) } }).accountsPartial({ owner, vault }).rpc();
+      assert.equal((await fetch()).balance.toNumber(), before.balance.toNumber());
+      await pause(false);
+      await program.methods.deposit(new BN(1000)).accountsPartial({ owner, vault }).rpc();
+      assert.equal((await fetch()).balance.toNumber(), before.balance.toNumber() + 1000);
+    });
+
+    it("only its holder can pull it, and handing it over takes two steps", async () => {
+      const stranger = anchor.web3.Keypair.generate(), next = anchor.web3.Keypair.generate();
+      await airdrop(stranger); await airdrop(next);
+      await expectError(pause(true, stranger.publicKey, [stranger]), "NotOwner");
+      await program.methods.proposeConfigAuthority(next.publicKey).accountsPartial({ authority: owner, config }).rpc();
+      await expectError(program.methods.acceptConfigAuthority().accountsPartial({ next: stranger.publicKey, config }).signers([stranger]).rpc(), "NotOwner");
+      await program.methods.acceptConfigAuthority().accountsPartial({ next: next.publicKey, config }).signers([next]).rpc();
+      await expectError(pause(true), "NotOwner"); // the old holder no longer can
+      // and back, for the other tests
+      await program.methods.proposeConfigAuthority(owner).accountsPartial({ authority: next.publicKey, config }).signers([next]).rpc();
+      await program.methods.acceptConfigAuthority().accountsPartial({ next: owner, config }).rpc();
+      assert.ok((await program.account.config.fetch(config)).authority.equals(owner));
+    });
+
+    it("can't be set up twice", async () => {
+      let failed = false;
+      try { await program.methods.initConfig().accountsPartial({ authority: owner, config, program: program.programId, programData: programDataAddress(program) }).rpc(); } catch (_) { failed = true; }
+      assert.ok(failed, "the settings must not be created twice");
+    });
   });
 });

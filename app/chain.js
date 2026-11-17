@@ -21,6 +21,7 @@ export const ERRORS = [
   ["InvalidValue", "That value isn't allowed."],
   ["Overflow", "That amount is too large."],
   ["WrongDestination", "That isn't where this withdrawal goes."],
+  ["DepositsPaused", "New deposits are paused for now. Your Safe still works: withdrawals, cancels and rules are unaffected."],
 ];
 
 /** Turns a failed transaction into { code, message } when it is one of the program's errors. */
@@ -92,6 +93,9 @@ export function createClient({ web3, connection, programId }) {
   };
   const meta = (pubkey, isSigner, isWritable) => ({ pubkey, isSigner, isWritable });
   const vaultAddress = (owner) => web3.PublicKey.findProgramAddressSync([enc.encode("vault"), owner.toBytes()], PROGRAM)[0];
+  // Program-wide settings (the emergency brake on new deposits). Deposits pass it; programs older than the brake
+  // simply ignore the extra account.
+  const CONFIG_PDA = web3.PublicKey.findProgramAddressSync([enc.encode("config")], PROGRAM)[0];
   const ix = async (name, args, keys) => {
     const d = await disc("global:" + name);
     const data = new Uint8Array(d.length + args.length); data.set(d); data.set(args, d.length);
@@ -108,7 +112,7 @@ export function createClient({ web3, connection, programId }) {
       else { w.u8(2); w.i64(preset.until); w.key(preset.guardian); }
       return ix("initialize", w.out(), [meta(o, true, true), meta(vaultAddress(o), false, true), meta(web3.SystemProgram.programId, false, false)]);
     },
-    deposit: (o, lamports) => ix("deposit", new W().u64(lamports).out(), [meta(o, true, true), meta(vaultAddress(o), false, true), meta(web3.SystemProgram.programId, false, false)]),
+    deposit: (o, lamports) => ix("deposit", new W().u64(lamports).out(), [meta(o, true, true), meta(vaultAddress(o), false, true), meta(web3.SystemProgram.programId, false, false), meta(CONFIG_PDA, false, false)]),
     sendToTrusted: (o, dest, lamports) => ix("send_to_trusted", new W().u64(lamports).out(), [...owner(o), meta(dest, false, true)]),
     requestWithdrawal: (o, dest, lamports) => ix("request_withdrawal", new W().key(dest).u64(lamports).out(), owner(o)),
     cancelWithdrawal: (o, id) => ix("cancel_withdrawal", new W().u32(id).out(), owner(o)),
@@ -169,7 +173,7 @@ export function createClient({ web3, connection, programId }) {
 
     const build = {
       open: (o) => ix("open_token_vault", new Uint8Array(0), [meta(o, true, true), meta(vaultAddress(o), false, false), meta(mint, false, false), meta(tvault(o), false, true), meta(holds(o), false, true), meta(TOKEN, false, false), meta(ATA, false, false), meta(web3.SystemProgram.programId, false, false)]),
-      deposit: (o, amount) => ix("deposit_token", new W().u64(amount).out(), [meta(o, true, false), meta(tvault(o), false, false), meta(mint, false, false), meta(ata(o, mint), false, true), meta(holds(o), false, true), meta(TOKEN, false, false)]),
+      deposit: (o, amount) => ix("deposit_token", new W().u64(amount).out(), [meta(o, true, false), meta(tvault(o), false, false), meta(mint, false, false), meta(ata(o, mint), false, true), meta(holds(o), false, true), meta(TOKEN, false, false), meta(CONFIG_PDA, false, false)]),
       // Payouts land in the destination's token account; these create it first when it doesn't exist.
       sendToTrusted: (o, dest, amount) => [createAta(o, dest, mint), ix("send_token_to_trusted", new W().u64(amount).out(), [meta(o, true, false), meta(vaultAddress(o), false, false), meta(tvault(o), false, true), meta(mint, false, false), meta(holds(o), false, true), meta(dest, false, false), meta(ata(dest, mint), false, true), meta(TOKEN, false, false)])],
       requestWithdrawal: (o, dest, amount) => ix("request_token_withdrawal", new W().key(dest).u64(amount).out(), ownerOnly(o)),
