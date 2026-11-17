@@ -3442,5 +3442,12 @@ html[data-rot] body { overflow: hidden; }
 html[data-rot] .device { position: fixed !important; top: 50% !important; left: 50% !important; right: auto !important; bottom: auto !important; width: 100vh !important; height: 100vw !important; max-width: none !important; transform-origin: 50% 50%; }
 html[data-rot="90"] .device { transform: translate(-50%, -50%) rotate(-90deg); }
 html[data-rot="-90"] .device { transform: translate(-50%, -50%) rotate(90deg); }
+/* On a computer (a link opened from Telegram or X on a desktop): keep the phone layout in a centred, phone-sized
+   frame instead of stretching it across the whole monitor. Phones and tablets held upright are untouched. */
+@media (min-width: 640px) and (pointer: fine) {
+  html, body { background: #050608 !important; } html[data-theme="light"], html[data-theme="light"] body { background: #e4e3de !important; }
+  html:not([data-rot]) .device { left: calc(50% - 215px) !important; right: auto !important; width: 430px !important; top: 24px !important; bottom: 24px !important; border-radius: 28px; overflow: hidden; box-shadow: 0 0 0 1px rgba(255,255,255,.07), 0 40px 90px -30px rgba(0,0,0,.6); }
+}
+@media (min-width: 640px) and (pointer: fine) and (max-height: 740px) { html:not([data-rot]) .device { top: 0 !important; bottom: 0 !important; border-radius: 0; } }
 .rotate-note { display: none !important; }
 .fld input, .fld textarea, [data-to] { font-size: 16px !important; }
