@@ -3071,6 +3071,7 @@ const actions = {
   "wd-pick": (el) => { const P = S.panel; P.to = el.dataset.a; renderPanel(); },
   "wd-back": () => { const P = S.panel; P.step = null; renderPanel(); },
   "safe-go": async (el) => { el.disabled = true; await useNet(el.dataset.n); openPanel(el.dataset.p); if (el.dataset.p === "protect") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); } },
+  "buy-pick": async (el) => { const k = el.dataset.n; BUY.coin = el.dataset.a === "usdc" ? "usdc" : "native"; if (k !== S.net) await useNet(k); renderPanel(); },
   "buy-coin": (el) => { BUY.coin = el.dataset.v === "usdc" ? "usdc" : "native"; renderPanel(); },
   "buy-go": async () => {
     if (BUY.busy) return;
@@ -3607,10 +3608,14 @@ function buyView() {
       <p class="sub">${BUY.test ? `MoonPay's test mode only offers some coins, and ${esc(N.unit)} on ${esc(N.name)} isn't one of them. Real purchases open with mainnet.` : `MoonPay doesn't offer ${esc(N.unit)} on ${esc(N.name)}.`}</p>
       ${faucetBtn(N, "btn xl", `Get free test ${N.unit} instead`)}</div>`;
   if (buyOpen()) {
-    const usdc = !!N.usdc && N.fam !== "tron" && sup.usdc && sup.native, coin = usdc ? BUY.coin : sup.native ? "native" : "usdc", u = coin === "usdc" ? "USDC" : N.unit;
+    const usdc = !!N.usdc && N.fam !== "tron" && sup.usdc && sup.native, bc = usdc ? BUY.coin : sup.native ? "native" : "usdc", u = bc === "usdc" ? "USDC" : N.unit;
+    // Pick what to buy, whatever network you're on: every coin MoonPay offers here, in one row.
+    const opts = netKeys().flatMap((k) => { const s2 = BUY.coins?.[k.replace(/m$/, "")]; if (!s2 || ["rh", "hype", "rhm", "hypem", "hoodi"].includes(k)) return [];
+      return [...(s2.native ? [{ k, a: "native", u: NETS[k].unit }] : []), ...(s2.usdc && NETS[k].usdc && NETS[k].fam !== "tron" ? [{ k, a: "usdc", u: "USDC" }] : [])]; });
+    const pick = opts.length > 1 ? `<div class="buy-pick">${opts.map((o) => `<button data-act="buy-pick" data-n="${o.k}" data-a="${o.a}" aria-pressed="${o.k === S.net && o.a === bc}">${coin(o.a === "usdc" ? "usdc" : o.k, "sm")}<span><b>${o.u}</b><small>${esc(nname(NETS[o.k]))}</small></span></button>`).join("")}</div>` : "";
     return `${phead("Buy")}${BUY.test ? `<div class="soon-row"><span class="soon">Test mode · no real money</span></div>` : ""}
     <div class="cv"><div class="cv-art">${I.card}</div><h2>Buy ${u} with a card</h2>
-      ${usdc ? `<div class="seg buy-seg">${[["native", N.unit], ["usdc", "USDC"]].map(([v, l]) => `<button data-act="buy-coin" data-v="${v}" aria-pressed="${coin === v}">${l}</button>`).join("")}</div>` : ""}
+      ${pick}
       <p class="sub">You'll pay on MoonPay's secure page. The ${u} arrives straight in your Wallet on ${esc(N.name)}, at <span class="mono" style="white-space:nowrap">${short(addr)}</span>.</p>
       ${BUY.test ? `<div class="note">${I.shield}<span>This is MoonPay's test mode: use their test card, nothing is charged. Real purchases open with mainnet.</span></div>` : `<div class="note">${I.shield}<span>Ecrin never sees your card details: MoonPay handles payment and identity checks.</span></div>`}
       <button class="btn primary xl" data-act="buy-go"${BUY.busy ? " disabled" : ""}>${BUY.busy ? `<span class="spin"></span>` : ""}Continue to MoonPay ${I.ext}</button></div>`;
