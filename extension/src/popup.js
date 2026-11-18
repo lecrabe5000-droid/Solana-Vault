@@ -3830,29 +3830,23 @@ function earnShell(nets, loading) {
     return `<article class="er-row s-${x.status}"><span class="er-t"><b>${mask(amt(x.amount, "native"))} ${unit}</b><small>${esc(x.who && !/\s/.test(x.who) && x.who.length > 20 ? short(x.who) : x.who || "")}${x.rewards ? ` · <em>+${amt(x.rewards, "native")}</em>` : ""}</small></span>
       <span class="er-r"><span class="er-pill">${t}</span>${act}</span></article>`;
   };
+  const line = staked ? `${st?.rewards ? `<em>+${amt(st.rewards, "native")} ${unit} earned</em> · ` : status && status[1] !== "Earning" ? `${status[1]} · ` : ""}~${apy} a year` : `${mask(amt(free + wal, "native"))} ${unit} available`;
   return `${phead("Earn")}
-  <div class="ern ern2${loading ? " loading" : ""}">
-    ${nets2}
-    <section class="ek">
-      <div class="ek-top">${coin(S.net, "ek-coin")}<span class="ek-lbl">${staked ? "Staked" : "Stake"} ${unit}</span>${status ? `<span class="ek-st ${status[0]}"><i></i>${status[1]}</span>` : `<span class="ek-st"><i></i>${apy} a year</span>`}</div>
-      ${staked || loading ? `<b class="ek-amt${loading ? " sk" : ""}">${loading ? "&nbsp;" : `${mask(amt(staked, "native"))} <small>${unit}</small>`}</b><span class="ek-fiat">${staked ? mask(fiat(staked)) : "&nbsp;"}</span>`
-        : `<b class="ek-amt hero">${apy}<small> a year</small></b><span class="ek-fiat">Earn on ${unit} without it leaving your Safe</span>`}
-      <div class="ek-stats">
-        <span><small>Rewards</small><b class="${st?.rewards ? "pos" : ""}">${st?.rewards ? `+${amt(st.rewards, "native")}` : lido && staked ? "in value" : "—"}</b></span>
-        <span><small>Rate</small><b>~${apy}</b></span>
-        <span><small>${staked ? "Per year" : "Available"}</small><b>${staked ? `≈ ${yr.toLocaleString("en-US", { maximumFractionDigits: 4 })}` : mask(amt(free + wal, "native"))}</b></span>
-      </div>
-      <div class="ek-acts"><button class="btn primary" data-act="earn-stake"${canStake ? "" : " disabled"}>${I.spark}${staked ? "Stake more" : `Stake ${unit}`}</button>
-        <button class="btn" data-act="earn-unstake" data-id="${unstakeable ? esc(String(unstakeable.id)) : ""}"${unstakeable ? "" : " disabled"}>${I.clock}Unstake</button></div>
+  <div class="ern ern3${loading ? " loading" : ""}">
+    ${nets.length > 1 ? nets2 : ""}
+    <section class="e3">
+      ${coin(S.net, "e3-coin")}
+      <span class="e3-lbl">${staked || loading ? `Staked${status ? ` · <i class="${status[0]}">${status[1]}</i>` : ""}` : `Earn on ${unit}`}</span>
+      ${staked || loading ? `<b class="e3-amt${loading ? " sk" : ""}">${loading ? "&nbsp;" : `${mask(amt(staked, "native"))} <small>${unit}</small>`}</b><span class="e3-fiat">${staked ? mask(fiat(staked)) : "&nbsp;"}</span>`
+        : `<b class="e3-amt">~${apy}<small> a year</small></b><span class="e3-fiat">without it leaving your Safe</span>`}
+      <p class="e3-line">${loading ? "&nbsp;" : line}</p>
     </section>
-    ${out.length || earning.length > 1 ? `<div class="list-h"><b>${out.length ? "Coming back" : "Your stakes"}</b><span>only into your Safe</span></div><div class="er-list">${[...out, ...(earning.length > 1 ? earning : [])].map(row).join("")}</div>` : ""}
-    ${!canStake && !staked && !loading ? `<p class="ek-hint">${I.recv}<span>Get some ${unit} first: ${N.faucet ? `<button class="link" data-act="faucet">free test ${unit}</button>` : "receive it from another wallet"}.</span></p>` : ""}
+    <div class="e3-acts${staked ? "" : " one"}"><button class="btn primary xl" data-act="earn-stake"${canStake ? "" : " disabled"}>${staked ? "Stake more" : `Stake ${unit}`}</button>
+      ${staked ? `<button class="btn xl" data-act="earn-unstake" data-id="${unstakeable ? esc(String(unstakeable.id)) : ""}"${unstakeable ? "" : " disabled"}>Unstake</button>` : ""}</div>
+    ${out.length || earning.length > 1 ? `<div class="er-list">${[...out, ...(earning.length > 1 ? earning : [])].map(row).join("")}</div>` : ""}
+    ${!canStake && !staked && !loading ? `<p class="e3-note">${N.faucet ? `Need ${unit}? <button class="link" data-act="faucet">Get free test ${unit}</button>` : `Receive some ${unit} first.`}</p>` : ""}
     ${P.err ? `<p class="note bad-n">${I.shield}<span>${esc(P.err)}</span></p>` : ""}
-    <div class="ek-how">
-      <div>${I.lock}<span>${lido ? "Staked with Lido, held by your Safe as wstETH" : "In a stake account only your Safe controls"}</span></div>
-      <div>${I.clock}<span>Unstaking takes ${(e?.unstakeTime || "a few days").replace(/^about /, "about ")}, back into your Safe only</span></div>
-      <div>${I.shield}<span>No Ecrin fee · rates change, nothing is guaranteed</span></div>
-    </div>
+    <p class="e3-fine">${lido ? "Staked with Lido" : "Native Solana staking"} · stays in your Safe · unstaking ${N.fam === "sol" ? "2–3" : "1–5"} days · no Ecrin fee</p>
   </div>`;
 }
 /** How much can be staked from each place: the Wallet (keeping the network fee back) or what's free in the Safe. */
@@ -3870,7 +3864,7 @@ function earnStakeView(P) {
     <div class="mv-amt es-amt${big}${units > max ? " over" : ""}">${pad ? `<b>${esc(P.amount || "0")}</b>` : `<input data-amount inputmode="decimal" placeholder="0" value="${esc(P.amount)}" autocomplete="off" autofocus style="width:${Math.max(1, len) + 0.6}ch"/>`}<span class="u">${u}</span></div>
     <div class="mv-sub">${units > max ? `<span class="bad">More than your ${P.src === "wallet" ? "Wallet" : "Safe"} has</span>` : usd != null && units ? money(usd) : `${amt(max, "native")} ${u} available`}</div>
     <div class="mv-pcts">${[25, 50, 100].map((v) => `<button data-act="pct" data-v="${v}" class="${P.pct === v ? "on" : ""}">${v === 100 ? "Max" : v + "%"}</button>`).join("")}</div>
-    <p class="es-line">${I.spark}<span>${valid ? `Earns about <b>${yr.toLocaleString("en-US", { maximumFractionDigits: 4 })} ${u}</b> a year` : `Earns about <b>${(ENG?.staking?.apy || STAKE_APY_TEXT).replace(/^about /, "")}</b> a year`} · stays in your Safe</span></p>
+    <p class="es-line"><span>${valid ? `≈ <b>${yr.toLocaleString("en-US", { maximumFractionDigits: 4 })} ${u}</b> a year` : `~${(ENG?.staking?.apy || STAKE_APY_TEXT).replace(/^about /, "")} a year`}</span></p>
     ${pad ? `<div class="kp">${keys.map((k) => `<button data-act="key" data-k="${k}" aria-label="${k === "del" ? "Delete" : k}">${k === "del" ? `<svg viewBox="0 0 24 24"><path d="M9 6h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5-6z"/><path d="M12.5 10l4 4M16.5 10l-4 4"/></svg>` : k}</button>`).join("")}</div>` : ""}
     <div class="es-foot"><button class="btn primary xl" data-act="do-stake"${valid ? "" : " disabled"}>${valid ? `Stake ${amt(units, "native")} ${u}` : `Stake ${u}`}</button></div>
   </div>`;

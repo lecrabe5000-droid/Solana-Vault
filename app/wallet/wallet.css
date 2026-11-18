@@ -3654,6 +3654,23 @@ html:root[data-theme] #panel .tk-page .tk-chart svg path[stroke] { filter: drop-
 .ek-acts .btn { white-space: nowrap; min-width: 0; padding: 0 12px; }
 .es2 .es-foot { margin-top: auto; } .es2 .kp + .es-foot { margin-top: 0; }
 
+/* Earn, simple: the amount, one line, two buttons */
+.ern3 { display: flex; flex-direction: column; gap: 16px; min-height: calc(100% - 58px); padding: 4px 20px 16px; }
+.ern3 .ern-nets { align-self: center; }
+.e3 { display: grid; justify-items: center; gap: 4px; padding: 22px 0 6px; text-align: center; animation: sf-rise .5s cubic-bezier(.2, .8, .2, 1) both; }
+.e3-coin { width: 44px; height: 44px; margin-bottom: 10px; box-shadow: 0 0 0 6px rgba(125, 151, 255, .08), 0 12px 30px -10px rgba(47, 91, 255, .6); border-radius: 50%; }
+.e3-lbl { color: var(--muted); font-size: 13px; font-weight: 500; } .e3-lbl i { font-style: normal; } .e3-lbl i.on { color: #6ee7b7; } .e3-lbl i.wait { color: #ffc978; }
+.e3-amt { font: var(--num-w) 42px/1.1 var(--num); letter-spacing: -.025em; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.e3-amt small { font: 600 17px var(--font); color: var(--muted); letter-spacing: 0; } .e3-amt.sk { width: 180px; height: 44px; border-radius: 12px; }
+.e3-fiat { color: var(--muted); font-size: 14px; min-height: 19px; }
+.e3-line { margin: 10px 0 0; color: var(--muted); font-size: 13px; } .e3-line em { font-style: normal; color: #6ee7b7; font-weight: 600; }
+.e3-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } .e3-acts.one { grid-template-columns: 1fr; }
+.e3-acts .btn { width: 100%; justify-content: center; white-space: nowrap; }
+.e3-note { margin: 0; text-align: center; color: var(--muted); font-size: 13px; } .e3-note .link { padding: 0; border: 0; background: none; color: #9fb2ff; font: inherit; text-decoration: underline; cursor: pointer; }
+.e3-fine { margin: auto 0 0; text-align: center; color: var(--muted); font-size: 11.5px; line-height: 1.5; opacity: .8; }
+.ern3 .er-list { gap: 6px; }
+:root[data-theme="light"] .e3-line em, :root[data-theme="light"] .e3-lbl i.on { color: #0f9a6a; }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
 #root, #panel { top: 0; bottom: 0; }
