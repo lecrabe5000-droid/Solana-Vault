@@ -414,7 +414,9 @@ function worth() {
   if (S.bal) rows.push({ k: S.net, b: S.bal, v: S.vault, ok: true });
   const items = [], coins = {}; let usdc = 0, chq = 0, sav = 0, leaving = 0, vaults = 0; const leaveAmt = {};
   for (const r of rows) {
-    const N = NETS[r.k], px = S.prices[N.cg]?.usd, natC = r.b.native || 0, natS = r.v?.main?.balance || 0, uC = r.b.usdc || 0, uS = r.v?.usdc?.balance || 0;
+    // Staked coins are still yours and still in your Safe: they count in the Safe's share and in every total.
+    const stk = Math.max(0, S.stakes?.[r.k]?.staked || 0);
+    const N = NETS[r.k], px = S.prices[N.cg]?.usd, natC = r.b.native || 0, natS = (r.v?.main?.balance || 0) + stk, uC = r.b.usdc || 0, uS = r.v?.usdc?.balance || 0;
     if (r.v) vaults++;
     leaving += (r.v?.main?.withdrawals?.length || 0) + (r.v?.usdc?.withdrawals?.length || 0);
     for (const x of r.v?.main?.withdrawals || []) leaveAmt[N.unit] = (leaveAmt[N.unit] || 0) + x.amount / BASE;
@@ -422,7 +424,7 @@ function worth() {
     if (natC + natS > 0) {
       coins[N.cg] = (coins[N.cg] || 0) + (natC + natS) / BASE;
       const c = px != null ? (natC / BASE) * px : 0, v = px != null ? (natS / BASE) * px : 0; chq += c; sav += v;
-      items.push({ k: r.k, a: "native", coin: N.unit === "ETH" ? "eth" : r.k === "solm" ? "sol" : r.k, cg: N.cg, unit: N.unit, name: COIN_NAME[N.unit] || N.unit, net: nname(N), real: !!N.real, chq: natC / BASE, sav: natS / BASE, usd: px != null ? c + v : null, dec: N.unit === "SOL" ? 4 : 5 });
+      items.push({ k: r.k, a: "native", coin: N.unit === "ETH" ? "eth" : r.k === "solm" ? "sol" : r.k, cg: N.cg, unit: N.unit, name: COIN_NAME[N.unit] || N.unit, net: nname(N), real: !!N.real, chq: natC / BASE, sav: natS / BASE, stk: stk / BASE, usd: px != null ? c + v : null, dec: N.unit === "SOL" ? 4 : 5 });
     }
     if (uC + uS > 0) {
       usdc += (uC + uS) / USDC_BASE; chq += uC / USDC_BASE; sav += uS / USDC_BASE;
@@ -1351,8 +1353,9 @@ async function loadAll() {
   const rows = await Promise.all(netKeys().map(async (k) => {
     try {
       const e = k === S.net && ENG ? ENG : engine({ web3, ethers, acct: ACCT, net: k, dev: dev || {} });
-      const [b, v] = await Promise.all([e.balances(), e.vault().catch(() => null)]);
-      return { k, b, v, ok: true };
+      const [b, v, st] = await Promise.all([e.balances(), e.vault().catch(() => null), e.staking && stakeable(k) ? e.staking.fetch().catch(() => null) : null]);
+      if (st) (S.stakes ||= {})[k] = st;
+      return { k, b, v, st, ok: true };
     } catch (_) { return { k, ok: false }; }
   }));
   if (ACCT !== acct || S.mode !== mode) return; // switched account or networks while this was loading
@@ -3074,7 +3077,7 @@ const actions = {
     const tab = globalThis.chrome?.tabs?.create, w = tab ? null : window.open("", "_blank"); // a blank tab first, so phones don't block it
     BUY.busy = true; renderPanel();
     try {
-      const N = NETS[S.net], q = new URLSearchParams({ net: S.net, addr: ENG.address, coin: N.usdc ? BUY.coin : "native", lang: S.lang === "fr" ? "fr" : "en", theme: S.theme === "light" ? "light" : "dark" });
+      const N = NETS[S.net], sup = BUY.coins?.[S.net.replace(/m$/, "")] || { native: true, usdc: true }, q = new URLSearchParams({ net: S.net, addr: ENG.address, coin: N.usdc && sup.usdc && (BUY.coin === "usdc" || !sup.native) ? "usdc" : "native", lang: S.lang === "fr" ? "fr" : "en", theme: S.theme === "light" ? "light" : "dark" });
       const r = await fetch(`${BUY.api}?${q}`, { cache: "no-store" }), d = await r.json().catch(() => ({}));
       if (!r.ok || !/^https:\/\/buy(-sandbox)?\.moonpay\.com\//.test(d.url || "")) throw new Error(d.error || "MoonPay can't be reached right now. Try again in a moment.");
       if (tab) chrome.tabs.create({ url: d.url }); else if (w) w.location.href = d.url; else location.href = d.url;
@@ -3589,7 +3592,7 @@ const BUY = { api: "https://ecrinprotocol.app/api/buy", on: false, test: false, 
 async function buyStatus() {
   if (Date.now() - BUY.checked < 60_000) return;
   BUY.checked = Date.now();
-  try { const d = await (await fetch(BUY.api + "/status", { cache: "no-store" })).json(); BUY.on = !!d.on; BUY.test = !!d.test; } catch (_) {}
+  try { const d = await (await fetch(BUY.api + "/status", { cache: "no-store" })).json(); BUY.on = !!d.on; BUY.test = !!d.test; BUY.coins = d.coins || null; } catch (_) {}
   if (S.panel?.p === "buy") renderPanel();
 }
 /** Buying is open on Testnet with MoonPay's sandbox (a test key), and on Mainnet with a live key. Never in the demo. */
@@ -3597,8 +3600,14 @@ const buyOpen = () => !globalThis.ECRIN_DEMO && BUY.on && (isMain() ? !BUY.test 
 function buyView() {
   const N = NETS[S.net], addr = ENG?.address || "";
   buyStatus();
+  // What MoonPay offers here right now (in test mode, only coins MoonPay marks as test-ready).
+  const sup = BUY.coins?.[S.net.replace(/m$/, "")] || (BUY.coins ? { native: false, usdc: false } : { native: true, usdc: true });
+  if (buyOpen() && !sup.native && !(sup.usdc && N.usdc)) return `${phead("Buy")}<div class="soon-row"><span class="soon">${BUY.test ? "Test mode" : "Not available here"}</span></div>
+    <div class="cv"><div class="cv-art">${I.card}</div><h2>Not on ${esc(nname(N))} ${BUY.test ? "in test mode" : "yet"}</h2>
+      <p class="sub">${BUY.test ? `MoonPay's test mode only offers some coins, and ${esc(N.unit)} on ${esc(N.name)} isn't one of them. Real purchases open with mainnet.` : `MoonPay doesn't offer ${esc(N.unit)} on ${esc(N.name)}.`}</p>
+      ${faucetBtn(N, "btn xl", `Get free test ${N.unit} instead`)}</div>`;
   if (buyOpen()) {
-    const usdc = !!N.usdc && N.fam !== "tron", coin = usdc ? BUY.coin : "native", u = coin === "usdc" ? "USDC" : N.unit;
+    const usdc = !!N.usdc && N.fam !== "tron" && sup.usdc && sup.native, coin = usdc ? BUY.coin : sup.native ? "native" : "usdc", u = coin === "usdc" ? "USDC" : N.unit;
     return `${phead("Buy")}${BUY.test ? `<div class="soon-row"><span class="soon">Test mode · no real money</span></div>` : ""}
     <div class="cv"><div class="cv-art">${I.card}</div><h2>Buy ${u} with a card</h2>
       ${usdc ? `<div class="seg buy-seg">${[["native", N.unit], ["usdc", "USDC"]].map(([v, l]) => `<button data-act="buy-coin" data-v="${v}" aria-pressed="${coin === v}">${l}</button>`).join("")}</div>` : ""}
@@ -3788,7 +3797,7 @@ async function loadEarn(force) {
     const e = await eng(); P.k = S.net;
     const [st, v] = await Promise.all([e.staking ? e.staking.fetch() : null, e.vault().catch(() => null)]);
     if (S.panel !== P) return;
-    P.st = st; P.v = v; P.err = null;
+    P.st = st; P.v = v; P.err = null; if (st) (S.stakes ||= {})[S.net] = st;
   } catch (err) { if (S.panel === P) P.err = errText(err); }
   finally { P.loading = false; }
   if (S.panel === P && P.step !== "sending") (P.mode === "stake" ? patchPanel() : renderPanel());
@@ -4078,7 +4087,7 @@ const ABOUT = {
 function tokenView() {
   const P = S.panel, w = worth(), list = w.items.filter((i) => i.unit === P.u), f = list[0];
   const name = f?.name || COIN_NAME[P.u] || P.u, pr = P.u === "USDC" ? { usd: 1 } : S.prices[P.cg] || {}, px = pr.usd;
-  const tot = list.reduce((a, i) => ({ amt: a.amt + i.chq + i.sav, chq: a.chq + i.chq, sav: a.sav + i.sav, usd: a.usd + (i.usd || 0) }), { amt: 0, chq: 0, sav: 0, usd: 0 }), dec = f?.dec ?? 4;
+  const tot = list.reduce((a, i) => ({ amt: a.amt + i.chq + i.sav, chq: a.chq + i.chq, sav: a.sav + i.sav, stk: a.stk + (i.stk || 0), usd: a.usd + (i.usd || 0) }), { amt: 0, chq: 0, sav: 0, stk: 0, usd: 0 }), dec = f?.dec ?? 4;
   const n = (v, d) => v.toLocaleString("en-US", { maximumFractionDigits: d }), big = (v) => (v >= 1e6 ? money(v, { notation: "compact", maximumFractionDigits: v >= 1e9 ? 2 : 1 }) : money(v));
   // Price history for the range: the change shown is over that range, like the home chart.
   const h = P.cg ? S.series[`${P.cg}:${S.range}`] : null, W = 328, H = 110;
@@ -4115,7 +4124,7 @@ function tokenView() {
     ${chart}${ranges}
     <nav class="acts tk-acts">${[["send", "Send", I.send], ["receive", "Receive", I.recv], ["swap", "Swap", I.swap], ["protect", "Protect", I.protect]].map(([p2, l, ic]) => `<button data-act="tok-do" data-p="${p2}"><span>${ic}</span>${l}</button>`).join("")}</nav>
     <div class="tk-bal"><span class="lbl">Your balance</span><b>${S.hide ? "••••" : fig(money(tot.usd))}</b><small>${mask(n(tot.amt, dec))} ${esc(P.u)}${(() => { const c = pr.usd_24h_change; if (c == null || !tot.usd || P.u === "USDC") return ""; const pl = tot.usd - tot.usd / (1 + c / 100); return ` · <span class="${pl >= 0 ? "up" : "dn"}">${pl >= 0 ? "+" : "−"}${mask(money(Math.abs(pl)))} today</span>`; })()}</small>
-      ${tot.amt ? `<div class="tk-split"><i style="width:${100 - savPct}%"></i><i class="s" style="width:${savPct}%"></i></div><div class="tk-leg"><span><i></i>Wallet ${mask(n(tot.chq, dec))}</span><span><i class="s"></i>${I.lock}Safe ${mask(n(tot.sav, dec))}</span></div>` : ""}</div>
+      ${tot.amt ? `<div class="tk-split"><i style="width:${100 - savPct}%"></i><i class="s" style="width:${savPct}%"></i></div><div class="tk-leg"><span><i></i>Wallet ${mask(n(tot.chq, dec))}</span><span><i class="s"></i>${I.lock}Safe ${mask(n(tot.sav, dec))}</span></div>${tot.stk ? `<div class="tk-stk">${I.spark}<span>${mask(n(tot.stk, dec))} ${esc(P.u)} staked, earning inside your Safe</span></div>` : ""}` : ""}</div>
     ${list.length > 1 ? `<div class="list-h"><b>By network</b><span></span></div><section class="list">${list.map((i) => `<div class="arow">${coin(i.k)}<span class="ar-t"><b>${NETS[i.k].name}</b><small>${i.sav ? `${I.lock}${mask(n(i.sav, i.dec))} in Safe` : "Wallet"}</small></span><span class="ar-r"><b>${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}</small></span></div>`).join("")}</section>` : ""}
     <div class="list-h"><b>Market</b><span></span></div>
     <div class="tk-stats">

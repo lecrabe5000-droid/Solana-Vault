@@ -57,6 +57,22 @@ async function currencies() {
   return cache.list;
 }
 
+/** Which coins MoonPay offers per network, right now: in test mode only those MoonPay marks as test-mode ready.
+ *  { sol: { native: true, usdc: false }, ... }; unknown (list unreachable) is left out, and the wallet tries anyway. */
+export async function coinSupport(mode, list) {
+  list = list || (await currencies()); if (!Array.isArray(list)) return {};
+  const out = {};
+  for (const base of Object.keys(NETS)) {
+    const row = {};
+    for (const coin of ["native", "usdc"]) {
+      const code = pickCode(list, base, coin), c = code && list.find((x) => x.code === code);
+      row[coin] = !!c && !c.isSuspended && (mode !== "test" || c.supportsTestMode === true);
+    }
+    out[base] = row;
+  }
+  return out;
+}
+
 /** MoonPay's signature: base64 HMAC-SHA256 of the query string (with its "?"), keyed with the secret key. */
 export async function sign(query, secret) {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
@@ -69,14 +85,16 @@ export async function handleBuy(request, env) {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (request.method !== "GET") return json({ error: "Method not allowed" }, 405);
   const mode = keyMode(env);
-  if (url.pathname === "/api/buy/status") return json({ on: buyOn(env), test: mode === "test" });
+  if (url.pathname === "/api/buy/status") return json({ on: buyOn(env), test: mode === "test", coins: buyOn(env) ? await coinSupport(mode) : null });
   if (!buyOn(env)) return json({ error: "Buying with a card is coming soon.", code: "BUY_SOON" }, 503);
   const q = url.searchParams, net = parseNet(q.get("net")), addr = q.get("addr") || "", coin = q.get("coin") === "usdc" ? "usdc" : "native";
   if (!net) return json({ error: "This network can't be bought on yet." }, 400);
   if (net.main !== (mode === "live")) return json({ error: net.main ? "Buying on Mainnet opens soon." : "Test purchases are only on Testnet.", code: "BUY_SOON" }, 503);
   if (!ADDR[NETS[net.base].fam].test(addr)) return json({ error: "That address doesn't match this network." }, 400);
-  const code = pickCode(await currencies(), net.base, coin);
+  const list = await currencies(), code = pickCode(list, net.base, coin);
   if (!code) return json({ error: "MoonPay doesn't offer this coin on this network." }, 400);
+  const cur = Array.isArray(list) ? list.find((x) => x.code === code) : null;
+  if (mode === "test" && cur && cur.supportsTestMode !== true) return json({ error: "MoonPay's test mode doesn't offer this coin. It opens with mainnet.", code: "BUY_NOT_IN_TEST" }, 400);
   const p = new URLSearchParams({ apiKey: env.MOONPAY_PK, currencyCode: code, walletAddress: addr, colorCode: "#2F5BFF", language: q.get("lang") === "fr" ? "fr" : "en" });
   if (q.get("theme") === "light" || q.get("theme") === "dark") p.set("theme", q.get("theme"));
   const query = "?" + p.toString();

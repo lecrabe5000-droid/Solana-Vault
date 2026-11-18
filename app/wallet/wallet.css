@@ -3741,6 +3741,15 @@ html:root[data-skin="ecrin"] .mo > .pfoot { background: linear-gradient(to botto
 html:root[data-theme] #panel .mo > .pfoot { background: linear-gradient(to bottom, transparent, var(--mo-bg, #0c0d0f) 30%) !important; backdrop-filter: none !important; box-shadow: none !important; }
 html:root[data-theme="dark"] #panel .mo { --mo-bg: #0c0d0f; } html:root[data-theme="light"] #panel .mo { --mo-bg: #f3f2ee; } html:root[data-skin="ecrin"] #panel .mo { --mo-bg: #070b1d; }
 html:root[data-theme] #panel .mo > .pfoot { bottom: -16px; padding-bottom: calc(30px + env(safe-area-inset-bottom, 0px)) !important; }
+.tk-stk { display: flex; align-items: center; gap: 7px; margin-top: 10px; color: var(--muted); font-size: 12.5px; }
+.tk-stk svg { flex: none; width: 14px; height: 14px; fill: none; stroke: #6ee7b7; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Home shortcuts: one row, side by side; swipe for more (like major wallets) */
+html:root[data-theme] .home .shortcuts { display: flex !important; grid-template-columns: none !important; gap: 6px !important; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity;
+  margin: 0 -16px; padding: 4px 16px 6px !important; scrollbar-width: none; -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 22px), transparent 100%); mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 22px), transparent 100%); }
+html:root[data-theme] .home .shortcuts::-webkit-scrollbar { display: none; }
+html:root[data-theme] .home .shortcuts .sc { flex: 0 0 66px !important; min-width: 66px; scroll-snap-align: start; gap: 7px !important; font-size: 11.5px !important; white-space: nowrap; }
+html:root[data-theme] .home .shortcuts .sc span { width: 50px !important; height: 50px !important; }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */

@@ -12,12 +12,16 @@ assert.equal(pickCode(L, "pol", "native"), "matic_polygon"); assert.equal(pickCo
 const env = { MOONPAY_PK: "pk_test_abc", MOONPAY_SECRET_KEY: "sk_test_s" }; assert.equal(keyMode(env), "test");
 globalThis.fetch = async () => { throw new Error("offline"); };
 const get = (path, e = env) => handleBuy(new Request("https://ecrinprotocol.app" + path), e).then(async (r) => [r.status, await r.json()]);
-assert.deepEqual((await get("/api/buy/status"))[1], { on: true, test: true });
-assert.deepEqual((await get("/api/buy/status", { MOONPAY_PK: "pk_test_abc" }))[1], { on: false, test: true });
+assert.deepEqual((await get("/api/buy/status"))[1], { on: true, test: true, coins: {} });
+assert.deepEqual((await get("/api/buy/status", { MOONPAY_PK: "pk_test_abc" }))[1], { on: false, test: true, coins: null });
 const [s1, b1] = await get("/api/buy?net=sol&addr=9FV9MRrSvGHxyuvAeLKZ7MYs3XCL5mppCjzf4tXzrdx");
 assert.equal(s1, 200); assert.ok(b1.url.startsWith("https://buy-sandbox.moonpay.com/?apiKey=pk_test_abc&currencyCode=sol&walletAddress=9FV9")); assert.match(b1.url, /&signature=[^&]+$/);
 const u = new URL(b1.url), sig = u.searchParams.get("signature"); u.searchParams.delete("signature"); assert.equal(sig, createHmac("sha256", "sk_test_s").update(u.search).digest("base64"));
 assert.equal((await get("/api/buy?net=solm&addr=9FV9MRrSvGHxyuvAeLKZ7MYs3XCL5mppCjzf4tXzrdx"))[0], 503); // mainnet needs a live key
 assert.equal((await get("/api/buy?net=eth&addr=9FV9MRrSvGHxyuvAeLKZ7MYs3XCL5mppCjzf4tXzrdx"))[0], 400); // wrong address kind
 assert.equal((await get("/api/buy?net=ethm&addr=0x" + "a".repeat(40), { MOONPAY_PK: "pk_live_x", MOONPAY_SECRET_KEY: "s" }))[1].url.slice(0, 26), "https://buy.moonpay.com/?a");
+import { coinSupport } from "./buy.js";
+const CL = [{ type: "crypto", code: "eth", supportsTestMode: true, metadata: { networkCode: "ethereum", contractAddress: null } }, { type: "crypto", code: "sol", supportsTestMode: false, metadata: { networkCode: "solana", contractAddress: null } }];
+const cs = await coinSupport("test", CL); assert.equal(cs.eth.native, true); assert.equal(cs.sol.native, false);
+const cl = await coinSupport("live", CL); assert.equal(cl.sol.native, true);
 console.log("buy ok");
