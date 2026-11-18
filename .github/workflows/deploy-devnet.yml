@@ -64,8 +64,12 @@ jobs:
       - name: Check the deployer has enough devnet SOL
         run: |
           set -euo pipefail
+          # A deploy that failed earlier leaves an upload buffer holding SOL: close it to get that back first.
+          solana program close --buffers --bypass-warning || true
           size=$(stat -c%s target/deploy/cooldown_vault.so)
-          need=$(solana rent $((size * 2)) | awk '/Rent-exempt minimum/ {print $3}')
+          # A first deploy pays for the program and an upload buffer; an upgrade only for the buffer (refunded after).
+          mult=2; solana program show "$PROGRAM_ID" >/dev/null 2>&1 && mult=1
+          need=$(solana rent $((size * mult)) | awk '/Rent-exempt minimum/ {print $3}')
           have=$(solana balance | awk '{print $1}')
           echo "program $size bytes; deploy needs about $need SOL (plus fees); deployer $DEPLOYER has $have SOL"
           python3 -c "import sys; sys.exit(0 if float('$have') >= float('$need') + 0.1 else 1)" || { echo "::error::Not enough devnet SOL. Get some at https://faucet.solana.com for $DEPLOYER and run again."; exit 1; }
