@@ -184,10 +184,6 @@ pub mod cooldown_vault {
         Ok(())
     }
 
-    // ------------------------------------------------------------ tokens
-
-    /// Opens the owner's vault for one token: a PDA that keeps its rules state and owns the token account
-    /// (an associated token account) that holds the coins.
     // ------------------------------------------------------------ staking (SOL only, stays inside the Safe)
 
     /// Opens the record of this vault's stake accounts (once, before the first stake).
@@ -284,6 +280,10 @@ pub mod cooldown_vault {
         Ok(())
     }
 
+    // ------------------------------------------------------------ tokens
+
+    /// Opens the owner's vault for one token: a PDA that keeps its rules state and owns the token account
+    /// (an associated token account) that holds the coins.
     pub fn open_token_vault(ctx: Context<OpenTokenVault>) -> Result<()> {
         let t = &mut ctx.accounts.token_vault;
         t.owner = ctx.accounts.owner.key();

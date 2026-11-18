@@ -1,0 +1,88 @@
+name: security
+# Free security scanners on every change (Actions → security).
+#   Solidity (evm/contracts/EcrinVault.sol): Slither and Aderyn, two static analyzers that look for known bug patterns.
+#   Rust (rules crate and Solana program): Clippy (lints) and cargo-audit (dependencies with known vulnerabilities).
+# Findings are written to the run's summary and kept as files (Artifacts). The rules crate's Clippy check must pass;
+# the others report, so a new finding gets looked at (and fixed or explained in docs/security/scanners.md).
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            target
+          key: security-rust-${{ hashFiles('Cargo.lock') }}
+      - name: Clippy on the rules crate (must be clean)
+        run: cargo clippy -p vault-core --all-targets -- -D warnings
+      - name: Clippy on the Solana program (report)
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cargo clippy -p cooldown-vault 2>&1 | tee /tmp/clippy-program.txt
+          { echo "### Clippy: Solana program"; echo '```'; grep -E "^(warning|error)" /tmp/clippy-program.txt | sort | uniq -c || true; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: cargo-audit (known vulnerabilities in dependencies)
+        continue-on-error: true
+        run: |
+          command -v cargo-audit >/dev/null || cargo install cargo-audit --locked
+          set +e
+          cargo audit 2>&1 | tee /tmp/cargo-audit.txt
+          code=$?
+          { echo "### cargo-audit"; echo '```'; grep -E "^(Crate|Version|Title|ID|Solution|error|warning):|Warning:|vulnerabilities found|warnings found|allowed warnings" /tmp/cargo-audit.txt | head -150 || true; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $code
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rust-scans
+          path: /tmp/*.txt
+
+  solidity:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: evm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: evm/package-lock.json
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: npm ci
+      - run: npx hardhat compile
+      - name: Slither
+        continue-on-error: true
+        run: |
+          pip install --quiet slither-analyzer
+          set +e
+          slither . --filter-paths "contracts/test|node_modules" --exclude-dependencies --checklist --markdown-root "https://github.com/${{ github.repository }}/blob/${{ github.sha }}/" > /tmp/slither.md 2>/tmp/slither.log
+          code=$?
+          { echo "### Slither"; cat /tmp/slither.md; echo; echo '```'; tail -5 /tmp/slither.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $code
+      - name: Aderyn
+        continue-on-error: true
+        run: |
+          npx --yes @cyfrin/aderyn . --src contracts --exclude test -o /tmp/aderyn.md
+          { echo "### Aderyn"; head -c 60000 /tmp/aderyn.md; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: solidity-scans
+          path: |
+            /tmp/slither.md
+            /tmp/slither.log
+            /tmp/aderyn.md
