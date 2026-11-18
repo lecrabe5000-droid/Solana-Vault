@@ -22,15 +22,15 @@ The same rules are implemented three times, from one specification (`crates/vaul
 
 | Part | Path | Lines of code* | Language |
 |---|---|---|---|
-| Rules (used by the Solana program) | `crates/vault-core/src/lib.rs` | ~285 | Rust |
-| **Solana program** | `programs/cooldown-vault/src/lib.rs` | ~730 | Rust, Anchor 0.31.1 (staking: stake program CPIs) |
-| **EVM contract** | `evm/contracts/EcrinVault.sol` | ~530 | Solidity 0.8.24 (no proxy, not upgradeable; staking through Lido) |
-| Sui package (optional, round 2) | `sui/sources/safe.move` | ~380 | Move 2024 |
+| Rules (used by the Solana program) | `crates/vault-core/src/lib.rs` | 285 | Rust |
+| **Solana program** | `programs/cooldown-vault/src/lib.rs` | 779 | Rust, Anchor 0.31.1 (staking: stake program CPIs) |
+| **EVM contract** | `evm/contracts/EcrinVault.sol` | 542 | Solidity 0.8.24 (no proxy, not upgradeable; staking through Lido) |
+| Sui package (optional, round 2) | `sui/sources/safe.move` | 382 | Move 2024 |
 
 \*Non-blank, non-comment lines. The EVM contract is deployed unchanged on Ethereum, Base, Arbitrum, Optimism and
 Polygon (later BNB Chain and Avalanche).
 
-**Priority for round one: the Solana program (with the rules) and the EVM contract, about 1,550 lines.**
+**Round one: the Solana program (with the rules) and the EVM contract, 1,606 lines. The Sui package (382 lines) is a separate, later round.**
 
 Out of scope: the wallet apps, the website and the alert server (`worker/`). They hold no funds and can't move
 any; they were reviewed internally (`audit-1.md`, `audit-2.md`, `audit-3.md`).
