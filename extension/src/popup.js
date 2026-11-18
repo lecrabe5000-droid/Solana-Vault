@@ -2565,7 +2565,17 @@ async function maybeNews() {
   if (S.newsChecked || S.screen !== "home") return; S.newsChecked = true;
   const { seenVer } = await local.get("seenVer"); if (seenVer === VERSION) return;
   await local.set({ seenVer: VERSION });
-  if (seenVer) setTimeout(() => { if (S.screen === "home" && !S.panel) openPanel("news"); }, 1700); // after the entrance
+  // Phone: a small card with only the newest change (the full list stays in Settings → What's new). Extension: the page.
+  if (seenVer) setTimeout(() => { if (S.screen === "home" && !S.panel) (globalThis.ECRIN_WEB ? newsPeek() : openPanel("news")); }, 1700); // after the entrance
+}
+/** The newest change, as a small card above the tab bar. Tap it for the full list; it leaves by itself after a while. */
+function newsPeek() {
+  const [t, d] = NEWS[0]; document.querySelector(".npk")?.remove();
+  const el = document.createElement("div"); el.className = "npk"; el.setAttribute("role", "status");
+  el.innerHTML = `<button class="npk-b" data-np="open"><span class="npk-ic">${I.spark}</span><span class="npk-t"><small>New in ${esc(VERSION)}</small><b>${esc(trText(t, S.lang))}</b><span>${esc(trText(d, S.lang))}</span></span></button><button class="npk-x" data-np="x" aria-label="${esc(trText("Close", S.lang))}"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
+  const bye = () => { el.classList.add("out"); setTimeout(() => el.remove(), 320); };
+  el.addEventListener("click", (e) => { const b = e.target.closest("[data-np]"); if (!b) return; bye(); if (b.dataset.np === "open") openPanel("news"); });
+  document.body.append(el); haptic("light"); setTimeout(() => el.isConnected && bye(), 9000);
 }
 function currencyView() {
   return `${phead("Currency")}<p class="fine">Prices and totals show in this currency at today's rate. Your coins don't change.</p>

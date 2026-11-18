@@ -3521,6 +3521,22 @@ body.stacked.grow-open #root, :root[data-theme] body.stacked.grow-open #root { t
 :root[data-theme="light"] .eg-core { fill: rgba(47, 91, 255, .07) !important; stroke: rgba(47, 91, 255, .22); }
 :root[data-theme="light"] .ern-gem.idle .eg-core { fill: rgba(47, 91, 255, .05) !important; }
 
+/* What's new on the phone: one small card above the tab bar, not a page */
+.npk { position: fixed; z-index: 60; left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom, 0px) + 96px); display: flex; align-items: center; gap: 4px; padding: 6px 6px 6px 10px; border-radius: 20px;
+  background: rgba(18, 20, 32, .82); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 0 0 1px rgba(125, 151, 255, .35), 0 18px 40px -18px rgba(47, 91, 255, .8); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  animation: npk-in .5s cubic-bezier(.2, .9, .2, 1.05) both; }
+.npk.out { animation: npk-out .3s ease-in both; }
+@keyframes npk-in { from { opacity: 0; transform: translateY(20px) scale(.97); } }
+@keyframes npk-out { to { opacity: 0; transform: translateY(14px); } }
+.npk-b { flex: 1; min-width: 0; display: flex; align-items: center; gap: 11px; padding: 4px 0; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.npk-ic { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; color: #fff; background: linear-gradient(150deg, #7d97ff, #2f5bff 55%, #1aa8d6); box-shadow: 0 6px 18px -6px #2f5bff; }
+.npk-ic svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.npk-t { display: grid; gap: 1px; min-width: 0; } .npk-t small { color: #9fb2ff; font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.npk-t b { font-size: 14px; } .npk-t span { color: var(--muted); font-size: 12px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.npk-x { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 12px; background: none; color: var(--muted); cursor: pointer; }
+.npk-x svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+:root[data-theme="light"] .npk { background: rgba(255, 255, 255, .9); box-shadow: 0 0 0 1px rgba(47, 91, 255, .25), 0 18px 40px -20px rgba(16, 17, 20, .4); } :root[data-theme="light"] .npk-t small { color: #2f5bff; }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
 #root, #panel { top: 0; bottom: 0; }
