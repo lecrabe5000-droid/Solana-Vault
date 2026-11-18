@@ -3853,7 +3853,7 @@ function earnShell(nets, loading) {
     <section class="ern-hero">
       <div class="ern-stage">${earnGem(f, !staked)}
         <div class="ern-mid"><span class="ern-ic">${I.spark}</span><span class="lbl">Staked</span>
-          <b class="ern-big${loading ? " sk" : ""}">${loading ? "&nbsp;" : mask(amt(staked, "native"))}</b><small>${unit}${staked && px != null ? ` · ${mask(money1(staked))}` : ""}</small></div>
+          <b class="ern-big${loading ? " sk" : ""}${(() => { const n = amt(staked, "native").length; return n > 9 ? " xs" : n > 6 ? " sm" : ""; })()}">${loading ? "&nbsp;" : mask(amt(staked, "native"))}</b><small>${unit}${staked && px != null ? ` · ${mask(money1(staked))}` : ""}</small></div>
       </div>
       <div class="ern-earned">${st?.rewards ? `<span class="ern-pill">${I.spark}+${amt(st.rewards, "native")} ${unit} earned</span>` : `<span class="ern-pill dim">${I.spark}About ${e?.apy || (lido ? "3%" : STAKE_APY_TEXT)} a year</span>`}
         ${staked ? `<span class="ern-yr">≈ ${yr.toLocaleString("en-US", { maximumFractionDigits: 4 })} ${unit} a year${px != null ? ` · ${mask(money(yr * px))}` : ""}</span>` : ""}</div>
@@ -4097,12 +4097,14 @@ function tokenView() {
     dd = v[v.length - 1] - v[0]; pc = (dd / (v[0] || 1)) * 100;
     S.tkChart = { v, tl, xy, W, H };
     const fresh = S.tkDrawKey !== `${P.u}:${S.range}`; S.tkDrawKey = `${P.u}:${S.range}`;
-    chart = `<div class="tk-chart${fresh ? " draw" : ""}" data-tkchart><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs><linearGradient id="tkf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".16"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient><linearGradient id="tkmg" x1="0" x2="1" y1="0" y2="0"><stop offset=".8" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><mask id="tkm" maskContentUnits="objectBoundingBox"><rect width="1" height="1" fill="url(#tkmg)"/></mask></defs><path d="${d}L${XR},${H}L0,${H}Z" fill="url(#tkf)" mask="url(#tkm)"/><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.7" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><line class="tk-x" x1="0" x2="0" y1="0" y2="${H}"/></svg><i class="tk-dot" style="left:${((xy[xy.length - 1][0] / W) * 100).toFixed(2)}%;top:${((xy[xy.length - 1][1] / H) * 100).toFixed(2)}%"></i><i class="tk-pin"></i><span class="ch-tip tk-tip"></span></div>`;
+    chart = `<div class="tk-chart${fresh ? " draw" : ""}" data-tkchart><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs><linearGradient id="tkf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".1"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient><linearGradient id="tkmg" x1="0" x2="1" y1="0" y2="0"><stop offset=".8" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><mask id="tkm" maskContentUnits="objectBoundingBox"><rect width="1" height="1" fill="url(#tkmg)"/></mask></defs><path d="${d}L${XR},${H}L0,${H}Z" fill="url(#tkf)" mask="url(#tkm)"/><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.7" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><line class="tk-x" x1="0" x2="0" y1="0" y2="${H}"/></svg><i class="tk-dot" style="left:${((xy[xy.length - 1][0] / W) * 100).toFixed(2)}%;top:${((xy[xy.length - 1][1] / H) * 100).toFixed(2)}%"></i><i class="tk-pin"></i><span class="ch-tip tk-tip"></span></div>`;
   }
   const rl = { 1: "today", 7: "this week", 30: "this month", 365: "this year" }[S.range];
   const ranges = `<div class="ranges">${[["1", "1D"], ["7", "1W"], ["30", "1M"], ["365", "1Y"]].map(([x, l]) => `<button data-act="range" data-d="${x}" aria-pressed="${S.range === x}">${l}</button>`).join("")}</div>`;
   const icon = coin({ USDC: "usdc", USDT: "usdt", ETH: "eth", SOL: "sol", POL: "pol", BNB: "bnb", AVAX: "avax", TRX: "tron", HYPE: "hype", SUI: "sui" }[P.u] || "eth");
-  const cc = COIN_COL[P.u] || "#5b7cff";
+  // Each coin's own brand colour on its page (the home diamond keeps Ecrin's blue palette).
+  const BRAND = { SOL: "#9b6bff", ETH: "#7f96ff", USDC: "#3b8ff0", USDT: "#26a17b", POL: "#8f5cf0", BNB: "#f0b90b", AVAX: "#e84142", TRX: "#ff3b4e", SUI: "#4da2ff", HYPE: "#50d2c1" };
+  const cc = BRAND[P.u] || COIN_COL[P.u] || "#5b7cff";
   const nets = [...new Set(list.map((i) => NETS[i.k].name))];
   const acts = (S.activity || []).filter((e) => e.n && A(e.a).unit === P.u).slice(0, 5);
   const when = (ms) => new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric" });

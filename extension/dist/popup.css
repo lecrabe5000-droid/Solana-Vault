@@ -2908,8 +2908,6 @@ html:root[data-skin="ecrin"] body #tabbar#tabbar { background: rgba(9, 20, 70, .
 html:root[data-skin="ecrin"] body #tabbar#tabbar button.on { background: #f4f2ea !important; color: #1f3fd6 !important; }
 html:root[data-skin="ecrin"] .tn-chip, html:root[data-skin="ecrin"] .brand-sig i { background: rgba(255,255,255,.14) !important; color: #fff !important; }
 html:root[data-skin="ecrin"] .wm-mark rect { stroke: #fff; } html:root[data-skin="ecrin"] .wm-mark path { fill: #fff; }
-html:root[data-skin="ecrin"] :is(.tk-page .tk-chart, .tk-page .tk-chart *) { color: #fff !important; }
-html:root[data-skin="ecrin"] .tk-page { --cc: #ffffff !important; }
 html:root[data-skin="ecrin"] :is(.up, .pos) { color: #7ee0b5 !important; } html:root[data-skin="ecrin"] :is(.dn, .neg) { color: #ff9a9a !important; }
 html:root[data-skin="ecrin"] .wsplit .sp-s, html:root[data-skin="ecrin"] .wsplit .sp-s * { color: #fff !important; }
 html:root[data-skin="ecrin"] .lz .lz-safe, html:root[data-skin="ecrin"] .lz-safe { stroke: #ffffff !important; filter: drop-shadow(0 0 10px rgba(255,255,255,.55)); }
@@ -3600,3 +3598,15 @@ html:root[data-skin="ecrin"] #panel nav.acts.tk-acts button[data-p="protect"] { 
 html:root[data-skin="ecrin"] #panel nav.acts.tk-acts button:not([data-p="protect"])[data-p] span { background: rgba(255, 255, 255, .1) !important; }
 html:root[data-theme] #panel nav.acts.tk-acts button[data-p]:is(:hover, :focus, :focus-visible) { background: none !important; outline: none; }
 html:root[data-theme] #panel nav.acts.tk-acts button[data-p]:focus-visible span { box-shadow: 0 0 0 2px #7d97ff !important; }
+/* Earn: the number always sits well inside the diamond, however long it is */
+.ern-mid { max-width: 132px; }
+.ern-big.sm { font-size: 24px; } .ern-big.xs { font-size: 19px; }
+.ern-mid small { white-space: nowrap; font-size: 11.5px; }
+.ern-stage .ern-ic { width: 30px; height: 30px; border-radius: 10px; } .ern-stage .ern-ic svg { width: 16px; height: 16px; }
+
+/* Coin pages: the line in the coin's own colour, and only a soft hint of light behind it */
+html:root[data-theme] #panel .tk-page .tk-chart, html:root[data-skin="ecrin"] #panel :is(.tk-page .tk-chart, .tk-page .tk-chart *) { color: var(--cc) !important; }
+html:root[data-theme] #panel .tk-page .tk-chart::before { opacity: .35; }
+html:root[data-theme] #panel .tk-page::before { opacity: .45; }
+html:root[data-theme="light"] #panel .tk-page::before { opacity: .6; }
+html:root[data-theme] #panel .tk-page .tk-chart svg path[stroke] { filter: drop-shadow(0 3px 6px color-mix(in srgb, var(--cc) 35%, transparent)); }
