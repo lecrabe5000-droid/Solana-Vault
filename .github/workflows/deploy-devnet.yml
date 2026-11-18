@@ -79,7 +79,16 @@ jobs:
             if [ "$need" -gt "$have" ]; then solana program extend "$PROGRAM_ID" $((need - have + 4096)); fi
           fi
       - name: Deploy (first time) or upgrade
-        run: solana program deploy target/deploy/cooldown_vault.so --program-id target/deploy/cooldown_vault-keypair.json --max-sign-attempts 60 --with-compute-unit-price 10000
+        # --use-rpc sends through plain RPC requests: the free devnet server rate-limits the websocket the default
+        # path opens. A failed try leaves a half-written buffer holding SOL, so it is closed (refunded) before retrying.
+        run: |
+          for i in 1 2 3; do
+            solana program deploy target/deploy/cooldown_vault.so --program-id target/deploy/cooldown_vault-keypair.json --max-sign-attempts 60 --with-compute-unit-price 10000 --use-rpc && exit 0
+            echo "deploy try $i failed; refunding leftover buffers and retrying"
+            solana program close --buffers --bypass-warning || true
+            sleep 20
+          done
+          exit 1
       - name: Set up the emergency brake (once)
         run: RPC="$(solana config get json_rpc_url | awk '{print $NF}')" node scripts/init-config.mjs
       - name: Check it from the browser client
