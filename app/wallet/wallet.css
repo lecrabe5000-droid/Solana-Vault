@@ -3670,6 +3670,38 @@ html:root[data-theme] #panel .tk-page .tk-chart svg path[stroke] { filter: drop-
 .e3-fine { margin: auto 0 0; text-align: center; color: var(--muted); font-size: 11.5px; line-height: 1.5; opacity: .8; }
 .ern3 .er-list { gap: 6px; }
 :root[data-theme="light"] .e3-line em, :root[data-theme="light"] .e3-lbl i.on { color: #0f9a6a; }
+/* Welcome chips: one line each, whatever the width */
+.wl-pills { flex-wrap: nowrap !important; gap: 6px !important; max-width: 100%; }
+.wl-p { white-space: nowrap; min-width: 0; } .wl-p small { white-space: nowrap; }
+@media (max-width: 360px) { .wl-p { padding-left: 9px !important; padding-right: 10px !important; gap: 5px !important; font-size: 12px !important; } .wl-p small { font-size: 11px !important; } }
+.device:is([style], *) .wl-p { white-space: nowrap; }
+@container (max-width: 350px) { .wl-p { font-size: 12px !important; } .wl-p small { font-size: 11px !important; } }
+/* Price alerts: name and price always readable; the price change drops under the price when space is short */
+.pa-row { gap: 10px !important; } .pa-row .ar-t { min-width: 0; }
+.pa-row .ar-t b { white-space: nowrap; overflow: visible; }
+.pa-row .ar-t small { white-space: normal !important; display: flex; flex-wrap: wrap; column-gap: 5px; overflow: visible !important; text-overflow: clip !important; }
+.pa-row .ar-t small span { white-space: nowrap; }
+.pa-seg button { min-width: 38px; padding: 0 8px; }
+.pa-seg button { min-width: 34px !important; padding: 0 7px !important; font-size: 12px !important; height: 28px !important; }
+.pa-row { padding-right: 10px !important; } .pa-row .ar-t { flex: 1 1 0; }
+
+/* Narrow phones (down to 320px): network rows and home shortcuts stay inside the screen */
+.nlist .nr { min-width: 0; } .nr-t { min-width: 0; } .nr-t b, .nr-t small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nr-r { flex: none; } .nr-r b { white-space: nowrap; }
+@media (max-width: 340px) {
+  .nlist .nr { gap: 10px; padding: 11px 10px; } .nlist .nr .coin { width: 32px; height: 32px; }
+  :root[data-theme] .home .shortcuts .sc { font-size: 11px !important; letter-spacing: -.01em; }
+  :root[data-theme] .home .shortcuts .sc span { width: 44px !important; height: 44px !important; }
+}
+@media (max-width: 340px) {
+  .sf-stage { width: min(300px, 88vw) !important; height: auto !important; aspect-ratio: 1; margin: -6px auto -12px !important; }
+  .sf-tiles { gap: 6px !important; } .sf-tile { min-width: 0; padding: 10px !important; } .sf-tile b { font-size: 14px !important; }
+  .srow:has(.seg) { flex-wrap: wrap; row-gap: 8px; } .srow:has(.seg) .seg { margin-left: auto; }
+  .srow .seg button { padding: 0 8px !important; min-width: 0 !important; }
+}
+.sf-tile, .srow > * { min-width: 0; }
+.nets, .sets { grid-template-columns: minmax(0, 1fr); }
+.srow .sv { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; flex: none; }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */

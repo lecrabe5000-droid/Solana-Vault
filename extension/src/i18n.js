@@ -262,7 +262,7 @@ const FR = {
   "Auto-lock": "Verrouillage auto", "Appearance": "Apparence", "Light": "Clair", "Dark": "Sombre", "Always": "Toujours", "Numbers": "Chiffres", "Language": "Langue",
   "Connected sites": "Sites connectés", "Notify when I receive coins": "Me prévenir quand je reçois", "Hide balances under $1": "Masquer les soldes sous 1 $", "Show collectibles (NFTs)": "Afficher la collection (NFT)",
   "Order coins by": "Trier les jetons par", "Value": "Valeur", "Show recovery phrase": "Afficher la phrase de récupération", "Lock now": "Verrouiller",
-  "Remove wallet from this browser": "Retirer le wallet de ce navigateur", "Safety: limits, auto-protect, freeze": "Sécurité : limites, protection auto, gel",
+  "Remove wallet from this browser": "Retirer le wallet de ce navigateur", "Safety: limits, auto-protect, freeze": "Sécurité : limites, protection auto, gel", "Limits, freeze": "Limites, gel",
   "Vault rules and alerts": "Règles et alertes du Safe", "Move to Safe": "Mettre dans le Safe", "Start withdrawal": "Lancer le retrait", "Hold to protect": "Maintenir pour protéger",
   "Accounts you add come from your recovery phrase, so your backup covers them. Imported keys are not in your recovery phrase: keep their own backup.": "Les comptes ajoutés viennent de votre phrase de récupération : votre sauvegarde les couvre. Les clés importées n'y sont pas : gardez-en une sauvegarde à part.",
   "Imported private key": "Clé privée importée", "From your recovery phrase": "Depuis votre phrase de récupération", "Ethereum and its networks": "Ethereum et ses réseaux", "same address on each": "même adresse partout",

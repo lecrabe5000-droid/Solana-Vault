@@ -166,6 +166,8 @@ const suiKeyHex = (k) => bech32.encode("suiprivkey", bech32.toWords(Uint8Array.o
 // default until mainnet launches; DEFAULT_MODE flips it.
 const DEFAULT_MODE = "test";
 const isMain = () => S.mode === "main";
+/** A network's name, with its test network added when two shown networks share a name (Ethereum Sepolia, Ethereum Hoodi). */
+const nname = (N) => (netKeys().some((k) => k !== N.key && NETS[k].name === N.name) ? `${N.name} ${N.net}` : N.name);
 const netKeys = () => modeNets(S.mode || DEFAULT_MODE).filter((k) => !ACCT?.only || NETS[k].fam === ACCT.only);
 const curAcct = () => (S.accts || DEF_ACCTS).find((a) => a.id === S.sel) || (S.accts || DEF_ACCTS)[0];
 async function useAccount(phrase) {
@@ -420,11 +422,11 @@ function worth() {
     if (natC + natS > 0) {
       coins[N.cg] = (coins[N.cg] || 0) + (natC + natS) / BASE;
       const c = px != null ? (natC / BASE) * px : 0, v = px != null ? (natS / BASE) * px : 0; chq += c; sav += v;
-      items.push({ k: r.k, a: "native", coin: N.unit === "ETH" ? "eth" : r.k === "solm" ? "sol" : r.k, cg: N.cg, unit: N.unit, name: COIN_NAME[N.unit] || N.unit, net: N.name, real: !!N.real, chq: natC / BASE, sav: natS / BASE, usd: px != null ? c + v : null, dec: N.unit === "SOL" ? 4 : 5 });
+      items.push({ k: r.k, a: "native", coin: N.unit === "ETH" ? "eth" : r.k === "solm" ? "sol" : r.k, cg: N.cg, unit: N.unit, name: COIN_NAME[N.unit] || N.unit, net: nname(N), real: !!N.real, chq: natC / BASE, sav: natS / BASE, usd: px != null ? c + v : null, dec: N.unit === "SOL" ? 4 : 5 });
     }
     if (uC + uS > 0) {
       usdc += (uC + uS) / USDC_BASE; chq += uC / USDC_BASE; sav += uS / USDC_BASE;
-      items.push({ k: r.k, a: "usdc", coin: "usdc", cg: "usdc", unit: "USDC", name: "USD Coin", net: N.name, real: !!N.real, chq: uC / USDC_BASE, sav: uS / USDC_BASE, usd: (uC + uS) / USDC_BASE, dec: 2 });
+      items.push({ k: r.k, a: "usdc", coin: "usdc", cg: "usdc", unit: "USDC", name: "USD Coin", net: nname(N), real: !!N.real, chq: uC / USDC_BASE, sav: uS / USDC_BASE, usd: (uC + uS) / USDC_BASE, dec: 2 });
     }
   }
   items.sort((x, y) => (y.usd || 0) - (x.usd || 0));
@@ -1613,8 +1615,8 @@ function allView() {
   for (const r of rows.filter((r) => r.ok)) {
     const N = NETS[r.k], natC = r.b.native, natS = r.v?.main?.balance || 0, uC = r.b.usdc || 0, uS = r.v?.usdc?.balance || 0;
     const nUsd = px(r.k) != null ? ((natC + natS) / BASE) * px(r.k) : null;
-    if (natC + natS > 0) items.push({ k: r.k, coin: r.k, unit: N.unit, name: COIN_NAME[N.unit] || N.unit, net: N.name, chq: natC / BASE, sav: natS / BASE, usd: nUsd, dec: N.unit === "SOL" ? 4 : 5 });
-    if (uC + uS > 0) items.push({ k: r.k, coin: "usdc", unit: "USDC", name: "USD Coin", net: N.name, chq: uC / USDC_BASE, sav: uS / USDC_BASE, usd: (uC + uS) / USDC_BASE, dec: 2 });
+    if (natC + natS > 0) items.push({ k: r.k, coin: r.k, unit: N.unit, name: COIN_NAME[N.unit] || N.unit, net: nname(N), chq: natC / BASE, sav: natS / BASE, usd: nUsd, dec: N.unit === "SOL" ? 4 : 5 });
+    if (uC + uS > 0) items.push({ k: r.k, coin: "usdc", unit: "USDC", name: "USD Coin", net: nname(N), chq: uC / USDC_BASE, sav: uS / USDC_BASE, usd: (uC + uS) / USDC_BASE, dec: 2 });
   }
   const total = items.reduce((s, i) => s + (i.usd || 0), 0), saved = items.reduce((s, i) => s + (i.usd != null && i.chq + i.sav ? (i.usd * i.sav) / (i.chq + i.sav) : 0), 0);
   // By coin: SOL, ETH (all Ethereum-style networks together), POL, USDC.
@@ -1784,12 +1786,31 @@ function dur(s) { if (s <= 0) return "ready"; const d = Math.floor(s / 86400), h
 
 // ------------------------------------------------------------------ panels (slide over the home screen)
 
-function openPanel(p, opts = {}) { if (p === "vault") S.shT0 = 0; S.cvT0 = 0; S.panel = { p, step: "form", asset: opts.a || "native", amount: "", to: "", ...opts }; renderPanel(true); }
+/** Screens remember where you came from, like any major wallet: back returns to the exact previous screen. */
+function pushPanel(next) { const P = S.panel; if (P && P.p !== next && P.step !== "sending") { (S.pstack ||= []).push(P); if (S.pstack.length > 12) S.pstack.shift(); } }
+function openPanel(p, opts = {}) { if (p === "vault") S.shT0 = 0; S.cvT0 = 0; const fresh = !S.panel; pushPanel(p); S.panel = { p, step: "form", asset: opts.a || "native", amount: "", to: "", ...opts }; renderPanel(fresh); }
+/** Back: first a step back inside the current screen, then the previous screen, then home. */
+function goBack() {
+  const P = S.panel; if (!P) return;
+  if (P.step === "sending") return; // a transaction is on its way: its sheet stays until it's done
+  if (P.p === "earn" && P.step === "done") { P.step = "form"; P.mo = null; P.mode = "home"; P.st = undefined; return renderPanel(); }
+  if (P.p === "earn" && (P.mode === "stake" || P.mode === "unstake")) { P.mode = "home"; P.amount = ""; P.pct = null; return renderPanel(); }
+  if (P.step === "review" || P.step === "to") { P.step = P.p === "withdraw" && P.step === "review" && P.dest ? "form" : "form"; P.anim = false; return renderPanel(); }
+  const prev = S.pstack?.pop();
+  if (prev) {
+    const wasDone = P.step === "done";
+    S.panel = prev; if (prev.step === "done") prev.step = "form";
+    if (prev.p === "earn") { prev.st = undefined; prev.mode = prev.mode === "stake" || prev.mode === "unstake" ? "home" : prev.mode; }
+    if (wasDone || ["all", "vault", "rules"].includes(prev.p)) loadAll();
+    return renderPanel();
+  }
+  closePanel();
+}
 // Home's bottom fade is pinned to the screen, but while home slides (it moves with a transform) browsers pin it to the
 // page instead, so it jumps up over the first token rows: a blank or faded strip until the slide ends. body.stacked
 // and body.settling hide it while home is moved, and it fades back once home is still.
 function settleHome() { const b = document.body; clearTimeout(S.settleT); b.classList.add("settling"); S.settleT = setTimeout(() => b.classList.remove("settling"), 460); }
-function closePanel() { if (S.panel?.step === "done" && (S.panel.p === "protect" || S.panel.p === "withdraw")) S.fly = S.panel.p; const el = $("#panel"); el.classList.remove("in"); document.body.classList.remove("stacked"); settleHome(); setTimeout(() => { if (!S.panel) el.innerHTML = ""; }, 260); S.panel = null;
+function closePanel() { S.pstack = []; if (S.panel?.step === "done" && (S.panel.p === "protect" || S.panel.p === "withdraw")) S.fly = S.panel.p; const el = $("#panel"); el.classList.remove("in"); document.body.classList.remove("stacked"); settleHome(); setTimeout(() => { if (!S.panel) el.innerHTML = ""; }, 260); S.panel = null;
   // Coming back to home: if nothing on it changed, keep the screen as it is instead of rebuilding it mid-slide
   // (a rebuild re-decodes every coin logo and the rows visibly settle for a moment).
   if (S.screen === "home" && !S.fly && S.homeSig && viewSig(homeView()) === S.homeSig) { syncTabbar(); return; }
@@ -2439,7 +2460,7 @@ function settingsView() {
   return `${phead("Settings")}
     <button class="set-acct" data-act="panel" data-p="accts">${acctIc(curAcct(), "lg")}<span><b>${esc(curAcct().name)}</b><small class="mono">${short(ENG?.address || "")}</small></span>${I.arrow}</button>
     ${sec("Security", `
-      ${row("panel", I.shield, "Safety: limits, auto-protect, freeze", I.arrow, 'data-p="safety"')}
+      ${row("panel", I.shield, "Safety", `Limits, freeze ${I.arrow}`, 'data-p="safety"')}
       ${row("panel", I.key, "Recovery phrase", I.arrow, 'data-p="reveal"')}
       ${row("panel", I.key, "Export private key", I.arrow, 'data-p="pkey"')}
       ${globalThis.ECRIN_WEB && bioPossible() ? row("bio-toggle", I.face, bioName() === "Face ID" ? "Face ID" : "Biometric unlock", `${onOff(S.bio)} ${I.arrow}`) : ""}
@@ -2824,10 +2845,10 @@ const actions = {
   "tok-do": async (el) => { const P = S.panel, w = worth(), list = w.items.filter((i) => i.unit === P.u), p = el.dataset.p;
     const best = list.filter((i) => (p === "withdraw" ? i.sav : i.chq) > 0).sort((x, y) => (y.usd || 0) - (x.usd || 0))[0] || list[0];
     const k = best?.k || P.n || (P.u === "SOL" ? "sol" : P.u === "POL" ? "pol" : "eth"), a = P.u === "USDC" ? "usdc" : "native";
-    await useNet(k); S.panel = null; openPanel(p, { a }); if (p === "send" || p === "protect" || p === "swap") { const e = await eng(); S.panel.reserve = await e.reserve(a); renderPanel(); } },
+    await useNet(k); openPanel(p, { a }); if (p === "send" || p === "protect" || p === "swap") { const e = await eng(); S.panel.reserve = await e.reserve(a); renderPanel(); } },
   "mkt-all": () => { S.mktAll = !S.mktAll; render(); },
   "pick-usdc": () => { S.panel.openU = !S.panel.openU; patchPanel ? patchPanel() : renderPanel(); },
-  "pick-coin": () => { const P = S.panel; if (!P) return; S.panel = { p: "pick", back: P.p, step: "form" }; renderPanel(); },
+  "pick-coin": () => { const P = S.panel; if (!P) return; pushPanel("pick"); S.panel = { p: "pick", back: P.p, step: "form" }; renderPanel(); },
   "pick-go": async (el) => { await useNet(el.dataset.n); S.panel = null; openPanel(el.dataset.p, { a: el.dataset.a }); if (el.dataset.p !== "receive" && el.dataset.p !== "withdraw") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); } },
   grp: (el) => { S.open = { ...(S.open || {}), [el.dataset.u]: !S.open?.[el.dataset.u] }; render(); },
   wn: (el) => { S.wn = Number(el.dataset.n); render(); },
@@ -2892,7 +2913,7 @@ const actions = {
   },
   "swap-pct": (el) => { const P = S.panel, p = BigInt(el.dataset.v), m = swapMaxRaw(P.from), u = (m * p) / 100n; P.pct = Number(p); P.amount = u ? String(fromRaw(u, P.from.dec)) : ""; swapQuoteSoon(0); },
   "swap-review": () => { const P = S.panel; if (!P.quote) return; P.step = "review"; renderPanel(); },
-  "swap-sol": async () => { await useNet(SWAP_NET); S.panel = null; openPanel("swap"); const e = await eng(); S.panel.reserve = await e.reserve("native"); renderPanel(); },
+  "swap-sol": async () => { await useNet(SWAP_NET); openPanel("swap"); const e = await eng(); S.panel.reserve = await e.reserve("native"); renderPanel(); },
   "ap-ok": async (el) => {
     const R = S.req; if (!R || R.busy) return;
     if (R.kind === "connect" && S.guard.bet && isBetting(R.site?.host) && !(await betCheck(R.site.host))) return actions["ap-no"]();
@@ -2960,14 +2981,14 @@ const actions = {
       const best = w.items.filter((i) => (p === "withdraw" ? i.sav : i.chq) > 0).sort((x, y) => (y.usd || 0) - (x.usd || 0))[0];
       if (!here.length && best && best.k !== S.net) { await useNet(best.k); el = { dataset: { p, a: best.a } }; }
     }
-    if (S.panel && p !== S.panel.p) { S.panel = { p, step: "form", asset: el.dataset.a || "native", amount: "", to: "", k: el.dataset.k }; renderPanel(); }
+    if (S.panel && p !== S.panel.p) { pushPanel(p); S.panel = { p, step: "form", asset: el.dataset.a || "native", amount: "", to: "", k: el.dataset.k }; renderPanel(); }
     else openPanel(p, { a: el.dataset.a, k: el.dataset.k });
     if (p === "send" || p === "protect" || p === "swap") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); }
     if (p === "all" || p === "vault" || p === "rules") loadAll();
     if (p === "sites") loadSites();
   },
   settings: () => openPanel("settings"),
-  close: () => closePanel(),
+  close: () => goBack(),
   asset: async (el) => { const P = S.panel; P.asset = el.dataset.a; P.amount = ""; P.pct = null; P.reserve = await (await eng()).reserve(P.asset); renderPanel(); },
   key: (el) => {
     const P = S.panel, k = el.dataset.k, x = A(P.asset); let v = P.amount || "";
@@ -3002,7 +3023,7 @@ const actions = {
   },
   "do-protect": () => { const P = S.panel, units = parseAmt(P.amount, P.asset); if (!units) return; P.sent = units;
     txRun(async () => { const e = await eng(); if (!S.vault) { await e.createVault(safeKind() || "strong"); S.vault = await e.vault().catch(() => null) || S.vault; await syncRulesTo(S.net, e); } return e.protect(P.asset, units); }, null, { t: "protect", a: P.asset, n: units }); },
-  "safe-pick": (el) => { S.panel = null; openPanel("pick", { back: el.dataset.p }); },
+  "safe-pick": (el) => { openPanel("pick", { back: el.dataset.p }); },
   faucet: async (el) => {
     const N = NETS[S.net]; if (N.key !== "sol" || !ENG?.address) return window.open(N.faucet, "_blank");
     if (S.fauBusy) return; S.fauBusy = true;
@@ -3046,7 +3067,7 @@ const actions = {
   },
   "wd-pick": (el) => { const P = S.panel; P.to = el.dataset.a; renderPanel(); },
   "wd-back": () => { const P = S.panel; P.step = null; renderPanel(); },
-  "safe-go": async (el) => { el.disabled = true; await useNet(el.dataset.n); S.panel = null; openPanel(el.dataset.p); if (el.dataset.p === "protect") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); } },
+  "safe-go": async (el) => { el.disabled = true; await useNet(el.dataset.n); openPanel(el.dataset.p); if (el.dataset.p === "protect") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); } },
   "buy-coin": (el) => { BUY.coin = el.dataset.v === "usdc" ? "usdc" : "native"; renderPanel(); },
   "buy-go": async () => {
     if (BUY.busy) return;
@@ -3324,7 +3345,7 @@ function alertsView() {
     <section class="list pa-list">${ALERT_COINS.map(([cg, unit]) => { const p = S.prices[cg], ch = p?.usd_24h_change, v = al[cg] || 0;
       return `<div class="arow pa-row"><span class="cstack">${coin(LOGO[cg])}</span>
         <span class="ar-t"><b>${cdot(unit)}${COIN_NAME[unit] || unit}</b><small>${p?.usd != null ? `${money(p.usd)}${ch != null ? ` <span class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</span>` : ""}` : unit}</small></span>
-        <span class="pa-seg" role="group" aria-label="${unit} alert">${[0, 5, 10].map((x) => `<button data-act="palert" data-cg="${cg}" data-v="${x}" aria-pressed="${v === x}"${v === x ? ' class="on"' : ""}>${x ? `±${x}%` : "Off"}</button>`).join("")}</span></div>`; }).join("")}</section>
+        <span class="pa-seg" role="group" aria-label="${unit} alert">${[0, 5, 10].map((x) => `<button data-act="palert" data-cg="${cg}" data-v="${x}" aria-pressed="${v === x}"${v === x ? ' class="on"' : ""}>${x ? `${x}%` : "Off"}</button>`).join("")}</span></div>`; }).join("")}</section>
     ${canPush ? `<section class="list pa-push"><button class="arow" data-act="palert-notify" ${pushOn ? "disabled" : ""}><span class="pa-ic sm">${I.bell || I.check}</span>
       <span class="ar-t"><b>Notify me outside the app</b><small>${pushOn ? "On: alerts reach you even when Ecrin is closed." : Notification.permission === "denied" ? "Blocked. Allow notifications for Ecrin in your phone's settings." : "Allow notifications so alerts reach you when Ecrin is closed."}</small></span>
       <span class="pa-sw${pushOn ? " on" : ""}" aria-hidden="true"><i></i></span></button></section>` : ""}`;
@@ -4030,12 +4051,12 @@ function pickView() {
   // the networks with what each one holds, and you pick where it comes from (the fullest first).
   let usdNets = [];
   if (need) { const us = list.filter((i) => i.a === "usdc"); if (us.length > 1) { usdNets = [...us].sort((x, y) => y[need] - x[need]); const tot = (k) => us.reduce((t, i) => t + (i[k] || 0), 0); list = [{ ...usdNets[0], chq: tot("chq"), sav: tot("sav"), usd: tot("chq") + tot("sav"), net: `${us.length} networks`, merged: true }, ...list.filter((i) => i.a !== "usdc")]; } }
-  if (!need) list = netKeys().map((k) => NETS[k]).flatMap((N) => [{ k: N.key, a: "native", unit: N.unit, name: COIN_NAME[N.unit] || N.unit, net: N.name, coin: N.key }, ...(N.usdc ? [{ k: N.key, a: "usdc", unit: "USDC", name: "USD Coin", net: N.name, coin: "usdc" }] : [])]);
+  if (!need) list = netKeys().map((k) => NETS[k]).flatMap((N) => [{ k: N.key, a: "native", unit: N.unit, name: COIN_NAME[N.unit] || N.unit, net: nname(N), coin: N.key }, ...(N.usdc ? [{ k: N.key, a: "usdc", unit: "USDC", name: "USD Coin", net: nname(N), coin: "usdc" }] : [])]);
   const n = (v, d) => v.toLocaleString("en-US", { maximumFractionDigits: d });
   return `${phead({ send: "Send which coin?", protect: "Protect which coin?", withdraw: "Withdraw which coin?", receive: "Receive which coin?" }[P.back] || "Choose a coin")}
     <section class="list">${list.length ? list.map((i) => {
       const right = (x) => (need ? `<span class="ar-r"><b>${mask(n(x[need], x.dec))} ${x.unit}</b><small>${x.usd != null ? mask(money(x.usd * (x[need] / ((x.chq + x.sav) || 1)))) : ""}</small></span>` : "");
-      if (i.merged) return `<button class="arow pk-u${P.openU ? " open" : ""}" data-act="pick-usdc" aria-expanded="${!!P.openU}"><span class="cstack">${coin("usdc")}</span><span class="ar-t"><b>${i.name}</b><small>${i.net} · ${P.openU ? "choose one" : "tap to choose"}</small></span>${right(i)}</button>
+      if (i.merged) return `<button class="arow pk-u${P.openU ? " open" : ""}" data-act="pick-usdc" aria-expanded="${!!P.openU}"><span class="cstack">${coin("usdc")}</span><span class="ar-t"><b>${i.name}</b><small>${i.net}</small></span>${right(i)}</button>
         ${P.openU ? `<div class="pk-nets">${usdNets.map((x) => `<button class="arow sub" data-act="pick-go" data-n="${x.k}" data-a="usdc" data-p="${P.back}"><span class="cstack">${coin(x.k)}</span><span class="ar-t"><b>on ${x.net}</b><small>${x === usdNets[0] ? "most here" : "&nbsp;"}</small></span>${right(x)}</button>`).join("")}</div>` : ""}`;
       return `<button class="arow" data-act="pick-go" data-n="${i.k}" data-a="${i.a}" data-p="${P.back}"><span class="cstack">${coin(i.coin)}${i.coin !== i.k ? `<span class="cmini">${coin(i.k)}</span>` : ""}</span>
       <span class="ar-t"><b>${i.name}</b><small>${i.net}</small></span>${right(i)}</button>`; }).join("") : `<div class="empty">${I.recv}<b>Nothing here yet</b><span>${need === "sav" ? "Your Safe is empty." : isMain() ? "Use Receive to add some." : "Use Receive to get free test coins."}</span></div>`}</section>`;

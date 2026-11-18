@@ -818,3 +818,6 @@ td:first-child { color: var(--ink); font-weight: 600; width: 44%; }
 .rm-dot { position: absolute; left: -7px; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: var(--bg, #f6f6f3); border: 2px solid var(--line); }
 .rm-done .rm-dot { background: #10915c; border-color: #10915c; } .rm-now .rm-dot { background: #2f5bff; border-color: #2f5bff; box-shadow: 0 0 0 4px rgba(47,91,255,.15); }
 .rm-done .rm-list { border-color: rgba(16,145,92,.35); } .rm-now .rm-list { border-color: rgba(47,91,255,.35); }
+
+/* Small phones: big headings may wrap inside their no-break phrases, so nothing runs off the screen */
+@media (max-width: 420px) { .nb { white-space: normal; } .big-head h2 { font-size: clamp(26px, 8.2vw, 32px); overflow-wrap: anywhere; } }
