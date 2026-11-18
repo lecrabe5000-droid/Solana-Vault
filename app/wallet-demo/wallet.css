@@ -3762,3 +3762,18 @@ html:root[data-theme] .home .shortcuts .sc span { width: 50px !important; height
 .ar-t small svg { width: 12px !important; height: 12px !important; flex: none; fill: none !important; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .tk-sv { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 html:root[data-theme] #panel .pane:has(.tk-page) .phead { background: color-mix(in srgb, var(--bg, #0c0d0f) 72%, transparent) !important; backdrop-filter: blur(18px) saturate(1.3) !important; -webkit-backdrop-filter: blur(18px) saturate(1.3) !important; box-shadow: none !important; margin-left: -16px !important; margin-right: -16px !important; padding-left: 8px; padding-right: 8px; }
+
+/* Home: the Staked section */
+.stk { display: grid; margin: 12px 0 4px; padding: 4px 4px 6px; border-radius: 22px; background: radial-gradient(120% 100% at 0% 0%, color-mix(in srgb, #22c58b 10%, transparent), transparent 55%), rgba(18, 20, 32, .55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 0 0 1px rgba(255, 255, 255, .08); animation: sf-rise .5s cubic-bezier(.2, .8, .2, 1) both; }
+.stk button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border: 0; border-radius: 16px; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.stk button:active { background: rgba(255, 255, 255, .04); }
+.stk-h { padding-top: 12px !important; } .stk-ic { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; color: #fff; background: linear-gradient(150deg, #34d399, #0f9a6a); box-shadow: 0 8px 20px -10px #10b981; }
+.stk-ic svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.stk-t, .stk-rt { flex: 1; min-width: 0; display: grid; gap: 2px; } .stk-t b { font-size: 15px; } .stk-t small, .stk-rt small { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stk-v, .stk-rv { flex: none; display: grid; justify-items: end; gap: 2px; } .stk-v b { font: var(--num-w) 16px var(--num); } .stk-rv b { font: var(--num-w) 14.5px var(--num); } .stk-rt b { font: var(--num-w) 14.5px var(--num); white-space: nowrap; }
+.stk small.pos { color: #6ee7b7; font-size: 12px; } .stk-rv small { color: var(--muted); font-size: 12px; }
+.stk-r { border-top: 1px solid var(--line) !important; border-radius: 0 !important; margin: 0 8px; width: calc(100% - 16px) !important; padding-left: 4px !important; padding-right: 4px !important; }
+.stk-r .coin { width: 32px; height: 32px; }
+.stk-d { flex: none; width: 6px; height: 6px; border-radius: 2px; transform: rotate(45deg); background: #7d97ff; } .stk-d.on { background: #35d39a; } .stk-d.wait { background: #ffb547; } .stk-d.ready { background: #7ee0ff; }
+:root[data-theme="light"] .stk { background: radial-gradient(120% 100% at 0% 0%, rgba(16, 185, 129, .08), transparent 55%), #fff; box-shadow: 0 0 0 1px var(--line); } :root[data-theme="light"] .stk small.pos { color: #0f9a6a; }

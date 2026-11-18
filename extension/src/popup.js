@@ -1163,6 +1163,7 @@ function homeView() {
       <button class="sp-s" data-act="panel" data-p="vault"><span>${I.lock}Safe${w.leaving ? ` <em>· ${w.leaving} leaving</em>` : ""}</span><b class="${loading ? "sk" : ""}">${loading ? "&nbsp;" : mask(fig(money(w.sav)))}</b></button>
       <i class="sp-bar"><i></i></i>
     </section>
+    ${stakedCard()}
     ${startCard(w)}
     <nav class="acts">
       ${[["send", "Send", I.send], ["receive", "Receive", I.recv], ["protect", "Protect", I.protect]].map(([p, l, ic]) => `<button data-act="panel" data-p="${p}"><span>${ic}</span>${l}</button>`).join("")}
@@ -3086,6 +3087,7 @@ const actions = {
     } catch (e) { w?.close(); toast(errText(e), "err"); }
     BUY.busy = false; renderPanel();
   },
+  "earn-open": (el) => openPanel("earn", { k: el.dataset.n }),
   "earn-net": async (el) => { const P = S.panel, k = el.dataset.n; if (k === S.net) return; P.k = k; P.st = undefined; renderPanel(); await useNet(k); P.st = undefined; loadEarn(true); },
   "earn-stake": async () => { const P = S.panel; P.mode = "stake"; P.amount = ""; P.pct = null; P.asset = "native";
     P.reserve = await (await eng()).reserve("native"); P.src = sendMaxProtect() > 0 && !(P.v?.main?.available > sendMaxProtect()) ? "wallet" : "safe"; renderPanel(); },
@@ -3799,7 +3801,8 @@ async function loadEarn(force) {
   const nets = stakeNets(); if (!nets.length) return;
   P.loading = true;
   try {
-    if (!stakeable(S.net)) await useNet(P.k && nets.includes(P.k) ? P.k : nets[0]);
+    const want = P.k && nets.includes(P.k) ? P.k : stakeable(S.net) ? S.net : nets[0];
+    if (want !== S.net) await useNet(want);
     const e = await eng(); P.k = S.net;
     const [st, v] = await Promise.all([e.staking ? e.staking.fetch() : null, e.vault().catch(() => null)]);
     if (S.panel !== P) return;
@@ -3809,6 +3812,32 @@ async function loadEarn(force) {
   if (S.panel === P && P.step !== "sending") (P.mode === "stake" ? patchPanel() : renderPanel());
   // Countdowns and rewards move: refresh every 20 s while the screen is open (5 s in the demo, where time runs fast).
   clearTimeout(S.earnT); S.earnT = setTimeout(() => { if (S.panel === P && P.mode !== "stake" && P.step !== "sending") loadEarn(); }, globalThis.ECRIN_DEMO ? 5000 : 20000);
+}
+/** Home: everything you have staked, on every network, in one place. Tap a row to manage it in Earn. */
+/** Keeps Home's Staked section current (status, rewards): at most every 20 s while Home is open. */
+async function refreshStakes() {
+  const gap = globalThis.ECRIN_DEMO ? 6000 : 20000;
+  clearTimeout(S.stakeTimer); S.stakeTimer = setTimeout(() => { if (S.screen === "home" && !S.panel) refreshStakes(); }, gap + 200);
+  if (S.stakeT && Date.now() - S.stakeT < gap) return; S.stakeT = Date.now();
+  const { dev } = await local.get("dev"), ks = Object.keys(S.stakes || {}).filter((k) => netKeys().includes(k));
+  await Promise.all(ks.map(async (k) => { try { const e = k === S.net && ENG ? ENG : engine({ web3, ethers, acct: ACCT, net: k, dev: dev || {} }); if (e.staking) S.stakes[k] = await e.staking.fetch(); } catch (_) {} }));
+  if (S.screen === "home" && !S.panel && !S.scrubbing) render();
+}
+function stakedCard() {
+  queueMicrotask(refreshStakes);
+  const rows = Object.entries(S.stakes || {}).filter(([k, st]) => netKeys().includes(k) && st?.items?.length).flatMap(([k, st]) => st.items.map((x) => ({ k, x })));
+  if (!rows.length) return "";
+  const px = (k) => S.prices[NETS[k].cg]?.usd, fmt = (k, v) => (v / BASE).toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { maximumFractionDigits: NETS[k].unit === "SOL" ? 4 : 5 });
+  const usd = (k, v) => (px(k) != null ? (v / BASE) * px(k) : 0);
+  const total = rows.reduce((t, r) => t + usd(r.k, r.x.amount), 0), earned = rows.reduce((t, r) => t + usd(r.k, r.x.rewards || 0), 0);
+  const ST = { active: ["on", "Earning"], activating: ["wait", "Starting"], cooling: ["wait", "Unstaking"], ready: ["ready", "Ready to collect"] };
+  return `<section class="stk">
+    <button class="stk-h" data-act="earn-open" data-n="${rows[0].k}"><span class="stk-ic">${I.spark}</span><span class="stk-t"><b>Staked</b><small>${rows.length} ${rows.length > 1 ? "positions" : "position"} · inside your Safe</small></span>
+      <span class="stk-v"><b>${mask(fig(money(total)))}</b>${earned ? `<small class="pos">+${mask(money(earned))} earned</small>` : ""}</span></button>
+    ${rows.map(({ k, x }) => { const [c, t] = ST[x.status] || ST.active, eta = (x.status === "cooling" || x.status === "activating") && x.eta > 60 ? ` · ${dur(x.eta)}` : "";
+      return `<button class="stk-r" data-act="earn-open" data-n="${k}">${coin(k)}<span class="stk-rt"><b>${mask(fmt(k, x.amount))} ${NETS[k].unit}</b><small><i class="stk-d ${c}"></i>${t}${eta} · ${esc(nname(NETS[k]))}</small></span>
+        <span class="stk-rv"><b>${mask(money(usd(k, x.amount)))}</b>${x.rewards ? `<small class="pos">+${mask(fmt(k, x.rewards))}</small>` : `<small>&nbsp;</small>`}</span></button>`; }).join("")}
+  </section>`;
 }
 function earnSoonView() {
   const main = isMain();
