@@ -3064,7 +3064,7 @@ const actions = {
   "earn-stake": async () => { const P = S.panel; P.mode = "stake"; P.amount = ""; P.pct = null; P.asset = "native";
     P.reserve = await (await eng()).reserve("native"); P.src = sendMaxProtect() > 0 && !(P.v?.main?.available > sendMaxProtect()) ? "wallet" : "safe"; renderPanel(); },
   "earn-src": (el) => { const P = S.panel; P.src = el.dataset.v === "safe" ? "safe" : "wallet"; P.amount = ""; P.pct = null; patchPanel(); },
-  "earn-unstake": (el) => { const P = S.panel; P.mode = "unstake"; P.id = el.dataset.id; renderPanel(); },
+  "earn-unstake": (el) => { const P = S.panel; if (!el.dataset.id) return; P.mode = "unstake"; P.id = el.dataset.id; renderPanel(); },
   "do-stake": () => { const P = S.panel, units = parseAmt(P.amount, "native"), from = P.src || "safe"; if (!units || units > stakeMax(P)) return;
     P.kind = "stake"; P.sent = units;
     txRun(async () => { const e = await eng();
@@ -3812,90 +3812,68 @@ function earnView() {
   return earnShell(nets);
 }
 function earnShell(nets, loading) {
-  const P = S.panel, N = NETS[S.net], st = P.st, e = ENG?.staking;
-  const unit = N.unit, px = S.prices[N.cg]?.usd, money1 = (u) => (px != null ? money((u / BASE) * px) : "");
-  const free = P.v?.main?.available || 0, staked = st?.staked || 0, f = staked + free ? staked / (staked + free) : 0;
-  const rate = N.fam === "sol" ? STAKE_APY : 0.03, yr = (staked / BASE) * rate;
-  const seg = nets.length > 1 ? `<div class="seg ern-nets">${nets.map((k) => `<button data-act="earn-net" data-n="${k}" aria-pressed="${k === S.net}">${coin(k, "sm")}${NETS[k].name}</button>`).join("")}</div>` : "";
-  const rows = (st?.items || []).map((x) => {
-    const [t, sub] = ST_TXT[x.status] || ST_TXT.active, eta = x.eta > 0 ? (x.eta < 60 ? "<1m" : dur(x.eta)) : "";
-    const ring = x.status === "active" ? `<i class="er-dot"></i>` : `<svg viewBox="0 0 36 36" class="er-ring ${x.status}"><circle cx="18" cy="18" r="15"/><circle class="p" cx="18" cy="18" r="15" pathLength="100"/></svg>`;
+  const P = S.panel, N = NETS[S.net], st = P.st, e = ENG?.staking, unit = N.unit, lido = N.fam === "evm";
+  const px = S.prices[N.cg]?.usd, fiat = (u) => (px != null ? money((u / BASE) * px) : "");
+  const free = P.v?.main?.available || 0, wal = S.bal?.native || 0, staked = st?.staked || 0, items = st?.items || [];
+  const apy = (e?.apy || (lido ? "3%" : STAKE_APY_TEXT)).replace(/^about /, ""), rate = N.fam === "sol" ? STAKE_APY : 0.03, yr = (staked / BASE) * rate;
+  const earning = items.filter((x) => x.status === "active" || x.status === "activating"), out = items.filter((x) => x.status === "cooling" || x.status === "ready");
+  const status = !items.length ? null : earning.some((x) => x.status === "active") ? ["on", "Earning"] : earning.length ? ["wait", "Starting"] : ["wait", "Unstaking"];
+  const nets2 = nets.length > 1 ? `<div class="seg ern-nets">${nets.map((k) => `<button data-act="earn-net" data-n="${k}" aria-pressed="${k === S.net}">${coin(k, "sm")}${NETS[k].name}</button>`).join("")}</div>`
+    : `<span class="ern-chip">${coin(S.net, "sm")}${N.name} · ${N.net}</span>`;
+  const canStake = (free || wal) && (!st || st.room);
+  const unstakeable = earning.find((x) => x.wst || N.fam === "sol");
+  const row = (x) => {
+    const [t] = ST_TXT[x.status] || ST_TXT.active, eta = x.eta > 0 ? (x.eta < 60 ? "<1m" : dur(x.eta)) : "";
     const act = x.status === "ready" ? `<span class="er-btns"><button class="btn sm" data-act="earn-reclaim" data-to="safe" data-id="${esc(String(x.id))}">Keep in Safe</button><button class="btn sm primary" data-act="earn-reclaim" data-to="wallet" data-id="${esc(String(x.id))}">${I.recv}To Wallet</button></span>`
-      : (x.status === "active" || x.status === "activating") && (x.wst || N.fam === "sol") ? `<button class="btn sm" data-act="earn-unstake" data-id="${esc(String(x.id))}">Unstake</button>` : "";
-    return `<article class="er-row s-${x.status}"><span class="er-st">${ring}</span>
-      <span class="er-t"><b>${mask(amt(x.amount, "native"))} ${unit}</b><small>${esc(x.who && !/\s/.test(x.who) && x.who.length > 20 ? short(x.who) : x.who || "")}${x.rewards ? ` · <em>+${amt(x.rewards, "native")}</em>` : ""}</small></span>
-      <span class="er-r"><span class="er-pill">${t}${eta ? ` · ${eta}` : ""}</span>${act || `<small>${sub}</small>`}</span></article>`;
-  }).join("");
-  const lido = N.fam === "evm", apy = e?.apy || (lido ? "3%" : STAKE_APY_TEXT), chip = seg || `<span class="ern-chip">${coin(S.net, "sm")}${N.name} · ${N.net}</span>`;
-  const wal = S.bal?.native || 0;
-  const foot = `<div class="pfoot">${free || wal ? `<button class="btn primary xl" data-act="earn-stake"${st && !st.room ? " disabled" : ""}>${I.spark}Stake ${unit}</button>`
-    : `<button class="btn primary xl" data-act="${N.faucet ? "faucet" : "panel"}" data-p="receive">${I.recv}Get ${unit} to stake</button>`}</div>`;
-  // Nothing staked yet: an invitation, not a big zero.
-  if (!loading && !staked && !rows) return `${phead("Earn")}
-  <div class="ern ern-first">
-    ${chip}
-    <section class="ern-hero">
-      <div class="ern-stage sm">${earnGem(0, true)}
-        <div class="ern-mid"><span class="ern-ic">${I.spark}</span><span class="lbl">Earn about</span><b class="ern-big">${apy.replace(/^about /, "")}</b><small>a year on ${unit}</small></div></div>
-      <h2 class="ern-h">Put your Safe to work</h2>
-      <p class="ern-sub">Stake ${unit} straight from your Wallet or your Safe. It earns inside your Safe, where every rule still holds.</p>
-    </section>
-    <ol class="ern-steps">
-      <li><i>1</i><span><b>Stake in one step</b><small>${lido ? "Staked with Lido, held by your Safe as wstETH" : "In a stake account only your Safe controls"}</small></span></li>
-      <li><i>2</i><span><b>Earn about ${apy.replace(/^about /, "")} a year</b><small>Rates change; nothing is guaranteed. No Ecrin fee.</small></span></li>
-      <li><i>3</i><span><b>Unstake any time</b><small>Back in your Safe in ${e?.unstakeTime || "a few days"}, only there</small></span></li>
-    </ol>
-    ${P.err ? `<p class="note bad-n">${I.shield}<span>${esc(P.err)}</span></p>` : ""}
-  </div>${foot}`;
+      : x.status === "cooling" ? `<span class="er-when">${eta ? `back in ${eta}` : lido ? "in Lido's queue" : "this epoch"}</span>`
+      : (x.wst || N.fam === "sol") && earning.length > 1 ? `<button class="btn sm" data-act="earn-unstake" data-id="${esc(String(x.id))}">Unstake</button>` : "";
+    return `<article class="er-row s-${x.status}"><span class="er-t"><b>${mask(amt(x.amount, "native"))} ${unit}</b><small>${esc(x.who && !/\s/.test(x.who) && x.who.length > 20 ? short(x.who) : x.who || "")}${x.rewards ? ` · <em>+${amt(x.rewards, "native")}</em>` : ""}</small></span>
+      <span class="er-r"><span class="er-pill">${t}</span>${act}</span></article>`;
+  };
   return `${phead("Earn")}
-  <div class="ern${loading ? " loading" : ""}">
-    ${chip}
-    <section class="ern-hero">
-      <div class="ern-stage">${earnGem(f, !staked)}
-        <div class="ern-mid"><span class="ern-ic">${I.spark}</span><span class="lbl">Staked</span>
-          <b class="ern-big${loading ? " sk" : ""}${(() => { const n = amt(staked, "native").length; return n > 9 ? " xs" : n > 6 ? " sm" : ""; })()}">${loading ? "&nbsp;" : mask(amt(staked, "native"))}</b><small>${unit}${staked && px != null ? ` · ${mask(money1(staked))}` : ""}</small></div>
+  <div class="ern ern2${loading ? " loading" : ""}">
+    ${nets2}
+    <section class="ek">
+      <div class="ek-top">${coin(S.net, "ek-coin")}<span class="ek-lbl">${staked ? "Staked" : "Stake"} ${unit}</span>${status ? `<span class="ek-st ${status[0]}"><i></i>${status[1]}</span>` : `<span class="ek-st"><i></i>${apy} a year</span>`}</div>
+      ${staked || loading ? `<b class="ek-amt${loading ? " sk" : ""}">${loading ? "&nbsp;" : `${mask(amt(staked, "native"))} <small>${unit}</small>`}</b><span class="ek-fiat">${staked ? mask(fiat(staked)) : "&nbsp;"}</span>`
+        : `<b class="ek-amt hero">${apy}<small> a year</small></b><span class="ek-fiat">Earn on ${unit} without it leaving your Safe</span>`}
+      <div class="ek-stats">
+        <span><small>Rewards</small><b class="${st?.rewards ? "pos" : ""}">${st?.rewards ? `+${amt(st.rewards, "native")}` : lido && staked ? "in value" : "—"}</b></span>
+        <span><small>Rate</small><b>~${apy}</b></span>
+        <span><small>${staked ? "Per year" : "Available"}</small><b>${staked ? `≈ ${yr.toLocaleString("en-US", { maximumFractionDigits: 4 })}` : mask(amt(free + wal, "native"))}</b></span>
       </div>
-      <div class="ern-earned">${st?.rewards ? `<span class="ern-pill">${I.spark}+${amt(st.rewards, "native")} ${unit} earned</span>` : `<span class="ern-pill dim">${I.spark}About ${e?.apy || (lido ? "3%" : STAKE_APY_TEXT)} a year</span>`}
-        ${staked ? `<span class="ern-yr">≈ ${yr.toLocaleString("en-US", { maximumFractionDigits: 4 })} ${unit} a year${px != null ? ` · ${mask(money(yr * px))}` : ""}</span>` : ""}</div>
+      <div class="ek-acts"><button class="btn primary" data-act="earn-stake"${canStake ? "" : " disabled"}>${I.spark}${staked ? "Stake more" : `Stake ${unit}`}</button>
+        <button class="btn" data-act="earn-unstake" data-id="${unstakeable ? esc(String(unstakeable.id)) : ""}"${unstakeable ? "" : " disabled"}>${I.clock}Unstake</button></div>
     </section>
-    <div class="ern-stats">
-      <span><small>Free in Safe</small><b>${loading ? "—" : mask(amt(free, "native"))}</b></span>
-      <span><small>${lido ? "With Lido" : "Stakes"}</small><b>${lido ? ((st?.items || []).some((x) => x.id === "wst") ? "Earning" : "—") : `${st?.items?.length || 0} of 4`}</b></span>
-      <span><small>Unstaking</small><b>${N.fam === "sol" ? "2–3 days" : "1–5 days"}</b></span>
-    </div>
-    ${rows ? `<div class="list-h"><b>Your stakes</b><span>stay inside your Safe</span></div><div class="er-list">${rows}</div>`
-      : loading ? "" : `<div class="ern-empty"><b>Nothing staked yet</b><span>Stake ${unit} from your Safe and it earns while every rule still holds.</span></div>`}
+    ${out.length || earning.length > 1 ? `<div class="list-h"><b>${out.length ? "Coming back" : "Your stakes"}</b><span>only into your Safe</span></div><div class="er-list">${[...out, ...(earning.length > 1 ? earning : [])].map(row).join("")}</div>` : ""}
+    ${!canStake && !staked && !loading ? `<p class="ek-hint">${I.recv}<span>Get some ${unit} first: ${N.faucet ? `<button class="link" data-act="faucet">free test ${unit}</button>` : "receive it from another wallet"}.</span></p>` : ""}
     ${P.err ? `<p class="note bad-n">${I.shield}<span>${esc(P.err)}</span></p>` : ""}
-    <div class="ap-card ern-how">
-      <div class="ap-li">${I.lock}<span>${lido ? "Your ETH is staked with Lido and held by your Safe as wstETH." : "Your SOL sits in a stake account only your Safe controls."} It can only come back into your Safe.</span></div>
-      <div class="ap-li">${I.clock}<span>Unstaking takes ${e?.unstakeTime || "a few days"}. To take it out, withdraw from your Safe as usual: the delay still applies.</span></div>
-      <div class="ap-li">${I.shield}<span>No Ecrin fee. Rates change and nothing is guaranteed; ${lido ? "Lido's own risks apply" : "a validator's own risks apply"}.</span></div>
+    <div class="ek-how">
+      <div>${I.lock}<span>${lido ? "Staked with Lido, held by your Safe as wstETH" : "In a stake account only your Safe controls"}</span></div>
+      <div>${I.clock}<span>Unstaking takes ${(e?.unstakeTime || "a few days").replace(/^about /, "about ")}, back into your Safe only</span></div>
+      <div>${I.shield}<span>No Ecrin fee · rates change, nothing is guaranteed</span></div>
     </div>
-  </div>
-  ${foot}`;
+  </div>`;
 }
 /** How much can be staked from each place: the Wallet (keeping the network fee back) or what's free in the Safe. */
 const stakeMax = (P) => (P.src === "wallet" ? sendMaxProtect() : P.v?.main?.available || 0);
 function earnStakeView(P) {
   const N = NETS[S.net], u = N.unit, max = stakeMax(P), units = parseAmt(P.amount, "native"), valid = units > 0 && units <= max;
-  const usd = usdOf(units, "native"), pad = !!globalThis.ECRIN_WEB, rate = N.fam === "sol" ? STAKE_APY : 0.03, yr = (units / BASE) * rate, px = S.prices[N.cg]?.usd;
+  const usd = usdOf(units, "native"), pad = !!globalThis.ECRIN_WEB, rate = N.fam === "sol" ? STAKE_APY : 0.03, yr = (units / BASE) * rate;
   const wal = sendMaxProtect(), safe = P.v?.main?.available || 0;
   const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "del"];
-  const src = (k, name, ic, bal) => `<button class="es-src${P.src === k ? " on" : ""}" data-act="earn-src" data-v="${k}"${bal ? "" : " disabled"}><span class="es-ic">${ic}</span><span><b>${name}</b><small>${mask(amt(bal, "native"))} ${u}</small></span></button>`;
+  const src = (k, name, bal) => `<button data-act="earn-src" data-v="${k}" aria-pressed="${P.src === k}"${bal ? "" : " disabled"}>${name} <em>${mask(amt(bal, "native"))}</em></button>`;
+  const len = (P.amount || "0").length, big = len > 8 ? " xs" : len > 6 ? " sm" : "";
   return `${phead(`Stake ${u}`)}
-  <div class="ern ern-stake">
-    <div class="es-from"><span class="es-lbl">From</span><div class="es-srcs">${src("wallet", "Wallet", I.card, wal)}${src("safe", "Safe", I.lock, safe)}</div></div>
-    <div class="mv-amt${units > max ? " over" : ""}">${pad ? `<b>${esc(P.amount || "0")}</b>` : `<input data-amount inputmode="decimal" placeholder="0" value="${esc(P.amount)}" autocomplete="off" autofocus style="width:${Math.max(1, (P.amount || "0").length) + 0.6}ch"/>`}<span class="u">${u}</span></div>
+  <div class="es2">
+    <div class="seg es-seg">${src("wallet", "Wallet", wal)}${src("safe", "Safe", safe)}</div>
+    <div class="mv-amt es-amt${big}${units > max ? " over" : ""}">${pad ? `<b>${esc(P.amount || "0")}</b>` : `<input data-amount inputmode="decimal" placeholder="0" value="${esc(P.amount)}" autocomplete="off" autofocus style="width:${Math.max(1, len) + 0.6}ch"/>`}<span class="u">${u}</span></div>
     <div class="mv-sub">${units > max ? `<span class="bad">More than your ${P.src === "wallet" ? "Wallet" : "Safe"} has</span>` : usd != null && units ? money(usd) : `${amt(max, "native")} ${u} available`}</div>
     <div class="mv-pcts">${[25, 50, 100].map((v) => `<button data-act="pct" data-v="${v}" class="${P.pct === v ? "on" : ""}">${v === 100 ? "Max" : v + "%"}</button>`).join("")}</div>
-    <div class="es-sum">
-      <div class="es-earn"><span class="es-ic big">${I.spark}</span><span><small>You'd earn about</small><b>${valid ? `${yr.toLocaleString("en-US", { maximumFractionDigits: 4 })} ${u}` : `${ENG?.staking?.apy || STAKE_APY_TEXT}`} <em>a year</em></b>${valid && px != null ? `<small>${money(yr * px)} a year</small>` : ""}</span></div>
-      <div class="es-li">${I.lock}<span>${P.src === "wallet" ? "It goes into your Safe and gets staked in one step." : "It stays inside your Safe the whole time."}</span></div>
-      <div class="es-li">${I.clock}<span>Unstake any time: back in ${ENG?.staking?.unstakeTime || "a few days"}, then to your Wallet with your Safe's usual delay.</span></div>
-    </div>
+    <p class="es-line">${I.spark}<span>${valid ? `Earns about <b>${yr.toLocaleString("en-US", { maximumFractionDigits: 4 })} ${u}</b> a year` : `Earns about <b>${(ENG?.staking?.apy || STAKE_APY_TEXT).replace(/^about /, "")}</b> a year`} · stays in your Safe</span></p>
     ${pad ? `<div class="kp">${keys.map((k) => `<button data-act="key" data-k="${k}" aria-label="${k === "del" ? "Delete" : k}">${k === "del" ? `<svg viewBox="0 0 24 24"><path d="M9 6h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5-6z"/><path d="M12.5 10l4 4M16.5 10l-4 4"/></svg>` : k}</button>`).join("")}</div>` : ""}
-  </div>
-  <div class="pfoot"><button class="btn primary xl" data-act="do-stake"${valid ? "" : " disabled"}>${I.spark}${valid ? `Stake ${amt(units, "native")} ${u}` : `Stake ${u}`}</button></div>`;
+    <div class="es-foot"><button class="btn primary xl" data-act="do-stake"${valid ? "" : " disabled"}>${valid ? `Stake ${amt(units, "native")} ${u}` : `Stake ${u}`}</button></div>
+  </div>`;
 }
 function earnUnstakeView(P) {
   const N = NETS[S.net], x = (P.st?.items || []).find((y) => String(y.id) === String(P.id)); if (!x) { P.mode = "home"; return earnShell(stakeNets()); }
