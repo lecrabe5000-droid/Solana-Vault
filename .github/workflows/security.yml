@@ -1,6 +1,7 @@
 name: security
 # Free security scanners on every change (Actions → security).
-#   Solidity (evm/contracts/EcrinVault.sol): Slither and Aderyn, two static analyzers that look for known bug patterns.
+#   Solidity (evm/contracts/EcrinVault.sol): Slither, a static analyzer that looks for known bug patterns.
+#   (Aderyn was retired by Cyfrin in November 2026 and can no longer be installed.)
 #   Rust (rules crate and Solana program): Clippy (lints) and cargo-audit (dependencies with known vulnerabilities).
 # Findings are written to the run's summary and kept as files (Artifacts). The rules crate's Clippy check must pass;
 # the others report, so a new finding gets looked at (and fixed or explained in docs/security/scanners.md).
@@ -63,10 +64,6 @@ jobs:
           cache-dependency-path: evm/package-lock.json
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin
-          key: security-aderyn-v1
       - run: npm ci
       - run: npx hardhat compile
       - name: Slither
@@ -74,18 +71,11 @@ jobs:
         run: |
           pip install --quiet slither-analyzer
           set +e
-          slither . --filter-paths "contracts/test|node_modules" --exclude-dependencies --checklist --markdown-root "https://github.com/${{ github.repository }}/blob/${{ github.sha }}/" > /tmp/slither.md 2>/tmp/slither.log
+          slither . --filter-paths "contracts/test|node_modules" --exclude-dependencies --checklist --markdown-root "https://github.com/${{ github.repository }}/blob/${{ github.sha }}/evm/" > /tmp/slither.md 2>/tmp/slither.log
           code=$?
           { echo "### Slither"; cat /tmp/slither.md; echo; echo '```'; tail -5 /tmp/slither.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           echo "===== SLITHER REPORT ====="; cat /tmp/slither.md; tail -5 /tmp/slither.log
           exit $code
-      - name: Aderyn
-        continue-on-error: true
-        run: |
-          command -v aderyn >/dev/null || cargo install aderyn --locked
-          aderyn . --src contracts --path-excludes contracts/test -o /tmp/aderyn.md
-          { echo "### Aderyn"; head -c 60000 /tmp/aderyn.md; } >> "$GITHUB_STEP_SUMMARY"
-          echo "===== ADERYN REPORT ====="; cat /tmp/aderyn.md
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -93,4 +83,3 @@ jobs:
           path: |
             /tmp/slither.md
             /tmp/slither.log
-            /tmp/aderyn.md
