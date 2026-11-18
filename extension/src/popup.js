@@ -1243,7 +1243,7 @@ const MARKET = [["solana", "SOL", "sol", "Solana"], ["ethereum", "ETH", "eth", "
 function homeMore() {
   const all = S.activity || [];
   const recent = ""; void all; // the Activity tab right above already lists everything
-  const sc = [["swap", "Swap", I.swap, 'data-act="panel" data-p="swap"'], ["buy", "Buy", I.card, 'data-act="panel" data-p="buy"'], ["req", "Request", I.recv, 'data-act="home-req"'],
+  const sc = [...(stakeNets().length ? [["earn", "Earn", I.spark, 'data-act="panel" data-p="earn"']] : []), ["swap", "Swap", I.swap, 'data-act="panel" data-p="swap"'], ["buy", "Buy", I.card, 'data-act="panel" data-p="buy"'], ["req", "Request", I.recv, 'data-act="home-req"'],
     ["ct", "Contacts", '<svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 19.5c1.2-3.2 3.9-5 7-5s5.8 1.8 7 5"/></svg>', 'data-act="panel" data-p="contacts"'], ...(globalThis.ECRIN_WEB ? [["wc", "Apps", I.link, 'data-act="panel" data-p="wc"']] : globalThis.ECRIN_DEMO ? [] : [["sites", "Sites", I.link, 'data-act="panel" data-p="sites"']]), ["al", "Alerts", I.spark, 'data-act="panel" data-p="alerts"']];
   return `${recent ? `<div class="list-h"><b>Recent activity</b><button class="see-all" data-act="tab" data-t="activity">See all</button></div><div class="tab-body"><section class="list recent">${recent}</section></div>` : ""}
     <div class="list-h"><b>Shortcuts</b></div>
@@ -2978,7 +2978,7 @@ const actions = {
   },
   pct: (el) => {
     const P = S.panel, p = Number(el.dataset.v), a = P.asset;
-    const max = P.p === "earn" ? P.v?.main?.available || 0 : P.p === "send" || P.p === "swap" ? sendMax() : P.p === "protect" ? sendMaxProtect() : (a === "usdc" ? S.vault?.usdc?.available : S.vault?.main?.available) || 0;
+    const max = P.p === "earn" ? stakeMax(P) : P.p === "send" || P.p === "swap" ? sendMax() : P.p === "protect" ? sendMaxProtect() : (a === "usdc" ? S.vault?.usdc?.available : S.vault?.main?.available) || 0;
     const units = Math.floor((max * p) / 100), x = A(a);
     P.pct = p; P.amount = units ? String(Math.floor((units / x.base) * 10 ** x.dec) / 10 ** x.dec) : "";
     patchPanel();
@@ -3061,14 +3061,20 @@ const actions = {
     BUY.busy = false; renderPanel();
   },
   "earn-net": async (el) => { const P = S.panel, k = el.dataset.n; if (k === S.net) return; P.k = k; P.st = undefined; renderPanel(); await useNet(k); P.st = undefined; loadEarn(true); },
-  "earn-stake": () => { const P = S.panel; P.mode = "stake"; P.amount = ""; P.pct = null; P.asset = "native"; renderPanel(); },
+  "earn-stake": async () => { const P = S.panel; P.mode = "stake"; P.amount = ""; P.pct = null; P.asset = "native";
+    P.reserve = await (await eng()).reserve("native"); P.src = sendMaxProtect() > 0 && !(P.v?.main?.available > sendMaxProtect()) ? "wallet" : "safe"; renderPanel(); },
+  "earn-src": (el) => { const P = S.panel; P.src = el.dataset.v === "safe" ? "safe" : "wallet"; P.amount = ""; P.pct = null; patchPanel(); },
   "earn-unstake": (el) => { const P = S.panel; P.mode = "unstake"; P.id = el.dataset.id; renderPanel(); },
-  "do-stake": () => { const P = S.panel, units = parseAmt(P.amount, "native"); if (!units || units > (P.v?.main?.available || 0)) return;
-    P.kind = "stake"; P.sent = units; txRun(async () => (await eng()).staking.stake(units), () => { P.mode = "home"; P.st = undefined; }, { t: "stake", a: "native", n: units }); },
+  "do-stake": () => { const P = S.panel, units = parseAmt(P.amount, "native"), from = P.src || "safe"; if (!units || units > stakeMax(P)) return;
+    P.kind = "stake"; P.sent = units;
+    txRun(async () => { const e = await eng();
+      if (from === "wallet" && !S.vault && !P.v) { await e.createVault(safeKind() || "strong"); S.vault = await e.vault().catch(() => null) || S.vault; await syncRulesTo(S.net, e); }
+      return e.staking.stake(units, from); }, () => { P.mode = "home"; P.st = undefined; }, { t: "stake", a: "native", n: units }); },
   "do-unstake": () => { const P = S.panel, x = (P.st?.items || []).find((y) => String(y.id) === String(P.id)); if (!x) return;
     P.kind = "unstake"; P.sent = x.amount; txRun(async () => (await eng()).staking.unstake(x), () => { P.mode = "home"; P.st = undefined; }, { t: "unstake", a: "native", n: x.amount }); },
   "earn-reclaim": (el) => { const P = S.panel, x = (P.st?.items || []).find((y) => String(y.id) === el.dataset.id); if (!x) return;
-    P.kind = "reclaim"; P.sent = x.amount; txRun(async () => (await eng()).staking.reclaim(x), () => { P.mode = "home"; P.st = undefined; }, { t: "reclaim", a: "native", n: x.amount }); },
+    const to = el.dataset.to === "wallet" ? "wallet" : "safe"; P.kind = to === "wallet" ? "reclaimW" : "reclaim"; P.sent = x.amount;
+    txRun(async () => (await eng()).staking.reclaim(x, to), () => { P.mode = "home"; P.st = undefined; }, { t: to === "wallet" ? "withdraw" : "reclaim", a: "native", n: x.amount }); },
   "cancel-w": async (el) => {
     // Cancelling gets the same sheet as every other money move: live steps, then a clear receipt.
     const k = el.dataset.n, a = el.dataset.a, id = Number(el.dataset.id), N = NETS[k];
@@ -3750,7 +3756,7 @@ async function swapSearch(q) {
 // Lido's wstETH held by the Safe contract. Unstaked money can only come back into the Safe.
 const stakeable = (k) => !!NETS[k]?.staking || (!!globalThis.ECRIN_DEMO && (k === "sol" || k === "hoodi"));
 const stakeNets = () => netKeys().filter(stakeable);
-const ST_TXT = { activating: ["Starting", "Earns from the next epoch"], active: ["Earning", "Rewards add up every few days"], cooling: ["Unstaking", "Coming back to your Safe"], ready: ["Ready", "Bring it back into your Safe"] };
+const ST_TXT = { activating: ["Starting", "Earns from the next epoch"], active: ["Earning", "Rewards add up every few days"], cooling: ["Unstaking", "Coming back to your Safe"], ready: ["Unstaked", "Ready to use"] };
 /** Loads (or reloads) the stakes for the Earn screen, moving to a network that has staking first. */
 async function loadEarn(force) {
   const P = S.panel; if (!P || P.p !== "earn" || (P.loading && !force)) return;
@@ -3814,16 +3820,16 @@ function earnShell(nets, loading) {
   const rows = (st?.items || []).map((x) => {
     const [t, sub] = ST_TXT[x.status] || ST_TXT.active, eta = x.eta > 0 ? (x.eta < 60 ? "<1m" : dur(x.eta)) : "";
     const ring = x.status === "active" ? `<i class="er-dot"></i>` : `<svg viewBox="0 0 36 36" class="er-ring ${x.status}"><circle cx="18" cy="18" r="15"/><circle class="p" cx="18" cy="18" r="15" pathLength="100"/></svg>`;
-    const act = x.status === "ready" ? `<button class="btn sm primary" data-act="earn-reclaim" data-id="${esc(String(x.id))}">${I.lock}Back to Safe</button>`
+    const act = x.status === "ready" ? `<span class="er-btns"><button class="btn sm" data-act="earn-reclaim" data-to="safe" data-id="${esc(String(x.id))}">Keep in Safe</button><button class="btn sm primary" data-act="earn-reclaim" data-to="wallet" data-id="${esc(String(x.id))}">${I.recv}To Wallet</button></span>`
       : (x.status === "active" || x.status === "activating") && (x.wst || N.fam === "sol") ? `<button class="btn sm" data-act="earn-unstake" data-id="${esc(String(x.id))}">Unstake</button>` : "";
     return `<article class="er-row s-${x.status}"><span class="er-st">${ring}</span>
       <span class="er-t"><b>${mask(amt(x.amount, "native"))} ${unit}</b><small>${esc(x.who && !/\s/.test(x.who) && x.who.length > 20 ? short(x.who) : x.who || "")}${x.rewards ? ` · <em>+${amt(x.rewards, "native")}</em>` : ""}</small></span>
       <span class="er-r"><span class="er-pill">${t}${eta ? ` · ${eta}` : ""}</span>${act || `<small>${sub}</small>`}</span></article>`;
   }).join("");
   const lido = N.fam === "evm", apy = e?.apy || (lido ? "3%" : STAKE_APY_TEXT), chip = seg || `<span class="ern-chip">${coin(S.net, "sm")}${N.name} · ${N.net}</span>`;
-  const foot = `<div class="pfoot">${!P.v ? `<button class="btn primary xl" data-act="safe-go" data-n="${S.net}" data-p="protect">${I.protect}Open your Safe on ${N.name}</button>`
-    : free ? `<button class="btn primary xl" data-act="earn-stake"${st && !st.room ? " disabled" : ""}>${I.spark}Stake ${unit}</button>`
-    : `<button class="btn primary xl" data-act="safe-go" data-n="${S.net}" data-p="protect">${I.protect}Protect ${unit} to stake it</button>`}</div>`;
+  const wal = S.bal?.native || 0;
+  const foot = `<div class="pfoot">${free || wal ? `<button class="btn primary xl" data-act="earn-stake"${st && !st.room ? " disabled" : ""}>${I.spark}Stake ${unit}</button>`
+    : `<button class="btn primary xl" data-act="${N.faucet ? "faucet" : "panel"}" data-p="receive">${I.recv}Get ${unit} to stake</button>`}</div>`;
   // Nothing staked yet: an invitation, not a big zero.
   if (!loading && !staked && !rows) return `${phead("Earn")}
   <div class="ern ern-first">
@@ -3832,10 +3838,10 @@ function earnShell(nets, loading) {
       <div class="ern-stage sm">${earnGem(0, true)}
         <div class="ern-mid"><span class="ern-ic">${I.spark}</span><span class="lbl">Earn about</span><b class="ern-big">${apy.replace(/^about /, "")}</b><small>a year on ${unit}</small></div></div>
       <h2 class="ern-h">Put your Safe to work</h2>
-      <p class="ern-sub">Stake ${unit} from your Safe. It earns while every rule still holds${free ? `, and you have <b>${mask(amt(free, "native"))} ${unit}</b> free to stake` : ""}.</p>
+      <p class="ern-sub">Stake ${unit} straight from your Wallet or your Safe. It earns inside your Safe, where every rule still holds.</p>
     </section>
     <ol class="ern-steps">
-      <li><i>1</i><span><b>Stake from your Safe</b><small>${lido ? "Staked with Lido, held by your Safe as wstETH" : "In a stake account only your Safe controls"}</small></span></li>
+      <li><i>1</i><span><b>Stake in one step</b><small>${lido ? "Staked with Lido, held by your Safe as wstETH" : "In a stake account only your Safe controls"}</small></span></li>
       <li><i>2</i><span><b>Earn about ${apy.replace(/^about /, "")} a year</b><small>Rates change; nothing is guaranteed. No Ecrin fee.</small></span></li>
       <li><i>3</i><span><b>Unstake any time</b><small>Back in your Safe in ${e?.unstakeTime || "a few days"}, only there</small></span></li>
     </ol>
@@ -3868,26 +3874,28 @@ function earnShell(nets, loading) {
   </div>
   ${foot}`;
 }
+/** How much can be staked from each place: the Wallet (keeping the network fee back) or what's free in the Safe. */
+const stakeMax = (P) => (P.src === "wallet" ? sendMaxProtect() : P.v?.main?.available || 0);
 function earnStakeView(P) {
-  const N = NETS[S.net], max = P.v?.main?.available || 0, units = parseAmt(P.amount, "native"), valid = units > 0 && units <= max, f = max ? Math.min(1, units / max) : 0;
-  const staked = P.st?.staked || 0, usd = usdOf(units, "native"), pad = !!globalThis.ECRIN_WEB, u = N.unit;
+  const N = NETS[S.net], u = N.unit, max = stakeMax(P), units = parseAmt(P.amount, "native"), valid = units > 0 && units <= max;
+  const usd = usdOf(units, "native"), pad = !!globalThis.ECRIN_WEB, rate = N.fam === "sol" ? STAKE_APY : 0.03, yr = (units / BASE) * rate, px = S.prices[N.cg]?.usd;
+  const wal = sendMaxProtect(), safe = P.v?.main?.available || 0;
   const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "del"];
-  const side = (k, name, b, after, ic) => `<div class="rt rt-${k}"><span class="rt-ic">${ic}</span><span class="rt-n">${name}</span><b>${mask(amt(Math.max(0, after), "native"))}</b><small>${units && valid ? `was ${mask(amt(b, "native"))}` : u}</small></div>`;
-  return `${phead(`Stake ${N.unit}`)}
-  <div class="mv2 in ern-mv">
-    <div class="rail" style="--f:${f.toFixed(3)}">
-      ${side("from", "Safe", max, max - (valid ? units : 0), I.lock)}
-      <div class="rl"><i class="rl-t"></i><i class="rl-f"></i><i class="rl-d"></i></div>
-      ${side("to", "Staked", staked, staked + (valid ? units : 0), I.spark)}
-    </div>
+  const src = (k, name, ic, bal) => `<button class="es-src${P.src === k ? " on" : ""}" data-act="earn-src" data-v="${k}"${bal ? "" : " disabled"}><span class="es-ic">${ic}</span><span><b>${name}</b><small>${mask(amt(bal, "native"))} ${u}</small></span></button>`;
+  return `${phead(`Stake ${u}`)}
+  <div class="ern ern-stake">
+    <div class="es-from"><span class="es-lbl">From</span><div class="es-srcs">${src("wallet", "Wallet", I.card, wal)}${src("safe", "Safe", I.lock, safe)}</div></div>
     <div class="mv-amt${units > max ? " over" : ""}">${pad ? `<b>${esc(P.amount || "0")}</b>` : `<input data-amount inputmode="decimal" placeholder="0" value="${esc(P.amount)}" autocomplete="off" autofocus style="width:${Math.max(1, (P.amount || "0").length) + 0.6}ch"/>`}<span class="u">${u}</span></div>
-    <div class="mv-sub">${units > max ? `<span class="bad">More than your Safe has free</span>` : usd != null && units ? money(usd) : `${amt(max, "native")} ${u} free in your Safe`}</div>
+    <div class="mv-sub">${units > max ? `<span class="bad">More than your ${P.src === "wallet" ? "Wallet" : "Safe"} has</span>` : usd != null && units ? money(usd) : `${amt(max, "native")} ${u} available`}</div>
     <div class="mv-pcts">${[25, 50, 100].map((v) => `<button data-act="pct" data-v="${v}" class="${P.pct === v ? "on" : ""}">${v === 100 ? "Max" : v + "%"}</button>`).join("")}</div>
-    <p class="mv-note">${I.spark}<span>Earns about <b>${ENG?.staking?.apy || STAKE_APY_TEXT}</b> a year. Unstaking takes ${ENG?.staking?.unstakeTime || "a few days"}, then your Safe's delay.</span></p>
+    <div class="es-sum">
+      <div class="es-earn"><span class="es-ic big">${I.spark}</span><span><small>You'd earn about</small><b>${valid ? `${yr.toLocaleString("en-US", { maximumFractionDigits: 4 })} ${u}` : `${ENG?.staking?.apy || STAKE_APY_TEXT}`} <em>a year</em></b>${valid && px != null ? `<small>${money(yr * px)} a year</small>` : ""}</span></div>
+      <div class="es-li">${I.lock}<span>${P.src === "wallet" ? "It goes into your Safe and gets staked in one step." : "It stays inside your Safe the whole time."}</span></div>
+      <div class="es-li">${I.clock}<span>Unstake any time: back in ${ENG?.staking?.unstakeTime || "a few days"}, then to your Wallet with your Safe's usual delay.</span></div>
+    </div>
     ${pad ? `<div class="kp">${keys.map((k) => `<button data-act="key" data-k="${k}" aria-label="${k === "del" ? "Delete" : k}">${k === "del" ? `<svg viewBox="0 0 24 24"><path d="M9 6h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5-6z"/><path d="M12.5 10l4 4M16.5 10l-4 4"/></svg>` : k}</button>`).join("")}</div>` : ""}
-    <div class="pfoot mv-foot"><div class="slide${valid ? "" : " off"}" data-slide="do-stake"><span class="sl-t">Slide to stake</span><i class="sl-k">${I.spark}</i></div>
-      <button class="sr-only" data-act="do-stake" ${valid ? "" : "disabled"}>Stake</button></div>
-  </div>`;
+  </div>
+  <div class="pfoot"><button class="btn primary xl" data-act="do-stake"${valid ? "" : " disabled"}>${I.spark}${valid ? `Stake ${amt(units, "native")} ${u}` : `Stake ${u}`}</button></div>`;
 }
 function earnUnstakeView(P) {
   const N = NETS[S.net], x = (P.st?.items || []).find((y) => String(y.id) === String(P.id)); if (!x) { P.mode = "home"; return earnShell(stakeNets()); }
@@ -3910,8 +3918,9 @@ function earnMotion(P) {
     stake: { title: ["Staking", "Staked"], line: "Safe → Staked", note: `${lido ? "It's earning through Lido now" : "It starts earning at the next epoch, in a day or two"}, and it stays inside your Safe. Unstake any time: it comes back in ${ENG?.staking?.unstakeTime || "a few days"}.` },
     unstake: { title: ["Unstaking", "Unstaking started"], line: "Staked → Safe", note: `It comes back into your Safe in ${ENG?.staking?.unstakeTime || "a few days"}. Then bring it back from Earn with one tap.` },
     reclaim: { title: ["Bringing it back", "Back in your Safe"], line: "Staked → Safe", note: "It's in your Safe again, rewards included. Anything leaving the Safe still waits the delay." },
+    reclaimW: { title: ["Sending it to your Wallet", "On its way to your Wallet"], line: "Staked → Safe → Wallet", note: `It's back in your Safe and its withdrawal has started: it reaches your Wallet in ${P.v?.main?.withdrawDelay ? delay(P.v.main.withdrawDelay) : "your Safe's delay"}. You can cancel it until then.` },
   }[k];
-  return motionView(P, { kind: k === "stake" ? "stake" : "keep", N, title: o.title, amount: `${amt(n, "native")} ${N.unit}`, usd: usd != null ? money(usd) : "", line: o.line, note: o.note, rows: [] });
+  return motionView(P, { kind: k === "stake" ? "stake" : k === "reclaimW" ? "withdraw" : "keep", N, title: o.title, amount: `${amt(n, "native")} ${N.unit}`, usd: usd != null ? money(usd) : "", line: o.line, note: o.note, rows: [] });
 }
 
 /* ------------------------------------------------------------------ updates and backup check */
@@ -3925,17 +3934,18 @@ async function checkUpdate() {
   try {
     const j = await (await fetch("https://ecrinprotocol.app/wallet-version.json", { cache: "no-store" })).json();
     const mine = chrome.runtime.getManifest().version, must = older(mine, j.minimum);
-    // The extension: Chrome updates it by itself from the Web Store (each upload is reviewed first, so the website can
-    // be ahead of the store). Only a required security update shows here. The phone app: a newer version is one reload away.
-    const newer = globalThis.ECRIN_WEB ? older(mine, j.latest) : must;
+    // The phone app: a newer version is one reload away (`latest`). The extension: only a version Chrome's Web Store has
+    // approved and published (`chrome`), never one still in review; a required security update always shows.
+    const target = globalThis.ECRIN_WEB ? j.latest : j.chrome;
+    const newer = must || (!!target && older(mine, target));
     const { updHide } = await local.get("updHide");
-    S.upd = newer && (must || updHide !== j.latest) ? { latest: j.latest, must, notes: j.notes || "" } : null;
+    S.upd = newer && (must || updHide !== target) ? { latest: target || j.latest, must, notes: j.notes || "" } : null;
     if (S.screen === "home") render();
   } catch (_) {}
 }
 function updateBanner() {
   const u = S.upd; if (!u) return "";
-  return `<div class="upd-w"><button class="upd ${u.must ? "must" : ""}" data-act="upd-go">${I.warn}<span><b>${u.must ? "Security update required" : "Update available"}</b><small>${u.must ? "Sending and signing are paused until you update." : `Version ${esc(u.latest)} is ready.`} ${globalThis.ECRIN_WEB ? "Tap to reload." : "Tap to update."}</small></span></button>${u.must ? "" : `<button class="upd-x" data-act="upd-hide" aria-label="Hide until the next version">${I.x}</button>`}</div>`;
+  return `<div class="upd-w"><button class="upd ${u.must ? "must" : ""}" data-act="upd-go">${I.warn}<span><b>${u.must ? "Security update required" : "Update available"}</b><small>${u.must ? "Sending and signing are paused until you update." : `Version ${esc(u.latest)} is ready.`} ${globalThis.ECRIN_WEB ? "Tap to reload." : "Tap to get it from the Chrome Web Store."}</small></span></button>${u.must ? "" : `<button class="upd-x" data-act="upd-hide" aria-label="Hide until the next version">${I.x}</button>`}</div>`;
 }
 
 const BK_DAYS = 3;

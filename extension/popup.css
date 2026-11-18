@@ -3556,3 +3556,47 @@ body.stacked.grow-open #root, :root[data-theme] body.stacked.grow-open #root { t
 .ern-stats span { display: grid; gap: 3px; justify-items: center; text-align: center; padding: 0 6px; } .ern-stats span + span { border-left: 1px solid var(--line); }
 .ern-stats small { color: var(--muted); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; } .ern-stats b { font: var(--num-w) 15px var(--num); white-space: nowrap; }
 :root[data-theme="light"] :is(.ern-steps, .ern-stats, .ern-chip) { background: rgba(255, 255, 255, .78); box-shadow: 0 0 0 1px var(--line); }
+/* Earn: the stake screen (from Wallet or Safe, amount, what it earns, one button) */
+.ern-stake { gap: 12px; }
+.es-from { display: grid; gap: 8px; } .es-lbl { color: var(--muted); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+.es-srcs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.es-src { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border: 0; border-radius: 18px; text-align: left; color: var(--ink); font: inherit; cursor: pointer;
+  background: rgba(18, 20, 32, .55); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 0 0 1px rgba(255, 255, 255, .08); transition: box-shadow .2s, background .2s; }
+.es-src span:last-child { display: grid; gap: 1px; min-width: 0; } .es-src b { font-size: 14px; } .es-src small { color: var(--muted); font: var(--num-w) 12px var(--num); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.es-src.on { background: color-mix(in srgb, #2f5bff 18%, rgba(18, 20, 32, .6)); box-shadow: inset 0 0 0 1.5px #5b7cff, 0 10px 26px -16px #2f5bff; }
+.es-src:disabled { opacity: .45; cursor: default; }
+.es-ic { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; color: #9fb2ff; background: rgba(125, 151, 255, .16); }
+.es-ic svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.es-src.on .es-ic { color: #fff; background: linear-gradient(150deg, #7d97ff, #2f5bff); }
+.ern-stake .mv-amt { margin-top: 6px; }
+.es-sum { display: grid; padding: 4px 14px; border-radius: 20px; background: rgba(18, 20, 32, .55); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 0 0 1px rgba(255, 255, 255, .08); }
+.es-earn { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
+.es-earn span:last-child { display: grid; gap: 1px; } .es-earn small { color: var(--muted); font-size: 12px; } .es-earn b { font: var(--num-w) 18px var(--num); } .es-earn em { font: 500 13px var(--font); font-style: normal; color: var(--muted); }
+.es-ic.big { width: 38px; height: 38px; border-radius: 12px; color: #fff; background: linear-gradient(150deg, #7d97ff, #2f5bff 55%, #1aa8d6); box-shadow: 0 8px 22px -8px #2f5bff; }
+.es-ic.big svg { width: 19px; height: 19px; }
+.es-li { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); font-size: 13px; line-height: 1.4; }
+.es-li svg { flex: none; width: 16px; height: 16px; fill: none; stroke: #9fb2ff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.er-btns { display: flex; gap: 6px; } .er-btns .btn.sm { padding: 0 10px; font-size: 12px; }
+.s-ready .er-r { grid-column: 1 / -1; justify-items: stretch; } .s-ready .er-btns { justify-content: flex-end; }
+.s-ready.er-row { grid-template-columns: 34px 1fr; } .s-ready .er-pill { justify-self: end; }
+:root[data-theme="light"] :is(.es-src, .es-sum) { background: rgba(255, 255, 255, .8); box-shadow: 0 0 0 1px var(--line); }
+:root[data-theme="light"] .es-src.on { background: rgba(47, 91, 255, .08); box-shadow: inset 0 0 0 1.5px #2f5bff; }
+
+/* Coin page actions: four even columns, a crisp round icon with its label under it (Protect highlighted) */
+html:root[data-theme] #panel nav.acts.tk-acts { display: grid !important; grid-template-columns: repeat(4, 1fr) !important; justify-items: center; gap: 4px !important; max-width: 340px; margin: 16px auto 20px !important; }
+html:root[data-theme] #panel nav.acts.tk-acts button[data-p] { flex: none !important; display: grid !important; justify-items: center; align-content: start; gap: 7px; width: 72px; height: auto !important; padding: 0 !important; border-radius: 0 !important;
+  background: none !important; box-shadow: none !important; color: var(--ink) !important; font: 600 12px/1.2 var(--font) !important; letter-spacing: 0; }
+html:root[data-theme] #panel nav.acts.tk-acts button[data-p] span { display: grid !important; place-items: center; width: 50px; height: 50px; border-radius: 17px;
+  background: rgba(255, 255, 255, .07); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 0 0 1px rgba(255, 255, 255, .09), 0 10px 22px -16px rgba(0, 0, 0, .9); transition: transform .15s, background .2s; }
+html:root[data-theme] #panel nav.acts.tk-acts button[data-p] svg { width: 20px !important; height: 20px !important; stroke-width: 1.9 !important; color: var(--ink) !important; stroke: currentColor !important; fill: none; }
+html:root[data-theme] #panel nav.acts.tk-acts button[data-p]:active span { transform: scale(.92); }
+html:root[data-theme] #panel nav.acts.tk-acts button[data-p="protect"] span { background: linear-gradient(150deg, #7d97ff, #2f5bff 55%, #2440d8) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 12px 26px -10px rgba(47, 91, 255, .95) !important; }
+html:root[data-theme] #panel nav.acts.tk-acts button[data-p="protect"] svg { color: #fff !important; }
+html:root[data-theme] #panel nav.acts.tk-acts button[data-p="protect"] { color: #9fb2ff !important; }
+html:root[data-theme="light"] #panel nav.acts.tk-acts button:not([data-p="protect"])[data-p] span { background: #fff; box-shadow: 0 0 0 1px rgba(16, 17, 20, .08), 0 8px 18px -14px rgba(16, 17, 20, .5); }
+html:root[data-theme="light"] #panel nav.acts.tk-acts button[data-p="protect"] { color: #2f5bff !important; }
+html:root[data-skin="ecrin"] #panel nav.acts.tk-acts button[data-p="protect"] span { background: #f4f2ea !important; } html:root[data-skin="ecrin"] #panel nav.acts.tk-acts button[data-p="protect"] svg { color: #1f3fd6 !important; stroke: #1f3fd6 !important; }
+html:root[data-skin="ecrin"] #panel nav.acts.tk-acts button[data-p="protect"] { color: #f4f2ea !important; }
+html:root[data-skin="ecrin"] #panel nav.acts.tk-acts button:not([data-p="protect"])[data-p] span { background: rgba(255, 255, 255, .1) !important; }
+html:root[data-theme] #panel nav.acts.tk-acts button[data-p]:is(:hover, :focus, :focus-visible) { background: none !important; outline: none; }
+html:root[data-theme] #panel nav.acts.tk-acts button[data-p]:focus-visible span { box-shadow: 0 0 0 2px #7d97ff !important; }

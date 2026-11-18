@@ -232,14 +232,16 @@ function solEngine({ web3, acct, N, dev }) {
           eta: x.status === "cooling" || x.status === "activating" ? k.epochEndsIn : 0, who: x.vote.toBase58() }));
         return { open: true, staked: items.reduce((t, x) => t + x.amount, 0), rewards: items.reduce((t, x) => t + x.rewards, 0), items, room: k.freeIdx !== null };
       },
-      async stake(amount) {
+      /** Stakes `amount`; from the Wallet, it goes into the Safe and gets staked in the same transaction. */
+      async stake(amount, from = "safe") {
         const k = await client.staking.fetch(me), idx = k ? k.freeIdx : 0;
         if (idx === null) throw new Error("Your Safe already has 4 stakes. Unstake one first.");
         const { vote } = await client.staking.pickValidator();
-        return run(...(k ? [] : [client.staking.build.open(me)]), client.staking.build.stake(me, idx, amount, vote));
+        return run(...(from === "wallet" ? [client.build.deposit(me, amount)] : []), ...(k ? [] : [client.staking.build.open(me)]), client.staking.build.stake(me, idx, amount, vote));
       },
       unstake: (item) => run(client.staking.build.unstake(me, item.id)),
-      reclaim: (item) => run(client.staking.build.reclaim(me, me, item.id)),
+      /** Back into the Safe; to the Wallet also starts the usual withdrawal (it waits the delay), in one transaction. */
+      reclaim: (item, to = "safe") => run(client.staking.build.reclaim(me, me, item.id), ...(to === "wallet" ? [client.build.requestWithdrawal(me, me, item.amount)] : [])),
     } : null,
     createVault: (kind) => run(client.build.initialize(me, { kind })),
     async protect(asset, amount) {
@@ -330,9 +332,9 @@ function evmEngine({ ethers, acct, N, dev }) {
           ...k.requests.map((r) => ({ id: r.id, amount: r.amount, status: r.status, eta: 0, who: "Lido" }))];
         return { open: true, staked: items.reduce((t, x) => t + x.amount, 0), rewards: null, items, room: k.requests.length < 4 };
       },
-      stake: (amount) => client.staking.ops.stake(amount),
+      async stake(amount, from = "safe") { if (from === "wallet") await client.ops.deposit(amount); return client.staking.ops.stake(amount); },
       unstake: (item) => client.staking.ops.unstake(item.wst),
-      reclaim: (item) => client.staking.ops.claim(wallet.address, item.id),
+      async reclaim(item, to = "safe") { const h = await client.staking.ops.claim(wallet.address, item.id); return to === "wallet" ? client.ops.requestWithdrawal(wallet.address, item.amount) : h; },
     } : null,
     createVault: (kind) => client.ops.create({ kind }),
     protect: (asset, amount) => (asset === "native" ? client.ops.deposit(amount) : vt.ops.deposit(amount)),

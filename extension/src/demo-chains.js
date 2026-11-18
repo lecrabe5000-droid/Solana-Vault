@@ -43,9 +43,10 @@ export function engine({ acct, net }) {
         });
         return { open: !!B.stakesOpen, staked: items.reduce((q, x) => q + x.amount, 0), rewards: items.reduce((q, x) => q + x.rewards, 0), items, room: list.length < 4 };
       },
-      stake: (amount) => act(() => { const m = B.vault.main; if (amount > free(m)) throw new Error("Not enough funds that aren't already queued"); m.balance -= amount; B.stakesOpen = true; (B.stakes ||= []).push({ id: B.id++, principal: amount, at: Date.now() / 1000 }); }),
+      stake: (amount, from = "safe") => act(() => { const m = B.vault.main; if (from === "wallet") { B.native -= amount; m.balance += amount; } if (amount > free(m)) throw new Error("Not enough funds that aren't already queued"); m.balance -= amount; B.stakesOpen = true; (B.stakes ||= []).push({ id: B.id++, principal: amount, at: Date.now() / 1000 }); }),
       unstake: (item) => act(() => { const x = B.stakes.find((y) => y.id === item.id), t = Date.now() / 1000; x.earned = Math.floor(x.principal * 0.065 * (Math.max(0, t - x.at - 20) * 3600) / (365 * 86400)); x.off = t; }),
-      reclaim: (item) => act(() => { const x = B.stakes.find((y) => y.id === item.id); B.vault.main.balance += x.principal + (x.earned || 0); B.stakes = B.stakes.filter((y) => y.id !== item.id); }),
+      reclaim: (item, to = "safe") => act(() => { const x = B.stakes.find((y) => y.id === item.id), back = x.principal + (x.earned || 0); B.vault.main.balance += back; B.stakes = B.stakes.filter((y) => y.id !== item.id);
+        if (to === "wallet") B.vault.main.withdrawals.push({ id: B.id++, amount: back, dest: address, readyAt: now() + B.vault.main.withdrawDelay }); }),
     } : null,
     createVault: (kind) => act(() => {
       const d = kind === "gentle" ? 24 * 3600 : 72 * 3600;
