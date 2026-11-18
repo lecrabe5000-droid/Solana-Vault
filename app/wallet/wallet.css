@@ -3758,6 +3758,11 @@ html:root[data-theme] .home .shortcuts .sc span { width: 50px !important; height
 .buy-pick button[aria-pressed="true"] { background: color-mix(in srgb, #2f5bff 20%, rgba(18, 20, 32, .6)); box-shadow: inset 0 0 0 1.5px #5b7cff; }
 :root[data-theme="light"] .buy-pick button { background: #fff; box-shadow: 0 0 0 1px var(--line); } :root[data-theme="light"] .buy-pick button[aria-pressed="true"] { background: rgba(47, 91, 255, .08); box-shadow: inset 0 0 0 1.5px #2f5bff; }
 
+/* Coin page: network rows with a small inline lock (never a big glyph), and a soft header over the scrolling page */
+.ar-t small svg { width: 12px !important; height: 12px !important; flex: none; fill: none !important; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.tk-sv { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+html:root[data-theme] #panel .pane:has(.tk-page) .phead { background: color-mix(in srgb, var(--bg, #0c0d0f) 72%, transparent) !important; backdrop-filter: blur(18px) saturate(1.3) !important; -webkit-backdrop-filter: blur(18px) saturate(1.3) !important; box-shadow: none !important; margin-left: -16px !important; margin-right: -16px !important; padding-left: 8px; padding-right: 8px; }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
 #root, #panel { top: 0; bottom: 0; }

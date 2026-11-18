@@ -239,7 +239,7 @@ const FR = {
   "Nobody can move your tokens without asking you first.": "Personne ne peut déplacer vos jetons sans vous demander.",
   "Collectible": "Objet de collection", "Token": "Jeton", "No market price on test networks": "Pas de prix sur les réseaux de test",
   "Buy crypto with a card": "Acheter des cryptos par carte",
-  "Safe → Staked": "Coffre → Staké", "Staked → Safe": "Staké → Coffre", "Staked → Safe → Wallet": "Staké → Coffre → Wallet", "Unstaking": "Retrait en cours",
+  "Safe → Staked": "Coffre → Staké", "Back in your Safe from staking": "Revenu du staking au coffre", "Staked → Safe": "Staké → Coffre", "Staked → Safe → Wallet": "Staké → Coffre → Wallet", "Unstaking": "Retrait en cours",
   "Earning now through Lido. It stays in your Safe.": "Rapporte dès maintenant via Lido. Il reste dans votre coffre.",
   "Earning starts next epoch, in a day or two. It stays in your Safe.": "Rapporte dès la prochaine époque, dans un jour ou deux. Il reste dans votre coffre.",
   "Back in your Safe, rewards included.": "De retour dans votre coffre, récompenses comprises.",
