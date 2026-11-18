@@ -3455,7 +3455,7 @@ body.stacked.grow-open #root, :root[data-theme] body.stacked.grow-open #root { t
   animation: eg-arc 1.8s cubic-bezier(.5, .05, .15, 1) both; }
 .eg-run { stroke: #fff; stroke-width: 2.2; stroke-linecap: round; stroke-dasharray: 3 97; filter: drop-shadow(0 0 6px #fff) drop-shadow(0 0 12px #5b7cff); animation: eg-run 4.5s linear infinite; }
 .eg-core { fill: url(#erc) !important; stroke: rgba(160, 180, 255, .22); stroke-width: 1; animation: sf-pop .9s cubic-bezier(.2, .9, .2, 1.15) both; transform-box: fill-box; transform-origin: center; }
-.ern-gem.idle .eg-run { opacity: .35; animation-duration: 9s; } .ern-gem.idle .eg-arc { opacity: 0; }
+.ern-gem.idle .eg-run { display: none; } .ern-gem.idle .eg-arc { opacity: 0; }
 @keyframes eg-arc { from { stroke-dasharray: 0 100; } }
 @keyframes eg-run { to { stroke-dashoffset: -100; } }
 @keyframes eg-spin { to { transform: rotate(360deg); } }
@@ -3536,6 +3536,26 @@ body.stacked.grow-open #root, :root[data-theme] body.stacked.grow-open #root { t
 .npk-x { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 12px; background: none; color: var(--muted); cursor: pointer; }
 .npk-x svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 :root[data-theme="light"] .npk { background: rgba(255, 255, 255, .9); box-shadow: 0 0 0 1px rgba(47, 91, 255, .25), 0 18px 40px -20px rgba(16, 17, 20, .4); } :root[data-theme="light"] .npk-t small { color: #2f5bff; }
+/* Earn: centered network chip, first-visit invitation, compact stats */
+.ern-chip { justify-self: center; display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 13px 0 9px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: var(--ink);
+  background: rgba(18, 20, 32, .5); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); }
+.ern-chip .coin.sm { width: 18px; height: 18px; }
+.ern-stage.sm { width: 210px; height: 210px; margin: -2px auto -8px; }
+.ern-stage.sm .ern-big { font-size: 34px; }
+.ern-h { margin: 6px 0 0; font: 600 20px/1.2 var(--font); letter-spacing: -.01em; text-align: center; }
+.ern-sub { margin: 0; max-width: 300px; color: var(--muted); font-size: 13.5px; line-height: 1.45; text-align: center; } .ern-sub b { color: var(--ink); font-weight: 600; }
+.ern-steps { list-style: none; margin: 4px 0 0; padding: 4px 14px; display: grid; border-radius: 20px;
+  background: rgba(18, 20, 32, .55); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 0 0 1px rgba(255, 255, 255, .08); }
+.ern-steps li { display: flex; align-items: center; gap: 12px; padding: 12px 0; animation: sf-rise .55s cubic-bezier(.2, .8, .2, 1) both; }
+.ern-steps li:nth-child(2) { animation-delay: .07s; } .ern-steps li:nth-child(3) { animation-delay: .14s; }
+.ern-steps li + li { border-top: 1px solid var(--line); }
+.ern-steps i { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; font: 600 13px var(--num); font-style: normal; color: #cfd8ff; background: rgba(125, 151, 255, .16); }
+.ern-steps span { display: grid; gap: 2px; } .ern-steps b { font-size: 14px; font-weight: 600; } .ern-steps small { color: var(--muted); font-size: 12.5px; line-height: 1.35; }
+.ern-stats { display: grid; grid-template-columns: repeat(3, 1fr); padding: 12px 4px; border-radius: 20px;
+  background: rgba(18, 20, 32, .55); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 0 0 1px rgba(255, 255, 255, .08); }
+.ern-stats span { display: grid; gap: 3px; justify-items: center; text-align: center; padding: 0 6px; } .ern-stats span + span { border-left: 1px solid var(--line); }
+.ern-stats small { color: var(--muted); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; } .ern-stats b { font: var(--num-w) 15px var(--num); white-space: nowrap; }
+:root[data-theme="light"] :is(.ern-steps, .ern-stats, .ern-chip) { background: rgba(255, 255, 255, .78); box-shadow: 0 0 0 1px var(--line); }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */

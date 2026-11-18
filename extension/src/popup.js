@@ -3820,10 +3820,30 @@ function earnShell(nets, loading) {
       <span class="er-t"><b>${mask(amt(x.amount, "native"))} ${unit}</b><small>${esc(x.who && !/\s/.test(x.who) && x.who.length > 20 ? short(x.who) : x.who || "")}${x.rewards ? ` · <em>+${amt(x.rewards, "native")}</em>` : ""}</small></span>
       <span class="er-r"><span class="er-pill">${t}${eta ? ` · ${eta}` : ""}</span>${act || `<small>${sub}</small>`}</span></article>`;
   }).join("");
-  const lido = N.fam === "evm";
-  return `${phead("Earn", seg ? "" : `<span class="ern-net">${coin(S.net, "sm")}${N.name} ${N.net}</span>`)}
+  const lido = N.fam === "evm", apy = e?.apy || (lido ? "3%" : STAKE_APY_TEXT), chip = seg || `<span class="ern-chip">${coin(S.net, "sm")}${N.name} · ${N.net}</span>`;
+  const foot = `<div class="pfoot">${!P.v ? `<button class="btn primary xl" data-act="safe-go" data-n="${S.net}" data-p="protect">${I.protect}Open your Safe on ${N.name}</button>`
+    : free ? `<button class="btn primary xl" data-act="earn-stake"${st && !st.room ? " disabled" : ""}>${I.spark}Stake ${unit}</button>`
+    : `<button class="btn primary xl" data-act="safe-go" data-n="${S.net}" data-p="protect">${I.protect}Protect ${unit} to stake it</button>`}</div>`;
+  // Nothing staked yet: an invitation, not a big zero.
+  if (!loading && !staked && !rows) return `${phead("Earn")}
+  <div class="ern ern-first">
+    ${chip}
+    <section class="ern-hero">
+      <div class="ern-stage sm">${earnGem(0, true)}
+        <div class="ern-mid"><span class="ern-ic">${I.spark}</span><span class="lbl">Earn about</span><b class="ern-big">${apy.replace(/^about /, "")}</b><small>a year on ${unit}</small></div></div>
+      <h2 class="ern-h">Put your Safe to work</h2>
+      <p class="ern-sub">Stake ${unit} from your Safe. It earns while every rule still holds${free ? `, and you have <b>${mask(amt(free, "native"))} ${unit}</b> free to stake` : ""}.</p>
+    </section>
+    <ol class="ern-steps">
+      <li><i>1</i><span><b>Stake from your Safe</b><small>${lido ? "Staked with Lido, held by your Safe as wstETH" : "In a stake account only your Safe controls"}</small></span></li>
+      <li><i>2</i><span><b>Earn about ${apy.replace(/^about /, "")} a year</b><small>Rates change; nothing is guaranteed. No Ecrin fee.</small></span></li>
+      <li><i>3</i><span><b>Unstake any time</b><small>Back in your Safe in ${e?.unstakeTime || "a few days"}, only there</small></span></li>
+    </ol>
+    ${P.err ? `<p class="note bad-n">${I.shield}<span>${esc(P.err)}</span></p>` : ""}
+  </div>${foot}`;
+  return `${phead("Earn")}
   <div class="ern${loading ? " loading" : ""}">
-    ${seg}
+    ${chip}
     <section class="ern-hero">
       <div class="ern-stage">${earnGem(f, !staked)}
         <div class="ern-mid"><span class="ern-ic">${I.spark}</span><span class="lbl">Staked</span>
@@ -3832,10 +3852,10 @@ function earnShell(nets, loading) {
       <div class="ern-earned">${st?.rewards ? `<span class="ern-pill">${I.spark}+${amt(st.rewards, "native")} ${unit} earned</span>` : `<span class="ern-pill dim">${I.spark}About ${e?.apy || (lido ? "3%" : STAKE_APY_TEXT)} a year</span>`}
         ${staked ? `<span class="ern-yr">≈ ${yr.toLocaleString("en-US", { maximumFractionDigits: 4 })} ${unit} a year${px != null ? ` · ${mask(money(yr * px))}` : ""}</span>` : ""}</div>
     </section>
-    <div class="ern-tiles">
-      <div class="ern-tile"><span class="st-ic">${I.lock}</span><span class="st-k">Free</span><b>${loading ? "—" : mask(amt(free, "native"))}</b><small>${unit} you can stake</small></div>
-      <div class="ern-tile"><span class="st-ic">${I.spark}</span><span class="st-k">${lido ? "With Lido" : "Validators"}</span><b>${(st?.items || []).filter((x) => x.status !== "cooling" && x.status !== "ready").length || "None"}</b><small>${lido ? "staked ETH, as wstETH" : `${st?.items?.length || 0} of 4 stakes`}</small></div>
-      <div class="ern-tile"><span class="st-ic">${I.clock}</span><span class="st-k">Unstaking</span><b>${N.fam === "sol" ? "2–3 days" : "1–5 days"}</b><small>then the Safe's delay</small></div>
+    <div class="ern-stats">
+      <span><small>Free in Safe</small><b>${loading ? "—" : mask(amt(free, "native"))}</b></span>
+      <span><small>${lido ? "With Lido" : "Stakes"}</small><b>${lido ? ((st?.items || []).some((x) => x.id === "wst") ? "Earning" : "—") : `${st?.items?.length || 0} of 4`}</b></span>
+      <span><small>Unstaking</small><b>${N.fam === "sol" ? "2–3 days" : "1–5 days"}</b></span>
     </div>
     ${rows ? `<div class="list-h"><b>Your stakes</b><span>stay inside your Safe</span></div><div class="er-list">${rows}</div>`
       : loading ? "" : `<div class="ern-empty"><b>Nothing staked yet</b><span>Stake ${unit} from your Safe and it earns while every rule still holds.</span></div>`}
@@ -3846,9 +3866,7 @@ function earnShell(nets, loading) {
       <div class="ap-li">${I.shield}<span>No Ecrin fee. Rates change and nothing is guaranteed; ${lido ? "Lido's own risks apply" : "a validator's own risks apply"}.</span></div>
     </div>
   </div>
-  <div class="pfoot">${!P.v ? `<button class="btn primary xl" data-act="safe-go" data-n="${S.net}" data-p="protect">${I.protect}Open your Safe first</button>`
-    : free ? `<button class="btn primary xl" data-act="earn-stake"${st && !st.room ? " disabled" : ""}>${I.spark}Stake ${unit}</button>`
-    : `<button class="btn primary xl" data-act="safe-go" data-n="${S.net}" data-p="protect">${I.protect}Protect ${unit} to stake it</button>`}</div>`;
+  ${foot}`;
 }
 function earnStakeView(P) {
   const N = NETS[S.net], max = P.v?.main?.available || 0, units = parseAmt(P.amount, "native"), valid = units > 0 && units <= max, f = max ? Math.min(1, units / max) : 0;
