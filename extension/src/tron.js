@@ -52,6 +52,11 @@ export function rawTx({ block, contractType, typeName, value, feeLimit, now = Da
 }
 export const transferValue = (from, to, sun) => cat(fBytes(1, from), fBytes(2, to), fInt(3, sun));
 export const triggerValue = (from, contract, data) => cat(fBytes(1, from), fBytes(2, contract), fBytes(4, data));
+/** A contract call that may also send TRX (call_value, field 3): used for bridges. */
+export const callValue = (from, contract, data, sun) => cat(fBytes(1, from), fBytes(2, contract), ...(BigInt(sun) > 0n ? [fInt(3, sun)] : []), fBytes(4, data));
+/** TRC-20 approve(address,uint256) call data. */
+export const approveData = (spender21, amount) => cat(unhex("095ea7b3"), new Uint8Array(12), spender21.slice(1), unhex(BigInt(amount).toString(16).padStart(64, "0")));
+export const TRX_ID = "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb"; // how LI.FI names TRX itself
 /** TRC-20 transfer(address,uint256) call data. */
 export const trc20Data = (to21, amount) => cat(unhex("a9059cbb"), new Uint8Array(12), to21.slice(1), unhex(BigInt(amount).toString(16).padStart(64, "0")));
 
@@ -78,6 +83,15 @@ export function tronEngine({ ethers, acct, dev = {}, N = TRON }) {
     emitSent(t.id);
     return t.id;
   }
+  /** Waits until a transaction is in a block (up to about a minute) and says if it failed. */
+  async function confirmed(id) {
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      const r = await call("/wallet/gettransactioninfobyid", { value: id }).catch(() => null);
+      if (r?.blockNumber) { if (r.receipt?.result && r.receipt.result !== "SUCCESS") throw new Error(`The USDT approval failed on Tron (${r.receipt.result}).`); return; }
+    }
+    throw new Error("The USDT approval is taking long on Tron. Try the bridge again in a minute.");
+  }
   const usdtBal = async () => {
     const r = await call("/wallet/triggerconstantcontract", { owner_address: me, contract_address: N.usdt, function_selector: "balanceOf(address)", parameter: hex(new Uint8Array(12)) + hex(me21.slice(1)), visible: true });
     return BigInt("0x" + (r.constant_result?.[0] || "0"));
@@ -103,6 +117,27 @@ export function tronEngine({ ethers, acct, dev = {}, N = TRON }) {
     async sendToken(t, to, raw) {
       const to21 = fromTron(to); if (!to21) throw new Error("That isn't a Tron address.");
       return send(rawTx({ block: await block(), contractType: 31, typeName: "TriggerSmartContract", value: triggerValue(me21, fromTron(t.mint), trc20Data(to21, raw)), feeLimit: 30 * SUN }));
+    },
+    /** Bridges (LI.FI) from Tron. Ecrin doesn't sign LI.FI's own transaction: it takes only the call (which contract,
+     *  which data, how much TRX), checks it, and builds and signs its own transaction from this address. USDT is
+     *  approved for exactly the amount, and only to the bridge contract. Returns the transaction id. */
+    async bridgeSend({ tx, approval, fromToken, fromAmount }) {
+      const c = tx?.tron, want = BigInt(fromAmount), contract21 = fromTron(c?.contract || "");
+      if (!c || !contract21 || !/^[0-9a-fA-F]+$/.test(c.data || "")) throw new Error("This bridge sent a Tron transaction Ecrin can't read. Ecrin refused it.");
+      const sun = BigInt(c.callValue || 0);
+      if (fromToken === TRX_ID) { if (sun !== want) throw new Error("This bridge would send a different amount than you chose. Ecrin refused it."); }
+      else {
+        if (fromToken !== N.usdt) throw new Error("This bridge asks for a token Ecrin doesn't know. Ecrin refused it.");
+        if (sun !== 0n) throw new Error("This bridge asks for TRX on top of your USDT. Ecrin refused it.");
+        if (!approval || approval !== c.contract) throw new Error("This bridge asks to approve a different contract. Ecrin refused it.");
+        const r = await call("/wallet/triggerconstantcontract", { owner_address: me, contract_address: N.usdt, function_selector: "allowance(address,address)", parameter: hex(new Uint8Array(12)) + hex(me21.slice(1)) + hex(new Uint8Array(12)) + hex(contract21.slice(1)), visible: true });
+        if (BigInt("0x" + (r.constant_result?.[0] || "0")) < want) {
+          const id = await send(rawTx({ block: await block(), contractType: 31, typeName: "TriggerSmartContract", value: triggerValue(me21, fromTron(N.usdt), approveData(contract21, want)), feeLimit: 30 * SUN }));
+          await confirmed(id);
+        }
+      }
+      const feeLimit = Math.min(Math.max(Number(c.feeLimit) || 100 * SUN, 30 * SUN), 200 * SUN);
+      return send(rawTx({ block: await block(), contractType: 31, typeName: "TriggerSmartContract", value: callValue(me21, contract21, unhex(c.data), sun), feeLimit }));
     },
   };
 }

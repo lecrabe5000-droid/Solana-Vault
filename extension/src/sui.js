@@ -154,6 +154,25 @@ export function signTx(tx, priv) {
 }
 export const txDigest = (tx) => bs58.encode(h256(cat(new TextEncoder().encode("TransactionData::"), tx)));
 
+/** Coin types written one way: "0x2::sui::SUI" and the 64-digit form are the same coin. */
+export const normType = (t) => String(t || "").replace(/^0x0*([0-9a-fA-F]*)::/, (_, a) => "0x" + a.toLowerCase().padStart(64, "0") + "::");
+/** What a Sui bridge may take from this address: the chosen coin up to the chosen amount, and up to 0.5 SUI of fees.
+ *  Returns why it's refused, or "" when it's fine. */
+export function suiBridgeCheck(changes, me, fromToken, fromAmount) {
+  const SUI_T = normType("0x2::sui::SUI"), from = normType(fromToken), want = BigInt(fromAmount), GAS = 500_000_000n, mine = normAddr(me);
+  const out = {};
+  for (const c of changes) {
+    if (normAddr(c.owner?.address || "") !== mine) continue;
+    const a = BigInt(c.amount || 0); if (a >= 0n) continue;
+    const t = normType(c.coinType?.repr); out[t] = (out[t] || 0n) - a;
+  }
+  for (const [t, v] of Object.entries(out)) {
+    const cap = (t === from ? want : 0n) + (t === SUI_T ? GAS : 0n);
+    if (cap === 0n) return "This bridge would also take another coin from your wallet. Ecrin refused it.";
+    if (v > cap) return "This bridge would take more than you chose. Ecrin refused it.";
+  }
+  return "";
+}
 export function suiEngine({ acct, dev = {}, N = SUI }) {
   const apis = dev.suiApi ? [dev.suiApi] : viaProxy(N.key, N.api), priv = acct.sui, me = dev.as || suiAddress(ed25519.getPublicKey(priv));
   async function gql(query, variables = {}) {
@@ -342,6 +361,20 @@ export function suiEngine({ acct, dev = {}, N = SUI }) {
       if (!normAddr(to)) throw new Error("That isn't a Sui address.");
       if (asset === "usdc") return execute(await plan(N.usdc, to, BigInt(Math.round(amount))));
       return execute(await plan(SUI_COIN, to, BigInt(Math.round(amount))));
+    },
+    /** Bridges (LI.FI) from Sui: LI.FI's transaction runs first on a copy of the chain. Only the coin you chose may
+     *  leave this address, at most the amount you chose, plus a little SUI for the network fee. Anything else, and
+     *  Ecrin refuses to sign. Returns the digest. */
+    async bridgeSend({ tx, fromToken, fromAmount }) {
+      const bytes = Uint8Array.from(atob(String(tx?.sui || "")), (c) => c.charCodeAt(0));
+      if (!bytes.length) throw new Error("This bridge sent a Sui transaction Ecrin can't read. Ecrin refused it.");
+      const sim = await gql(`query($t:JSON!){simulateTransaction(transaction:$t){effects{status executionError{message} balanceChanges{nodes{owner{address} amount coinType{repr}}}}}}`, { t: { bcs: { value: b64(bytes) } } });
+      const e = sim.simulateTransaction?.effects;
+      if (!e) throw new Error("Sui couldn't check this bridge. Try again in a moment.");
+      if (e.status !== "SUCCESS") throw new Error(`This bridge would fail right now: ${e.executionError?.message || e.status}`);
+      const refused = suiBridgeCheck(e.balanceChanges?.nodes || [], me, fromToken, fromAmount);
+      if (refused) throw new Error(refused);
+      return execute(bytes);
     },
     async listTokens() { return []; },
     async sendToken(t, to, raw) {

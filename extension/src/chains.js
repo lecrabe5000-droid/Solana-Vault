@@ -316,7 +316,7 @@ function evmEngine({ ethers, acct, N, dev }) {
       const ZERO = "0x0000000000000000000000000000000000000000", want = BigInt(fromAmount), to = ethers.getAddress(tx.to), value = BigInt(tx.value || 0);
       if (fromToken === ZERO) { if (value !== want) throw new Error("This bridge would send a different amount than you chose. Ecrin refused it."); }
       else {
-        if (value !== 0n) throw new Error("This bridge asks for ETH on top of your USDC. Ecrin refused it.");
+        if (value !== 0n) throw new Error("This bridge asks for more coins on top of your token. Ecrin refused it.");
         if (!approval || ethers.getAddress(approval) !== to) throw new Error("This bridge asks to approve a different contract. Ecrin refused it.");
         const erc = new ethers.Contract(fromToken, ["function allowance(address,address) view returns (uint256)", "function approve(address,uint256) returns (bool)"], wallet);
         if ((await erc.allowance(wallet.address, to)) < want) { const a = await erc.approve(to, want); const r = await a.wait(); if (!r || r.status !== 1) throw new Error("The approval failed on-chain."); }

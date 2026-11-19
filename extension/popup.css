@@ -3942,3 +3942,10 @@ html:root[data-skin="ecrin"] #panel .pane.scrolled .phead:not(#z) { background: 
 html:root[data-theme="light"] #panel .pane.scrolled .phead:not(#z) { background: rgba(243, 242, 238, .94) !important; -webkit-backdrop-filter: blur(20px) saturate(1.4) !important; backdrop-filter: blur(20px) saturate(1.4) !important; }
 #panel .rc-more .arow .ar-t small { white-space: normal !important; overflow: visible !important; line-height: 1.35; }
 .wr-n { display: grid !important; place-items: center; font: 700 9.5px var(--font); color: #fff; background: #2f5bff !important; }
+/* Bridge: each side is a coin on a network (USDC · Base), stacked like the picker rows. */
+.br-net.br-asset { gap: 8px; padding: 6px 10px 6px 6px; }
+.br-net.br-asset .cstack { flex: none; }
+.br-net.br-asset > span:not(.cstack) { display: grid; gap: 1px; text-align: left; line-height: 1.15; }
+.br-net.br-asset b { font-size: 14px; font-weight: 600; color: var(--ink); }
+.br-net.br-asset small { font-size: 11px; color: var(--muted); font-weight: 500; white-space: nowrap; }
+.br-net.br-asset .cstack .coin { width: 28px; height: 28px; }

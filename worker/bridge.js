@@ -1,8 +1,9 @@
-// Bridges through LI.FI: move USDC or ETH between networks from inside Ecrin Wallet. LI.FI builds the transaction;
+// Bridges through LI.FI: move any coin Ecrin holds to any coin on another network (or swap on the same one). LI.FI builds the transaction;
 // the user signs it in the wallet, which checks it first. Ecrin's fee and integrator name are added here, on the
 // server, so a wallet can't change them. The server never holds funds or keys.
 //   GET /api/bridge/status                                                  → { on, fee }
-//   GET /api/bridge/quote?from=&to=&coin=native|usdc&amount=&fromAddress=&toAddress=  → a quote with the transaction
+//   GET /api/bridge/quote?from=&to=&fromCoin=&toCoin=&amount=&fromAddress=&toAddress=  → a quote with the transaction
+//       (coins: native | usdc | usdt; the older coin= sets both sides)
 //   GET /api/bridge/track?tx=&from=&to=&bridge=                             → { status, substatus, receiving }
 // Cloudflare variables (Settings → Variables and Secrets):
 //   LIFI_INTEGRATOR   Ecrin's integrator name from LI.FI's Partner Portal (portal.li.fi), with fee wallets set there.
@@ -16,30 +17,33 @@ const API = "https://li.quest/v1";
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" };
 const json = (body, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "no-store", ...CORS } });
 
-const ETH = "0x0000000000000000000000000000000000000000", SOL = "11111111111111111111111111111111";
-/** Ecrin's mainnet networks that can bridge, with LI.FI's chain id (from its /v1/chains) and the coins offered. */
+const ZERO = "0x0000000000000000000000000000000000000000", SOL = "11111111111111111111111111111111";
+const TRX = "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb", TRON_USDT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
+const SUI = "0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI";
+const SUI_USDC = "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC";
+const evm = (k, chain, unit) => ({ chain, fam: "evm", unit, coins: { native: ZERO, ...(EVM_MAIN[k].usdc ? { usdc: EVM_MAIN[k].usdc } : {}) } });
+/** Ecrin's mainnet networks that can bridge, with LI.FI's chain id and token ids (both from LI.FI's /v1/chains and
+ *  /v1/token), and the coins Ecrin holds there. */
 export const BRIDGE_NETS = {
-  solm: { chain: "SOL", fam: "sol", usdc: SOL_USDC.mainnet, native: SOL, unit: "SOL" },
-  ethm: { chain: 1, fam: "evm", usdc: EVM_MAIN.ethm.usdc, native: ETH, unit: "ETH" },
-  basem: { chain: 8453, fam: "evm", usdc: EVM_MAIN.basem.usdc, native: ETH, unit: "ETH" },
-  arbm: { chain: 42161, fam: "evm", usdc: EVM_MAIN.arbm.usdc, native: ETH, unit: "ETH" },
-  opm: { chain: 10, fam: "evm", usdc: EVM_MAIN.opm.usdc, native: ETH, unit: "ETH" },
-  polm: { chain: 137, fam: "evm", usdc: EVM_MAIN.polm.usdc, native: null, unit: "POL" },
-  avaxm: { chain: 43114, fam: "evm", usdc: EVM_MAIN.avaxm.usdc, native: null, unit: "AVAX" },
-  hypem: { chain: 999, fam: "evm", usdc: EVM_MAIN.hypem.usdc, native: null, unit: "HYPE" },
+  solm: { chain: "SOL", fam: "sol", unit: "SOL", coins: { native: SOL, usdc: SOL_USDC.mainnet } },
+  ethm: evm("ethm", 1, "ETH"), basem: evm("basem", 8453, "ETH"), arbm: evm("arbm", 42161, "ETH"), opm: evm("opm", 10, "ETH"),
+  polm: evm("polm", 137, "POL"), avaxm: evm("avaxm", 43114, "AVAX"), hypem: evm("hypem", 999, "HYPE"), bnbm: evm("bnbm", 56, "BNB"),
+  tronm: { chain: 728126428, fam: "tron", unit: "TRX", coins: { native: TRX, usdt: TRON_USDT } },
+  suim: { chain: 9270000000000000, fam: "sui", unit: "SUI", coins: { native: SUI, usdc: SUI_USDC } },
 };
-const ADDR = { sol: /^[1-9A-HJ-NP-Za-km-z]{32,44}$/, evm: /^0x[0-9a-fA-F]{40}$/ };
+const ADDR = { sol: /^[1-9A-HJ-NP-Za-km-z]{32,44}$/, evm: /^0x[0-9a-fA-F]{40}$/, tron: /^T[1-9A-HJ-NP-Za-km-z]{33}$/, sui: /^0x[0-9a-fA-F]{64}$/ };
+const COIN = /^(native|usdc|usdt)$/;
 
 export const bridgeFee = (env) => { const f = Number(env.LIFI_FEE); return Number.isFinite(f) && f >= 0 && f < 0.05 ? f : 0.00875; };
 export const bridgeOn = (env) => /^[A-Za-z0-9._-]{2,40}$/.test(env.LIFI_INTEGRATOR || "");
 
-/** The coin to send and to receive. ETH bridges to ETH; USDC to USDC. Null when that coin isn't on both networks. */
-export function bridgeTokens(from, to, coin) {
+/** The token to send and the token to receive. Null when a coin isn't on that network, or it's the same coin twice. */
+export function bridgeTokens(from, to, fromCoin, toCoin = fromCoin) {
   const a = BRIDGE_NETS[from], b = BRIDGE_NETS[to];
-  if (!a || !b || from === to) return null;
-  if (coin === "usdc") return a.usdc && b.usdc ? [a.usdc, b.usdc] : null;
-  if (a.unit !== "ETH" || b.unit !== "ETH") return null; // native: ETH between Ethereum and its networks only
-  return [a.native, b.native];
+  if (!a || !b || !COIN.test(fromCoin) || !COIN.test(toCoin)) return null;
+  const x = a.coins[fromCoin], y = b.coins[toCoin];
+  if (!x || !y || (from === to && x === y)) return null;
+  return [x, y];
 }
 
 async function lifi(env, path) {
@@ -61,8 +65,9 @@ export async function handleBridge(request, env) {
   const q = url.searchParams;
 
   if (url.pathname === "/api/bridge/quote") {
-    const from = q.get("from"), to = q.get("to"), coin = q.get("coin") === "usdc" ? "usdc" : "native", amount = q.get("amount") || "";
-    const tk = bridgeTokens(from, to, coin);
+    const from = q.get("from"), to = q.get("to"), amount = q.get("amount") || "";
+    const fromCoin = q.get("fromCoin") || q.get("coin") || "native", toCoin = q.get("toCoin") || q.get("coin") || "native";
+    const tk = bridgeTokens(from, to, fromCoin, toCoin);
     if (!tk) return json({ error: "This coin can't be bridged between these networks." }, 400);
     if (!/^[1-9]\d{0,29}$/.test(amount)) return json({ error: "Bad amount" }, 400);
     const A = BRIDGE_NETS[from], B = BRIDGE_NETS[to], fa = q.get("fromAddress") || "", ta = q.get("toAddress") || "";
@@ -70,21 +75,32 @@ export async function handleBridge(request, env) {
     const p = new URLSearchParams({ fromChain: String(A.chain), toChain: String(B.chain), fromToken: tk[0], toToken: tk[1], fromAmount: amount, fromAddress: fa, toAddress: ta,
       integrator: env.LIFI_INTEGRATOR, fee: String(bridgeFee(env)), slippage: "0.005", order: "RECOMMENDED" });
     const [qt, err] = await lifi(env, "/quote?" + p);
-    if (err) return json({ error: /no available quotes|no route/i.test(err) ? "No bridge can move this amount right now. Try a larger amount." : err }, 502);
-    const e = qt.estimate || {}, t = qt.transactionRequest || {};
+    if (err) return json({ error: /no available quotes|no route|none of the available routes/i.test(err) ? "No bridge can move this amount right now. Try a larger amount." : err }, 502);
+    const e = qt.estimate || {}, t = qt.transactionRequest || {}, isToken = tk[0] !== A.coins.native;
     const usd = (list) => (list || []).reduce((s, c) => s + (Number(c.amountUSD) || 0), 0);
+    let tx;
+    if (A.fam === "sol") tx = { sol: t.data };
+    else if (A.fam === "sui") tx = { sui: t.data };
+    else if (A.fam === "tron") {
+      // LI.FI sends a whole Tron transaction; pass on only the call in it. The wallet builds and signs its own
+      // transaction from these fields, so nothing else in LI.FI's bytes can ride along.
+      let c = t.customData; try { if (typeof c === "string") c = JSON.parse(c); } catch (_) { c = null; }
+      const ct = c?.tronTransaction?.raw_data?.contract?.[0], v = ct?.parameter?.value || {};
+      if (ct?.type !== "TriggerSmartContract" || v.owner_address !== fa || !ADDR.tron.test(v.contract_address || "") || !/^[0-9a-fA-F]+$/.test(v.data || ""))
+        return json({ error: "LI.FI sent a Tron transaction Ecrin can't check. Try another amount." }, 502);
+      tx = { tron: { contract: v.contract_address, data: v.data, callValue: String(v.call_value || 0), feeLimit: Number(c.tronTransaction.raw_data.fee_limit) || 150_000_000 } };
+    } else tx = { to: t.to, data: t.data, value: t.value || "0x0", gasLimit: t.gasLimit || null };
     return json({
       tool: qt.toolDetails?.name || qt.tool, bridge: qt.tool, toAmount: e.toAmount, toAmountMin: e.toAmountMin, seconds: e.executionDuration,
       feesUSD: usd(e.feeCosts), gasUSD: usd(e.gasCosts), fee: bridgeFee(env),
-      approval: A.fam === "evm" && tk[0] !== ETH ? e.approvalAddress || null : null,
-      tx: A.fam === "sol" ? { sol: t.data } : { to: t.to, data: t.data, value: t.value || "0x0", gasLimit: t.gasLimit || null },
-      fromToken: tk[0], fromAmount: amount, fromChain: A.chain, toChain: B.chain,
+      approval: (A.fam === "evm" || A.fam === "tron") && isToken ? e.approvalAddress || null : null,
+      tx, fromToken: tk[0], toToken: tk[1], fromAmount: amount, fromChain: A.chain, toChain: B.chain,
     });
   }
 
   if (url.pathname === "/api/bridge/track") {
     const tx = q.get("tx") || "";
-    if (!/^(0x[0-9a-fA-F]{64}|[1-9A-HJ-NP-Za-km-z]{60,100})$/.test(tx)) return json({ error: "Bad transaction" }, 400);
+    if (!/^((0x)?[0-9a-fA-F]{64}|[1-9A-HJ-NP-Za-km-z]{32,100})$/.test(tx)) return json({ error: "Bad transaction" }, 400);
     const p = new URLSearchParams({ txHash: tx });
     for (const [k, v] of [["fromChain", q.get("from")], ["toChain", q.get("to")], ["bridge", q.get("bridge")]]) if (v && /^[A-Za-z0-9]{1,24}$/.test(v)) p.set(k, v);
     const [st, err] = await lifi(env, "/status?" + p);
