@@ -1,6 +1,6 @@
 // Ecrin service worker: makes the app installable and keeps its shell available on a bad connection.
 // Network first for everything; the cache is only a fallback. Never caches the API or other origins.
-
+const CACHE = "ecrin-v85";
 const SHELL = ["/app", "/app.css", "/dapp.js", "/chain.js", "/evm.js", "/vault.js", "/config.js", "/config-evm.js", "/deployments-evm.js", "/config-tokens.js", "/config-wc.js", "/i18n.js", "/theme.js", "/vendor/solana-web3.min.js", "/vendor/ethers.umd.min.js", "/icon2-192.png"];
 
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {}).then(() => self.skipWaiting())); });
@@ -8,13 +8,23 @@ self.addEventListener("activate", (e) => { e.waitUntil(caches.keys().then((ks) =
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== location.origin || url.pathname.startsWith("/api/")) return;
-  e.respondWith(fetch(e.request).then((res) => {
-    if (res.ok && res.type === "basic") { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); }
-    return res;
-  }).catch(() => caches.match(e.request).then((hit) => hit || caches.match("/app"))));
+  // Pages themselves always come straight from the network (the browser handles them), so a new version is never
+  // hidden behind an old copy and a page can never fail to open because of this worker.
+  if (e.request.mode === "navigate") return;
+  e.respondWith((async () => {
+    try {
+      const res = await fetch(e.request);
+      if (res.ok && res.type === "basic") { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {}); }
+      return res;
+    } catch (err) {
+      // Offline: the last copy if there is one; otherwise the same network error the browser would have shown.
+      const hit = await caches.match(e.request).catch(() => null);
+      if (hit) return hit;
+      throw err;
+    }
+  })());
 });
 
-// Alerts as notifications on this device (sent by the worker through the browser's push service).
 self.addEventListener("push", (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (_) { d = { title: "Ecrin", body: e.data ? e.data.text() : "" }; }

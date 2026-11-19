@@ -806,12 +806,14 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden && S.
 // one (never in the middle of a transaction).
 if (globalThis.ECRIN_WEB) {
   const src = [...document.scripts].map((x) => x.src).find((u) => /\/(wallet|demo)\.js(\?|$)/.test(u));
-  const tag = () => (src ? fetch(src, { method: "HEAD", cache: "no-store" }).then((r) => r.headers.get("etag") || r.headers.get("last-modified")).catch(() => null) : Promise.resolve(null));
+  const tag = () => (src ? fetch(src, { method: "HEAD", cache: "no-store" }).then((r) => (r.ok ? (r.headers.get("etag") || r.headers.get("last-modified") || "").replace(/^W\//, "") || null : null)).catch(() => null) : Promise.resolve(null));
   let built = null; tag().then((t) => (built = t));
   const check = async () => {
     if (document.hidden || !built) return;
     const now = await tag(); if (!now || now === built) return;
     if (S.panel?.step === "sending" || Date.now() - (S.lastTx || 0) < 60_000) return;
+    // Never a reload loop: at most one every 5 minutes.
+    try { const last = Number(sessionStorage.getItem("ecrinReloadAt") || 0); if (Date.now() - last < 5 * 60_000) return; sessionStorage.setItem("ecrinReloadAt", String(Date.now())); } catch (_) { return; }
     location.reload();
   };
   document.addEventListener("visibilitychange", check); setInterval(check, 10 * 60_000);
