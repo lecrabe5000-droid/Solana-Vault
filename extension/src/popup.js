@@ -2740,7 +2740,12 @@ const actions = {
   speed: (el) => { S.panel.speed = el.dataset.v; renderPanel(); },
   palert: async (el) => { S.palerts = { ...(S.palerts || {}), [el.dataset.cg]: Number(el.dataset.v) }; await local.set({ palerts: S.palerts }); renderPanel(); checkPriceAlerts(); },
   "palert-notify": async () => { try { await Notification.requestPermission(); } catch (_) {} renderPanel(); },
-  "home-req": () => openPanel("payreq", { a: "native" }),
+  // Request opens on a coin you hold (the biggest), not on whatever network happens to be selected.
+  "home-req": async () => {
+    const best = worth().items.filter((i) => i.chq > 0 && !NETS[i.k]?.test === isMain()).sort((x, y) => (y.usd || 0) - (x.usd || 0))[0];
+    if (best && best.k !== S.net) await useNet(best.k);
+    openPanel("payreq", { a: best?.a || "native" });
+  },
   payreq: () => { const a = S.panel?.asset || "native"; S.panel = null; $("#panel").innerHTML = ""; openPanel("payreq", { a }); },
   "copy-req": async () => { const P = S.panel; try { await navigator.clipboard.writeText(payLink(S.net, P.asset || "native", Number(P.amount) > 0 ? P.amount : "", P.label || "")); toast("Payment link copied", "win"); } catch (_) { toast("Couldn't copy", "err"); } },
   "share-req": async () => { const P = S.panel; try { await navigator.share({ text: payLink(S.net, P.asset || "native", Number(P.amount) > 0 ? P.amount : "", P.label || "") }); } catch (_) {} },
@@ -4361,7 +4366,7 @@ function pickView() {
     return { ...items[0], coin: face, k: face, chq: tot("chq"), sav: tot("sav"), usd: need ? tot("usd") : null, net: `${items.length} networks`, merged: g, nets };
   });
   const n = (v, d) => v.toLocaleString("en-US", { maximumFractionDigits: d });
-  return `${phead({ send: "Send which coin?", protect: "Protect which coin?", withdraw: "Withdraw which coin?", receive: "Receive which coin?" }[P.back] || "Choose a coin")}
+  return `${phead({ send: "Send which coin?", protect: "Protect which coin?", withdraw: "Withdraw which coin?", receive: "Receive which coin?", payreq: "Request which coin?" }[P.back] || "Choose a coin")}
     <section class="list">${list.length ? list.map((i) => {
       const right = (x) => (need ? `<span class="ar-r"><b>${mask(n(x[need], x.dec))} ${x.unit}</b><small>${x.usd != null ? mask(money(x.usd * (x[need] / ((x.chq + x.sav) || 1)))) : ""}</small></span>` : "");
       if (i.merged) { const open = P.openG === i.merged; return `<button class="arow pk-u${open ? " open" : ""}" data-act="pick-grp" data-g="${i.merged}" aria-expanded="${open}"><span class="cstack">${coin(i.coin)}</span><span class="ar-t"><b>${i.name}</b><small>${i.net}</small></span>${right(i)}</button>
