@@ -3924,3 +3924,15 @@ html:root[data-theme] .rev-amt b .dec:not(#z) { font: inherit !important; letter
 /* Hidden toasts leave completely: past the status bar / Dynamic Island, and faded out (they used to park in it). */
 #toast.toast:not(.show) { transform: translate(-50%, calc(-100% - 40px - env(safe-area-inset-top, 0px))) !important; opacity: 0 !important; visibility: hidden; transition: transform .45s cubic-bezier(.22, 1, .36, 1), opacity .3s, visibility 0s .45s !important; }
 #toast.toast.show { opacity: 1 !important; visibility: visible; transition: transform .45s cubic-bezier(.22, 1, .36, 1), opacity .2s !important; }
+
+/* ---- Bottom buttons, phone-proof.
+   Result screens (Done): the button follows the content, never floats over it; on a short screen it still sits at
+   the bottom (the sheet is a full-height column). */
+html:root[data-theme] #panel .mo > .pfoot:not(#z), html:root[data-theme] #panel .mo > .pfoot.mo-foot-wait:not(#z) { position: static !important; bottom: auto !important; margin: auto 0 0 !important; width: 100% !important; max-width: 420px; padding: 18px 0 calc(8px + env(safe-area-inset-bottom, 0px)) !important; background: none !important; box-shadow: none !important; }
+html:root[data-theme] #panel .mo { min-height: 100% !important; }
+/* Forms (Protect, Withdraw): the slider stays pinned at the bottom on a solid backing, clear of the home bar,
+   and the page keeps room under its last line so nothing hides behind it. */
+html:root[data-theme] #panel .pfoot.mv-foot:not(#z) { position: sticky !important; bottom: calc(-1 * (16px + env(safe-area-inset-bottom, 0px))) !important; z-index: 3; margin: 14px -16px 0 !important; padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px)) !important; background: linear-gradient(to bottom, transparent, var(--bg) 22px) !important; }
+html:root[data-skin="ecrin"] #panel .pfoot.mv-foot:not(#z) { background: linear-gradient(to bottom, rgba(7, 11, 29, 0), #070b1d 22px) !important; }
+html:root[data-theme="dark"]:not([data-skin="ecrin"]) #panel .pfoot.mv-foot:not(#z) { background: linear-gradient(to bottom, rgba(12, 13, 15, 0), #0c0d0f 22px) !important; }
+html:root[data-theme="light"] #panel .pfoot.mv-foot:not(#z) { background: linear-gradient(to bottom, rgba(243, 242, 238, 0), #f3f2ee 22px) !important; }
