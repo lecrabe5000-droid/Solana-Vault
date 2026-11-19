@@ -1295,7 +1295,7 @@ const MARKET = [["solana", "SOL", "sol", "Solana"], ["ethereum", "ETH", "eth", "
 function homeMore() {
   const all = S.activity || [];
   const recent = ""; void all; // the Activity tab right above already lists everything
-  const sc = [...(stakeNets().length ? [["earn", "Earn", I.spark, 'data-act="panel" data-p="earn"']] : []), ["swap", "Swap", I.swap, 'data-act="panel" data-p="swap"'], ...(isMain() ? [["bridge", "Bridge", '<svg viewBox="0 0 24 24"><path d="M3 16c3-6 15-6 18 0"/><path d="M6 12.6V18M12 11v7M18 12.6V18"/></svg>', 'data-act="panel" data-p="bridge"']] : []), ["buy", "Buy", I.card, 'data-act="panel" data-p="buy"'], ["req", "Request", I.recv, 'data-act="home-req"'],
+  const sc = [...(stakeNets().length ? [["earn", "Earn", I.spark, 'data-act="panel" data-p="earn"']] : []), ["swap", "Swap", I.swap, 'data-act="panel" data-p="swap"'], ["buy", "Buy", I.card, 'data-act="panel" data-p="buy"'], ["req", "Request", I.recv, 'data-act="home-req"'],
     ["ct", "Contacts", '<svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 19.5c1.2-3.2 3.9-5 7-5s5.8 1.8 7 5"/></svg>', 'data-act="panel" data-p="contacts"'], ...(globalThis.ECRIN_WEB ? [["wc", "Apps", I.link, 'data-act="panel" data-p="wc"']] : globalThis.ECRIN_DEMO ? [] : [["sites", "Sites", I.link, 'data-act="panel" data-p="sites"']]), ["al", "Alerts", I.bell, 'data-act="panel" data-p="alerts"']];
   return `${recent ? `<div class="list-h"><b>Recent activity</b><button class="see-all" data-act="tab" data-t="activity">See all</button></div><div class="tab-body"><section class="list recent">${recent}</section></div>` : ""}
     <div class="list-h"><b>Shortcuts</b></div>
@@ -1842,7 +1842,10 @@ function dur(s) { if (s <= 0) return "ready"; const d = Math.floor(s / 86400), h
 
 /** Screens remember where you came from, like any major wallet: back returns to the exact previous screen. */
 function pushPanel(next) { const P = S.panel; if (P && P.p !== next && P.step !== "sending") { (S.pstack ||= []).push(P); if (S.pstack.length > 12) S.pstack.shift(); } }
-function openPanel(p, opts = {}) { if (p === "vault") S.shT0 = 0; S.cvT0 = 0; const fresh = !S.panel; pushPanel(p); S.panel = { p, step: "form", asset: opts.a || "native", amount: "", to: "", ...opts }; renderPanel(fresh); }
+function openPanel(p, opts = {}) {
+  // One Swap for everything, like other wallets: any coin to any coin, on one network or across them. Jupiter's screen
+  // (every Solana token) is still there for tokens the main one doesn't list.
+  if (p === "swap" && isMain() && !opts.jup) { p = "bridge"; if (opts.a && S.net) opts = { ...opts, fa: `${S.net}:${opts.a === "usdc" ? "usdc" : "native"}` }; } if (p === "vault") S.shT0 = 0; S.cvT0 = 0; const fresh = !S.panel; pushPanel(p); S.panel = { p, step: "form", asset: opts.a || "native", amount: "", to: "", ...opts }; renderPanel(fresh); }
 /** Back: first a step back inside the current screen, then the previous screen, then home. */
 function goBack() {
   const P = S.panel; if (!P) return;
@@ -2934,11 +2937,6 @@ const actions = {
     S.accts = [...(S.accts || DEF_ACCTS), { id: "hd" + i, kind: "hd", i, name: `Account ${i + 1}`, c: n % COLORS.length }];
     await saveAccts(); toast(`Account ${i + 1} added`); switchAccount("hd" + i);
   },
-  "sb-go": async (el) => {
-    const v = el.dataset.v; if (!S.panel || S.panel.p === v) return;
-    S.panel = { p: v, step: "form", asset: "native", amount: "", to: "" }; haptic("light"); renderPanel();
-    if (v === "swap") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); }
-  },
   "imp-mode": (el) => { S.panel.mode = el.dataset.v; renderPanel(); },
   "acct-import-phrase": async () => {
     const box = $("[data-ph2]"), raw = normalize(box?.value || ""), name = ($("[data-pkname]")?.value || "").trim().slice(0, 24);
@@ -3092,7 +3090,7 @@ const actions = {
   "br-review": () => { const P = S.panel; if (!P.quote) return; P.step = "review"; renderPanel(); },
   "br-back": () => { S.panel.step = "form"; renderPanel(); },
   "br-go": () => bridgeNow(),
-  "swap-sol": async () => { await useNet(SWAP_NET); openPanel("swap"); const e = await eng(); S.panel.reserve = await e.reserve("native"); renderPanel(); },
+  "swap-sol": async () => { await useNet(SWAP_NET); openPanel("swap", { jup: true }); const e = await eng(); S.panel.reserve = await e.reserve("native"); renderPanel(); },
   "ap-ok": async (el) => {
     const R = S.req; if (!R || R.busy) return;
     if (R.kind === "connect" && S.guard.bet && isBetting(R.site?.host) && !(await betCheck(R.site.host))) return actions["ap-no"]();
@@ -3920,8 +3918,6 @@ async function swapNow() {
   renderPanel();
 }
 
-// Swap and Bridge are one place: a switch at the top of each, like other wallets (Mainnet only: both are real money).
-const sbSeg = (cur) => (isMain() ? `<div class="sb-seg"><div class="seg2" style="--i:${cur === "bridge" ? 1 : 0}"><i></i><button data-act="sb-go" data-v="swap" aria-pressed="${cur === "swap"}">${I.swap}Swap</button><button data-act="sb-go" data-v="bridge" aria-pressed="${cur === "bridge"}"><svg viewBox="0 0 24 24"><path d="M3 16c3-6 15-6 18 0"/><path d="M6 12.6V18M12 11v7M18 12.6V18"/></svg>Bridge</button></div></div>` : "");
 function swapView() {
   // Jupiter has markets on mainnet only.
   if (!isMain()) return `${phead("Swap")}<div class="cv"><div class="cv-art">${I.swap}</div><h2>Swaps run on Mainnet</h2><p class="sub">Swaps go through Jupiter on Solana mainnet, which has no test version. Switch Settings → Networks to Mainnet to swap.</p></div>`;
@@ -3954,7 +3950,7 @@ function swapView() {
       ${loss >= 10 ? `<p class="err">You'd lose ${loss.toFixed(0)}% to price impact. This coin has very little trading; try a smaller amount.</p>` : ""}
       <div class="sx-note">${I.shield}<span>Before you sign, Ecrin checks the swap on the network and refuses it if more would leave than you chose.</span></div>
     </div><div class="pfoot">${hold(P.step === "sending" ? "Swapping…" : "Hold to swap", P.step === "sending")}</div>`;
-  return `${phead("Swap")}${sbSeg("swap")}
+  return `${phead("Solana tokens")}
   <div class="sx">
     <div class="sf-aura" aria-hidden="true" style="${auraT()}"><i></i><i></i><i></i></div>
     <div class="sx-soon${SWAP.live ? " real" : ""}"><i></i>${SWAP.live ? "Solana mainnet" : "Preview · swaps are being switched on"}</div>
@@ -4342,6 +4338,14 @@ const brHeld = (id) => {
 const brPx = (id) => (brC(id) === "native" ? S.prices[NETS[brK(id)].cg]?.usd : 1);
 /** Keep a little of the network's own coin behind for its fees (Tron needs more: contract calls burn TRX for energy). */
 const BR_KEEP = { btcm: 0.0002, solm: 0.01, ethm: 0.003, bnbm: 0.002, polm: 0.5, avaxm: 0.02, hypem: 0.02, tronm: 40, suim: 0.1 };
+// Sending a token (USDC, USDT) still costs a little of the network's own coin. Roughly what a bridge or swap needs.
+const BR_GAS = { solm: 0.005, ethm: 0.0005, basem: 0.00002, arbm: 0.00002, opm: 0.00002, polm: 0.2, bnbm: 0.0005, avaxm: 0.01, hypem: 0.005, tronm: 30, suim: 0.05 };
+/** For a token, what's missing of the network's own coin to pay the fee: null when there's enough (or we can't tell yet). */
+const brGasShort = (id) => {
+  const k = brK(id); if (brC(id) === "native" || !BR_GAS[k]) return null;
+  if (!worth().items.some((i) => i.k === k)) return null; // balances on that network not loaded yet
+  const have = brHeld(`${k}:native`); return have < BR_GAS[k] ? { need: BR_GAS[k], have, unit: NETS[k].unit, net: NETS[k].name } : null;
+};
 const brMax = (id) => Math.max(0, brHeld(id) - (brC(id) === "native" ? BR_KEEP[brK(id)] ?? 0.0004 : 0));
 /** The coin's logo, with its network's logo in the corner when they differ (USDC on Base, ETH on Arbitrum). */
 const brLogo = (id) => { const k = brK(id), c = brC(id); return c === "usdc" ? "usdc" : c === "usdt" ? "usdt" : NETS[k].unit === "ETH" ? "eth" : k; };
@@ -4405,8 +4409,9 @@ function bridgeView() {
       <p class="br-note">${I.shield}<span>It arrives at your own address on ${esc(NETS[to].name)}${sym !== tsym ? `, as ${tsym}` : ""}. Ecrin checks the transaction before you sign: only the ${sym} you chose can leave.</span></p>
     </div>
     <div class="pfoot snd-foot"><button class="btn xl" data-act="br-back">Back</button><button class="btn primary xl" data-act="br-go">Confirm</button></div>`;
-  const btn = !BRIDGE.on ? "Bridges open soon" : !raw ? "Enter an amount" : over ? `Not enough ${sym} on ${NETS[from].name}` : P.quoting || !q ? (P.qErr ? "No route right now" : "Finding the best route…") : "Review bridge";
-  return `${phead("Bridge")}${sbSeg("bridge")}
+  const gas = brGasShort(fa);
+  const btn = !BRIDGE.on ? "Swaps open soon" : !raw ? "Enter an amount" : over ? `Not enough ${sym} on ${NETS[from].name}` : gas ? `Needs ${gas.unit} for the fee` : P.quoting || !q ? (P.qErr ? "No route right now" : "Finding the best route…") : "Review";
+  return `${phead("Swap")}
     <div class="sx br">
       <div class="sx-card br-card">
         <div class="sx-top"><span class="sx-k">From</span><span class="sx-bal">Balance ${nf(brHeld(fa), fa)} ${sym}</span></div>
@@ -4421,10 +4426,12 @@ function bridgeView() {
       </div>
       ${P.qErr && raw ? `<p class="err">${esc(P.qErr)}</p>` : ""}
       ${feeLine}
+      ${gas ? `<p class="br-note warn">${I.shield}<span>Sending ${sym} on ${esc(gas.net)} costs a small fee paid in <b>${gas.unit}</b>: about ${gas.need} ${gas.unit}. You have ${nf(gas.have, `${from}:native`)} ${gas.unit}. Add a little ${gas.unit} to this Wallet first (Receive, or swap some in from another network).</span></p>` : ""}
       ${brK(fa) === "tronm" ? `<p class="br-note">${I.clock}<span>Bridging from Tron burns some TRX for the network (often 10 to 40 TRX). Keep some TRX in this Wallet.</span></p>` : ""}
-      ${!BRIDGE.on ? `<p class="br-note">${I.clock}<span>Bridges open very soon: Ecrin is finishing its setup with LI.FI.</span></p>` : ""}
+      ${!BRIDGE.on ? `<p class="br-note">${I.clock}<span>Swaps open very soon: Ecrin is finishing its setup with LI.FI.</span></p>` : ""}
+      ${netKeys().includes(SWAP_NET) ? `<button class="link br-jup" data-act="swap-sol">Other Solana tokens →</button>` : ""}
     </div>
-    <div class="pfoot"><button class="btn primary xl" data-act="br-review" ${BRIDGE.on && raw && !over && q ? "" : "disabled"}>${btn}</button></div>`;
+    <div class="pfoot"><button class="btn primary xl" data-act="br-review" ${BRIDGE.on && raw && !over && !gas && q ? "" : "disabled"}>${btn}</button></div>`;
 }
 async function bridgeNow() {
   const P = S.panel; if (!P?.quote) return;

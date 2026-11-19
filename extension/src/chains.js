@@ -185,7 +185,13 @@ function solEngine({ web3, acct, N, dev }) {
       const pre = held.map((h) => { const d = h.account.data; return { key: h.pubkey.toBase58(), mint: new web3.PublicKey(d.slice(0, 32)).toBase58(), amount: u64(d, 64), deleg: new DataView(d.buffer, d.byteOffset + 72, 4).getUint32(0, true) }; });
       const solPre = BigInt(await conn.getBalance(me, "confirmed"));
       const sim = await conn.simulateTransaction(tx, { sigVerify: false, replaceRecentBlockhash: true, commitment: "confirmed", accounts: { encoding: "base64", addresses: [me.toBase58(), ...pre.map((x) => x.key)] } });
-      if (sim.value.err) throw new Error("This swap would fail right now (the price moved or a balance is short). Try again.");
+      if (sim.value.err) {
+        const why = JSON.stringify(sim.value.err) + " " + (sim.value.logs || []).join(" ");
+        if (/InsufficientFundsForFee|InsufficientFundsForRent|insufficient lamports|AccountNotFound|no record of a prior credit/i.test(why)) throw new Error(`Not enough SOL for the network fee. Keep about 0.005 SOL in this Wallet (you have ${(Number(solPre) / 1e9).toFixed(4)} SOL).`);
+        if (/insufficient funds/i.test(why)) throw new Error("Not enough of the coin you're sending. Lower the amount and try again.");
+        if (/slippage|0x1771|exceeds desired slippage/i.test(why)) throw new Error("The price moved while you were reviewing. Try again.");
+        throw new Error("This transaction would fail right now on Solana. Try again in a moment.");
+      }
       const [solAcc, ...toks] = sim.value.accounts || [];
       if (!solAcc) throw new Error("Couldn't check this swap. Try again.");
       const spentSol = solPre - BigInt(solAcc.lamports), want = BigInt(inRaw);
