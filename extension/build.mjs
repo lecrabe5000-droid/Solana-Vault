@@ -13,7 +13,7 @@ const opts = {
   bundle: true, format: "esm", outdir: out, minify: true, target: "chrome116", platform: "browser",
   // Code that's only needed sometimes (WalletConnect, the QR scanner) lives in its own files and loads when used.
   splitting: true, chunkNames: "chunks/[name]-[hash]",
-  define: { global: "globalThis", "process.env.NODE_ENV": '"production"', __ECRIN_VERSION__: JSON.stringify(JSON.parse(fs.readFileSync("manifest.json", "utf8")).version) },
+  define: { global: "globalThis", "process.env.NODE_ENV": '"production"', __ECRIN_VERSION__: JSON.stringify(JSON.parse(fs.readFileSync("manifest.json", "utf8")).version), __ECRIN_BUILD__: JSON.stringify(new Date().toISOString().slice(5, 16).replace(/[-T:]/g, "")) },
   inject: ["src/shims.js"], legalComments: "linked", logLevel: "warning",
 };
 if (process.argv.includes("--watch")) { const c = await context(opts); await c.watch(); console.log("watching…"); }

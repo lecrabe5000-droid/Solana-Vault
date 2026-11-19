@@ -3852,3 +3852,5 @@ html:root[data-skin="ecrin"] #panel .pfoot.snd-foot { background: linear-gradien
 html:root[data-theme="dark"] #panel .pane.scrolled .tk-page .phead { background: rgba(12, 13, 15, .72) !important; box-shadow: none !important; }
 html:root[data-skin="ecrin"] #panel .pane.scrolled .tk-page .phead { background: rgba(9, 13, 34, .72) !important; box-shadow: none !important; }
 html:root[data-theme="light"] #panel .pane.scrolled .tk-page .phead { box-shadow: none !important; }
+
+.build-n { margin: 14px 0 0; text-align: center; color: var(--muted); opacity: .55; font-size: 11px; letter-spacing: .04em; }

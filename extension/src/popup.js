@@ -2245,6 +2245,7 @@ function safeSoonView(title) {
   return `${phead(title)}<div class="cv"><div class="cv-art">${I.lock}</div><h2>${early ? "The Safe is in early access" : "The Safe comes to mainnet after its audit"}</h2>
     <p class="sub">${early ? "Everywhere else, the Safe opens on mainnet once an independent security audit is done." : "Your Wallet works on mainnet today: send, receive and swap. The Safe, which makes every withdrawal wait, opens on mainnet once an independent security audit is done."}</p>
     ${early ? `<div class="note early-n">${I.lock}<span><b>Early access on Base.</b> The Safe already works on Base with USDC and ETH. It has not been audited yet: only use amounts you could lose.</span></div>` : `<div class="note">${I.shield}<span>Want to try it now? It runs on Testnet with free test coins, exactly as it will on mainnet.</span></div>`}</div>
+    <p class="build-n">Build ${typeof __ECRIN_BUILD__ !== "undefined" ? __ECRIN_BUILD__ : "dev"}</p>
     <div class="pfoot">${early ? `<button class="btn primary xl" data-act="early-on">Use the Safe on Base</button><button class="btn ghost" data-act="net-mode" data-v="test">Try it on Testnet instead</button>` : `<button class="btn xl" data-act="net-mode" data-v="test">Try the Safe on Testnet</button>`}</div>`;
 }
 const noSafeHere = () => !netKeys().some(canSafe);
@@ -2542,7 +2543,7 @@ function settingsView() {
       ${row("tog", I.eyeOff, "Hide small balances", onOff(S.hideSmall), 'data-k="hideSmall"')}
       ${row("tog", I.arrow, "Order coins by", S.order === "name" ? "Name" : "Value", 'data-k="order"')}`)}
     ${sec("About", `
-      ${row("panel", I.spark, "What's new", `${VERSION} ${I.arrow}`, 'data-p="news"')}
+      ${row("panel", I.spark, "What's new", `${VERSION}${typeof __ECRIN_BUILD__ !== "undefined" ? ` · ${__ECRIN_BUILD__}` : ""} ${I.arrow}`, 'data-p="news"')}
       <a class="srow" href="https://ecrinprotocol.app/" target="_blank"><span>${I.globe}Website</span><span class="sv">${I.ext}</span></a>
       <a class="srow" href="https://ecrinprotocol.app/how-it-works/" target="_blank"><span>${I.shield}How the Safe works</span><span class="sv">${I.ext}</span></a>
       <a class="srow" href="https://ecrinprotocol.app/security/" target="_blank"><span>${I.check}Security and audits</span><span class="sv">${I.ext}</span></a>
