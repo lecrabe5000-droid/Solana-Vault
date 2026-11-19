@@ -6,18 +6,21 @@
   "scripts": {
     "build": "node build.mjs",
     "watch": "node build.mjs --watch",
-    "test": "node test/shadow.test.mjs && node test/bridgesign.test.mjs && node test/keyring.test.mjs && node test/sui.test.mjs && node test/swapguard.test.mjs && node ../worker/sw.test.mjs && node ../worker/rpcempty.test.mjs && node ../worker/bridge.test.mjs && node ../worker/swapfee.test.mjs"
+    "test": "node test/shadow.test.mjs && node test/btcxrp.test.mjs && node test/bridgesign.test.mjs && node test/keyring.test.mjs && node test/sui.test.mjs && node test/swapguard.test.mjs && node ../worker/sw.test.mjs && node ../worker/rpcempty.test.mjs && node ../worker/bridge.test.mjs && node ../worker/swapfee.test.mjs && node ../worker/btcxrp.test.mjs"
   },
   "dependencies": {
     "@noble/hashes": "1.8.0",
     "@reown/walletkit": "1.6.0",
     "@scure/bip39": "1.6.0",
+    "@scure/btc-signer": "1.8.1",
     "@solana/web3.js": "1.98.4",
     "@walletconnect/core": "2.26.0",
     "@walletconnect/utils": "2.26.0",
     "ethers": "6.13.4",
     "jsqr": "1.4.0",
     "qrcode-generator": "1.4.4",
+    "ripple-address-codec": "5.0.0",
+    "ripple-binary-codec": "2.4.1",
     "three": "0.186.1"
   },
   "devDependencies": {

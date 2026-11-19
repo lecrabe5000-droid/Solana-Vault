@@ -9,6 +9,8 @@ import { SOL_USDC } from "../../app/config-tokens.js";
 import { EVM_NETS, EVM_MAIN } from "../../app/config-evm.js";
 import { TRON, TRON_MAIN, tronEngine } from "./tron.js";
 import { SUI, SUI_MAIN, suiEngine } from "./sui.js";
+import { BTC, BTC_MAIN, btcEngine } from "./btc.js";
+import { XRP, XRP_MAIN, xrpEngine } from "./xrp.js";
 import { emitSent, viaProxy } from "./netmode.js";
 
 // When a network's public server is busy or down, try the next one. Only connection problems (refused, timed out,
@@ -62,6 +64,9 @@ export const NETS = {
   ...Object.fromEntries(Object.values(EVM_NETS).map((E) => evmNet(E, true))),
   tron: { ...TRON, test: true }, tronm: { ...TRON_MAIN, test: false },
   sui: { ...SUI, test: true }, suim: { ...SUI_MAIN, test: false },
+  // Bitcoin and the XRP Ledger: send and receive (no Safe there).
+  btc: { ...BTC, test: true }, btcm: { ...BTC_MAIN, test: false },
+  xrp: { ...XRP, test: true }, xrpm: { ...XRP_MAIN, test: false },
 };
 /** The networks of one mode: "main" (real money) or "test". */
 export const modeNets = (mode) => Object.keys(NETS).filter((k) => !NETS[k].test === (mode === "main"));
@@ -83,6 +88,8 @@ export function engine({ web3, ethers, acct, net, dev = {} }) {
   const N = NETS[net];
   if (N.fam === "tron") return tronEngine({ ethers, acct, dev, N });
   if (N.fam === "sui") return suiEngine({ acct, dev, N });
+  if (N.fam === "btc") return btcEngine({ acct, dev, N });
+  if (N.fam === "xrp") return xrpEngine({ acct, dev, N });
   return N.fam === "sol" ? solEngine({ web3, acct, N, dev }) : evmEngine({ ethers, acct, N, dev });
 }
 

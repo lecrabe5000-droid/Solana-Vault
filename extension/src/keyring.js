@@ -2,6 +2,8 @@
 // - Solana: SLIP-0010 ed25519 at m/44'/501'/i'/0' (the path Phantom and Solflare use), so the same phrase works there.
 // - Sui: SLIP-0010 ed25519 at m/44'/784'/i'/0'/0' (Sui Wallet and Slush).
 // - Ethereum-style networks: BIP-44 secp256k1 at m/44'/60'/0'/0/i (the path MetaMask uses).
+// - Bitcoin: BIP-84 native SegWit at m/84'/0'/0'/0/i (testnet m/84'/1'/0'/0/i), like every major Bitcoin wallet.
+// - XRP Ledger: BIP-44 secp256k1 at m/44'/144'/0'/0/i (the path Xaman and Ledger use).
 // The phrase is stored only encrypted: PBKDF2-SHA256 (600,000 rounds) turns the password into an AES-256-GCM key.
 // Only well-known audited libraries do the cryptography (@scure/bip39, @noble/hashes, ethers, WebCrypto).
 import { generateMnemonic, validateMnemonic, mnemonicToSeedSync } from "@scure/bip39";
@@ -40,7 +42,10 @@ export function deriveAccount(phrase, { web3, ethers }, index = 0) {
   const tron = ethers.HDNodeWallet.fromPhrase(normalize(phrase), undefined, `m/44'/195'/0'/0/${index}`);
   // Sui: ed25519 at m/44'/784'/i'/0'/0' (the path Sui Wallet and Slush use). Just the 32-byte private seed.
   const sui = slip10(seed, `m/44'/784'/${index}'/0'/0'`);
-  return { sol, evm, tron, sui };
+  // Bitcoin and XRP: plain secp256k1 keys (32-byte private, 33-byte compressed public), from the same seed.
+  const root = ethers.HDNodeWallet.fromSeed(seed), pair = (path) => { const n = root.derivePath(path); return { priv: ethers.getBytes(n.privateKey), pub: ethers.getBytes(n.publicKey) }; };
+  const btc = pair(`m/84'/0'/0'/0/${index}`), btcT = pair(`m/84'/1'/0'/0/${index}`), xrp = pair(`m/44'/144'/0'/0/${index}`);
+  return { sol, evm, tron, sui, btc, btcT, xrp };
 }
 
 const b64 = (u8) => btoa(String.fromCharCode(...u8));

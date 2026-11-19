@@ -5,6 +5,8 @@ import { ethers } from "ethers";
 import { NETS, BASE, USDC_BASE, modeNets } from "./chains.js";
 import { toTron, fromTron } from "./tron.js";
 import { suiAddress, normAddr } from "./sui.js";
+import { btcAddress, btcIsAddress } from "./btc.js";
+import { xrpAddress, xrpParse } from "./xrp.js";
 import { emitSent } from "./netmode.js";
 import { ed25519 } from "@noble/curves/ed25519";
 export { NETS, BASE, USDC_BASE, modeNets };
@@ -15,8 +17,8 @@ const now = () => Math.floor(Date.now() / 1000);
 
 export function engine({ acct, net }) {
   const N = NETS[net], sol = N.fam === "sol";
-  const address = sol ? acct.sol.publicKey.toBase58() : N.fam === "tron" ? toTron(acct.tron.address) : N.fam === "sui" ? suiAddress(ed25519.getPublicKey(acct.sui)) : acct.evm.address;
-  const B = (books[net] ||= { native: sol ? 24.5 * BASE : 1.8 * BASE, usdc: N.usdc || sol || N.fam === "tron" ? 1250 * USDC_BASE : 0, vault: null, id: 1 }); // no test USDC where the real network has none
+  const address = sol ? acct.sol.publicKey.toBase58() : N.fam === "btc" ? btcAddress(acct, N) : N.fam === "xrp" ? xrpAddress(acct) : N.fam === "tron" ? toTron(acct.tron.address) : N.fam === "sui" ? suiAddress(ed25519.getPublicKey(acct.sui)) : acct.evm.address;
+  const B = (books[net] ||= { native: sol ? 24.5 * BASE : N.fam === "btc" ? 0.042 * BASE : N.fam === "xrp" ? 850 * BASE : 1.8 * BASE, usdc: N.usdc || sol || N.fam === "tron" ? 1250 * USDC_BASE : 0, vault: null, id: 1 }); // no test USDC where the real network has none
   const side = (a) => (a === "usdc" ? B.vault.usdc : B.vault.main);
   const free = (t) => t.balance - t.withdrawals.reduce((s, w) => s + w.amount, 0);
   const view = () => B.vault && { main: { ...B.vault.main, available: free(B.vault.main) }, usdc: { ...B.vault.usdc, available: free(B.vault.usdc) } };
@@ -24,11 +26,11 @@ export function engine({ acct, net }) {
   const act = async (fn) => { await wait(450 + Math.random() * 300); const id = "demo" + Math.random().toString(36).slice(2, 10); emitSent(id); await wait(700 + Math.random() * 600); fn(); return id; };
   return {
     N, address, explain: (e) => ({ message: e.message }),
-    isAddress: (s) => { if (N.fam === "tron") return !!fromTron(s); if (N.fam === "sui") return !!normAddr(s); try { if (sol) new web3.PublicKey(String(s).trim()); else ethers.getAddress(String(s).trim()); return true; } catch (_) { return false; } },
+    isAddress: (s) => { if (N.fam === "btc") return btcIsAddress(s, N); if (N.fam === "xrp") return !!xrpParse(s); if (N.fam === "tron") return !!fromTron(s); if (N.fam === "sui") return !!normAddr(s); try { if (sol) new web3.PublicKey(String(s).trim()); else ethers.getAddress(String(s).trim()); return true; } catch (_) { return false; } },
     balances: async () => ({ native: B.native, usdc: B.usdc }),
     vault: async () => view(),
     reserve: (a) => (a === "native" ? (sol ? 10_000 : 30_000) : 0),
-    feeText: () => (sol ? "≈ 0.000005 SOL" : "a little ETH for gas") + " · demo",
+    feeText: () => (sol ? "≈ 0.000005 SOL" : `a little ${N.unit} for the network`) + " · demo",
     send: (a, to, amount) => act(() => { B[a] -= amount; }),
     bridgeSend: ({ asset, units }) => act(() => { B[asset] = Math.max(0, B[asset] - Math.round(units)); }),
     // Staking, pretend: a stake activates in ~20 s, earns at Solana's ~6.5% a year sped up so it visibly grows, and

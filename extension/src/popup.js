@@ -13,6 +13,9 @@ import { bioEnable, bioUnlock, bioName, bioPossible, bioForget } from "./bio.js"
 import { sealKeys, openKeys, parseKey, keysFor, COLORS, b58 } from "./accounts.js";
 import { translate, trText, LANGS } from "./i18n.js";
 import { toTron } from "./tron.js";
+import { btcAddress } from "./btc.js";
+import { xrpAddress } from "./xrp.js";
+import * as btcLib from "@scure/btc-signer";
 import { suiAddress } from "./sui.js";
 import { ed25519 } from "@noble/curves/ed25519";
 import { bech32 } from "@scure/base";
@@ -314,16 +317,17 @@ async function refresh() {
 }
 
 // Prices come from CoinGecko first, then Binance, then Coinbase: if one is down or rate-limits us, the next answers.
-const SYM = { solana: "SOL", ethereum: "ETH", "polygon-ecosystem-token": "POL", binancecoin: "BNB", "avalanche-2": "AVAX", tron: "TRX", hyperliquid: "HYPE", sui: "SUI" };
+const SYM = { solana: "SOL", ethereum: "ETH", "polygon-ecosystem-token": "POL", binancecoin: "BNB", "avalanche-2": "AVAX", tron: "TRX", hyperliquid: "HYPE", sui: "SUI", bitcoin: "BTC", ripple: "XRP" };
 // An address that is valid somewhere else: say where, so nobody sends across networks (those coins are lost).
 const ADDR_SHAPES = [["evm", "Ethereum-style", /^0x[0-9a-fA-F]{40}$/], ["sui", "Sui", /^0x[0-9a-fA-F]{64}$/], ["tron", "Tron", /^T[1-9A-HJ-NP-Za-km-z]{33}$/],
   ["btc", "Bitcoin", /^(bc1[02-9ac-hj-np-z]{11,71}|[13][1-9A-HJ-NP-Za-km-z]{25,33})$/], ["xrp", "XRP", /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/], ["sol", "Solana", /^[1-9A-HJ-NP-Za-km-z]{32,44}$/]];
 function otherAddr(v) {
   const here = NETS[S.net].fam, hit = ADDR_SHAPES.find(([, , re]) => re.test(v)); if (!hit || hit[0] === here) return "";
   const [f, name] = hit, can = Object.values(NETS).some((N) => N.fam === f);
-  return can ? `That's a ${name} address, not ${NETS[S.net].name}. Pick a coin on ${name === "Ethereum-style" ? "an Ethereum-style network" : name} to send there.` : `That's a ${name} address. Ecrin can't send to ${name} yet.`;
+  const an = /^[AEIOUX]/.test(name) ? "an" : "a";
+  return can ? `That's ${an} ${name} address, not ${NETS[S.net].name}. Pick a coin on ${name === "Ethereum-style" ? "an Ethereum-style network" : name} to send there.` : `That's ${an} ${name} address. Ecrin can't send to ${name} yet.`;
 }
-const addrHint = (N) => (N.fam === "sol" ? "Solana address" : N.fam === "tron" ? "Tron address (T…)" : N.fam === "sui" ? "Sui address (0x…, 64 characters)" : "0x… address");
+const addrHint = (N) => (N.fam === "btc" ? (N.real ? "Bitcoin address (bc1…, 1… or 3…)" : "Bitcoin testnet address (tb1…)") : N.fam === "xrp" ? "XRP address (r… or X…)" : N.fam === "sol" ? "Solana address" : N.fam === "tron" ? "Tron address (T…)" : N.fam === "sui" ? "Sui address (0x…, 64 characters)" : "0x… address");
 const getJSON = async (url) => { const r = await fetch(url, { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return r.json(); };
 
 async function spotPrices() {
@@ -1354,7 +1358,7 @@ function chartView() {
   </div>`;
 }
 
-const COIN_NAME = { SOL: "Solana", ETH: "Ethereum", POL: "Polygon", BNB: "BNB", AVAX: "Avalanche", TRX: "TRON", HYPE: "Hyperliquid", SUI: "Sui", USDC: "USD Coin" };
+const COIN_NAME = { SOL: "Solana", ETH: "Ethereum", POL: "Polygon", BNB: "BNB", AVAX: "Avalanche", TRX: "TRON", HYPE: "Hyperliquid", SUI: "Sui", BTC: "Bitcoin", XRP: "XRP", USDC: "USD Coin" };
 function assetRow(a, chq, sav) {
   const x = A(a), u = usdOf(chq + sav, a), p = a === "usdc" ? { usd: 1, usd_24h_change: 0 } : S.prices[NETS[S.net].cg];
   const ch = p?.usd_24h_change;
@@ -1674,7 +1678,7 @@ function allView() {
 function netsView() {
   const rows = Object.fromEntries((S.all || []).map((r) => [r.k, r])), w = worth();
   const usdOn = (k) => w.items.filter((i) => i.k === k).reduce((t, i) => t + (i.usd || 0), 0);
-  const addrOf = (k) => { const N = NETS[k]; return N.fam === "sol" ? ACCT?.sol?.publicKey?.toBase58?.() : N.fam === "tron" ? (ACCT?.tron ? toTron(ACCT.tron.address) : "") : N.fam === "sui" ? suiOf(ACCT) : ACCT?.evm?.address; };
+  const addrOf = (k) => { const N = NETS[k]; return N.fam === "sol" ? ACCT?.sol?.publicKey?.toBase58?.() : N.fam === "tron" ? (ACCT?.tron ? toTron(ACCT.tron.address) : "") : N.fam === "sui" ? suiOf(ACCT) : N.fam === "btc" ? btcAddress(ACCT, N) : N.fam === "xrp" ? xrpAddress(ACCT) : ACCT?.evm?.address; };
   const keys = netKeys(), mine = keys.filter((k) => usdOn(k) > 0 || rows[k]?.v).sort((a, b) => usdOn(b) - usdOn(a)), rest = keys.filter((k) => !mine.includes(k));
   const row = (k) => { const N = NETS[k], r = rows[k], st = !S.all ? "" : r?.ok ? "ok" : "down", v = usdOn(k);
     return `<button class="nr${k === S.net ? " on" : ""}" data-act="net-go" data-n="${k}">${coin(k)}
@@ -1696,7 +1700,7 @@ const nameFor = (k, a) => (a && S.book?.[NETS[k]?.fam]?.[a]) || null;
 const who = (k, a) => esc(nameFor(k, a) || short(a));
 /** Activity from every network of this account, newest first, plus coins received (read from the chain) and website approvals. */
 async function loadActivity() {
-  const keys = netKeys(), addrOf = (k) => (NETS[k].fam === "sol" ? ACCT.sol?.publicKey.toBase58() : NETS[k].fam === "tron" ? (ACCT.tron ? toTron(ACCT.tron.address) : null) : NETS[k].fam === "sui" ? suiOf(ACCT) : ACCT.evm?.address);
+  const keys = netKeys(), addrOf = (k) => (NETS[k].fam === "sol" ? ACCT.sol?.publicKey.toBase58() : NETS[k].fam === "tron" ? (ACCT.tron ? toTron(ACCT.tron.address) : null) : NETS[k].fam === "sui" ? suiOf(ACCT) : NETS[k].fam === "btc" ? btcAddress(ACCT, NETS[k]) : NETS[k].fam === "xrp" ? xrpAddress(ACCT) : ACCT.evm?.address);
   const st = await local.get([...keys.map((k) => `act:${k}:${addrOf(k)}`), "apLog"]);
   let list = keys.flatMap((k) => (st[`act:${k}:${addrOf(k)}`] || []).map((e) => ({ ...e, k })));
   const mine = new Set(keys.map(addrOf).filter(Boolean));
@@ -1947,6 +1951,7 @@ function sendView() {
         <dl class="rev-l">
           <div><dt>From</dt><dd>Wallet · ${short(e.address)}</dd></div>
           <div><dt>To</dt><dd class="mono">${P.toName ? `<b class="to-name">${esc(P.toName)}</b>` : ""}${esc(P.to.trim())}</dd></div>
+          ${P.tag ? `<div><dt>Destination tag</dt><dd class="mono">${esc(P.tag)}</dd></div>` : ""}
           <div><dt>Network</dt><dd>${NETS[S.net].name} ${NETS[S.net].net}</dd></div>
           <div><dt>Network fee</dt><dd>${NETS[S.net].fam === "evm" ? `<span class="seg fee-seg">${[["slow", "Slow"], ["normal", "Normal"], ["fast", "Fast"]].map(([k, l]) => `<button data-act="speed" data-v="${k}" aria-pressed="${(P.speed || "normal") === k}">${l}</button>`).join("")}</span>` : e.feeText()}</dd></div>
         </dl>
@@ -1977,6 +1982,7 @@ function sendView() {
     <button class="who-chip" data-act="send-who"><span class="who-k">To</span><span class="acct-ic gen">${logoSVG("facets", `${P.to.trim()}:0`)}</span><span class="who-t"><b>${bn ? esc(bn) : `<span class="mono">${esc(short(P.to.trim()))}</span>`}</b>${bn ? `<small class="mono">${esc(short(P.to.trim()))}</small>` : ""}</span><span class="who-x">Change</span></button>
     ${fromRow()}
     ${amountBlock(sendMax(), "Wallet")}
+    ${NETS[S.net].fam === "xrp" ? `<label class="fld xtag"><span>Destination tag <small>(optional)</small></span><input data-xtag inputmode="numeric" maxlength="10" placeholder="Only if the exchange gave you one" value="${esc(P.tag || "")}" autocomplete="off"/></label>` : ""}
     ${feeNote(a)}
     <div class="pfoot"><button class="btn primary xl" data-act="review" ${valid ? "" : "disabled"}>Continue</button></div>`;
 }
@@ -2141,6 +2147,7 @@ function doneView(title, text, extra = "") {
 /** Every address this account has, network by network, like MetaMask's account view. */
 function addrsView() {
   const sol = ACCT.sol?.publicKey.toBase58(), evm = ACCT.evm?.address, tron = ACCT.tron && !ACCT.only ? toTron(ACCT.tron.address) : null, sui = !ACCT.only ? suiOf(ACCT) : null, A0 = curAcct();
+  const btcN = NETS[isMain() ? "btcm" : "btc"], btcA = !ACCT.only ? btcAddress(ACCT, btcN) : null, xrpA = !ACCT.only ? xrpAddress(ACCT) : null;
   // The full address in one piece; the first and last four characters stand out, since those are what people check.
   const groups = (a) => `<b>${esc(a.slice(0, 4))}</b>${esc(a.slice(4, -4))}<b>${esc(a.slice(-4))}</b>`;
   const card = (k, a, title, note, nets) => `<article class="ad-card">
@@ -2157,6 +2164,8 @@ function addrsView() {
       ${evm ? card("eth", evm, "Ethereum-style networks", `One address for all ${evmNets.length}`, evmNets) : ""}
       ${tron ? card("tron", tron, "Tron", "TRX and USDT") : ""}
       ${sui ? card("sui", sui, "Sui", "SUI and USDC") : ""}
+      ${btcA ? card(btcN.key, btcA, "Bitcoin", isMain() ? "BTC · native SegWit (bc1)" : "Test BTC · testnet4 (tb1)") : ""}
+      ${xrpA ? card(isMain() ? "xrpm" : "xrp", xrpA, "XRP Ledger", "XRP") : ""}
     </div>
     <p class="fine pad">Only send coins to the matching network. Coins sent to the right address on the wrong network may be lost.</p>`;
 }
@@ -2254,7 +2263,7 @@ function receiveView() {
       <p class="rc-addr mono" data-notr>${addrHTML}</p>
       <div class="rc-acts"><button class="btn primary rc-copy" data-act="copy-addr">${I.copy}<span data-cl>Copy address</span></button>${navigator.share ? `<button class="btn rc-share" data-act="share-addr">${I.send}<span>Share</span></button>` : ""}</div>
     </div>
-    <p class="rc-fine">Only send ${N.name} ${N.net} coins${N.usdc ? " or USDC" : ""} to this address. ${N.fam === "tron" ? (N.real ? "Tron addresses start with T. USDT shows with your tokens." : "Tron addresses start with T. Test USDT on Nile shows with your tokens.") : ""}${N.fam === "sui" ? "Sui addresses are 0x and 64 characters, different from your Ethereum one. " : ""}${N.fam === "evm" ? "The same address works on every Ethereum-style network." : ""}</p>
+    <p class="rc-fine">Only send ${N.name} ${N.net} coins${N.usdc ? " or USDC" : ""} to this address. ${N.fam === "tron" ? (N.real ? "Tron addresses start with T. USDT shows with your tokens." : "Tron addresses start with T. Test USDT on Nile shows with your tokens.") : ""}${N.fam === "sui" ? "Sui addresses are 0x and 64 characters, different from your Ethereum one. " : ""}${N.fam === "btc" ? "This is a native SegWit address: every exchange and wallet can send to it. " : ""}${N.fam === "xrp" ? "A new XRP address becomes active once it receives at least 1 XRP; that 1 XRP stays as its reserve. " : ""}${N.fam === "evm" ? "The same address works on every Ethereum-style network." : ""}</p>
     <section class="list rc-more">
       <button class="arow" data-act="payreq"><span class="rc-ic">${I.recv}</span><span class="ar-t"><b>Request an amount</b><small>A link or QR with the amount filled in</small></span>${I.arrow}</button>
       <button class="arow" data-act="panel" data-p="buy"><span class="rc-ic">${I.card}</span><span class="ar-t"><b>Buy with a card</b><small>Through MoonPay, straight to this address</small></span>${I.arrow}</button>
@@ -3307,7 +3316,7 @@ async function confirmSend() {
   const a = P.asset, net = S.net, nm = bookName(to), what = `${amt(units, a)} ${A(a).unit}`, who = nm || short(to), usd = usdOf(units, a);
   closePanel(); txPill("run", `Sending ${what}`, `to ${who}`);
   try {
-    S.lastTx = Date.now(); const e = await eng(); const sig = await e.send(a, to, units, { speed: P.speed }); S.lastTx = Date.now();
+    S.lastTx = Date.now(); const e = await eng(); const sig = await e.send(a, to, units, { speed: P.speed, tag: P.tag || null }); S.lastTx = Date.now();
     await rememberDest(to); await countSpend(usd); await logActivity({ t: "send", a, n: units, to, sig: typeof sig === "string" ? sig : null });
     if (S.bal && S.net === net) { const k = a === "usdc" ? "usdc" : "native"; S.bal = { ...S.bal, [k]: Math.max(0, Number(S.bal[k] || 0) - units) }; render(); }
     haptic("success"); txPill("ok", `Sent ${what}`, `to ${who}`, typeof sig === "string" && NETS[net].explorer ? NETS[net].explorer("tx", sig) : null);
@@ -3350,6 +3359,7 @@ document.addEventListener("input", (e) => {
   }
   if (t.matches("[data-taddr]")) { S.panel.addr = t.value; S.panel.picked = null; clearTimeout(S.tokT); const v = t.value.trim(); S.tokT = setTimeout(previewTok, ethers.isAddress(v) ? 60 : /^0x/i.test(v) ? 450 : 280); return; }
   if (t.matches("[data-actq]")) { S.actQ = t.value; const el = $("#actl"); if (el) { el.innerHTML = actRows(); translate(el, S.lang); } return; }
+  if (t.matches("[data-xtag]")) { const v = t.value.replace(/\D/g, "").slice(0, 10); if (v !== t.value) t.value = v; S.panel.tag = v; return; }
   if (t.matches("[data-amount]")) {
     const v = t.value.replace(/[^\d.,]/g, "").replace(",", "."), parts = v.split(".");
     S.panel.amount = parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : v; S.panel.pct = null;
@@ -3423,6 +3433,8 @@ document.addEventListener("submit", async (e) => {
       if (ACCT.evm) keys.push(["Ethereum-style networks", ACCT.evm.privateKey]);
       if (ACCT.tron && !ACCT.only) keys.push(["Tron", ACCT.tron.privateKey.slice(2)]);
       if (ACCT.sui && !ACCT.only) keys.push(["Sui", suiKeyHex(ACCT.sui)]);
+      if (ACCT.btc && !ACCT.only) keys.push(["Bitcoin (WIF)", btcLib.WIF().encode(ACCT.btc.priv)]);
+      if (ACCT.xrp && !ACCT.only) keys.push(["XRP Ledger (secp256k1, hex)", Array.from(ACCT.xrp.priv, (b) => b.toString(16).padStart(2, "0")).join("").toUpperCase()]);
       S.panel.keys = keys; renderPanel();
     } catch (_) { err("Wrong password."); }
     return;
@@ -3565,6 +3577,7 @@ function payLink(k, a, amount, label) {
     if (a === "usdc") return `ethereum:${N.usdc}@${chain}/transfer?address=${to}${amount ? `&uint256=${BigInt(Math.round(Number(amount) * 1e6))}` : ""}`;
     return `ethereum:${to}@${chain}${amount ? `?value=${ethers.parseEther(String(amount)).toString()}` : ""}`;
   }
+  if (N.fam === "btc") return `bitcoin:${to}${amount ? `?amount=${amount}` : ""}${label ? `${amount ? "&" : "?"}label=${encodeURIComponent(label)}` : ""}`;
   return to;
 }
 function payreqView() {
@@ -3586,7 +3599,7 @@ function payreqView() {
         ${note ? `<span class="rq-for">“${esc(note)}”</span>` : ""}
         <span class="rq-to">to <span class="mono">${short(addr)}</span> · ${N.name}</span>
       </div>
-      <p class="fine rq-fine">Opens in any ${N.fam === "sol" ? "Solana Pay" : N.fam === "evm" ? "Ethereum" : N.fam === "sui" ? "Sui" : "Tron"} wallet that scans it.</p>
+      <p class="fine rq-fine">Opens in any ${N.fam === "sol" ? "Solana Pay" : N.fam === "evm" ? "Ethereum" : N.fam === "sui" ? "Sui" : N.fam === "btc" ? "Bitcoin" : N.fam === "xrp" ? "XRP" : "Tron"} wallet that scans it.</p>
       <div class="rq-acts">${navigator.share ? `<button class="btn primary" data-act="share-req">${I.send}Share</button>` : ""}<button class="btn" data-act="copy-req">${I.copy}Copy link</button></div>
     </div>`;
 }

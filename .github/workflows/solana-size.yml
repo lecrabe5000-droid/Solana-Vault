@@ -1,11 +1,10 @@
 name: solana-size
 # Measures the Solana program built as today (for speed) and built for size, and what each would hold as its on-chain
 # deposit (rent) on mainnet. The size builds must still pass every program test before they count. Deploys nothing.
-# Runs when this file changes, or by hand: Actions → solana-size → Run workflow.
+# By hand: Actions → solana-size → Run workflow. Last result: 570,664 bytes as built (2.90 SOL deposit); size builds
+# save at most 0.25 SOL and failed the program tests, so the program stays built for speed.
 on:
   workflow_dispatch:
-  push:
-    paths: [.github/workflows/solana-size.yml]
 
 jobs:
   size:

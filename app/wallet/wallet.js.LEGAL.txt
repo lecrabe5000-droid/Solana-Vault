@@ -110,6 +110,9 @@ Bundled license information:
    * @see {@link https://github.com/pabigot/buffer-layout|buffer-layout on GitHub}
    */
 
+@scure/base/lib/index.js:
+  /*! scure-base - MIT License (c) 2022 Paul Miller (paulmillr.com) */
+
 @noble/curves/esm/secp256k1.js:
 @noble/curves/esm/abstract/utils.js:
 @noble/curves/esm/abstract/modular.js:
@@ -127,3 +130,6 @@ aes-js/lib.esm/aes.js:
 
 @scure/bip39/esm/index.js:
   /*! scure-bip39 - MIT License (c) 2022 Patricio Palladino, Paul Miller (paulmillr.com) */
+
+@scure/btc-signer/esm/index.js:
+  /*! scure-btc-signer - MIT License (c) 2022 Paul Miller (paulmillr.com) */
