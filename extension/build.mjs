@@ -5,7 +5,13 @@ import fs from "node:fs";
 const out = "dist";
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });
-for (const f of ["manifest.json", "popup.html", "popup.css"]) fs.copyFileSync(f, `${out}/${f}`);
+for (const f of ["manifest.json", "popup.html"]) fs.copyFileSync(f, `${out}/${f}`);
+// Type scales: the stylesheet is written compact; each surface reads it one step larger, like the major wallets.
+// The Chrome popup and the web demo: about 14–15 px for main text (read up close on a computer screen).
+// The phone app uses PHONE_TYPE below (about 16 px). Headings and big numbers keep their size.
+const scaleType = (css, map) => css.replace(/(font-size:\s*|font:[^;{}]*?\s)(\d+(?:\.\d+)?)px/g, (m, pre, n) => (map[+n] ? `${pre}${map[+n]}px` : m));
+const EXT_TYPE = { 9: 9.5, 9.5: 10, 10: 10.5, 10.5: 11, 11: 11.5, 11.5: 12, 12: 13, 12.5: 13.5, 13: 14, 13.5: 14.5, 14: 15, 14.5: 15.5, 15: 16, 16: 16.5 };
+fs.writeFileSync(`${out}/popup.css`, scaleType(fs.readFileSync("popup.css", "utf8"), EXT_TYPE));
 for (const d of ["icons", "fonts"]) fs.cpSync(d, `${out}/${d}`, { recursive: true });
 
 const opts = {
@@ -47,7 +53,7 @@ if (!process.argv.includes("--watch")) {
   // like the major mobile wallets (about 16 px for main text, 14 px for the line under it). Headings and big numbers
   // (19 px and up) keep their size; the Chrome popup keeps its compact scale.
   const PHONE_TYPE = { 9: 10, 9.5: 10.5, 10: 11, 10.5: 11.5, 11: 12, 11.5: 12.5, 12: 13.5, 12.5: 14, 13: 14.5, 13.5: 15, 14: 15.5, 14.5: 16, 15: 16, 16: 17, 16.5: 17.5, 17: 18, 18: 19 };
-  css = css.replace(/(font-size:\s*|font:[^;{}]*?\s)(\d+(?:\.\d+)?)px/g, (m, pre, n) => (PHONE_TYPE[+n] ? `${pre}${PHONE_TYPE[+n]}px` : m));
+  css = scaleType(css, PHONE_TYPE);
   css = css.replace("html, body { width: 360px; height: 600px; overflow: hidden; }", "html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--bg); } .device { position: relative; width: 100%; max-width: 480px; height: 100dvh; margin: 0 auto; overflow: hidden; transform: translateZ(0); background: var(--bg); color: var(--ink); font: 500 14px/1.45 var(--font); padding-top: env(safe-area-inset-top); box-sizing: border-box; }");
   // Phone-only: keep clear of the clock, the notch/Dynamic Island and the home bar; no zoom on text fields; no
   // grey tap flashes or rubber-band edges.
@@ -106,7 +112,7 @@ if (!process.argv.includes("--watch")) {
   const demoChains = { name: "demo-chains", setup(b) { b.onResolve({ filter: /^\.\/chains\.js$/ }, (a) => (a.importer.endsWith("popup.js") ? { path: new URL("./src/demo-chains.js", import.meta.url).pathname } : undefined)); } };
   await build({ ...opts, entryPoints: { demo: "src/popup.js" }, outdir: D, inject: ["src/demo-shim.js", "src/shims.js"], plugins: [demoChains] });
   // The popup's stylesheet, scoped to a 360 × 600 device on the page, fonts from the site.
-  let css = fs.readFileSync("popup.css", "utf8").replace(/url\("fonts\//g, 'url("/fonts/');
+  let css = scaleType(fs.readFileSync("popup.css", "utf8"), EXT_TYPE).replace(/url\("fonts\//g, 'url("/fonts/');
   css = css.replace("html, body { width: 360px; height: 600px; overflow: hidden; }", ".device { position: relative; width: 360px; height: 600px; overflow: hidden; transform: translateZ(0); border-radius: 30px; background: var(--bg); color: var(--ink); font: 500 14px/1.45 var(--font); }");
   fs.writeFileSync(`${D}/wallet.css`, css);
   console.log("demo → app/wallet-demo/");
