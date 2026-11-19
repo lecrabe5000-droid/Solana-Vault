@@ -3974,7 +3974,7 @@ html { background: #0c0d0f !important; } html[data-theme="light"] { background: 
 .toast { bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important; }
 html, body, #root, #panel .pane { overscroll-behavior: none; }
 * { -webkit-tap-highlight-color: transparent; }
-html, body { touch-action: manipulation; overflow-x: hidden; } /* no double-tap zoom, never shifted sideways */
+html, body { touch-action: manipulation; } /* no double-tap zoom */
 button, .btn, .srow, .arow, .acard { -webkit-user-select: none; user-select: none; touch-action: manipulation; }
 input, textarea, select { font-size: max(16px, 1em); }
 /* Always portrait. iPhone doesn't let web apps lock the screen, so when the phone is turned sideways the whole app is
