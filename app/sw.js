@@ -1,7 +1,8 @@
 // Ecrin service worker: makes the app installable and keeps its shell available on a bad connection.
 // Network first for everything; the cache is only a fallback. Never caches the API or other origins.
-const CACHE = "ecrin-v109";
-const SHELL = ["/app", "/app.css", "/dapp.js", "/chain.js", "/evm.js", "/vault.js", "/config.js", "/config-evm.js", "/deployments-evm.js", "/config-tokens.js", "/config-wc.js", "/i18n.js", "/theme.js", "/vendor/solana-web3.min.js", "/vendor/ethers.umd.min.js", "/icon2-192.png"];
+const CACHE = "ecrin-v110";
+const SHELL = ["/app", "/app.css", "/dapp.js", "/chain.js", "/evm.js", "/vault.js", "/config.js", "/config-evm.js", "/deployments-evm.js", "/config-tokens.js", "/config-wc.js", "/i18n.js", "/theme.js", "/vendor/solana-web3.min.js", "/vendor/ethers.umd.min.js", "/icon2-192.png",
+  "/wallet/wallet.css", "/wallet/wallet.js", "/wallet/theme-boot.js", "/wallet/sw-reg.js"]; // the phone wallet always has a copy to fall back on
 
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {}).then(() => self.skipWaiting())); });
 self.addEventListener("activate", (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
@@ -12,10 +13,12 @@ self.addEventListener("fetch", (e) => {
   // hidden behind an old copy and a page can never fail to open because of this worker.
   if (e.request.mode === "navigate") return;
   e.respondWith((async () => {
+    const net = fetch(e.request).then((res) => { if (res.ok && res.type === "basic") { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {}); } return res; });
+    // A slow connection: after 6 seconds, use the copy we have rather than leave the app half-drawn.
+    const hit0 = await caches.match(e.request, { ignoreSearch: true }).catch(() => null);
+    if (hit0) return Promise.race([net, new Promise((r) => setTimeout(() => r(hit0), 6000))]).catch(() => hit0);
     try {
-      const res = await fetch(e.request);
-      if (res.ok && res.type === "basic") { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {}); }
-      return res;
+      return await net;
     } catch (err) {
       // Offline: the last copy if there is one; otherwise the same network error the browser would have shown.
       const hit = await caches.match(e.request).catch(() => null);
