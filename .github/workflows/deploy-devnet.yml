@@ -94,8 +94,10 @@ jobs:
           done
           exit 1
       - name: Set up the emergency brake (once)
+        timeout-minutes: 5
         run: RPC="$(solana config get json_rpc_url | awk '{print $NF}')" node scripts/init-config.mjs
       - name: Check it from the browser client
+        timeout-minutes: 5
         run: RPC="$(solana config get json_rpc_url | awk '{print $NF}')" node scripts/devnet-check.mjs
       - name: Point the website at it
         run: |

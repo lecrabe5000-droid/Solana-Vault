@@ -28,5 +28,15 @@ const ix = new web3.TransactionInstruction({
     { pubkey: web3.SystemProgram.programId, isSigner: false, isWritable: false },
   ],
 });
-const sig = await web3.sendAndConfirmTransaction(connection, new web3.Transaction().add(ix), [authority]);
+// Confirm by polling: some RPC providers never answer the websocket sendAndConfirm waits on.
+const tx = new web3.Transaction().add(ix);
+tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash; tx.feePayer = authority.publicKey; tx.sign(authority);
+const sig = await connection.sendRawTransaction(tx.serialize());
+for (let i = 0; ; i++) {
+  const st = (await connection.getSignatureStatuses([sig])).value[0];
+  if (st?.err) throw new Error(`init_config failed: ${JSON.stringify(st.err)}`);
+  if (st?.confirmationStatus === "confirmed" || st?.confirmationStatus === "finalized") break;
+  if (i > 60) throw new Error(`init_config not confirmed after 2 minutes: ${sig}`);
+  await new Promise((r) => setTimeout(r, 2000));
+}
 console.log(`settings created at ${config.toBase58()} (${sig}); the brake holder is ${authority.publicKey.toBase58()}`);
