@@ -3940,3 +3940,4 @@ html:root[data-theme="light"] #panel .pfoot.mv-foot:not(#z) { background: linear
 html:root[data-theme="dark"] #panel .pane.scrolled .phead:not(#z) { background: rgba(12, 13, 15, .93) !important; -webkit-backdrop-filter: blur(20px) saturate(1.4) !important; backdrop-filter: blur(20px) saturate(1.4) !important; }
 html:root[data-skin="ecrin"] #panel .pane.scrolled .phead:not(#z) { background: rgba(8, 12, 32, .93) !important; }
 html:root[data-theme="light"] #panel .pane.scrolled .phead:not(#z) { background: rgba(243, 242, 238, .94) !important; -webkit-backdrop-filter: blur(20px) saturate(1.4) !important; backdrop-filter: blur(20px) saturate(1.4) !important; }
+#panel .rc-more .arow .ar-t small { white-space: normal !important; overflow: visible !important; line-height: 1.35; }
