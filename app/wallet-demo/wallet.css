@@ -3911,3 +3911,12 @@ html:root[data-theme] #root .home nav.acts button[data-p]:not(#z) { color: var(-
 html:root[data-theme] #root .home nav.acts button[data-p="protect"]:not(#z) { color: #9fb2ff !important; }
 html:root[data-theme="light"] #root .home nav.acts button[data-p="protect"]:not(#z) { color: #2f5bff !important; }
 #panel .ct-note { margin-top: 14px !important; text-align: center; }
+/* Coin amounts (not money) keep their decimals at full strength: 6.1249 SOL reads as one number. */
+html:root[data-theme] .rev-amt b .dec, html:root[data-theme] .rev-amt b .dec.cents { opacity: 1 !important; color: inherit !important; -webkit-text-fill-color: currentColor !important; }
+/* Every 25% / 50% / Max row: the chosen one reads as selected, never as disabled. */
+html:root[data-theme="dark"] #panel :is(.pcts, .mv-pcts, .sx-pcts) button.on:not(#z) { background: var(--ivory) !important; color: var(--ivory-ink) !important; opacity: 1 !important; box-shadow: none !important; }
+html:root[data-theme="light"] #panel :is(.pcts, .mv-pcts, .sx-pcts) button.on:not(#z) { background: #101114 !important; color: #fff !important; opacity: 1 !important; }
+/* Any page's top bar: once the page scrolls under it, it turns to frosted glass so nothing shows through the title. */
+html:root[data-theme="dark"] #panel .pane.scrolled > .phead, html:root[data-theme="dark"] #panel .pane.scrolled > * > .phead { background: rgba(12, 13, 15, .78) !important; -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4); }
+html:root[data-skin="ecrin"] #panel .pane.scrolled > .phead, html:root[data-skin="ecrin"] #panel .pane.scrolled > * > .phead { background: rgba(9, 13, 34, .78) !important; }
+html:root[data-theme="light"] #panel .pane.scrolled > .phead, html:root[data-theme="light"] #panel .pane.scrolled > * > .phead { background: rgba(243, 242, 238, .85) !important; -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4); }

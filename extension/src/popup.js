@@ -3311,6 +3311,8 @@ document.addEventListener("click", (e) => {
   if (!el || el.disabled) return;
   if (el.tagName === "A") return;
   e.preventDefault();
+  // 25% / 50% / Max fill the amount field: let go of it first (a phone keeps it focused), or the new amount can't show.
+  if (/^(pct|swap-pct|br-pct|key)$/.test(el.dataset.act) && /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || "")) document.activeElement.blur();
   actions[el.dataset.act]?.(el);
   if (ACCT) touch();
 });
@@ -4409,7 +4411,7 @@ function tokenView() {
   const when = (ms) => new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric" });
   const savPct = tot.amt ? Math.round((tot.sav / tot.amt) * 100) : 0;
   return `<div class="tk-page" style="--cc:${cc}">${phead(`<span class="tk-ht">${icon}${esc(name)}</span>`)}
-    <div class="tk-top">${icon}<span><b>${esc(name)}</b><small>${esc(P.u)}${nets.length ? ` · ${esc(nets.join(", "))}` : ""}</small></span></div>
+    <div class="tk-top">${icon}<span><b>${esc(name)}</b><small>${esc(P.u)}${nets.length ? ` · ${nets.length > 2 ? `${nets.length} networks` : esc(nets.join(", "))}` : ""}</small></span></div>
     <div class="tk-px" data-tkpx>${px != null ? fig(money(px)) : "—"}</div>
     <div class="tk-ch ${dd >= 0 ? "up" : "dn"}" data-tkch>${P.u === "USDC" ? (curCode() === "USD" ? "Stays close to $1" : `Stays close to 1 US dollar · ${money(1)}`) : v ? `${dd >= 0 ? "+" : "−"}${money(Math.abs(dd))} (${Math.abs(pc).toFixed(2)}%) <span>${rl}</span>` : "&nbsp;"}</div>
     ${chart}${ranges}
