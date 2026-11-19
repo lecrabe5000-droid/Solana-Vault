@@ -1862,7 +1862,7 @@ function morph(a, b) {
 function patchPanel() {
   const el = $("#panel"), pane = el.querySelector(".pane"), P = S.panel;
   if (!P || !pane || S.holdPanel) return renderPanel();
-  const views = { send: sendView, protect: moveView, withdraw: moveView, swap: swapView, payreq: payreqView, earn: earnView };
+  const views = { send: sendView, protect: moveView, withdraw: moveView, swap: swapView, bridge: bridgeView, payreq: payreqView, earn: earnView };
   const view = views[P.p]; if (!view) return renderPanel();
   const tmp = document.createElement("div"); tmp.innerHTML = view(); translate(tmp, S.lang);
   const next = pane.cloneNode(false); next.append(...tmp.childNodes); morph(pane, next);
@@ -3341,7 +3341,7 @@ document.addEventListener("input", (e) => {
     const pos = t.selectionStart; if (t.value !== S.panel.amount) { t.value = S.panel.amount; try { t.setSelectionRange(Math.min(pos, t.value.length), Math.min(pos, t.value.length)); } catch (_) {} } patchPanel();
     if (S.panel.p === "swap") swapQuoteSoon();
   } else if (t.matches("[data-swapq]")) { swapSearch(t.value);
-  } else if (t.matches("[data-reqamt]") || t.matches("[data-reqlabel]")) { const k = t.matches("[data-reqamt]") ? "amount" : "label", sel = k === "amount" ? "[data-reqamt]" : "[data-reqlabel]"; S.panel[k] = k === "amount" ? t.value.replace(/[^\d.,]/g, "").replace(",", ".") : t.value; const pos = t.selectionStart; renderPanel(); const n = $("#panel " + sel); n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {}
+  } else if (t.matches("[data-reqamt]") || t.matches("[data-reqlabel]")) { const k = t.matches("[data-reqamt]") ? "amount" : "label", sel = k === "amount" ? "[data-reqamt]" : "[data-reqlabel]"; S.panel[k] = k === "amount" ? t.value.replace(/[^\d.,]/g, "").replace(",", ".") : t.value; const pos = t.selectionStart; patchPanel(); const n = $("#panel " + sel); if (n && document.activeElement !== n) n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {}
   } else if (t.matches("[data-to]") && (/^wc:/i.test(t.value.trim()) || parsePayLink(t.value))) { const v = t.value.trim(); t.value = ""; onScanned(v);
   } else if (t.matches("[data-to]")) { lookupTo(t.value); S.panel.to = t.value; patchPanel(); }
   else if (t.matches("[data-bramt]")) { const v = t.value.replace(",", ".").replace(/[^\d.]/g, ""); if (v !== t.value) t.value = v; S.panel.amount = v; S.panel.pct = null; bridgeQuoteSoon(); }
