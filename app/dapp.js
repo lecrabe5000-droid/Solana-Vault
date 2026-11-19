@@ -565,7 +565,7 @@ async function loadSeries(days) {
   } catch (e) { console.warn("chart", e); }
 }
 
-const money = (n) => n.toLocaleString(LOCALE, { style: "currency", currency: "USD" });
+const money = (n) => n.toLocaleString(LOCALE, { style: "currency", currency: "USD", currencyDisplay: "narrowSymbol" });
 /** What an amount is worth: USDC at $1, the network's coin at the mainnet price (null while it loads). */
 const usdOf = (amount, a = A()) => (a.stable ? amount / a.base : S.price ? (amount / a.base) * S.price.usd : null);
 const usd = (amount, a = A()) => { const v = usdOf(amount, a); return v == null ? null : money(v); };

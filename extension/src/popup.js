@@ -123,7 +123,7 @@ const usdOf = (units, a) => (a === "usdc" ? units / USDC_BASE : S.prices[NETS[S.
 const CURS = [["USD", "US dollar"], ["EUR", "Euro"], ["CAD", "Canadian dollar"], ["GBP", "British pound"], ["CHF", "Swiss franc"], ["AUD", "Australian dollar"], ["JPY", "Japanese yen"]];
 const curRate = () => (S.cur && S.cur !== "USD" && S.fx?.[S.cur] ? S.fx[S.cur] : 1);
 const curCode = () => (curRate() === 1 && S.cur !== "USD" ? "USD" : S.cur || "USD");
-const money = (n, opt = {}) => (n * curRate()).toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { style: "currency", currency: curCode(), ...opt });
+const money = (n, opt = {}) => (n * curRate()).toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { style: "currency", currency: curCode(), currencyDisplay: "narrowSymbol", ...opt }); // "$" / "€", never "CA$" or "US$"
 async function loadFx() {
   if (S.mock) { S.fx = { EUR: 0.92, CAD: 1.37, GBP: 0.79, CHF: 0.88, AUD: 1.52, JPY: 152 }; return; }
   const { fx } = await local.get("fx"); if (fx?.r) S.fx = fx.r; // last known rates at once, even if old
@@ -2605,7 +2605,7 @@ function newsPeek() {
 }
 function currencyView() {
   return `${phead("Currency")}<p class="fine">Prices and totals show in this currency at today's rate. Your coins don't change.</p>
-    <section class="list">${CURS.map(([c, n]) => `<button class="arow cur-r${(S.cur || "USD") === c ? " on" : ""}" data-act="cur" data-v="${c}"><span class="cur-c">${c}</span><span class="ar-t"><b>${n}</b><small>${(1234.5).toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { style: "currency", currency: c })}</small></span>${(S.cur || "USD") === c ? `<span class="acc-ok">${I.check}</span>` : ""}</button>`).join("")}</section>`;
+    <section class="list">${CURS.map(([c, n]) => `<button class="arow cur-r${(S.cur || "USD") === c ? " on" : ""}" data-act="cur" data-v="${c}"><span class="cur-c">${c}</span><span class="ar-t"><b>${n}</b><small>${(1234.5).toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { style: "currency", currency: c, currencyDisplay: "narrowSymbol" })}</small></span>${(S.cur || "USD") === c ? `<span class="acc-ok">${I.check}</span>` : ""}</button>`).join("")}</section>`;
 }
 
 function numbersView() {
