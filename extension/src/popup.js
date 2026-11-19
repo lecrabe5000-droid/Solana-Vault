@@ -1181,7 +1181,7 @@ function homeView() {
     ${stakedCard()}
     ${startCard(w)}
     <nav class="acts">
-      ${[["send", "Send", I.send], ["receive", "Receive", I.recv], ["protect", "Protect", I.protect]].map(([p, l, ic]) => `<button data-act="panel" data-p="${p}"><span>${ic}</span>${l}</button>`).join("")}
+      ${[["send", "Send", I.send], ["receive", "Receive", I.recv], ["swap", "Swap", I.swap], ["protect", "Protect", I.protect]].map(([p, l, ic]) => `<button data-act="panel" data-p="${p}"><span>${ic}</span>${l}</button>`).join("")}
     </nav>
     <div class="tabs ${S.showNfts ? "t3" : ""}" role="tablist">${[["tokens", "Tokens"], ...(S.showNfts ? [["nfts", "Collectibles"]] : []), ["activity", "Activity"]].map(([t, l]) => `<button role="tab" data-act="tab" data-t="${t}" aria-selected="${S.tab === t}">${l}</button>`).join("")}<i class="tab-ind" style="--i:${{ tokens: 0, nfts: 1, activity: S.showNfts ? 2 : 1 }[S.tab] || 0}"></i></div>
     <div class="tab-body">${S.tab === "activity" ? activityList() : S.tab === "nfts" && S.showNfts ? nftGrid() : tokenList(w)}</div>
@@ -1242,14 +1242,14 @@ function tokenList(w) {
   const row = (i, sub) => {
     const p = i.a === "usdc" ? { usd: 1 } : S.prices[i.cg], ch = i.a === "usdc" ? null : p?.usd_24h_change;
     return `<button class="arow" data-act="tok" data-u="${i.unit}" data-n="${i.k}"><span class="cstack">${coin(i.coin)}${i.coin !== i.k ? `<span class="cmini">${coin(i.k)}</span>` : ""}</span>
-      <span class="ar-t"><b>${cdot(i.unit)}${i.name}</b><small>${i.a === "usdc" ? i.net : p?.usd != null ? `<span data-pk="p:${i.cg}" class="px${S.prevPx?.[i.cg] != null && S.prevPx[i.cg] !== p.usd ? (p.usd > S.prevPx[i.cg] ? " flash-up" : " flash-dn") : ""}">${money(p.usd)}</span>` : i.net}${ch != null ? ` <span class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</span>` : ""}</small></span>
+      <span class="ar-t"><b>${i.name}</b><small>${i.a === "usdc" ? i.net : p?.usd != null ? `<span data-pk="p:${i.cg}" class="px${S.prevPx?.[i.cg] != null && S.prevPx[i.cg] !== p.usd ? (p.usd > S.prevPx[i.cg] ? " flash-up" : " flash-dn") : ""}">${money(p.usd)}</span>` : i.net}${ch != null ? ` <span class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</span>` : ""}</small></span>
       ${spark(i.cg)}<span class="ar-r"><b data-pk="v:${i.unit}:${i.k}">${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}${i.sav ? ` <span class="sv">${I.lock}${mask(n(i.sav, i.dec))}</span>` : ""}</small></span></button>`.replace('class="arow"', `class="arow${sub ? " sub" : ""}"`);
   };
   const out = Object.values(groups).map((g) => {
     if (g.length === 1) return row(g[0]);
     const t = g.reduce((s2, i) => ({ usd: s2.usd + (i.usd || 0), amt: s2.amt + i.chq + i.sav, sav: s2.sav + i.sav }), { usd: 0, amt: 0, sav: 0 }), f = g[0], open = S.open?.[f.unit];
     return `<button class="arow grp" data-act="tok" data-u="${f.unit}"><span class="cstack">${coin(f.a === "usdc" ? "usdc" : f.unit === "ETH" ? "eth" : f.coin)}</span>
-      <span class="ar-t"><b>${cdot(f.unit)}${f.name}</b><small>${g.length} networks ${I.chev}</small></span>${spark(f.cg)}
+      <span class="ar-t"><b>${f.name}</b><small>${g.length} networks ${I.chev}</small></span>${spark(f.cg)}
       <span class="ar-r"><b>${mask(money(t.usd))}</b><small>${mask(n(t.amt, f.dec))} ${f.unit}${t.sav ? ` <span class="sv">${I.lock}${mask(n(t.sav, f.dec))}</span>` : ""}</small></span></button>${open ? g.map((i) => `<button class="arow sub" data-act="row-send" data-n="${i.k}" data-a="${i.a}">${coin(i.k)}<span class="ar-t"><b>${NETS[i.k].name}</b><small>${NETS[i.k].net}</small></span><span class="ar-r"><b>${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}</small></span></button>`).join("") : ""}`;
   });
   return `<section class="list">${hidden ? `<div class="hid-note">${hidden} small balance${hidden > 1 ? "s" : ""} hidden</div>` : ""}${out.join("")}${extraRows()}</section>
@@ -1669,7 +1669,7 @@ function netsView() {
   return `${phead("Networks")}
     <div class="nets">
       <div class="nets-mode"><span class="seg">${[["main", "Mainnet"], ["test", "Testnet"]].map(([m, l]) => `<button data-act="net-mode" data-v="${m}" aria-pressed="${(S.mode || DEFAULT_MODE) === m}">${l}</button>`).join("")}</span>
-        <p>${isMain() ? "" : "Test coins with no value. "}${keys.length} networks.</p></div>
+        <p>${isMain() ? `${keys.length} networks` : `Test coins with no value · ${keys.length} networks`}</p></div>
       ${mine.length ? `<div class="list-h"><b>Your networks</b><span>${mask(money(mine.reduce((t, k) => t + usdOn(k), 0)))}</span></div><section class="list nlist">${mine.map(row).join("")}</section>` : ""}
       <div class="list-h"><b>${mine.length ? "Other networks" : "All networks"}</b><span>${rest.length}</span></div>
       <section class="list nlist">${rest.map(row).join("")}</section>
@@ -1781,7 +1781,7 @@ function contactsView() {
     <section class="list">${all.length ? all.map((c) => `<div class="arow ct">${acctIc({ name: c.n, logo: { s: "letter" }, c: [...c.a].reduce((h, ch) => h + ch.charCodeAt(0), 0) })}<span class="ar-t"><b>${esc(c.n)}</b><small class="mono">${short(c.a)} · ${FAM_NAME[c.f] || c.f}</small></span>
       <button class="ib sm" data-act="copy" data-v="${esc(c.a)}" aria-label="Copy">${I.copy}</button><button class="ib sm" data-act="ct-del" data-f="${c.f}" data-a="${esc(c.a)}" aria-label="Delete ${esc(c.n)}">${I.x}</button></div>`).join("")
       : `<div class="empty art">${emptyArt("contacts")}<b>No contacts yet</b><span>Save people and places you send to often. You can also save an address after you send to it.</span></div>`}</section>
-    <p class="fine pad">Contacts stay on this device. Sending to a contact still shows the full address to check.</p>`;
+    <p class="fine pad ct-note">Contacts stay on this device. Sending to a contact still shows the full address to check.</p>`;
 }
 
 // ------------------------------------------------------------------ export a private key
@@ -2252,9 +2252,8 @@ function receiveView() {
 function safeSoonView(title) {
   const early = isMain() && Object.values(NETS).some((N) => N.real && N.contract); // the early-access Safe, one tap away
   return `${phead(title)}<div class="cv"><div class="cv-art">${I.lock}</div><h2>${early ? "The Safe is in early access" : "The Safe comes to mainnet after its audit"}</h2>
-    <p class="sub">${early ? "Everywhere else, the Safe opens on mainnet once an independent security audit is done." : "Your Wallet works on mainnet today: send, receive and swap. The Safe, which makes every withdrawal wait, opens on mainnet once an independent security audit is done."}</p>
-    ${early ? `<div class="note early-n">${I.lock}<span><b>Early access on Base.</b> The Safe already works on Base with USDC and ETH. It has not been audited yet: only use amounts you could lose.</span></div>` : `<div class="note">${I.shield}<span>Want to try it now? It runs on Testnet with free test coins, exactly as it will on mainnet.</span></div>`}</div>
-    <p class="build-n">Build ${typeof __ECRIN_BUILD__ !== "undefined" ? __ECRIN_BUILD__ : "dev"}</p>
+    <p class="sub">${early ? "Your Safe already works on Base, with USDC and ETH." : "Your Wallet works on mainnet today: send, receive and swap. The Safe, which makes every withdrawal wait, opens on mainnet once an independent security audit is done."}</p>
+    ${early ? `<div class="note early-n">${I.lock}<span><b>Not audited yet.</b> Only use amounts you could lose. The other networks get the Safe after Ecrin's independent security audit.</span></div>` : `<div class="note">${I.shield}<span>Want to try it now? It runs on Testnet with free test coins, exactly as it will on mainnet.</span></div>`}</div>
     <div class="pfoot">${early ? `<button class="btn primary xl" data-act="early-on">Use the Safe on Base</button><button class="btn ghost" data-act="net-mode" data-v="test">Try it on Testnet instead</button>` : `<button class="btn xl" data-act="net-mode" data-v="test">Try the Safe on Testnet</button>`}</div>`;
 }
 const noSafeHere = () => !netKeys().some(canSafe);
@@ -3470,7 +3469,7 @@ function alertsView() {
     <div class="pa-hero"><span class="pa-ic">${I.spark}</span><b>${on ? `${on} alert${on > 1 ? "s" : ""} on` : "No alerts yet"}</b><small>Get a note when a coin moves more than you choose in a day. Once per coin and direction, each day.</small></div>
     <section class="list pa-list">${ALERT_COINS.map(([cg, unit]) => { const p = S.prices[cg], ch = p?.usd_24h_change, v = al[cg] || 0;
       return `<div class="arow pa-row"><span class="cstack">${coin(LOGO[cg])}</span>
-        <span class="ar-t"><b>${cdot(unit)}${COIN_NAME[unit] || unit}</b><small>${p?.usd != null ? `${money(p.usd)}${ch != null ? ` <span class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</span>` : ""}` : unit}</small></span>
+        <span class="ar-t"><b>${COIN_NAME[unit] || unit}</b><small>${p?.usd != null ? `${money(p.usd)}${ch != null ? ` <span class="${ch >= 0 ? "up" : "dn"}">${ch >= 0 ? "+" : "−"}${Math.abs(ch).toFixed(2)}%</span>` : ""}` : unit}</small></span>
         <span class="pa-seg" role="group" aria-label="${unit} alert">${[0, 5, 10].map((x) => `<button data-act="palert" data-cg="${cg}" data-v="${x}" aria-label="${x ? `${x}%` : "Off"}" aria-pressed="${v === x}"${v === x ? ' class="on"' : ""}>${x ? `${x}%` : `<svg class="pa-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 10.6-3.8M18 12v2.5l1.5 2.5H8M10.5 20a1.8 1.8 0 0 0 3 0M4 4l16 16"/></svg>`}</button>`).join("")}</span></div>`; }).join("")}</section>
     ${canPush ? `<section class="list pa-push"><button class="arow" data-act="palert-notify" ${pushOn ? "disabled" : ""}><span class="pa-ic sm">${I.bell || I.check}</span>
       <span class="ar-t"><b>Notify me outside the app</b><small>${pushOn ? "On: alerts reach you even when Ecrin is closed." : Notification.permission === "denied" ? "Blocked. Allow notifications for Ecrin in your phone's settings." : "Allow notifications so alerts reach you when Ecrin is closed."}</small></span>
@@ -3964,7 +3963,7 @@ function earnSoonView() {
   return `${phead("Earn")}
     <div class="soon-row"><span class="soon">${main ? "After the audit" : "Coming soon"}</span></div>
     <div class="ern ern-soon">
-      <div class="ern-stage">${earnGem(0, true)}<div class="ern-mid"><span class="ern-ic">${I.spark}</span><span class="lbl">Earn</span><b class="ern-big">${STAKE_APY_TEXT}</b><small>a year on SOL, about</small></div></div>
+      <div class="ern-stage">${earnGem(0, true)}<div class="ern-mid"><span class="ern-ic">${I.spark}</span><span class="lbl">Earn</span><b class="ern-big">${STAKE_APY_TEXT}</b><small>a year on SOL (estimate)</small></div></div>
       <div class="ap-card ern-how">
         <div class="ap-li">${I.lock}<span>Your money stays inside your Safe while it earns. Every delay still applies.</span></div>
         <div class="ap-li">${I.spark}<span>Native Solana staking, and Ethereum staking through Lido. Rates change; nothing is guaranteed.</span></div>

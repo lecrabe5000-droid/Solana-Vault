@@ -3884,6 +3884,34 @@ html:root[data-theme="dark"] #panel .sx-pcts button.on:not(#z) { background: var
 html:root[data-theme] .mo > .pfoot.mo-foot-wait { position: static !important; background: none !important; box-shadow: none !important; }
 html:root[data-theme] .mo { padding-top: max(34px, calc(env(safe-area-inset-top, 0px) + 22px)) !important; overflow-x: clip !important; overflow-y: visible !important; }
 
+/* Home actions, same as the coin page: four even columns, a crisp round icon with its label under it (Protect highlighted) */
+html:root[data-theme] #root .home nav.acts { display: grid !important; grid-template-columns: repeat(4, 1fr) !important; justify-items: center; gap: 4px !important; max-width: 340px; margin: 16px auto 20px !important; }
+html:root[data-theme] #root .home nav.acts button[data-p] { flex: none !important; display: grid !important; justify-items: center; align-content: start; gap: 7px; width: 72px; height: auto !important; padding: 0 !important; border-radius: 0 !important;
+  background: none !important; box-shadow: none !important; color: var(--ink) !important; font: 600 12px/1.2 var(--font) !important; letter-spacing: 0; }
+html:root[data-theme] #root .home nav.acts button[data-p] span { display: grid !important; place-items: center; width: 50px; height: 50px; border-radius: 17px;
+  background: rgba(255, 255, 255, .07); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 0 0 1px rgba(255, 255, 255, .09), 0 10px 22px -16px rgba(0, 0, 0, .9); transition: transform .15s, background .2s; }
+html:root[data-theme] #root .home nav.acts button[data-p] svg { width: 20px !important; height: 20px !important; stroke-width: 1.9 !important; color: var(--ink) !important; stroke: currentColor !important; fill: none; }
+html:root[data-theme] #root .home nav.acts button[data-p]:active span { transform: scale(.92); }
+html:root[data-theme] #root .home nav.acts button[data-p="protect"] span { background: linear-gradient(150deg, #7d97ff, #2f5bff 55%, #2440d8) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 12px 26px -10px rgba(47, 91, 255, .95) !important; }
+html:root[data-theme] #root .home nav.acts button[data-p="protect"] svg { color: #fff !important; }
+html:root[data-theme] #root .home nav.acts button[data-p="protect"] { color: #9fb2ff !important; }
+html:root[data-theme="light"] #root .home nav.acts button:not([data-p="protect"])[data-p] span { background: #fff; box-shadow: 0 0 0 1px rgba(16, 17, 20, .08), 0 8px 18px -14px rgba(16, 17, 20, .5); }
+html:root[data-theme="light"] #root .home nav.acts button[data-p="protect"] { color: #2f5bff !important; }
+html:root[data-skin="ecrin"] #root .home nav.acts button[data-p="protect"] span { background: #f4f2ea !important; } html:root[data-skin="ecrin"] #root .home nav.acts button[data-p="protect"] svg { color: #1f3fd6 !important; stroke: #1f3fd6 !important; }
+html:root[data-theme] #root .home nav.acts { max-width: 360px; margin: 18px auto 6px !important; }
+/* The coin list: the logo says which coin it is; no extra colour dot before the name. */
+.arow .ar-t .cdot { display: none !important; }
+html:root[data-theme] #root .home nav.acts button[data-p]:not(#z) span { background: rgba(255, 255, 255, .07) !important; color: var(--ink) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 0 0 1px rgba(255, 255, 255, .09), 0 10px 22px -16px rgba(0, 0, 0, .9) !important; }
+html:root[data-theme] #root .home nav.acts button[data-p]:not(#z) svg { color: var(--ink) !important; stroke: currentColor !important; }
+html:root[data-theme] #root .home nav.acts button[data-p="protect"]:not(#z) span { background: linear-gradient(150deg, #7d97ff, #2f5bff 55%, #2440d8) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 12px 26px -10px rgba(47, 91, 255, .95) !important; }
+html:root[data-theme] #root .home nav.acts button[data-p="protect"]:not(#z) svg { color: #fff !important; stroke: #fff !important; }
+html:root[data-skin="ecrin"] #root .home nav.acts button[data-p="protect"]:not(#z) span { background: #f4f2ea !important; } html:root[data-skin="ecrin"] #root .home nav.acts button[data-p="protect"]:not(#z) svg { color: #1f3fd6 !important; stroke: #1f3fd6 !important; }
+html:root[data-theme="light"] #root .home nav.acts button[data-p]:not([data-p="protect"]):not(#z) span { background: #fff !important; box-shadow: 0 0 0 1px rgba(16, 17, 20, .08), 0 8px 18px -14px rgba(16, 17, 20, .5) !important; }
+html:root[data-theme] #root .home nav.acts button[data-p]:not(#z) { color: var(--ink) !important; background: none !important; box-shadow: none !important; }
+html:root[data-theme] #root .home nav.acts button[data-p="protect"]:not(#z) { color: #9fb2ff !important; }
+html:root[data-theme="light"] #root .home nav.acts button[data-p="protect"]:not(#z) { color: #2f5bff !important; }
+#panel .ct-note { margin-top: 14px !important; text-align: center; }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
 #root, #panel { top: 0; bottom: 0; }
