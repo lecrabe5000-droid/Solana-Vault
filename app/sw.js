@@ -1,6 +1,6 @@
 // Ecrin service worker: makes the app installable and keeps its shell available on a bad connection.
 // Network first for everything; the cache is only a fallback. Never caches the API or other origins.
-const CACHE = "ecrin-v117";
+const CACHE = "ecrin-v118";
 const SHELL = ["/app", "/app.css", "/dapp.js", "/chain.js", "/evm.js", "/vault.js", "/config.js", "/config-evm.js", "/deployments-evm.js", "/config-tokens.js", "/config-wc.js", "/i18n.js", "/theme.js", "/vendor/solana-web3.min.js", "/vendor/ethers.umd.min.js", "/icon2-192.png",
   "/wallet/wallet.css", "/wallet/wallet.js", "/wallet/theme-boot.js", "/wallet/sw-reg.js"]; // the phone wallet always has a copy to fall back on
 
@@ -14,9 +14,6 @@ self.addEventListener("fetch", (e) => {
   if (e.request.mode === "navigate") return;
   e.respondWith((async () => {
     const net = fetch(e.request).then((res) => { if (res.ok && res.type === "basic") { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {}); } return res; });
-    // A slow connection: after 6 seconds, use the copy we have rather than leave the app half-drawn.
-    const hit0 = await caches.match(e.request, { ignoreSearch: true }).catch(() => null);
-    if (hit0) return Promise.race([net, new Promise((r) => setTimeout(() => r(hit0), 6000))]).catch(() => hit0);
     try {
       return await net;
     } catch (err) {
