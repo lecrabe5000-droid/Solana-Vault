@@ -315,6 +315,14 @@ async function refresh() {
 
 // Prices come from CoinGecko first, then Binance, then Coinbase: if one is down or rate-limits us, the next answers.
 const SYM = { solana: "SOL", ethereum: "ETH", "polygon-ecosystem-token": "POL", binancecoin: "BNB", "avalanche-2": "AVAX", tron: "TRX", hyperliquid: "HYPE", sui: "SUI" };
+// An address that is valid somewhere else: say where, so nobody sends across networks (those coins are lost).
+const ADDR_SHAPES = [["evm", "Ethereum-style", /^0x[0-9a-fA-F]{40}$/], ["sui", "Sui", /^0x[0-9a-fA-F]{64}$/], ["tron", "Tron", /^T[1-9A-HJ-NP-Za-km-z]{33}$/],
+  ["btc", "Bitcoin", /^(bc1[02-9ac-hj-np-z]{11,71}|[13][1-9A-HJ-NP-Za-km-z]{25,33})$/], ["xrp", "XRP", /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/], ["sol", "Solana", /^[1-9A-HJ-NP-Za-km-z]{32,44}$/]];
+function otherAddr(v) {
+  const here = NETS[S.net].fam, hit = ADDR_SHAPES.find(([, , re]) => re.test(v)); if (!hit || hit[0] === here) return "";
+  const [f, name] = hit, can = Object.values(NETS).some((N) => N.fam === f);
+  return can ? `That's a ${name} address, not ${NETS[S.net].name}. Pick a coin on ${name === "Ethereum-style" ? "an Ethereum-style network" : name} to send there.` : `That's a ${name} address. Ecrin can't send to ${name} yet.`;
+}
 const addrHint = (N) => (N.fam === "sol" ? "Solana address" : N.fam === "tron" ? "Tron address (T…)" : N.fam === "sui" ? "Sui address (0x…, 64 characters)" : "0x… address");
 const getJSON = async (url) => { const r = await fetch(url, { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return r.json(); };
 
@@ -1953,7 +1961,7 @@ function sendView() {
     const person = (addr, name, sub) => `<button class="arow who-r" data-act="send-to" data-a="${esc(addr)}"><span class="acct-ic gen">${logoSVG("facets", `${addr}:0`)}</span><span class="ar-t"><b>${name ? esc(name) : `<span class="mono">${esc(short(addr))}</span>`}</b><small>${sub}</small></span>${I.arrow}</button>`;
     return `${phead("Send")}
       <label class="fld to who-in"><span>To</span><div class="in-btn"><input data-to placeholder="${addrHint(NETS[S.net])}" value="${esc(P.to)}" spellcheck="false" autocomplete="off" autofocus/><button type="button" class="ib sm" data-act="paste" aria-label="Paste">${I.paste}</button>${globalThis.ECRIN_WEB ? `<button type="button" class="ib sm" data-act="scan" aria-label="Scan a QR code">${I.qr || I.recv}</button>` : ""}</div></label>
-      ${nm ? (nm.addr && !nmOk ? `<p class="err">${esc(nm.name)} is ${nm.fam === "sol" ? "a Solana" : "an Ethereum"} address. Switch to that network to send to it.</p>` : namedLine()) : P.to && !ok ? `<p class="err">That isn't ${NETS[S.net].fam === "sol" ? "a Solana" : NETS[S.net].fam === "evm" ? "an Ethereum-style" : `a ${NETS[S.net].name}`} address.</p>` : ""}
+      ${nm ? (nm.addr && !nmOk ? `<p class="err">${esc(nm.name)} is ${nm.fam === "sol" ? "a Solana" : "an Ethereum"} address. Switch to that network to send to it.</p>` : namedLine()) : P.to && !ok ? `<p class="err">${otherAddr(P.to.trim()) || `That isn't ${NETS[S.net].fam === "sol" ? "a Solana" : NETS[S.net].fam === "evm" ? "an Ethereum-style" : `a ${NETS[S.net].name}`} address.`}</p>` : ""}
       ${ok ? `<section class="list">${person(to, bookName(to) || (nmOk ? nm.name : ""), `${short(to)} · ${NETS[S.net].name}`)}</section>` : ""}
       ${!ok && bookList().length ? `<p class="who-h">Contacts</p><section class="list">${bookList().map(([ad, n]) => person(ad, n, `${short(ad)}`)).join("")}</section>` : ""}
       ${!ok && recent.length ? `<p class="who-h">Recent</p><section class="list">${recent.map((ad) => person(ad, bookName(ad), short(ad))).join("")}</section>` : ""}
@@ -3524,7 +3532,7 @@ function parsePayLink(text) {
   try {
     const t = String(text).trim();
     let m = t.match(/^solana:([1-9A-HJ-NP-Za-km-z]{32,44})(?:\?(.*))?$/i);
-    if (m) { const q = new URLSearchParams(m[2] || ""), mint = q.get("spl-token"); return { fam: "sol", k: "sol", to: m[1], amount: q.get("amount") || "", a: mint ? (mint === NETS.sol.usdc || mint === S.devMint ? "usdc" : "token") : "native", label: q.get("label") || q.get("message") || "" }; }
+    if (m) { const q = new URLSearchParams(m[2] || ""), mint = q.get("spl-token"), k = isMain() ? "solm" : "sol"; return { fam: "sol", k, to: m[1], amount: q.get("amount") || "", a: mint ? (mint === NETS[k].usdc || (k === "sol" && mint === S.devMint) ? "usdc" : "token") : "native", label: q.get("label") || q.get("message") || "" }; }
     m = t.match(/^ethereum:(?:pay-)?(0x[0-9a-fA-F]{40})(?:@(\d+))?(\/transfer)?(?:\?(.*))?$/i);
     if (m) {
       const q = new URLSearchParams(m[4] || ""), chain = Number(m[2] || 1), N = Object.values(NETS).find((x) => x.fam === "evm" && Number(x.E?.chainId ?? x.chainId) === chain) || Object.values(NETS).find((x) => x.fam === "evm" && String(x.key) === String(netByChain(chain)));
@@ -3538,6 +3546,7 @@ function netByChain(id) { const e = Object.values(NETS).find((x) => x.fam === "e
 async function openPay(pay) {
   if (pay.fam === "evm" && !pay.k) return toast(`That payment is for a network Ecrin doesn't support yet (chain ${pay.chain}).`, "err");
   if (pay.a === "token") return toast("That payment asks for a token Ecrin can't send from a link yet. Send it from the coin's page.", "err");
+  if (!netKeys().includes(pay.k)) { const N = NETS[pay.k]; return toast(N.test ? `That payment asks for test coins on ${N.name} ${N.net}. Switch to Testnet in Settings → Networks to pay it.` : `That payment is on ${N.name} Mainnet, with real money. Switch to Mainnet in Settings → Networks to pay it.`, "err"); }
   if (S.panel) { S.panel = null; $("#panel").innerHTML = ""; }
   await useNet(pay.k);
   openPanel("send", { a: pay.a, to: pay.to, amount: pay.amount || "", payLabel: pay.label });
