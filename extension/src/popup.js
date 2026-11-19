@@ -157,6 +157,21 @@ const fig = (str) => {
 /** A countdown people read at a glance: "6 d 23 h" while it's days away, then 05:42:10 on the last day. */
 const clockTxt = (sec) => { sec = Math.max(0, Math.floor(sec)); const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60), x = sec % 60;
   return d ? `${d} d ${h} h` : `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(x).padStart(2, "0")}`; };
+// One coin in your chosen currency (USD, EUR, …), or null when there's no price yet.
+const fxRate = (a) => { if (a === "usdc") return curRate(); const px = S.prices[NETS[S.net].cg]?.usd; return px != null ? px * curRate() : null; };
+// Currency typing is offered when there's a price, and for USDC only when your currency isn't the dollar.
+const fiatOk = (a) => fxRate(a) != null && !(a === "usdc" && curCode() === "USD");
+const inFiat = (P, a) => !!P.fiat && fiatOk(a);
+const trimNum = (n, d) => { const t = (Math.floor(n * 10 ** d) / 10 ** d).toFixed(d).replace(/\.?0+$/, ""); return t === "0" ? "" : t; };
+// What you typed in currency → the coin amount, rounded down so it never asks for more than you typed.
+const fiatToCoin = (P, a) => { const f = Number(P.famt || 0), r = fxRate(a); P.amount = f > 0 && r ? trimNum(f / r, Math.min(A(a).dec + 3, a === "usdc" ? 6 : 9)) : ""; };
+const coinToFiat = (P, a) => { const r = fxRate(a), n = Number(P.amount || 0); P.famt = n > 0 && r ? trimNum(n * r, 2) : ""; };
+const amtShown = (P, a) => (inFiat(P, a) ? P.famt || "" : P.amount || "");
+const amtUnit = (P, a) => (inFiat(P, a) ? curCode() : A(a).unit);
+// The little switch under the amount: shows what you'd switch to.
+const fiatSw = (P, a) => (fiatOk(a) ? `<button class="fx-sw" data-act="fx-sw" aria-label="${inFiat(P, a) ? `Type in ${A(a).unit}` : `Type in ${curCode()}`}"><svg viewBox="0 0 24 24"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"/></svg>${inFiat(P, a) ? A(a).unit : curCode()}</button>` : "");
+// Under the amount: its value in the other unit.
+const amtOther = (P, a, units) => (inFiat(P, a) ? `≈ ${amt(units, a)} ${A(a).unit}` : usdOf(units, a) != null ? money(usdOf(units, a)) : "");
 const parseAmt = (s, a) => { const v = Number(String(s).replace(/,/g, "")); return Number.isFinite(v) && v > 0 ? Math.round(v * A(a).base) : 0; };
 const mask = (s) => (S.hide ? "••••" : s);
 
@@ -1925,8 +1940,8 @@ function assetPick() {
 function amountBlock(max, label) {
   const P = S.panel, a = P.asset, units = parseAmt(P.amount, a), u = usdOf(units, a), over = units > max;
   return `<div class="amt ${over ? "over" : ""}">
-    <div class="amt-in"><input data-amount inputmode="decimal" placeholder="0" value="${esc(P.amount)}" autocomplete="off" autofocus style="width:${Math.max(1, [...String(P.amount || "")].reduce((t, c) => t + (/[.,]/.test(c) ? .45 : 1), 0)) + .12}ch"/><span>${A(a).unit}</span></div>
-    <div class="amt-usd">${u != null && units ? money(u) : "&nbsp;"}</div>
+    <div class="amt-in"><input data-amount inputmode="decimal" placeholder="0" value="${esc(amtShown(P, a))}" autocomplete="off" autofocus style="width:${Math.max(1, [...String(amtShown(P, a))].reduce((t, c) => t + (/[.,]/.test(c) ? .45 : 1), 0)) + .12}ch"/><span>${amtUnit(P, a)}</span></div>
+    <div class="amt-usd">${units && (u != null || inFiat(P, a)) ? amtOther(P, a, units) : "&nbsp;"}</div>${fiatSw(P, a)}
     <div class="pcts">${[25, 50, 100].map((p) => `<button data-act="pct" data-v="${p}" class="${P.pct === p ? "on" : ""}">${p === 100 ? "Max" : p + "%"}</button>`).join("")}</div>
     <div class="avail">${label}: <b>${amt(Math.max(0, max), a)} ${A(a).unit}</b>${usdOf(Math.max(0, max), a) != null && !A(a).stable ? ` <span class="avail-usd">≈ ${money(usdOf(Math.max(0, max), a))}</span>` : ""}${over ? ` <span class="bad">· not enough</span>` : ""}</div>
   </div>`;
@@ -2329,9 +2344,9 @@ function moveView() {
     </div>
     <div class="mv-src">${fromRow()}</div>
     ${isIn ? "" : `<button class="mv-to" data-act="wd-to"><span>To</span><b>${P.dest ? esc(short(P.dest)) : "Your Wallet"}</b><i>${P.dest ? "Change" : "Another address"}</i></button>`}
-    <div class="mv-amt${units > max || overLim ? " over" : ""}">${pad ? `<b>${esc(P.amount || "0")}</b>` : `<input data-amount inputmode="decimal" placeholder="0" value="${esc(P.amount)}" autocomplete="off" autofocus style="width:${Math.max(1, (P.amount || "0").length) + 0.6}ch"/>`}<span>${u}</span></div>
-    <div class="mv-sub">${units > max ? `<span class="bad">More than ${isIn ? "your Wallet has" : "can leave right now"}</span>` : overLim ? `<span class="bad">Over your daily limit of ${amt(lim, a)} ${u}</span>` : usd != null && units ? money(usd) : `${amt(max, a)} ${u} available${usdOf(max, a) != null && !A(a).stable && max ? ` · ≈ ${money(usdOf(max, a))}` : ""}`}</div>
-    ${feeNote(a)}${isIn && !v ? `<p class="mv-note first">${I.shield}<span>First time on ${NETS[S.net].name}: your Safe opens here as part of this deposit, with the same rules.</span></p>` : ""}
+    <div class="mv-amt${units > max || overLim ? " over" : ""}">${pad ? `<b>${esc(amtShown(P, a) || "0")}</b>` : `<input data-amount inputmode="decimal" placeholder="0" value="${esc(amtShown(P, a))}" autocomplete="off" autofocus style="width:${Math.max(1, (amtShown(P, a) || "0").length) + 0.6}ch"/>`}<span>${amtUnit(P, a)}</span></div>
+    <div class="mv-sub">${units > max ? `<span class="bad">More than ${isIn ? "your Wallet has" : "can leave right now"}</span>` : overLim ? `<span class="bad">Over your daily limit of ${amt(lim, a)} ${u}</span>` : units && (usd != null || inFiat(P, a)) ? amtOther(P, a, units) : `${amt(max, a)} ${u} available${usdOf(max, a) != null && !A(a).stable && max ? ` · ≈ ${money(usdOf(max, a))}` : ""}`}</div>
+    ${fiatSw(P, a)}${feeNote(a)}${isIn && !v ? `<p class="mv-note first">${I.shield}<span>First time on ${NETS[S.net].name}: your Safe opens here as part of this deposit, with the same rules.</span></p>` : ""}
     <div class="mv-pcts">${[25, 50, 100].map((v) => `<button data-act="pct" data-v="${v}" class="${P.pct === v ? "on" : ""}">${v === 100 ? "Max" : v + "%"}</button>`).join("")}</div>
     <p class="mv-note">${isIn ? `${I.lock}<span>Anything leaving waits <b>${delay(main.withdrawDelay)}</b>, and you can cancel it.</span>` : (main.lockedUntil && main.lockedUntil * 1000 > Date.now() ? `${I.lock}<span>Your Safe is frozen until <b>${new Date(main.lockedUntil * 1000).toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</b>, so this arrives <b>${when}</b> · cancel any time before</span>` : `${I.clock}<span>Arrives <b>${when}</b> · cancel any time before</span>`)}</p>
     ${pad ? `<div class="kp">${keys.map((k) => `<button data-act="key" data-k="${k}" aria-label="${k === "del" ? "Delete" : k}">${k === "del" ? `<svg viewBox="0 0 24 24"><path d="M9 6h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5-6z"/><path d="M12.5 10l4 4M16.5 10l-4 4"/></svg>` : k}</button>`).join("")}</div>` : ""}
@@ -3147,19 +3162,27 @@ const actions = {
   },
   settings: () => openPanel("settings"),
   close: () => goBack(),
-  asset: async (el) => { const P = S.panel; P.asset = el.dataset.a; P.amount = ""; P.pct = null; P.reserve = await (await eng()).reserve(P.asset); renderPanel(); },
+  asset: async (el) => { const P = S.panel; P.asset = el.dataset.a; P.amount = ""; P.famt = ""; P.pct = null; P.reserve = await (await eng()).reserve(P.asset); renderPanel(); },
+  "fx-sw": () => {
+    const P = S.panel, a = P.p === "earn" ? "native" : P.asset; if (!fiatOk(a)) return;
+    P.fiat = !P.fiat; if (P.fiat) coinToFiat(P, a); else if (P.amount && !P.pct) P.amount = trimNum(Number(P.amount), A(a).dec); // back to the coin: its usual decimals
+    haptic("light"); renderPanel();
+    const f = $("#panel [data-amount]"); if (f) { f.focus(); try { f.setSelectionRange(f.value.length, f.value.length); } catch (_) {} }
+  },
   key: (el) => {
-    const P = S.panel, k = el.dataset.k, x = A(P.asset); let v = P.amount || "";
+    const P = S.panel, k = el.dataset.k, a = P.p === "earn" ? "native" : P.asset, fiat = inFiat(P, a), x = fiat ? { dec: 2 } : A(P.asset); let v = (fiat ? P.famt : P.amount) || "";
     if (k === "del") v = v.slice(0, -1);
     else if (k === ".") { if (!v.includes(".")) v = (v || "0") + "."; }
     else { const d = v.split(".")[1]; if (d != null && d.length >= Math.min(x.dec, 6)) return; v = v === "0" ? k : v + k; if (v.replace(".", "").length > 12) return; }
-    P.amount = v; P.pct = null; haptic("light"); patchPanel();
+    if (fiat) { P.famt = v; fiatToCoin(P, a); } else P.amount = v;
+    P.pct = null; haptic("light"); patchPanel();
   },
   pct: (el) => {
     const P = S.panel, p = Number(el.dataset.v), a = P.asset;
     const max = P.p === "earn" ? stakeMax(P) : P.p === "send" || P.p === "swap" ? sendMax() : P.p === "protect" ? sendMaxProtect() : (a === "usdc" ? S.vault?.usdc?.available : S.vault?.main?.available) || 0;
     const units = Math.floor((max * p) / 100), x = A(a);
     P.pct = p; P.amount = units ? String(Math.floor((units / x.base) * 10 ** x.dec) / 10 ** x.dec) : "";
+    if (P.fiat) coinToFiat(P, P.p === "earn" ? "native" : a); // shows its value; the coin amount stays exact
     patchPanel();
   },
   paste: async () => { try { S.panel.to = (await navigator.clipboard.readText()).trim(); renderPanel(); } catch (_) { toast("Couldn't read the clipboard", "err"); } },
@@ -3390,8 +3413,10 @@ document.addEventListener("input", (e) => {
   if (t.matches("[data-xtag]")) { const v = t.value.replace(/\D/g, "").slice(0, 10); if (v !== t.value) t.value = v; S.panel.tag = v; return; }
   if (t.matches("[data-amount]")) {
     const v = t.value.replace(/[^\d.,]/g, "").replace(",", "."), parts = v.split(".");
-    S.panel.amount = parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : v; S.panel.pct = null;
-    const pos = t.selectionStart; if (t.value !== S.panel.amount) { t.value = S.panel.amount; try { t.setSelectionRange(Math.min(pos, t.value.length), Math.min(pos, t.value.length)); } catch (_) {} } patchPanel();
+    let clean = parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : v; S.panel.pct = null;
+    const fa = S.panel.p === "earn" ? "native" : S.panel.asset;
+    if (S.panel.p !== "swap" && inFiat(S.panel, fa)) { const [w, d] = clean.split("."); if (d != null && d.length > 2) clean = w + "." + d.slice(0, 2); S.panel.famt = clean; fiatToCoin(S.panel, fa); } else S.panel.amount = clean;
+    const pos = t.selectionStart; if (t.value !== clean) { t.value = clean; try { t.setSelectionRange(Math.min(pos, t.value.length), Math.min(pos, t.value.length)); } catch (_) {} } patchPanel();
     if (S.panel.p === "swap") swapQuoteSoon();
   } else if (t.matches("[data-swapq]")) { swapSearch(t.value);
   } else if (t.matches("[data-reqamt]") || t.matches("[data-reqlabel]")) { const k = t.matches("[data-reqamt]") ? "amount" : "label", sel = k === "amount" ? "[data-reqamt]" : "[data-reqlabel]"; S.panel[k] = k === "amount" ? t.value.replace(/[^\d.,]/g, "").replace(",", ".") : t.value; const pos = t.selectionStart; patchPanel(); const n = $("#panel " + sel); if (n && document.activeElement !== n) n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {}
@@ -4108,12 +4133,12 @@ function earnStakeView(P) {
   const wal = sendMaxProtect(), safe = P.v?.main?.available || 0;
   const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "del"];
   const src = (k, name, bal) => `<button data-act="earn-src" data-v="${k}" aria-pressed="${P.src === k}"${bal ? "" : " disabled"}>${name} <em>${mask(amt(bal, "native"))}</em></button>`;
-  const len = (P.amount || "0").length, big = len > 8 ? " xs" : len > 6 ? " sm" : "";
+  const len = (amtShown(P, "native") || "0").length, big = len > 8 ? " xs" : len > 6 ? " sm" : "";
   return `${phead(`Stake ${u}`)}
   <div class="es2">
     <div class="seg es-seg">${src("wallet", "Wallet", wal)}${src("safe", "Safe", safe)}</div>
-    <div class="mv-amt es-amt${big}${units > max ? " over" : ""}">${pad ? `<b>${esc(P.amount || "0")}</b>` : `<input data-amount inputmode="decimal" placeholder="0" value="${esc(P.amount)}" autocomplete="off" autofocus style="width:${Math.max(1, len) + 0.6}ch"/>`}<span class="u">${u}</span></div>
-    <div class="mv-sub">${units > max ? `<span class="bad">More than your ${P.src === "wallet" ? "Wallet" : "Safe"} has</span>` : usd != null && units ? money(usd) : `${amt(max, "native")} ${u} available`}</div>
+    <div class="mv-amt es-amt${big}${units > max ? " over" : ""}">${pad ? `<b>${esc(amtShown(P, "native") || "0")}</b>` : `<input data-amount inputmode="decimal" placeholder="0" value="${esc(amtShown(P, "native"))}" autocomplete="off" autofocus style="width:${Math.max(1, len) + 0.6}ch"/>`}<span class="u">${amtUnit(P, "native")}</span></div>
+    <div class="mv-sub">${units > max ? `<span class="bad">More than your ${P.src === "wallet" ? "Wallet" : "Safe"} has</span>` : units && (usd != null || inFiat(P, "native")) ? amtOther(P, "native", units) : `${amt(max, "native")} ${u} available`}</div>${fiatSw(P, "native")}
     <div class="mv-pcts">${[25, 50, 100].map((v) => `<button data-act="pct" data-v="${v}" class="${P.pct === v ? "on" : ""}">${v === 100 ? "Max" : v + "%"}</button>`).join("")}</div>
     <p class="es-line"><span>${valid ? `≈ <b>${yr.toLocaleString("en-US", { maximumFractionDigits: 4 })} ${u}</b> a year` : `~${(ENG?.staking?.apy || STAKE_APY_TEXT).replace(/^about /, "")} a year`}</span></p>
     ${pad ? `<div class="kp">${keys.map((k) => `<button data-act="key" data-k="${k}" aria-label="${k === "del" ? "Delete" : k}">${k === "del" ? `<svg viewBox="0 0 24 24"><path d="M9 6h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5-6z"/><path d="M12.5 10l4 4M16.5 10l-4 4"/></svg>` : k}</button>`).join("")}</div>` : ""}

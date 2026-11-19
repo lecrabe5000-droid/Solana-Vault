@@ -3950,6 +3950,12 @@ html:root[data-theme="light"] #panel .pane.scrolled .phead:not(#z) { background:
 .br-net.br-asset small { font-size: 12px; color: var(--muted); font-weight: 500; white-space: nowrap; }
 .br-net.br-asset .cstack .coin { width: 28px; height: 28px; }
 
+/* Type the amount in your currency or in the coin */
+.fx-sw { display: inline-flex; align-items: center; gap: 6px; margin: 8px auto 0; padding: 6px 12px; min-height: 32px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--text); font: 600 14.5px var(--font); cursor: pointer; }
+.fx-sw svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.fx-sw:active { transform: scale(.96); }
+.amt > .fx-sw, .mv2 > .fx-sw, .es2 > .fx-sw { display: flex; width: max-content; }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
 #root, #panel { top: 0; bottom: 0; }
