@@ -151,6 +151,9 @@ const fig = (str) => {
   const whole = di < 0 ? num : num.slice(0, di), dec = di < 0 ? "" : num.slice(di);
   return `${esc(sg)}${sym ? `<span class="cur">${esc(sym)}</span>` : ""}${esc(whole)}${dec ? `<span class="dec${money ? " cents" : ""}">${esc(dec)}</span>` : ""}${suf ? `<span class="cur suf">${esc(suf)}</span>` : ""}`;
 };
+/** A countdown people read at a glance: "6 d 23 h" while it's days away, then 05:42:10 on the last day. */
+const clockTxt = (sec) => { sec = Math.max(0, Math.floor(sec)); const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60), x = sec % 60;
+  return d ? `${d} d ${h} h` : `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(x).padStart(2, "0")}`; };
 const parseAmt = (s, a) => { const v = Number(String(s).replace(/,/g, "")); return Number.isFinite(v) && v > 0 ? Math.round(v * A(a).base) : 0; };
 const mask = (s) => (S.hide ? "••••" : s);
 
@@ -1119,7 +1122,7 @@ function leaveBanner() {
     return [...v.main.withdrawals.map((x) => ({ ...x, a: "native", r })), ...(v.usdc?.withdrawals || []).map((x) => ({ ...x, a: "usdc", r }))]; }).sort((x, y) => x.readyAt - y.readyAt);
   const x = pend[0]; if (!x) return "";
   const left = x.readyAt - (now() + (S.clockOff || 0)), unit = x.a === "usdc" ? "USDC" : NETS[x.r.k].unit;
-  const hms = (sec) => { sec = Math.max(0, Math.floor(sec)); return `${String(Math.floor(sec / 3600)).padStart(2, "0")}:${String(Math.floor((sec % 3600) / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`; };
+  const hms = clockTxt;
   return `<section class="lv-ban" role="alert">
     <span class="lv-ic">${I.clock}</span>
     <span class="lv-t"><b>${amt(x.amount, x.a)} ${unit} leaving</b><small>→ ${esc(short(String(x.dest)))} · ${left > 0 ? `<b class="cd" data-until="${x.readyAt}">${hms(left)}</b>` : "ready to leave"}${pend.length > 1 ? ` · +${pend.length - 1} more` : ""}</small></span>
@@ -1133,7 +1136,7 @@ function dashSide(w, loading) {
   const pend = rows.flatMap((r) => { const v = r.k === S.net && S.vault ? S.vault : r.v; if (!v?.main) return [];
     return [...v.main.withdrawals.map((x) => ({ ...x, a: "native", r })), ...(v.usdc?.withdrawals || []).map((x) => ({ ...x, a: "usdc", r }))]; }).sort((x, y) => x.readyAt - y.readyAt);
   const next = pend[0], share = w.total ? Math.round((w.sav / w.total) * 100) : 0, safeHere = netKeys().some(canSafe);
-  const hms = (sec) => { sec = Math.max(0, Math.floor(sec)); return `${String(Math.floor(sec / 3600)).padStart(2, "0")}:${String(Math.floor((sec % 3600) / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`; };
+  const hms = clockTxt;
   const acts = (S.activity || []).slice(0, 6);
   return `<aside class="dk-side">
     <section class="dk-card dk-safe">
@@ -2299,7 +2302,7 @@ function moveView() {
     <div class="mv-sub">${units > max ? `<span class="bad">More than ${isIn ? "your Wallet has" : "can leave right now"}</span>` : overLim ? `<span class="bad">Over your daily limit of ${amt(lim, a)} ${u}</span>` : usd != null && units ? money(usd) : `${amt(max, a)} ${u} available${usdOf(max, a) != null && !A(a).stable && max ? ` · ≈ ${money(usdOf(max, a))}` : ""}`}</div>
     ${feeNote(a)}${isIn && !v ? `<p class="mv-note first">${I.shield}<span>First time on ${NETS[S.net].name}: your Safe opens here as part of this deposit, with the same rules.</span></p>` : ""}
     <div class="mv-pcts">${[25, 50, 100].map((v) => `<button data-act="pct" data-v="${v}" class="${P.pct === v ? "on" : ""}">${v === 100 ? "Max" : v + "%"}</button>`).join("")}</div>
-    <p class="mv-note">${isIn ? `${I.lock}<span>Anything leaving waits <b>${delay(main.withdrawDelay)}</b>, and you can cancel it.</span>` : `${I.clock}<span>Arrives <b>${when}</b> · cancel any time before</span>`}</p>
+    <p class="mv-note">${isIn ? `${I.lock}<span>Anything leaving waits <b>${delay(main.withdrawDelay)}</b>, and you can cancel it.</span>` : (main.lockedUntil && main.lockedUntil * 1000 > Date.now() ? `${I.lock}<span>Your Safe is frozen until <b>${new Date(main.lockedUntil * 1000).toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</b>, so this arrives <b>${when}</b> · cancel any time before</span>` : `${I.clock}<span>Arrives <b>${when}</b> · cancel any time before</span>`)}</p>
     ${pad ? `<div class="kp">${keys.map((k) => `<button data-act="key" data-k="${k}" aria-label="${k === "del" ? "Delete" : k}">${k === "del" ? `<svg viewBox="0 0 24 24"><path d="M9 6h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5-6z"/><path d="M12.5 10l4 4M16.5 10l-4 4"/></svg>` : k}</button>`).join("")}</div>` : ""}
     <div class="pfoot mv-foot">${P.step === "sending" ? hold(isIn ? "Protecting…" : "Starting…", true) : `<div class="slide${valid ? "" : " off"}" data-slide="${isIn ? "do-protect" : "do-withdraw"}"><span class="sl-t">${isIn ? "Slide to lock in your Safe" : "Slide to start withdrawal"}</span><i class="sl-k">${isIn ? I.lock : I.out}</i></div>
       <button class="sr-only" data-act="${isIn ? "do-protect" : "do-withdraw"}" ${valid ? "" : "disabled"}>${isIn ? "Move to Safe" : "Start withdrawal"}</button>`}</div>
@@ -2417,7 +2420,7 @@ function vaultView() {
   const pend = open.flatMap((r) => [...r.v.main.withdrawals.map((x) => ({ ...x, a: "native", r })), ...(r.v.usdc?.withdrawals || []).map((x) => ({ ...x, a: "usdc", r }))]).sort((x, y) => x.readyAt - y.readyAt);
   const next = pend[0], dl = open[0]?.v.main.withdrawDelay;
   const blocked = (S.activity || []).filter((e) => e.t === "cancel"), saved = blocked.reduce((t, e) => t + usdOfEntry(e), 0);
-  const hms = (s) => { s = Math.max(0, Math.floor(s)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(x).padStart(2, "0")}`; };
+  const hms = clockTxt;
   const shield = `<svg class="sf-sh" viewBox="0 0 300 300" aria-hidden="true">
     <defs><linearGradient id="sfg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b6c4ff"/><stop offset=".45" stop-color="#4b74ff"/><stop offset="1" stop-color="#00c8ff"/></linearGradient>
       <radialGradient id="sfc" cx=".5" cy=".42" r=".7"><stop offset="0" stop-color="#3a5cff" stop-opacity=".55"/><stop offset=".6" stop-color="#1a2160" stop-opacity=".35"/><stop offset="1" stop-color="#0b0d1c" stop-opacity=".1"/></radialGradient></defs>
@@ -2905,8 +2908,8 @@ const actions = {
     } catch (e) { return toast(e.message, "err"); }
     await applyEverywhere(jobs);
   },
-  "rc-apply": async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).applyChange(Number(el.dataset.id)); toast("Rule applied", "win"); } catch (e) { toast(errText(e), "err"); } await loadAll(); },
-  "rc-cancel": async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).cancelChange(Number(el.dataset.id)); toast("Change cancelled", "win"); } catch (e) { toast(errText(e), "err"); } await loadAll(); },
+  "rc-apply": (el) => rcRun(el, "applyChange", "Rule applied"),
+  "rc-cancel": (el) => rcRun(el, "cancelChange", "Change cancelled"),
   "al-tg": async () => { try { const r = await alertCall("/api/alerts/start", {}); if (!r.url) throw new Error(r.error || "Alerts aren't available right now."); window.open(r.url, "_blank"); S.alertsOn = true; local.set({ alertsOn: true }); toast("Telegram opened: tap Start in the chat.", "win"); } catch (e) { toast(e.message, "err"); } },
   "al-mail": async () => { const email = ($("#panel [data-mail]")?.value || "").trim(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast("Enter your email address", "err"); try { const r = await alertCall("/api/alerts/email", { email }); if (r.error) throw new Error(r.error); S.alertsOn = true; local.set({ alertsOn: true }); toast(r.already ? "Email alerts are already on." : "Check your inbox to confirm.", "win"); } catch (e) { toast(e.message, "err"); } },
   tok: (el) => { S.tkDrawKey = null; if (el.isConnected && !S.panel) { const r = el.getBoundingClientRect(), pr = $("#panel").getBoundingClientRect(); S.grow = { x: r.left + r.width / 2 - pr.left, y: r.top + r.height / 2 - pr.top }; } const u = el.dataset.u, cg = u === "USDC" ? null : { SOL: "solana", ETH: "ethereum", HYPE: "hyperliquid", POL: "polygon-ecosystem-token", BNB: "binancecoin", AVAX: "avalanche-2", TRX: "tron", SUI: "sui" }[u]; openPanel("tok", { u, cg, n: el.dataset.n }); if (cg) loadSeriesFor(cg).then(() => S.panel?.p === "tok" && renderPanel()); },
@@ -3422,7 +3425,7 @@ setInterval(() => { if (S.panel?.p === "vault") renderPanel(); }, 30_000);
 // Safe countdowns tick every second without re-rendering.
 setInterval(() => {
   if (S.panel?.p !== "vault") return; const t = now() + (S.clockOff || 0);
-  document.querySelectorAll("[data-until]").forEach((n) => { const s = Math.floor(Number(n.dataset.until) - t); n.textContent = s <= 0 ? "Ready" : `${String(Math.floor(s / 3600)).padStart(2, "0")}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`; });
+  document.querySelectorAll("[data-until]").forEach((n) => { const s = Math.floor(Number(n.dataset.until) - t); n.textContent = s <= 0 ? "Ready" : clockTxt(s); });
   // the ring drains a little each second; a one-second linear transition joins the steps into one smooth motion
   document.querySelectorAll("[data-ru]").forEach((c) => { const f = Math.max(0, Math.min(1, (Number(c.dataset.ru) - t - 1) / Number(c.dataset.rd))); c.style.strokeDasharray = `${(f * 100).toFixed(3)} 100`; });
 }, 1000);
@@ -4484,6 +4487,15 @@ async function syncRulesTo(k, eng0) {
   if (failed) toast(`Your Safe opened on ${NETS[k].name}, but ${failed} rule${failed > 1 ? "s" : ""} didn't copy. Check Rules and alerts.`, "err");
 }
 
+/** Apply or cancel a waiting rule change on every network it was made on, then come back to the network you were on. */
+async function rcRun(el, method, done) {
+  const list = (el.dataset.list || `${el.dataset.n}:${el.dataset.id}`).split(",").map((x) => x.split(":")), back = S.net, fails = [];
+  el.disabled = true; el.innerHTML = `<i class="spin"></i>`;
+  for (const [k, id] of list) { try { await useNet(k); await (await eng())[method](Number(id)); } catch (e) { fails.push(`${NETS[k]?.name || k}: ${errText(e)}`); } }
+  await useNet(back);
+  toast(fails.length ? fails[0] : list.length > 1 ? `${done} on ${list.length} networks` : done, fails.length ? "err" : "win");
+  await loadAll(); renderPanel();
+}
 async function applyEverywhere(jobs) {
   const P = S.panel; P.busy = true; renderPanel();
   const back = S.net; let done = 0; const fails = [];
@@ -4545,7 +4557,11 @@ function rulesView() {
       ${row("trust", I.check, "Trusted addresses", trusted.length ? `${trusted.length}` : "None")}
       ${row("freeze", I.lock, "Freeze", lockTxt)}
     </div>
-    ${pending.length ? `<div class="list-h"><b>Waiting changes</b><span>cancel any time</span></div><section class="list">${pending.map((c) => { const ready = c.readyAt <= t; return `<div class="wrow ${ready ? "ready" : ""}">${coin(c.k)}<span class="wr-t"><b>${esc(label(c.change))}</b><small>${NETS[c.k].name}</small></span><span class="wr-r"><b class="cd">${ready ? "Ready" : dur(c.readyAt - t)}</b>${ready ? `<button class="btn sm primary" data-act="rc-apply" data-n="${c.k}" data-id="${c.id}">Apply</button>` : ""}<button class="btn sm danger" data-act="rc-cancel" data-n="${c.k}" data-id="${c.id}">Cancel</button></span></div>`; }).join("")}</section>` : ""}
+    ${pending.length ? `<div class="list-h"><b>Waiting changes</b><span>cancel any time</span></div><section class="list">${(() => {
+      // The same change made on several networks is one row: one Apply, one Cancel for all of them.
+      const groups = []; for (const c of pending) { const key = label(c.change); let g = groups.find((x) => x.key === key); if (!g) groups.push((g = { key, items: [] })); g.items.push(c); }
+      return groups.map((g) => { const at = Math.max(...g.items.map((c) => c.readyAt)), ready = at <= t, list = g.items.map((c) => `${c.k}:${c.id}`).join(","), n = g.items.length;
+        return `<div class="wrow ${ready ? "ready" : ""}"><span class="cstack">${coin(g.items[0].k)}${n > 1 ? `<span class="cmini wr-n">${n}</span>` : ""}</span><span class="wr-t"><b>${esc(g.key)}</b><small>${n > 1 ? `${n} networks` : NETS[g.items[0].k].name}</small></span><span class="wr-r"><b class="cd">${ready ? "Ready" : dur(at - t)}</b>${ready ? `<button class="btn sm primary" data-act="rc-apply" data-list="${list}">Apply</button>` : ""}<button class="btn sm danger" data-act="rc-cancel" data-list="${list}">Cancel</button></span></div>`; }).join(""); })()}</section>` : ""}
     <div class="list-h"><b>Alerts</b><span>when a withdrawal is requested</span></div>
     <div class="sets">
       <button class="srow" data-act="al-tg"><span>${I.send}Telegram</span><span class="sv">Turn on ${I.ext}</span></button>
