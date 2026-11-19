@@ -23,7 +23,13 @@ const keepUpright = () => {
   const side = touch && Math.min(screen.width, screen.height) < 600 && turned && innerWidth > innerHeight ? (a === -90 || a === 270 ? "-90" : "90") : null;
   if (side) document.documentElement.dataset.rot = side; else delete document.documentElement.dataset.rot;
 };
-keepUpright(); addEventListener("resize", keepUpright); addEventListener("orientationchange", () => setTimeout(keepUpright, 60));
+// Phones report the new angle at slightly different moments (iPhone often after the resize), so look again a few times.
+const recheck = () => { keepUpright(); for (const ms of [60, 200, 450, 800]) setTimeout(keepUpright, ms); };
+keepUpright(); addEventListener("resize", recheck); addEventListener("orientationchange", recheck);
+screen.orientation?.addEventListener?.("change", recheck);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) recheck(); }); // back from the background: the phone may have turned meanwhile
+// Where the system allows it (an installed app on Android), lock portrait outright; iPhone ignores this, the turn-back above covers it.
+try { screen.orientation?.lock?.("portrait")?.catch?.(() => {}); } catch (_) {}
 globalThis.chrome = {
   storage: {
     local: { get: async (k) => pick(read(), k), set: async (o) => write({ ...read(), ...o }), remove: async (k) => { const o = read(); [].concat(k).forEach((x) => delete o[x]); write(o); }, clear: async () => write({}) },
