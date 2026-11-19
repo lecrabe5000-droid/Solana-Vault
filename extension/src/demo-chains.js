@@ -30,6 +30,7 @@ export function engine({ acct, net }) {
     reserve: (a) => (a === "native" ? (sol ? 10_000 : 30_000) : 0),
     feeText: () => (sol ? "≈ 0.000005 SOL" : "a little ETH for gas") + " · demo",
     send: (a, to, amount) => act(() => { B[a] -= amount; }),
+    bridgeSend: ({ asset, units }) => act(() => { B[asset] = Math.max(0, B[asset] - Math.round(units)); }),
     // Staking, pretend: a stake activates in ~20 s, earns at Solana's ~6.5% a year sped up so it visibly grows, and
     // comes back ~30 s after unstaking. Only where the real wallet has staking (Solana, Ethereum Hoodi).
     staking: sol || N.key === "hoodi" ? {

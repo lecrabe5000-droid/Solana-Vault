@@ -1263,7 +1263,7 @@ const MARKET = [["solana", "SOL", "sol", "Solana"], ["ethereum", "ETH", "eth", "
 function homeMore() {
   const all = S.activity || [];
   const recent = ""; void all; // the Activity tab right above already lists everything
-  const sc = [...(stakeNets().length ? [["earn", "Earn", I.spark, 'data-act="panel" data-p="earn"']] : []), ["swap", "Swap", I.swap, 'data-act="panel" data-p="swap"'], ["buy", "Buy", I.card, 'data-act="panel" data-p="buy"'], ["req", "Request", I.recv, 'data-act="home-req"'],
+  const sc = [...(stakeNets().length ? [["earn", "Earn", I.spark, 'data-act="panel" data-p="earn"']] : []), ["swap", "Swap", I.swap, 'data-act="panel" data-p="swap"'], ...(isMain() ? [["bridge", "Bridge", '<svg viewBox="0 0 24 24"><path d="M3 16c3-6 15-6 18 0"/><path d="M6 12.6V18M12 11v7M18 12.6V18"/></svg>', 'data-act="panel" data-p="bridge"']] : []), ["buy", "Buy", I.card, 'data-act="panel" data-p="buy"'], ["req", "Request", I.recv, 'data-act="home-req"'],
     ["ct", "Contacts", '<svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 19.5c1.2-3.2 3.9-5 7-5s5.8 1.8 7 5"/></svg>', 'data-act="panel" data-p="contacts"'], ...(globalThis.ECRIN_WEB ? [["wc", "Apps", I.link, 'data-act="panel" data-p="wc"']] : globalThis.ECRIN_DEMO ? [] : [["sites", "Sites", I.link, 'data-act="panel" data-p="sites"']]), ["al", "Alerts", I.bell, 'data-act="panel" data-p="alerts"']];
   return `${recent ? `<div class="list-h"><b>Recent activity</b><button class="see-all" data-act="tab" data-t="activity">See all</button></div><div class="tab-body"><section class="list recent">${recent}</section></div>` : ""}
     <div class="list-h"><b>Shortcuts</b></div>
@@ -1700,7 +1700,7 @@ const ACT_LBL = {
   send: (e) => [`Sent to ${who(e.k, e.to)}`, I.send, "out"], tsend: (e) => [e.to ? `Sent ${esc(e.sym || "tokens")} to ${who(e.k, e.to)}` : `Sent ${esc(e.sym || "tokens")}`, I.send, "out"],
   recv: (e) => [e.from ? `Received from ${who(e.k, e.from)}` : "Received", I.recv, "in"], protect: () => ["Moved to Safe", I.protect, ""],
   withdraw: () => ["Withdrawal started", I.clock, ""], release: () => ["Released to Wallet", I.recv, "in"], cancel: () => ["Withdrawal cancelled", I.shield, ""],
-  vault: () => ["Safe opened", I.lock, ""], swap: (e) => [`Swapped ${esc(e.from || "")} for ${esc(e.to || "")}`, I.swap, ""], revoke: (e) => [e.site ? `Removed ${esc(host(e.site))}'s permission` : "Removed a token permission", I.ban, ""],
+  vault: () => ["Safe opened", I.lock, ""], swap: (e) => [`Swapped ${esc(e.from || "")} for ${esc(e.to || "")}`, I.swap, ""], bridge: (e) => [`Bridged ${esc(e.amt || "")} ${esc(e.sym || "")} to ${esc(e.to || "")}`, I.swap, ""], revoke: (e) => [e.site ? `Removed ${esc(host(e.site))}'s permission` : "Removed a token permission", I.ban, ""],
   freeze: () => ["Safe frozen", I.snow, ""], auto: () => ["Protected automatically", I.protect, ""],
   stake: () => ["Staked", I.spark, ""], unstake: () => ["Unstaking started", I.clock, ""], reclaim: () => ["Back in your Safe from staking", I.lock, "in"],
   ap: (e) => [{ connect: `Connected to ${host(e.origin)}`, sign: `Signed a message on ${host(e.origin)}`, solmsg: `Signed a message on ${host(e.origin)}`, typed: `${e.permit ? "Approved spending on" : "Signed for"} ${host(e.origin)}`, tx: `${e.permit ? "Approved spending on" : "Approved a transaction on"} ${host(e.origin)}`, soltx: `Approved a transaction on ${host(e.origin)}`, delegate: "Gave a token permission" }[e.kind] || `Approved on ${host(e.origin)}`, e.permit ? I.warn : I.link, e.permit ? "warn" : ""],
@@ -1815,6 +1815,8 @@ function goBack() {
   if (P.step === "sending") return; // a transaction is on its way: its sheet stays until it's done
   if (P.p === "earn" && P.step === "done") { P.step = "form"; P.mo = null; P.mode = "home"; P.st = undefined; return renderPanel(); }
   if (P.p === "earn" && (P.mode === "stake" || P.mode === "unstake")) { P.mode = "home"; P.amount = ""; P.pct = null; return renderPanel(); }
+  if (P.p === "bridge" && P.pick) { P.pick = null; return renderPanel(); }
+  if (P.p === "bridge" && P.step === "review") { P.step = "form"; return renderPanel(); }
   if (P.p === "send" && P.step === "form" && P.whoDone) { P.whoDone = false; P.anim = false; return renderPanel(); }
   if (P.step === "review" || P.step === "to") { P.step = P.p === "withdraw" && P.step === "review" && P.dest ? "form" : "form"; P.anim = false; return renderPanel(); }
   const prev = S.pstack?.pop();
@@ -1869,7 +1871,7 @@ function renderPanel(enter = false) {
   queueMicrotask(syncTabbar);
   const el = $("#panel"), P = S.panel;
   if (!P) return;
-  const body = ({ nets: netsView, send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, news: newsView, report: reportHTML, txd: txdView, contacts: contactsView, pkey: pkeyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, earn: earnView, wc: wcView, payreq: payreqView, alerts: alertsView, bug: bugView, help: helpView, kept: keptView })[P.p]();
+  const body = ({ nets: netsView, send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, news: newsView, report: reportHTML, txd: txdView, contacts: contactsView, pkey: pkeyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, bridge: bridgeView, earn: earnView, wc: wcView, payreq: payreqView, alerts: alertsView, bug: bugView, help: helpView, kept: keptView })[P.p]();
   if (enter || P.fresh) P.openedAt = performance.now();
   const since = P.openedAt ? performance.now() - P.openedAt : 9999;
   // A coin's page grows out of the row you tapped (the home screen stays where it is); other pages slide in.
@@ -2994,6 +2996,13 @@ const actions = {
   },
   "swap-pct": (el) => { const P = S.panel, p = BigInt(el.dataset.v), m = swapMaxRaw(P.from), u = (m * p) / 100n; P.pct = Number(p); P.amount = u ? String(fromRaw(u, P.from.dec)) : ""; swapQuoteSoon(0); },
   "swap-review": () => { const P = S.panel; if (!P.quote) return; P.step = "review"; renderPanel(); },
+  "br-pick": (el) => { S.panel.pick = el.dataset.v; renderPanel(); },
+  "br-set": (el) => { const P = S.panel, k = el.dataset.k, v = el.dataset.v; if (k === "coin") { if (P.coin !== v) { P.coin = v; P.amount = ""; P.pct = null; } } else { if (k === "from" && v === P.to) P.to = P.from; P[k] = v; } P.pick = null; renderPanel(); bridgeQuoteSoon(0); },
+  "br-pct": (el) => { const P = S.panel, m = brMax(P.from, P.coin), v = (m * Number(el.dataset.v)) / 100; P.pct = Number(el.dataset.v); P.amount = v > 0 ? String(Math.floor(v * 1e6) / 1e6) : ""; renderPanel(); bridgeQuoteSoon(0); },
+  "br-flip": () => { const P = S.panel; [P.from, P.to] = [P.to, P.from]; P.amount = ""; P.pct = null; P.quote = null; renderPanel(); },
+  "br-review": () => { const P = S.panel; if (!P.quote) return; P.step = "review"; renderPanel(); },
+  "br-back": () => { S.panel.step = "form"; renderPanel(); },
+  "br-go": () => bridgeNow(),
   "swap-sol": async () => { await useNet(SWAP_NET); openPanel("swap"); const e = await eng(); S.panel.reserve = await e.reserve("native"); renderPanel(); },
   "ap-ok": async (el) => {
     const R = S.req; if (!R || R.busy) return;
@@ -3320,6 +3329,7 @@ document.addEventListener("input", (e) => {
   } else if (t.matches("[data-reqamt]") || t.matches("[data-reqlabel]")) { const k = t.matches("[data-reqamt]") ? "amount" : "label", sel = k === "amount" ? "[data-reqamt]" : "[data-reqlabel]"; S.panel[k] = k === "amount" ? t.value.replace(/[^\d.,]/g, "").replace(",", ".") : t.value; const pos = t.selectionStart; renderPanel(); const n = $("#panel " + sel); n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {}
   } else if (t.matches("[data-to]") && (/^wc:/i.test(t.value.trim()) || parsePayLink(t.value))) { const v = t.value.trim(); t.value = ""; onScanned(v);
   } else if (t.matches("[data-to]")) { lookupTo(t.value); S.panel.to = t.value; patchPanel(); }
+  else if (t.matches("[data-bramt]")) { const v = t.value.replace(",", ".").replace(/[^\d.]/g, ""); if (v !== t.value) t.value = v; S.panel.amount = v; S.panel.pct = null; bridgeQuoteSoon(); }
   else if (t.matches("[data-bugtext]")) S.panel.text = t.value;
   else if (t.matches("[data-bugwho]")) S.panel.who = t.value;
   else if (t.matches("[data-wdto]")) { S.panel.to = t.value; const ok = !t.value.trim() || !!ENG?.isAddress(t.value.trim()); t.closest(".fld")?.classList.toggle("bad-in", !ok); }
@@ -4189,6 +4199,136 @@ function recvFx(label) {
   el.innerHTML = `<svg class="fx-in" viewBox="0 0 120 120"><g class="rays"><path class="ray" style="--i:0" d="M60 60 L130.0 60.0"/><path class="ray" style="--i:1" d="M60 60 L109.5 109.5"/><path class="ray" style="--i:2" d="M60 60 L60.1 130.0"/><path class="ray" style="--i:3" d="M60 60 L10.6 109.6"/><path class="ray" style="--i:4" d="M60 60 L-10.0 60.1"/><path class="ray" style="--i:5" d="M60 60 L10.4 10.6"/><path class="ray" style="--i:6" d="M60 60 L59.8 -10.0"/><path class="ray" style="--i:7" d="M60 60 L109.4 10.4"/></g><g class="dia"><path class="d-o d-fill" pathLength="100" d="M60 22 L88 50 L60 98 L32 50 Z"/><path class="d-f" pathLength="100" d="M32 50 H88 M46 36 L60 50 L74 36 M60 50 V98 M46 36 L52 50 M74 36 L68 50"/></g></svg><b>${esc(label)}</b><small>Received</small>`;
   host.appendChild(el); haptic("success");
   setTimeout(() => el.classList.add("out"), 2500); setTimeout(() => { el.remove(); playRecv(); }, 3000);
+}
+
+
+/* ------------------------------------------------------------------ bridges (LI.FI)
+   Move USDC or ETH from one network to another without leaving Ecrin. LI.FI finds the route and builds the
+   transaction; Ecrin's server adds Ecrin's fee; the wallet checks the transaction before signing (chains.js
+   bridgeSend), sends it, and a small Ecrin pill follows it until it arrives on the other network. */
+const BRIDGE = { on: false, fee: 0.00875, api: "https://ecrinprotocol.app/api/bridge", checked: 0 };
+const BR_USDC = ["solm", "ethm", "basem", "arbm", "opm", "polm", "avaxm"], BR_ETH = ["ethm", "basem", "arbm", "opm"];
+const ZERO_EVM = "0x0000000000000000000000000000000000000000";
+async function bridgeStatus() {
+  if (globalThis.ECRIN_DEMO) { BRIDGE.on = true; return; }
+  if (Date.now() - BRIDGE.checked < 60_000) return; BRIDGE.checked = Date.now();
+  try { const d = await (await fetch(BRIDGE.api + "/status", { cache: "no-store" })).json(); BRIDGE.on = !!d.on; BRIDGE.fee = Number(d.fee) || 0.00875; } catch (_) {}
+  if (S.panel?.p === "bridge") renderPanel();
+}
+/** Networks this account can bridge a coin on (needs an address of that family). */
+const brNets = (coinK) => (coinK === "usdc" ? BR_USDC : BR_ETH).filter((k) => NETS[k] && netKeys().includes(k));
+/** What you hold of the coin on a network, in coins (Wallet side only: the Safe's coins stay in the Safe). */
+const brHeld = (k, coinK) => { const it = worth().items.find((i) => i.k === k && (coinK === "usdc" ? i.a === "usdc" : i.a !== "usdc")); return it ? it.chq || 0 : 0; };
+const brDec = (k, coinK) => (coinK === "usdc" ? 6 : NETS[k].fam === "sol" ? 9 : 18);
+const brAddr = (k) => (NETS[k].fam === "sol" ? ACCT?.sol?.publicKey?.toBase58?.() : ACCT?.evm?.address) || "";
+const brUnit = (coinK) => (coinK === "usdc" ? "USDC" : "ETH");
+/** Fees on ETH: keep a little behind for the network fee. */
+const brMax = (k, coinK) => Math.max(0, brHeld(k, coinK) - (coinK === "usdc" ? 0 : k === "ethm" ? 0.003 : 0.0004));
+function bridgeQuoteSoon(ms = 450) {
+  const P = S.panel; if (!P || P.p !== "bridge") return;
+  clearTimeout(S.brT); const mine = (P.qSeq = (P.qSeq || 0) + 1); P.quote = null; P.qErr = null;
+  const raw = toRaw(P.amount, brDec(P.from, P.coin)); if (!raw || !BRIDGE.on || !P.to) { patchPanel(); return; }
+  P.quoting = true; patchPanel();
+  S.brT = setTimeout(async () => {
+    try {
+      let d;
+      if (globalThis.ECRIN_DEMO) { await new Promise((r) => setTimeout(r, 600)); const out = (raw * BigInt(Math.round((1 - BRIDGE.fee - 0.0012) * 1e6))) / 1_000_000n; d = { toAmount: String(out), toAmountMin: String((out * 995n) / 1000n), seconds: P.coin === "usdc" ? 25 : 60, feesUSD: 0.03, gasUSD: 0.01, tool: "Across", bridge: "across", fee: BRIDGE.fee }; }
+      else {
+        const r = await fetch(`${BRIDGE.api}/quote?` + new URLSearchParams({ from: P.from, to: P.to, coin: P.coin, amount: String(raw), fromAddress: brAddr(P.from), toAddress: brAddr(P.to) }), { cache: "no-store" });
+        d = await r.json().catch(() => ({})); if (!r.ok || !d.toAmount) throw new Error(d.error || "No route right now");
+      }
+      if (P.qSeq !== mine || S.panel !== P) return; P.quote = d;
+    } catch (e) { if (P.qSeq === mine) P.qErr = e.message || "No route right now"; }
+    if (P.qSeq === mine && S.panel === P) { P.quoting = false; renderPanel(); }
+  }, ms);
+}
+const brSecs = (s) => (!s ? "" : s < 90 ? `about ${Math.max(5, Math.round(s / 5) * 5)} seconds` : `about ${Math.round(s / 60)} minutes`);
+function bridgeView() {
+  if (!isMain()) return `${phead("Bridge")}<div class="cv"><div class="cv-art">${I.swap}</div><h2>Bridges run on Mainnet</h2><p class="sub">Bridges move real coins between networks, and have no test version. Switch Settings → Networks to Mainnet to bridge.</p></div>`;
+  const P = S.panel; bridgeStatus();
+  P.coin ||= "usdc";
+  const nets = brNets(P.coin);
+  if (!nets.includes(P.from)) P.from = [...nets].sort((a, b) => brHeld(b, P.coin) - brHeld(a, P.coin))[0];
+  if (!P.to || P.to === P.from || !nets.includes(P.to)) P.to = nets.find((k) => k !== P.from && k === "basem") || nets.find((k) => k !== P.from);
+  if (!P.from || !P.to) return `${phead("Bridge")}<div class="cv"><div class="cv-art">${I.swap}</div><h2>Nothing to bridge here</h2><p class="sub">Bridges need an address on two networks. This account has only one.</p></div>`;
+  const unit = brUnit(P.coin), dec = brDec(P.from, P.coin), raw = toRaw(P.amount, dec), max = brMax(P.from, P.coin), over = Number(P.amount || 0) > max + 1e-12, q = P.quote;
+  const outN = q ? fromRaw(q.toAmount, brDec(P.to, P.coin)) : 0, nf = (v) => v.toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { maximumFractionDigits: P.coin === "usdc" ? 2 : 6 });
+  const px = P.coin === "usdc" ? 1 : S.prices.ethereum?.usd, inUsd = px ? Number(P.amount || 0) * px : null;
+  if (P.pick) {
+    const list = P.pick === "coin" ? [["usdc", "USD Coin", "USDC"], ["native", "Ethereum", "ETH"]] : nets.filter((k) => (P.pick === "to" ? k !== P.from : true));
+    return `${phead(P.pick === "coin" ? "Which coin?" : P.pick === "from" ? "From which network?" : "To which network?")}
+      <section class="list">${P.pick === "coin" ? list.map(([k, n, u]) => `<button class="arow" data-act="br-set" data-k="coin" data-v="${k}"><span class="cstack">${coin(k === "usdc" ? "usdc" : "eth")}</span><span class="ar-t"><b>${n}</b><small>${u}</small></span>${P.coin === k ? `<span class="acc-ok">${I.check}</span>` : ""}</button>`).join("")
+        : list.map((k) => `<button class="arow" data-act="br-set" data-k="${P.pick}" data-v="${k}"><span class="cstack">${coin(k)}</span><span class="ar-t"><b>${esc(NETS[k].name)}</b><small>${nf(brHeld(k, P.coin))} ${unit}</small></span>${P[P.pick] === k ? `<span class="acc-ok">${I.check}</span>` : ""}</button>`).join("")}</section>`;
+  }
+  const netBtn = (side, k) => `<button class="br-net" data-act="br-pick" data-v="${side}">${coin(k)}<span>${esc(NETS[k].name)}</span>${I.chev}</button>`;
+  const feeLine = `<div class="sx-kv">
+      <div><span>You receive</span><b>${q ? `≈ ${nf(outN)} ${unit}` : "—"}</b></div>
+      <div><span>Arrives in</span><b>${q ? brSecs(q.seconds) || "a few minutes" : "—"}</b></div>
+      <div><span>Ecrin fee</span><b>${feePct(BRIDGE.fee)} (included)</b></div>
+      <div><span>Network and bridge fees</span><b>${q ? (q.feesUSD + q.gasUSD > 0 ? `≈ ${money(q.feesUSD + q.gasUSD)}` : "included") : "—"}</b></div>
+      ${q?.tool ? `<div><span>Route</span><b>${esc(String(q.tool))} · via LI.FI</b></div>` : ""}</div>`;
+  if (P.step === "review") return `${phead("Review bridge")}
+    <div class="br br-rv">
+      <div class="br-rv-amt">${coin(P.coin === "usdc" ? "usdc" : "eth")}<b>${esc(P.amount)} ${unit}</b><small>${inUsd != null ? money(inUsd) : ""}</small></div>
+      <div class="br-path"><span>${coin(P.from)}${esc(NETS[P.from].name)}</span><i>${I.arrow}</i><span>${coin(P.to)}${esc(NETS[P.to].name)}</span></div>
+      ${feeLine}
+      <p class="br-note">${I.shield}<span>It arrives at your own address on ${esc(NETS[P.to].name)}. Ecrin checks the transaction before you sign: only the ${unit} you chose can leave.</span></p>
+    </div>
+    <div class="pfoot snd-foot"><button class="btn xl" data-act="br-back">Back</button><button class="btn primary xl" data-act="br-go">Confirm</button></div>`;
+  const btn = !BRIDGE.on ? "Bridges open soon" : !raw ? "Enter an amount" : over ? `Not enough ${unit} on ${NETS[P.from].name}` : P.quoting || !q ? (P.qErr ? "No route right now" : "Finding the best route…") : "Review bridge";
+  return `${phead("Bridge")}
+    <div class="sx br">
+      <button class="br-coin" data-act="br-pick" data-v="coin">${coin(P.coin === "usdc" ? "usdc" : "eth")}<span><b>${P.coin === "usdc" ? "USD Coin" : "Ethereum"}</b><small>${unit}</small></span>${I.chev}</button>
+      <div class="sx-card br-card">
+        <div class="sx-top"><span class="sx-k">From</span><span class="sx-bal">Balance ${nf(brHeld(P.from, P.coin))} ${unit}</span></div>
+        <div class="sx-row">${netBtn("from", P.from)}<input class="sx-in" data-bramt inputmode="decimal" placeholder="0" value="${esc(P.amount || "")}" autocomplete="off"/></div>
+        <div class="sx-foot"><span class="sx-pcts">${[25, 50, 100].map((v) => `<button data-act="br-pct" data-v="${v}" class="${P.pct === v ? "on" : ""}">${v === 100 ? "Max" : v + "%"}</button>`).join("")}</span><span class="sx-usd">${over ? `<span class="bad">Not enough</span>` : inUsd ? money(inUsd) : ""}</span></div>
+      </div>
+      <button class="sx-flip br-flip" data-act="br-flip" aria-label="Switch networks"><svg viewBox="0 0 24 24"><path d="M8 4v15M8 19l-4-4M8 19l4-4M16 20V5M16 5l-4 4M16 5l4 4"/></svg></button>
+      <div class="sx-card to br-card">
+        <div class="sx-top"><span class="sx-k">To</span><span class="sx-bal">Your address on ${esc(NETS[P.to].name)}</span></div>
+        <div class="sx-row">${netBtn("to", P.to)}<span class="sx-out">${q ? nf(outN) : P.quoting ? `<i class="spin"></i>` : "0"}</span></div>
+      </div>
+      ${P.qErr && raw ? `<p class="err">${esc(P.qErr)}</p>` : ""}
+      ${feeLine}
+      ${!BRIDGE.on ? `<p class="br-note">${I.clock}<span>Bridges open very soon: Ecrin is finishing its setup with LI.FI.</span></p>` : ""}
+    </div>
+    <div class="pfoot"><button class="btn primary xl" data-act="br-review" ${BRIDGE.on && raw && !over && q ? "" : "disabled"}>${btn}</button></div>`;
+}
+async function bridgeNow() {
+  const P = S.panel; if (!P?.quote) return;
+  if (S.upd?.must) return toast("A security update is required before you can bridge. Update Ecrin Wallet first.", "err");
+  const from = P.from, to = P.to, coinK = P.coin, unit = brUnit(coinK), amount = P.amount, raw = toRaw(amount, brDec(from, coinK));
+  const usd = coinK === "usdc" ? Number(amount) : S.prices.ethereum?.usd ? Number(amount) * S.prices.ethereum.usd : null;
+  const lim = await limitCheck(usd); if (lim) { P.step = "form"; renderPanel(); return toast(lim, "err"); }
+  closePanel(); txPill("run", `Bridging ${amount} ${unit}`, `${NETS[from].name} → ${NETS[to].name}`);
+  try {
+    const { dev } = await local.get("dev"), e = engine({ web3, ethers, acct: ACCT, net: from, dev: dev || {} });
+    let d, sig;
+    if (globalThis.ECRIN_DEMO) { d = { ...P.quote, bridge: "demo" }; sig = await e.bridgeSend({ demo: true, asset: coinK === "usdc" ? "usdc" : "native", units: coinK === "usdc" ? Number(amount) * USDC_BASE : Number(amount) * BASE }); }
+    else {
+      // A fresh quote for the transaction itself (prices move), with the same checks.
+      const r = await fetch(`${BRIDGE.api}/quote?` + new URLSearchParams({ from, to, coin: coinK, amount: String(raw), fromAddress: brAddr(from), toAddress: brAddr(to) }), { cache: "no-store" });
+      d = await r.json().catch(() => ({})); if (!r.ok || !d.tx) throw new Error(d.error || "LI.FI couldn't build this bridge. Try again.");
+      if (BigInt(d.fromAmount) !== raw) throw new Error("The bridge quote changed the amount. Ecrin refused it.");
+      if (d.toAmountMin && P.quote.toAmount && BigInt(d.toAmountMin) < (BigInt(P.quote.toAmount) * 97n) / 100n) throw new Error("The price moved more than 3% since your review. Try again.");
+      sig = await e.bridgeSend({ tx: d.tx, approval: d.approval, fromToken: d.fromToken, fromAmount: d.fromAmount });
+    }
+    S.lastTx = Date.now(); haptic("success");
+    await logActivity({ t: "bridge", k: from, to: NETS[to].name, a: coinK === "usdc" ? "usdc" : "native", n: coinK === "usdc" ? Number(amount) * USDC_BASE : 0, sym: unit, amt: amount, sig: typeof sig === "string" ? sig : null });
+    if (usd != null) await countSpend(usd);
+    txPill("run", `Bridging ${amount} ${unit}`, `Sent from ${NETS[from].name} · arriving on ${NETS[to].name}`);
+    refresh().then(() => { loadActivity(); loadAll(); });
+    // Follow it to the other side.
+    if (globalThis.ECRIN_DEMO) { await new Promise((r) => setTimeout(r, 2500)); return txPill("ok", `${unit} arrived on ${NETS[to].name}`, `${amount} ${unit} bridged`); }
+    for (let i = 0; i < 90; i++) {
+      await new Promise((r) => setTimeout(r, i < 6 ? 5000 : 15000));
+      const t = await fetch(`${BRIDGE.api}/track?` + new URLSearchParams({ tx: String(sig), from: String(d.fromChain), to: String(d.toChain), bridge: d.bridge || "" }), { cache: "no-store" }).then((x) => x.json()).catch(() => ({}));
+      if (t.status === "DONE") { txPill("ok", `${unit} arrived on ${NETS[to].name}`, `${amount} ${unit} bridged`, t.link || null); loadAll(); return; }
+      if (t.status === "FAILED") { txPill(null); return toast(`The bridge didn't complete. LI.FI refunds it on ${NETS[from].name}${t.link ? " (see its page)" : ""}.`, "err"); }
+    }
+    txPill(null); toast("The bridge is taking longer than usual. It will arrive; check Activity in a few minutes.");
+  } catch (err) { console.warn(err); txPill(null); toast(errText(err), "err"); }
 }
 
 /* ------------------------------------------------------------------ coin first: pick a coin, Ecrin picks the network */

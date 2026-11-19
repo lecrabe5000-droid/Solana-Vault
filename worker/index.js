@@ -10,6 +10,7 @@ import { handleRpc2 } from "./rpc2.js";
 import { handleTokens } from "./tokens.js";
 import { handlePrices } from "./prices.js";
 import { handleBuy } from "./buy.js";
+import { handleBridge } from "./bridge.js";
 
 export { AlertHub };
 
@@ -41,6 +42,7 @@ export default {
     }
     if (url.pathname === "/api/prices") return handlePrices(request, env);
     if (url.pathname === "/api/buy" || url.pathname === "/api/buy/status") return handleBuy(request, env);
+    if (url.pathname.startsWith("/api/bridge/")) return handleBridge(request, env);
     const route = { "/api/faucet": "/faucet", "/api/alerts/start": "/start", "/api/alerts/status": "/status", "/api/alerts/email": "/email", "/api/alerts/confirm": "/confirm", "/api/alerts/unsub": "/unsub", "/api/telegram": "/telegram", "/api/waitlist": "/waitlist", "/api/waitlist/confirm": "/wconfirm", "/api/stats": "/stats", "/api/push/key": "/pushkey", "/api/push/subscribe": "/pushsub", "/api/push/unsubscribe": "/pushunsub", "/api/report": "/report" }[url.pathname];
     if (route) return hub(env).fetch(new Request("https://hub" + route + url.search, request));
     // Pages, scripts and styles change with every deploy: browsers and Cloudflare must check for a newer copy each

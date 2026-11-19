@@ -193,6 +193,13 @@ function solEngine({ web3, acct, N, dev }) {
       let s = ""; const b = tx.serialize(); for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
       return btoa(s);
     },
+    /** Bridges (LI.FI) from Solana: the same dry-run check as swaps (only the coin and amount you chose leave), then
+     *  sends it. Returns the signature. */
+    async bridgeSend({ tx, fromToken, fromAmount }) {
+      const signed = await this.swapSign(tx.sol, { inMint: fromToken === "11111111111111111111111111111111" ? "So11111111111111111111111111111111111111112" : fromToken, inRaw: String(fromAmount) });
+      const sig = await conn.sendRawTransaction(Uint8Array.from(atob(signed), (c) => c.charCodeAt(0)), { skipPreflight: false, maxRetries: 3 });
+      emitSent?.(sig); return sig;
+    },
     /** Takes back a permission you gave someone to move your tokens (SPL "Revoke"). */
     revoke: (t) => run(new web3.TransactionInstruction({ programId: new web3.PublicKey(t.prog), data: Uint8Array.of(5), keys: [meta(new web3.PublicKey(t.acct), false, true), meta(me, true, false)] })),
     /** Recent coins that arrived, read from the chain: who sent them, how much, when. */
@@ -298,6 +305,23 @@ function evmEngine({ ethers, acct, N, dev }) {
     },
     reserve: async (asset) => (asset === "native" ? gasUnits(21_000) : 0),
     feeText: () => "a little " + N.unit + " for gas",
+    /**
+     * Bridges (LI.FI): checks the transaction before sending. The coin must go to the same contract the quote names,
+     * an ETH bridge sends exactly the amount you chose, a USDC bridge sends no ETH and only approves that contract for
+     * that amount (never "unlimited"). Returns the transaction hash once it's on the network.
+     */
+    async bridgeSend({ tx, approval, fromToken, fromAmount }) {
+      const ZERO = "0x0000000000000000000000000000000000000000", want = BigInt(fromAmount), to = ethers.getAddress(tx.to), value = BigInt(tx.value || 0);
+      if (fromToken === ZERO) { if (value !== want) throw new Error("This bridge would send a different amount than you chose. Ecrin refused it."); }
+      else {
+        if (value !== 0n) throw new Error("This bridge asks for ETH on top of your USDC. Ecrin refused it.");
+        if (!approval || ethers.getAddress(approval) !== to) throw new Error("This bridge asks to approve a different contract. Ecrin refused it.");
+        const erc = new ethers.Contract(fromToken, ["function allowance(address,address) view returns (uint256)", "function approve(address,uint256) returns (bool)"], wallet);
+        if ((await erc.allowance(wallet.address, to)) < want) { const a = await erc.approve(to, want); const r = await a.wait(); if (!r || r.status !== 1) throw new Error("The approval failed on-chain."); }
+      }
+      const t = await wallet.sendTransaction({ to, data: tx.data, value, ...(tx.gasLimit ? { gasLimit: BigInt(tx.gasLimit) } : {}) });
+      emitSent(t.hash); return t.hash;
+    },
     /** Slow, normal or fast: the network fee you offer (normal = the network's own suggestion). */
     async send(asset, to, amount, opts = {}) {
       const ov = await feeFor(opts.speed);
