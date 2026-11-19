@@ -1,0 +1,58 @@
+name: solana-size
+# Measures the Solana program built as today (for speed) and built for size, and what each would hold as its on-chain
+# deposit (rent) on mainnet. The size builds must still pass every program test before they count. Deploys nothing.
+# Runs when this file changes, or by hand: Actions → solana-size → Run workflow.
+on:
+  workflow_dispatch:
+  push:
+    paths: [.github/workflows/solana-size.yml]
+
+jobs:
+  size:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Install Solana
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/v2.1.21/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+      - name: Install Anchor
+        run: |
+          mkdir -p "$HOME/.local/bin" && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          curl -fsSL -o "$HOME/.local/bin/anchor" https://github.com/coral-xyz/anchor/releases/download/v0.31.1/anchor-0.31.1-x86_64-unknown-linux-gnu
+          chmod +x "$HOME/.local/bin/anchor"
+      - run: solana-keygen new --no-bip39-passphrase --silent --outfile ~/.config/solana/id.json
+      - run: npm install
+      - run: mkdir -p target/deploy && cp keys/localnet-program-keypair.json target/deploy/cooldown_vault-keypair.json
+      # The program account holds the code plus a 45-byte header; its deposit is what `solana rent` gives for that size.
+      - name: Build as today (optimized for speed)
+        run: |
+          anchor build
+          s=$(stat -c%s target/deploy/cooldown_vault.so); r=$(solana rent $((s + 45)) | awk '/Rent-exempt minimum/ {print $3}')
+          echo "SPEED_SIZE=$s" >> "$GITHUB_ENV"; echo "SPEED_RENT=$r" >> "$GITHUB_ENV"
+          echo "::notice title=Built for speed (today)::$s bytes, deposit $r SOL"
+      - name: Build for size (opt-level z) and run every program test on it
+        env:
+          CARGO_PROFILE_RELEASE_OPT_LEVEL: z
+        run: |
+          set -o pipefail
+          anchor build
+          s=$(stat -c%s target/deploy/cooldown_vault.so); r=$(solana rent $((s + 45)) | awk '/Rent-exempt minimum/ {print $3}')
+          echo "::notice title=Built for size (z)::$s bytes, deposit $r SOL"
+          anchor test --skip-build 2>&1 | tee z-test.log
+          p=$(grep -Eo "[0-9]+ passing" z-test.log | head -1); f=$(grep -Eo "[0-9]+ failing" z-test.log | head -1)
+          echo "::notice title=Tests on the size build (z)::${p:-0 passing}${f:+, $f}"
+      - name: Build for size (opt-level s) and run every program test on it
+        if: always()
+        env:
+          CARGO_PROFILE_RELEASE_OPT_LEVEL: s
+        run: |
+          set -o pipefail
+          anchor build
+          s=$(stat -c%s target/deploy/cooldown_vault.so); r=$(solana rent $((s + 45)) | awk '/Rent-exempt minimum/ {print $3}')
+          echo "::notice title=Built for size (s)::$s bytes, deposit $r SOL"
+          anchor test --skip-build 2>&1 | tee s-test.log
+          p=$(grep -Eo "[0-9]+ passing" s-test.log | head -1); f=$(grep -Eo "[0-9]+ failing" s-test.log | head -1)
+          echo "::notice title=Tests on the size build (s)::${p:-0 passing}${f:+, $f}"
