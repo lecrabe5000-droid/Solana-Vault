@@ -3921,3 +3921,6 @@ html:root[data-theme="dark"] #panel .pane.scrolled > .phead, html:root[data-them
 html:root[data-skin="ecrin"] #panel .pane.scrolled > .phead, html:root[data-skin="ecrin"] #panel .pane.scrolled > * > .phead { background: rgba(9, 13, 34, .78) !important; }
 html:root[data-theme="light"] #panel .pane.scrolled > .phead, html:root[data-theme="light"] #panel .pane.scrolled > * > .phead { background: rgba(243, 242, 238, .85) !important; -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4); }
 html:root[data-theme] .rev-amt b .dec:not(#z) { font: inherit !important; letter-spacing: inherit !important; }
+/* Hidden toasts leave completely: past the status bar / Dynamic Island, and faded out (they used to park in it). */
+#toast.toast:not(.show) { transform: translate(-50%, calc(-100% - 40px - env(safe-area-inset-top, 0px))) !important; opacity: 0 !important; visibility: hidden; transition: transform .45s cubic-bezier(.22, 1, .36, 1), opacity .3s, visibility 0s .45s !important; }
+#toast.toast.show { opacity: 1 !important; visibility: visible; transition: transform .45s cubic-bezier(.22, 1, .36, 1), opacity .2s !important; }
