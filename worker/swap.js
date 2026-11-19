@@ -40,8 +40,17 @@ export async function handleSwap(request, env) {
     if (taker && !SOLANA.test(taker)) return json({ error: "Bad wallet" }, 400);
     const params = new URLSearchParams({ inputMint, outputMint, amount });
     if (taker) params.set("taker", taker);
-    if (SOLANA.test(env.JUPITER_REFERRAL_ACCOUNT || "")) { params.set("referralAccount", env.JUPITER_REFERRAL_ACCOUNT); params.set("referralFee", String(swapFeeBps(env))); }
-    return jupiter(env, "/order?" + params);
+    if (!SOLANA.test(env.JUPITER_REFERRAL_ACCOUNT || "")) return jupiter(env, "/order?" + params);
+    const plain = new URLSearchParams(params);
+    params.set("referralAccount", env.JUPITER_REFERRAL_ACCOUNT); params.set("referralFee", String(swapFeeBps(env)));
+    const res = await jupiter(env, "/order?" + params);
+    // A fee account Jupiter doesn't accept (not set up in its referral dashboard) must never stop people from
+    // swapping: quote without Ecrin's fee instead, and say so in the server log.
+    if (res.status >= 400 || res.status === 200) {
+      const body = await res.clone().text();
+      if (/referral/i.test(body) && !/"transaction"/.test(body)) { console.log("swap: Jupiter refused the referral account, quoting without Ecrin's fee:", body.slice(0, 200)); return jupiter(env, "/order?" + plain); }
+    }
+    return res;
   }
   if (request.method === "POST") {
     let input; try { input = await request.json(); } catch (_) { return json({ error: "Invalid JSON" }, 400); }
