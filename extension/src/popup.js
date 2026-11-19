@@ -1885,7 +1885,14 @@ function renderPanel(enter = false) {
   // the top bar turns frosted once the page scrolls under it
   const pane = el.querySelector(".pane"); if (pane) { const sync = () => pane.classList.toggle("scrolled", pane.scrollTop > 6); pane.addEventListener("scroll", sync, { passive: true }); sync(); }
   const f = el.querySelector("[autofocus]"); if (f && enter) setTimeout(() => f.focus(), 200);
+  // A new step (form → review → sending → done) starts at the top, like a new screen: never half-scrolled, and the
+  // phone's own page shift (left by the keyboard) is undone.
+  const key = `${P.p}:${P.step}:${P.whoDone ? 1 : 0}:${P.mode || ""}:${P.pick || ""}`;
+  if (key !== S.panelKey) { S.panelKey = key; if (pane) pane.scrollTop = 0; if (globalThis.ECRIN_WEB && !el.contains(document.activeElement)) window.scrollTo(0, 0); }
 }
+// iPhone: the keyboard pushes the whole page up and doesn't always bring it back. When no field has focus any more,
+// put the page back where it belongs.
+if (globalThis.ECRIN_WEB) document.addEventListener("focusout", () => setTimeout(() => { const a = document.activeElement; if (!a || a === document.body || !/^(INPUT|TEXTAREA)$/.test(a.tagName)) window.scrollTo(0, 0); }, 120));
 
 const phead = (title, extra = "") => `<header class="phead"><button class="ib" data-act="close" aria-label="Back">${I.back}</button><b>${title}</b><span>${extra}</span></header>`;
 
