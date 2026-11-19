@@ -27,4 +27,7 @@ const tq = (owner) => { globalThis.fetch = async () => new Response(JSON.stringi
 let tr = await tq(ME), tj = await tr.json();
 assert.equal(tr.status, 200); assert.deepEqual(tj.tx, { tron: { contract: BR, data: "4c279d6b00", callValue: "0", feeLimit: 150000000 } }); assert.equal(tj.approval, BR);
 tr = await tq("TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf"); assert.equal(tr.status, 502); // a call from another address is refused
+assert.deepEqual(bridgeTokens("btcm", "basem", "native", "usdc"), ["bitcoin", "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"]); // BTC → USDC on Base
+assert.deepEqual(bridgeTokens("solm", "btcm", "usdc", "native"), ["EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "bitcoin"]); // USDC → BTC
+assert.equal(bridgeTokens("btcm", "basem", "usdc", "usdc"), null); // no USDC on Bitcoin
 console.log("bridge ok");

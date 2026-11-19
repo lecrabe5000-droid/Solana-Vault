@@ -6,7 +6,8 @@ import { secp256k1 } from "@noble/curves/secp256k1";
 import { decode } from "ripple-binary-codec";
 import { classicAddressToXAddress } from "ripple-address-codec";
 import { deriveAccount } from "../src/keyring.js";
-import { btcAddress, btcIsAddress, plan, vbytes, BTC, BTC_MAIN, DUST } from "../src/btc.js";
+import { btcAddress, btcIsAddress, plan, vbytes, BTC, BTC_MAIN, DUST, btcBridgeCheck } from "../src/btc.js";
+import fs from "node:fs";
 import * as btcLib from "@scure/btc-signer";
 import { xrpAddress, xrpAddressOf, xrpParse, xrpSign } from "../src/xrp.js";
 
@@ -57,5 +58,19 @@ assert.ok(secp256k1.verify(secp256k1.Signature.fromDER(back.TxnSignature), hash,
   assert.equal(t.outputsLength, 2); assert.equal(t.getOutput(0).amount, 100_000n); assert.equal(t.getOutput(1).amount, q.change);
   assert.equal(t.fee, q.fee); // what goes to the miners is exactly the planned fee
   assert.ok(t.extract().length > 100);
+}
+// Bitcoin bridges: a real LI.FI quote's PSBT (200,000 sats from a public address to Base): deposit 199,500 + fee output
+// 500 + memo 0, change back to the sender, 753 sats of network fee. Then the same transaction tampered with.
+{
+  const raw = fs.readFileSync(new URL("./fixtures-lifi-btc-psbt.txt", import.meta.url), "utf8").trim();
+  const load = () => btcLib.Transaction.fromPSBT(Buffer.from(raw, "hex"), { allowUnknownOutputs: true });
+  const owner = btcLib.OutScript.encode(btcLib.Address(btcLib.NETWORK).decode("bc1qgdjqv0av3q56jvd82tkdjpy7gdp9ut8tlqmgrpmv24sq90ecnvqqjwvw97"));
+  assert.equal(btcBridgeCheck(load(), owner, "200000"), ""); // exactly as LI.FI built it
+  assert.match(btcBridgeCheck(load(), owner, "100000"), /different amount/); // more leaves than chosen
+  assert.match(btcBridgeCheck(load(), btcLib.p2wpkh(A.btc.pub).script, "200000"), /aren't this wallet's/); // someone else's coins
+  let t = load(); t.updateOutput(2, { amount: t.getOutput(2).amount - 100_000n }); // change cut: 100,000 more to the miners
+  assert.match(btcBridgeCheck(t, owner, "200000"), /fee is unusually high/);
+  t = load(); t.addOutputAddress("1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2", 1_000n, btcLib.NETWORK); // an extra payment to a stranger
+  assert.match(btcBridgeCheck(t, owner, "200000"), /different amount/);
 }
 console.log("btc xrp ok");

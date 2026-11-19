@@ -4254,7 +4254,7 @@ const BRIDGE = { on: false, fee: 0.00875, api: "https://ecrinprotocol.app/api/br
 // What can bridge: every coin Ecrin holds on a mainnet network, to any coin on any of them (LI.FI swaps on the way when
 // the coins differ). An asset is "network:coin" (coin: native | usdc | usdt).
 const BR_COINS = { solm: ["native", "usdc"], ethm: ["native", "usdc"], basem: ["native", "usdc"], arbm: ["native", "usdc"], opm: ["native", "usdc"], polm: ["native", "usdc"],
-  avaxm: ["native", "usdc"], hypem: ["native", "usdc"], bnbm: ["native"], tronm: ["native", "usdt"], suim: ["native", "usdc"] };
+  avaxm: ["native", "usdc"], hypem: ["native", "usdc"], bnbm: ["native"], tronm: ["native", "usdt"], suim: ["native", "usdc"], btcm: ["native"] };
 const ZERO_EVM = "0x0000000000000000000000000000000000000000";
 async function bridgeStatus() {
   if (globalThis.ECRIN_DEMO) { BRIDGE.on = true; return; }
@@ -4264,11 +4264,11 @@ async function bridgeStatus() {
 }
 const brK = (id) => String(id).split(":")[0], brC = (id) => String(id).split(":")[1] || "native";
 /** This account's address on a network (bridges always send to your own address on the other side). */
-const brAddr = (k) => { const f = NETS[k]?.fam; return (f === "sol" ? ACCT?.sol?.publicKey?.toBase58?.() : f === "evm" ? ACCT?.evm?.address : f === "tron" ? (ACCT?.tron && !ACCT.only ? toTron(ACCT.tron.address) : null) : f === "sui" ? (!ACCT?.only ? suiOf(ACCT) : null) : null) || ""; };
+const brAddr = (k) => { const f = NETS[k]?.fam; return (f === "sol" ? ACCT?.sol?.publicKey?.toBase58?.() : f === "evm" ? ACCT?.evm?.address : f === "tron" ? (ACCT?.tron && !ACCT.only ? toTron(ACCT.tron.address) : null) : f === "sui" ? (!ACCT?.only ? suiOf(ACCT) : null) : f === "btc" ? (!ACCT?.only ? btcAddress(ACCT, NETS[k]) : null) : null) || ""; };
 /** Every asset this account can bridge from or to. */
 const brAssets = () => Object.entries(BR_COINS).filter(([k]) => NETS[k] && netKeys().includes(k) && brAddr(k) && (!BRIDGE.nets || BRIDGE.nets.includes(k))).flatMap(([k, cs]) => cs.map((c) => `${k}:${c}`));
 const brSym = (id) => (brC(id) === "usdc" ? "USDC" : brC(id) === "usdt" ? "USDT" : NETS[brK(id)].unit);
-const brDec = (id) => { if (brC(id) !== "native") return 6; const f = NETS[brK(id)].fam; return f === "sol" || f === "sui" ? 9 : f === "tron" ? 6 : 18; };
+const brDec = (id) => { if (brC(id) !== "native") return 6; const f = NETS[brK(id)].fam; return f === "sol" || f === "sui" ? 9 : f === "tron" ? 6 : f === "btc" ? 8 : 18; };
 /** What you hold of it, in coins (Wallet side only: the Safe's coins stay in the Safe). */
 const brHeld = (id) => {
   const k = brK(id), c = brC(id);
@@ -4277,7 +4277,7 @@ const brHeld = (id) => {
 };
 const brPx = (id) => (brC(id) === "native" ? S.prices[NETS[brK(id)].cg]?.usd : 1);
 /** Keep a little of the network's own coin behind for its fees (Tron needs more: contract calls burn TRX for energy). */
-const BR_KEEP = { solm: 0.01, ethm: 0.003, bnbm: 0.002, polm: 0.5, avaxm: 0.02, hypem: 0.02, tronm: 40, suim: 0.1 };
+const BR_KEEP = { btcm: 0.0002, solm: 0.01, ethm: 0.003, bnbm: 0.002, polm: 0.5, avaxm: 0.02, hypem: 0.02, tronm: 40, suim: 0.1 };
 const brMax = (id) => Math.max(0, brHeld(id) - (brC(id) === "native" ? BR_KEEP[brK(id)] ?? 0.0004 : 0));
 /** The coin's logo, with its network's logo in the corner when they differ (USDC on Base, ETH on Arbitrum). */
 const brLogo = (id) => { const k = brK(id), c = brC(id); return c === "usdc" ? "usdc" : c === "usdt" ? "usdt" : NETS[k].unit === "ETH" ? "eth" : k; };

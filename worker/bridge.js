@@ -30,8 +30,9 @@ export const BRIDGE_NETS = {
   polm: evm("polm", 137, "POL"), avaxm: evm("avaxm", 43114, "AVAX"), hypem: evm("hypem", 999, "HYPE"), bnbm: evm("bnbm", 56, "BNB"),
   tronm: { chain: 728126428, fam: "tron", unit: "TRX", coins: { native: TRX, usdt: TRON_USDT } },
   suim: { chain: 9270000000000000, fam: "sui", unit: "SUI", coins: { native: SUI, usdc: SUI_USDC } },
+  btcm: { chain: 20000000000001, fam: "btc", unit: "BTC", coins: { native: "bitcoin" } },
 };
-const ADDR = { sol: /^[1-9A-HJ-NP-Za-km-z]{32,44}$/, evm: /^0x[0-9a-fA-F]{40}$/, tron: /^T[1-9A-HJ-NP-Za-km-z]{33}$/, sui: /^0x[0-9a-fA-F]{64}$/ };
+const ADDR = { btc: /^(bc1[02-9ac-hj-np-z]{11,71}|[13][1-9A-HJ-NP-Za-km-z]{25,34})$/, sol: /^[1-9A-HJ-NP-Za-km-z]{32,44}$/, evm: /^0x[0-9a-fA-F]{40}$/, tron: /^T[1-9A-HJ-NP-Za-km-z]{33}$/, sui: /^0x[0-9a-fA-F]{64}$/ };
 const COIN = /^(native|usdc|usdt)$/;
 
 export const bridgeFee = (env) => { const f = Number(env.LIFI_FEE); return Number.isFinite(f) && f >= 0 && f < 0.05 ? f : 0.00875; };
@@ -77,7 +78,7 @@ export async function handleBridge(request, env) {
     const [qt, err] = await lifi(env, "/quote?" + p);
     if (err) {
       // LI.FI refuses a network until Ecrin has a fee wallet there (set in LI.FI's portal): say it opens soon.
-      if (/not configured for collecting fees/i.test(err)) return json({ error: `Bridges from ${A.fam === "tron" ? "Tron" : A.fam === "sui" ? "Sui" : "this network"} open very soon.`, code: "BRIDGE_NET_SOON" }, 503);
+      if (/not configured for collecting fees/i.test(err)) return json({ error: `Bridges from ${A.fam === "tron" ? "Tron" : A.fam === "sui" ? "Sui" : A.fam === "btc" ? "Bitcoin" : "this network"} open very soon.`, code: "BRIDGE_NET_SOON" }, 503);
       return json({ error: /no available quotes|no route|none of the available routes/i.test(err) ? "No bridge can move this amount right now. Try a larger amount." : err }, 502);
     }
     const e = qt.estimate || {}, t = qt.transactionRequest || {}, isToken = tk[0] !== A.coins.native;
@@ -85,6 +86,8 @@ export async function handleBridge(request, env) {
     let tx;
     if (A.fam === "sol") tx = { sol: t.data };
     else if (A.fam === "sui") tx = { sui: t.data };
+    // Bitcoin: a PSBT spending the user's coins; the wallet checks every input and output before signing it.
+    else if (A.fam === "btc") { if (!/^70736274ff[0-9a-f]+$/i.test(t.data || "")) return json({ error: "LI.FI sent a Bitcoin transaction Ecrin can't read. Try another amount." }, 502); tx = { psbt: t.data, to: t.to, value: String(t.value || "") }; }
     else if (A.fam === "tron") {
       // LI.FI sends a whole Tron transaction; pass on only the call in it. The wallet builds and signs its own
       // transaction from these fields, so nothing else in LI.FI's bytes can ride along.

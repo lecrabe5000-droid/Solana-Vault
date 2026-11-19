@@ -48,6 +48,32 @@ export function plan(utxos, sats, rate) {
   throw new Error("Not enough BTC for this amount and the network fee.");
 }
 
+/** A bridge's ready Bitcoin transaction (a PSBT from LI.FI), checked before signing. Every coin it spends must be
+ *  this address's; everything paid to other addresses (the bridge deposit, any fee output) adds up to exactly the amount
+ *  you chose; the rest comes back to you as change; the network fee stays under 50,000 sats. Returns why it's refused,
+ *  or "" when it's fine. Pure, so it's tested on its own. */
+export const BRIDGE_FEE_CAP = 50_000n;
+export function btcBridgeCheck(tx, myScript, want) {
+  const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+  if (!tx.inputsLength || !tx.outputsLength) return "This bridge sent an empty Bitcoin transaction. Ecrin refused it.";
+  let inSum = 0n, outSum = 0n, away = 0n;
+  for (let i = 0; i < tx.inputsLength; i++) {
+    const x = tx.getInput(i);
+    if (!x.witnessUtxo || !same(x.witnessUtxo.script, myScript)) return "This bridge would spend coins that aren't this wallet's. Ecrin refused it.";
+    if (x.sighashType != null && x.sighashType !== 1 && x.sighashType !== 0) return "This bridge asks for an unusual kind of signature. Ecrin refused it.";
+    inSum += x.witnessUtxo.amount;
+  }
+  for (let i = 0; i < tx.outputsLength; i++) {
+    const o = tx.getOutput(i); outSum += o.amount;
+    if (!same(o.script, myScript)) away += o.amount; // the deposit, a memo (0 sats) or a fee output
+  }
+  if (away !== BigInt(want)) return "This bridge would send a different amount than you chose. Ecrin refused it.";
+  const fee = inSum - outSum;
+  if (fee < 0n) return "This Bitcoin transaction doesn't add up. Ecrin refused it.";
+  if (fee > BRIDGE_FEE_CAP) return "This bridge's network fee is unusually high. Ecrin refused it.";
+  return "";
+}
+
 export function btcEngine({ acct, N, dev = {} }) {
   const key = N.real ? acct.btc : acct.btcT, NET = netOf(N), apis = dev.btcApi ? [dev.btcApi] : N.apis;
   const me = btc.p2wpkh(key.pub, NET), address = me.address;
@@ -98,5 +124,16 @@ export function btcEngine({ acct, N, dev = {} }) {
       emitSent(id); return id;
     },
     async listTokens() { return []; },
+    /** Bridges (LI.FI) from Bitcoin: its PSBT is checked (btcBridgeCheck), signed here, and broadcast. */
+    async bridgeSend({ tx, fromAmount }) {
+      let t; try { t = btc.Transaction.fromPSBT(hex.decode(String(tx?.psbt || "")), { allowUnknownOutputs: true }); } catch (_) { throw new Error("This bridge sent a Bitcoin transaction Ecrin can't read. Ecrin refused it."); }
+      const why = btcBridgeCheck(t, me.script, fromAmount); if (why) throw new Error(why);
+      t.sign(key.priv); t.finalize();
+      const raw = hex.encode(t.extract());
+      let id = null, last;
+      for (const a of apis) { try { const res = await fetch(a + "/tx", { method: "POST", body: raw }); const x = await res.text(); if (!res.ok) throw new Error(x || `refused (${res.status})`); id = x.trim(); break; } catch (e) { last = e; } }
+      if (!id) throw new Error(`Bitcoin refused the transaction: ${String(last?.message || last).slice(0, 160)}`);
+      emitSent(id); return id;
+    },
   };
 }
