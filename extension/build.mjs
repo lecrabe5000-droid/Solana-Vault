@@ -43,6 +43,11 @@ if (!process.argv.includes("--watch")) {
   fs.mkdirSync(D, { recursive: true }); fs.rmSync(`${D}/chunks`, { recursive: true, force: true });
   await build({ ...opts, entryPoints: { wallet: "src/popup.js" }, outdir: D, inject: ["src/web-shim.js", "src/shims.js"] });
   let css = fs.readFileSync("popup.css", "utf8").replace(/url\("fonts\//g, 'url("/fonts/');
+  // Phone type scale: a phone is held further from the eyes than a popup on a monitor, so text runs one step larger,
+  // like the major mobile wallets (about 16 px for main text, 14 px for the line under it). Headings and big numbers
+  // (19 px and up) keep their size; the Chrome popup keeps its compact scale.
+  const PHONE_TYPE = { 9: 10, 9.5: 10.5, 10: 11, 10.5: 11.5, 11: 12, 11.5: 12.5, 12: 13.5, 12.5: 14, 13: 14.5, 13.5: 15, 14: 15.5, 14.5: 16, 15: 16, 16: 17, 16.5: 17.5, 17: 18, 18: 19 };
+  css = css.replace(/(font-size:\s*|font:[^;{}]*?\s)(\d+(?:\.\d+)?)px/g, (m, pre, n) => (PHONE_TYPE[+n] ? `${pre}${PHONE_TYPE[+n]}px` : m));
   css = css.replace("html, body { width: 360px; height: 600px; overflow: hidden; }", "html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--bg); } .device { position: relative; width: 100%; max-width: 480px; height: 100dvh; margin: 0 auto; overflow: hidden; transform: translateZ(0); background: var(--bg); color: var(--ink); font: 500 14px/1.45 var(--font); padding-top: env(safe-area-inset-top); box-sizing: border-box; }");
   // Phone-only: keep clear of the clock, the notch/Dynamic Island and the home bar; no zoom on text fields; no
   // grey tap flashes or rubber-band edges.
@@ -82,6 +87,12 @@ html[data-rot="-90"] .device { transform: translate(-50%, -50%) rotate(90deg); }
 @media (min-width: 640px) and (pointer: fine) and (max-height: 740px) { html:not([data-rot]) .device { top: 0 !important; bottom: 0 !important; border-radius: 0; } }
 .rotate-note { display: none !important; }
 .fld input, .fld textarea, [data-to] { font-size: 16px !important; }
+/* Phone sizes for the pieces you touch most: screen titles, buttons and tabs. */
+.phead b { font-size: 18px !important; font-weight: 700 !important; }
+.btn { height: 44px; } .btn.xl, .btn.primary:not(.sm) { min-height: 50px; font-size: 16px !important; }
+.home .tabs button { min-height: 44px; font-size: 16px !important; }
+/* The net worth emblem a little tighter, so your coins start higher on the screen (the number keeps its size). */
+.lz-wrap { width: 228px !important; height: 228px !important; margin: -16px auto -18px !important; }
 `;
   fs.writeFileSync(`${D}/wallet.css`, css);
   console.log("phone wallet → app/wallet/");
