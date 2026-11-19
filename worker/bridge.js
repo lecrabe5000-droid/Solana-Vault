@@ -75,7 +75,11 @@ export async function handleBridge(request, env) {
     const p = new URLSearchParams({ fromChain: String(A.chain), toChain: String(B.chain), fromToken: tk[0], toToken: tk[1], fromAmount: amount, fromAddress: fa, toAddress: ta,
       integrator: env.LIFI_INTEGRATOR, fee: String(bridgeFee(env)), slippage: "0.005", order: "RECOMMENDED" });
     const [qt, err] = await lifi(env, "/quote?" + p);
-    if (err) return json({ error: /no available quotes|no route|none of the available routes/i.test(err) ? "No bridge can move this amount right now. Try a larger amount." : err }, 502);
+    if (err) {
+      // LI.FI refuses a network until Ecrin has a fee wallet there (set in LI.FI's portal): say it opens soon.
+      if (/not configured for collecting fees/i.test(err)) return json({ error: `Bridges from ${A.fam === "tron" ? "Tron" : A.fam === "sui" ? "Sui" : "this network"} open very soon.`, code: "BRIDGE_NET_SOON" }, 503);
+      return json({ error: /no available quotes|no route|none of the available routes/i.test(err) ? "No bridge can move this amount right now. Try a larger amount." : err }, 502);
+    }
     const e = qt.estimate || {}, t = qt.transactionRequest || {}, isToken = tk[0] !== A.coins.native;
     const usd = (list) => (list || []).reduce((s, c) => s + (Number(c.amountUSD) || 0), 0);
     let tx;
