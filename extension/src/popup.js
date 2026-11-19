@@ -2664,6 +2664,10 @@ function bugView() {
 }
 // What's new: shown once after an update (never on a fresh install), and any time from Settings → About.
 const NEWS = [
+  ["Type amounts in your currency", "Tap the ⇅ button under an amount to type it in dollars, euros or your own currency instead of the coin. The coin amount shows right under it, so you always know what moves."],
+  ["Bitcoin and XRP", "Your recovery phrase now gives you a Bitcoin and an XRP address too: send and receive them next to your other coins."],
+  ["Bridge any coin", "Move coins between networks and change them on the way: USDC on Base into SOL on Solana, or into Bitcoin."],
+  ["Import another wallet", "Settings → Accounts → Import a wallet: add another wallet's recovery phrase and get its account on every network, next to your own."],
   ["Earn on your Safe", "Stake from your Safe: SOL with a Solana validator, ETH through Lido (on Hoodi for now). It stays inside your Safe the whole time, and when you unstake it can only come back there."],
   ["Buy with a card", "Buy SOL, ETH and USDC through MoonPay, straight into your Wallet. Test mode on Testnet; real purchases open with mainnet."],
   ["Cancel from the home screen", "Anything leaving your Safe now shows at the top of the home screen, with its countdown and a Cancel button. If it wasn't you, one tap stops it."],

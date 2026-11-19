@@ -28,6 +28,17 @@ const recheck = () => { keepUpright(); for (const ms of [60, 200, 450, 800]) set
 keepUpright(); addEventListener("resize", recheck); addEventListener("orientationchange", recheck);
 screen.orientation?.addEventListener?.("change", recheck);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) recheck(); }); // back from the background: the phone may have turned meanwhile
+// Like a native app, the phone wallet never zooms: a pinch or a double tap used to leave it zoomed in and shifted
+// sideways. Block the pinch (iPhone), and undo any zoom or sideways shift that is already there.
+document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
+document.addEventListener("touchmove", (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+const unzoom = () => {
+  const m = document.querySelector('meta[name="viewport"]');
+  if (m && globalThis.visualViewport && visualViewport.scale > 1.01) { const c = m.content; m.content = c.replace(/,\s*maximum-scale=[\d.]+/, "") + ", maximum-scale=1"; }
+  if (scrollX) scrollTo(0, scrollY);
+};
+unzoom(); addEventListener("resize", unzoom); globalThis.visualViewport?.addEventListener?.("resize", unzoom);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) unzoom(); });
 // Where the system allows it (an installed app on Android), lock portrait outright; iPhone ignores this, the turn-back above covers it.
 try { screen.orientation?.lock?.("portrait")?.catch?.(() => {}); } catch (_) {}
 globalThis.chrome = {
