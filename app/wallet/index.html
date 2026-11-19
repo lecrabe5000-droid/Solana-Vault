@@ -25,8 +25,8 @@
   <link rel="preload" href="/fonts/ibm-plex-sans-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/wallet/wallet.css" />
   <style id="boot-bg">html,body{background:#0c0d0f;height:100%}</style>
-  <!-- If the stylesheet is slow or fails, the page still looks like a loading screen, never a broken one. -->
-  <style>.rotate-note,#toast,#panel:empty{display:none}#root{min-height:100vh;display:flex;align-items:center;justify-content:center}.boot-mark svg{width:72px;height:72px}.boot-mark b{display:none}
+  <!-- Only while the stylesheet is missing (html has no .css-ok): the page still looks like a loading screen, never a broken one. -->
+  <style>html:not(.css-ok) .rotate-note,html:not(.css-ok) #toast,html:not(.css-ok) #panel:empty{display:none}html:not(.css-ok) .splash.boot{min-height:100vh;display:flex;align-items:center;justify-content:center}html:not(.css-ok) .boot-mark svg{width:72px;height:72px}html:not(.css-ok) .boot-mark b{display:none}
   html.css-fail .device{display:none}html.css-fail body::after{content:"Couldn't load Ecrin Wallet. Check your connection, then close and reopen the app.";position:fixed;left:24px;right:24px;top:45vh;text-align:center;color:#c9cbd3;font:15px/1.4 -apple-system,system-ui,sans-serif}</style>
   <script src="/wallet/theme-boot.js"></script>
 </head>
