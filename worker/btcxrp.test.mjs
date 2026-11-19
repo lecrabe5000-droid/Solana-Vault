@@ -18,7 +18,12 @@ assert.equal((await call("btcm/tx", { method: "POST", body: "<script>" })).statu
 assert.equal((await call("btcm/address/" + A, { method: "POST", body: "00" })).status, 400);
 // XRP: only the wallet's calls
 const xrp = (net, method) => call(net, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ method, params: [{}] }) });
-for (const m of ["account_info", "server_state", "fee", "ledger_current", "submit", "account_tx", "tx"]) { seen.length = 0; assert.equal((await xrp("xrpm", m)).status, 200, m); assert.equal(seen[0][0], "https://xrplcluster.com"); }
+for (const m of ["account_info", "server_state", "fee", "ledger_current", "submit", "account_tx", "tx"]) { seen.length = 0; assert.equal((await xrp("xrpm", m)).status, 200, m); assert.equal(seen[0][0], "https://s1.ripple.com:51234"); }
+// a busy server ("slowDown" with a 200) passes to the next one
+{ const real = globalThis.fetch; let n = 0;
+  globalThis.fetch = async (u) => { seen.push([String(u)]); n++; return new Response(JSON.stringify(n === 1 ? { result: { error: "slowDown", status: "error" } } : { result: { account_data: { Balance: "5" } } }), { status: 200 }); };
+  seen.length = 0; const j = await (await xrp("xrpm", "account_info")).json();
+  assert.equal(j.result.account_data.Balance, "5"); assert.deepEqual(seen.map((x) => x[0]), ["https://s1.ripple.com:51234", "https://s2.ripple.com:51234"]); globalThis.fetch = real; }
 seen.length = 0; await xrp("xrp", "fee"); assert.equal(seen[0][0], "https://s.altnet.rippletest.net:51234");
 for (const m of ["wallet_propose", "sign", "ledger_accept", "validation_create"]) assert.equal((await xrp("xrpm", m)).status, 400, m); // never secret-handling or admin calls
 console.log("btc xrp relay ok");

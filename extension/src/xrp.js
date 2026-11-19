@@ -53,7 +53,10 @@ export function xrpEngine({ acct, N, dev = {} }) {
       try {
         const r = await fetch(a, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ method, params: [params] }) });
         if (!r.ok) throw new Error(`XRP Ledger server error (${r.status})`);
-        const j = await r.json(); return j.result;
+        const j = await r.json();
+        // A busy server answers "slow down" with a success code: that's no answer, ask the next one.
+        if (/^(slowDown|tooBusy|noNetwork|noCurrent|noClosed|amendmentBlocked)$/.test(j?.result?.error || "")) throw new Error("XRP Ledger servers are busy right now.");
+        return j.result;
       } catch (e) { last = e; }
     }
     throw last || new Error("XRP Ledger servers are unreachable right now.");
@@ -70,7 +73,8 @@ export function xrpEngine({ acct, N, dev = {} }) {
     explain: (e) => ({ message: String(e?.message || e) }),
     async balances() {
       const r = await info(address);
-      if (r?.error === "actNotFound") return { native: 0, usdc: 0 };
+      if (r?.error === "actNotFound") return { native: 0, usdc: 0 }; // never received anything: really zero
+      if (r?.error || r?.account_data?.Balance == null) throw new Error("Couldn't read this XRP balance right now."); // never show 0 for "no answer"
       return { native: Number(r?.account_data?.Balance || 0) * UNITS_PER_DROP, usdc: 0 };
     },
     vault: async () => null,

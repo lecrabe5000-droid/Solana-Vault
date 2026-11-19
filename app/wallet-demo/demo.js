@@ -2598,7 +2598,7 @@ zoo`.split(`
       ${t("tog",C.eyeOff,"Hide small balances",e(l.hideSmall),'data-k="hideSmall"')}
       ${t("tog",C.arrow,"Order coins by",l.order==="name"?"Name":"Value",'data-k="order"')}`)}
     ${n("About",`
-      ${t("panel",C.spark,"What's new",`${sl} \xB7 11191538 ${C.arrow}`,'data-p="news"')}
+      ${t("panel",C.spark,"What's new",`${sl} \xB7 11191541 ${C.arrow}`,'data-p="news"')}
       <a class="srow" href="https://ecrinprotocol.app/" target="_blank"><span>${C.globe}Website</span><span class="sv">${C.ext}</span></a>
       <a class="srow" href="https://ecrinprotocol.app/how-it-works/" target="_blank"><span>${C.shield}How the Safe works</span><span class="sv">${C.ext}</span></a>
       <a class="srow" href="https://ecrinprotocol.app/security/" target="_blank"><span>${C.check}Security and audits</span><span class="sv">${C.ext}</span></a>

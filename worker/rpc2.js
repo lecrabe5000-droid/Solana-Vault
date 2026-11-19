@@ -15,6 +15,7 @@ const out = (body, status = 200, extra = {}) => new Response(typeof body === "st
 const EVM_OK = new Set(["eth_chainId", "eth_blockNumber", "eth_getBalance", "eth_call", "eth_estimateGas", "eth_gasPrice", "eth_maxPriorityFeePerGas", "eth_feeHistory", "eth_getTransactionCount",
   "eth_getTransactionReceipt", "eth_getTransactionByHash", "eth_getBlockByNumber", "eth_getCode", "eth_getLogs", "eth_sendRawTransaction", "eth_simulateV1", "net_version"]);
 const TRON_OK = new Set(["getnowblock", "getaccount", "broadcasthex", "triggerconstantcontract"]);
+const XRP_BUSY = /"error"\s*:\s*"(slowDown|tooBusy|noNetwork|noCurrent|noClosed|amendmentBlocked)"/;
 const XRP_OK = new Set(["account_info", "server_state", "fee", "ledger_current", "submit", "account_tx", "tx"]);
 // Bitcoin: read an address, its coins and its history, the fee rates, a transaction; and broadcast one.
 const BTC_GET = [/^address\/(bc1|tb1|[13mn2])[0-9A-Za-z]{20,90}(\/utxo|\/txs)?$/, /^v1\/fees\/recommended$/, /^fee-estimates$/, /^tx\/[0-9a-f]{64}(\/status)?$/, /^blocks\/tip\/height$/];
@@ -67,8 +68,15 @@ export async function handleRpc2(request, env, path) {
   }
   if (net === "xrpm" || net === "xrp") {
     if (!XRP_OK.has(body?.method) || !Array.isArray(body?.params) || body.params.length > 1) return out({ error: "Not available on this route" }, 400);
-    const ups = net === "xrpm" ? ["https://xrplcluster.com", "https://s1.ripple.com:51234", "https://s2.ripple.com:51234"] : ["https://s.altnet.rippletest.net:51234"];
-    for (const u of ups) { const r = await fetch(u, { method: "POST", headers: { "content-type": "application/json" }, body: text }).catch(() => null); if (r?.ok) return out(await r.text(), 200); }
+    // Ripple's own servers first; the community cluster rate-limits shared server addresses like Cloudflare's.
+    const ups = net === "xrpm" ? ["https://s1.ripple.com:51234", "https://s2.ripple.com:51234", "https://xrplcluster.com"] : ["https://s.altnet.rippletest.net:51234"];
+    for (const u of ups) {
+      const r = await fetch(u, { method: "POST", headers: { "content-type": "application/json" }, body: text }).catch(() => null);
+      if (!r?.ok) continue;
+      const t = await r.text();
+      if (XRP_BUSY.test(t)) continue; // "slow down" or "too busy" comes back with a 200: try the next server
+      return out(t, 200);
+    }
     return out({ error: "The XRP Ledger servers are unreachable right now." }, 502);
   }
   if (net === "suim") {
