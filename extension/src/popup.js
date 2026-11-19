@@ -1800,6 +1800,7 @@ function goBack() {
   if (P.step === "sending") return; // a transaction is on its way: its sheet stays until it's done
   if (P.p === "earn" && P.step === "done") { P.step = "form"; P.mo = null; P.mode = "home"; P.st = undefined; return renderPanel(); }
   if (P.p === "earn" && (P.mode === "stake" || P.mode === "unstake")) { P.mode = "home"; P.amount = ""; P.pct = null; return renderPanel(); }
+  if (P.p === "send" && P.step === "form" && P.whoDone) { P.whoDone = false; P.anim = false; return renderPanel(); }
   if (P.step === "review" || P.step === "to") { P.step = P.p === "withdraw" && P.step === "review" && P.dest ? "form" : "form"; P.anim = false; return renderPanel(); }
   const prev = S.pstack?.pop();
   if (prev) {
@@ -1892,6 +1893,7 @@ function sendMax() { const a = S.panel.asset; return a === "native" ? Math.max(0
 
 function sendView() {
   const P = S.panel, e = ENG, a = P.asset, units = parseAmt(P.amount, a);
+  if (P.whoDone === undefined) P.whoDone = !!P.to; // opened with a recipient (contact, payment link): straight to the amount
   if (P.step === "done" || P.step === "sending") {
     const to = P.to.trim(), nm = bookName(to), usd = usdOf(P.sent, a);
     return motionView(P, { kind: "send", N: NETS[S.net], title: ["Sending", "Sent"], amount: `${amt(P.sent, a)} ${A(a).unit}`, usd: usd != null ? money(usd) : "", line: `to ${nm ? `<b>${esc(nm)}</b>` : `<span class="mono">${esc(short(to))}</span>`}`,
@@ -1912,21 +1914,32 @@ function sendView() {
         ${self ? `<p class="warn-n">That's your own address.</p>` : P.lookalike ? lookalikeNote(P) : P.fresh ? `<p class="warn-n">${I.shield}<span>You've never sent to this address from Ecrin. Check the first and last characters against where you copied it.</span></p>` : ""}
       </div>
       ${P.coolUntil > Date.now() ? `<div class="cool"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17"/><circle class="cl-p" cx="20" cy="20" r="17" style="stroke-dashoffset:${(106.8 * (P.coolUntil - Date.now())) / (S.guard.cool * 1000)}"/></svg><span><b data-cool>${Math.ceil((P.coolUntil - Date.now()) / 1000)}s</b><small>Cooling-off pause for big sends. Take a breath: is this really who you think it is?</small></span></div>` : ""}
-      <div class="pfoot">${P.coolUntil > Date.now() ? `<button class="hold" disabled><span class="hold-t">${I.clock}Wait for the pause</span></button>` : hold(P.step === "sending" ? "Sending…" : "Hold to send", P.step === "sending")}</div>`;
+      <div class="pfoot snd-foot"><button class="btn xl" data-act="close">Cancel</button>${P.coolUntil > Date.now() ? `<button class="btn primary xl" disabled>${I.clock}Wait for the pause</button>` : `<button class="btn primary xl" data-act="send-confirm">Confirm</button>`}</div>`;
   }
   const nm = P.named && P.named.name === P.to.trim() ? P.named : null, nmOk = !!(nm?.addr && e.isAddress(nm.addr));
-  const valid = units > 0 && units <= sendMax() && (e.isAddress(P.to) || nmOk);
+  // 1. Who: an address, a name, a contact or someone you sent to before (like MetaMask's "Send to").
+  if (!P.whoDone) {
+    const to = nmOk ? nm.addr : P.to.trim(), ok = !!to && e.isAddress(to), mine = String(e.address);
+    const recent = [...new Set((S.activity || []).filter((x) => (x.t === "send" || x.t === "tsend") && x.to && x.to !== mine && e.isAddress(x.to)).map((x) => x.to))].slice(0, 4);
+    const person = (addr, name, sub) => `<button class="arow who-r" data-act="send-to" data-a="${esc(addr)}"><span class="acct-ic gen">${logoSVG("facets", `${addr}:0`)}</span><span class="ar-t"><b>${name ? esc(name) : `<span class="mono">${esc(short(addr))}</span>`}</b><small>${sub}</small></span>${I.arrow}</button>`;
+    return `${phead("Send")}
+      <label class="fld to who-in"><span>To</span><div class="in-btn"><input data-to placeholder="${addrHint(NETS[S.net])}" value="${esc(P.to)}" spellcheck="false" autocomplete="off" autofocus/><button type="button" class="ib sm" data-act="paste" aria-label="Paste">${I.paste}</button>${globalThis.ECRIN_WEB ? `<button type="button" class="ib sm" data-act="scan" aria-label="Scan a QR code">${I.qr || I.recv}</button>` : ""}</div></label>
+      ${nm ? (nm.addr && !nmOk ? `<p class="err">${esc(nm.name)} is ${nm.fam === "sol" ? "a Solana" : "an Ethereum"} address. Switch to that network to send to it.</p>` : namedLine()) : P.to && !ok ? `<p class="err">That isn't ${NETS[S.net].fam === "sol" ? "a Solana" : NETS[S.net].fam === "evm" ? "an Ethereum-style" : `a ${NETS[S.net].name}`} address.</p>` : ""}
+      ${ok ? `<section class="list">${person(to, bookName(to) || (nmOk ? nm.name : ""), `${short(to)} · ${NETS[S.net].name}`)}</section>` : ""}
+      ${!ok && bookList().length ? `<p class="who-h">Contacts</p><section class="list">${bookList().map(([ad, n]) => person(ad, n, `${short(ad)}`)).join("")}</section>` : ""}
+      ${!ok && recent.length ? `<p class="who-h">Recent</p><section class="list">${recent.map((ad) => person(ad, bookName(ad), short(ad))).join("")}</section>` : ""}
+      ${!ok && !bookList().length && !recent.length ? `<p class="who-empty">Paste an address${NETS[S.net].fam === "evm" || NETS[S.net].fam === "sol" ? " or a name (like alice.eth or alice.sol)" : ""}. Check the first and last characters before you send.</p>` : ""}`;
+  }
+  // 2. How much: the recipient stays on top (tap to change), the amount is the screen.
+  const valid = units > 0 && units <= sendMax() && e.isAddress(P.to.trim());
+  const bn = bookName(P.to.trim()) || P.toName || "";
   return `${phead("Send")}
     ${P.payLabel ? `<p class="pay-for">${I.recv}<span>Payment request: <b>${esc(P.payLabel)}</b></span></p>` : ""}
-    ${fromRow()}${assetPick()}
+    <button class="who-chip" data-act="send-who"><span class="who-k">To</span><span class="acct-ic gen">${logoSVG("facets", `${P.to.trim()}:0`)}</span><span class="who-t"><b>${bn ? esc(bn) : `<span class="mono">${esc(short(P.to.trim()))}</span>`}</b>${bn ? `<small class="mono">${esc(short(P.to.trim()))}</small>` : ""}</span><span class="who-x">Change</span></button>
+    ${fromRow()}
     ${amountBlock(sendMax(), "Wallet")}
     ${feeNote(a)}
-    <label class="fld to"><span>To</span><div class="in-btn"><input data-to placeholder="${addrHint(NETS[S.net])}" value="${esc(P.to)}" spellcheck="false" autocomplete="off"/><button type="button" class="ib sm" data-act="paste" aria-label="Paste">${I.paste}</button>${globalThis.ECRIN_WEB && navigator.mediaDevices?.getUserMedia ? `<button type="button" class="ib sm" data-act="scan" aria-label="Scan a QR code">${I.qr}</button>` : ""}</div></label>
-    ${nm ? (nm.addr && !nmOk ? `<p class="err">${esc(nm.name)} is ${nm.fam === "sol" ? "a Solana" : "an Ethereum"} address. Switch to that network to send to it.</p>` : namedLine()) : P.to && !e.isAddress(P.to) ? `<p class="err">That isn't a ${NETS[S.net].name} address${NETS[S.net].fam === "sol" ? " or a .sol name" : NETS[S.net].fam === "evm" ? " or an .eth name" : ""}.</p>` : ""}
-    ${(() => { const to = nmOk ? nm.addr : P.to.trim(); if (!to || !e.isAddress(to)) return ""; const bn = bookName(to) || (nmOk ? nm.name : "");
-      return `<div class="to-card"><span class="acct-ic gen">${logoSVG("facets", `${to}:0`)}</span><span class="to-t"><b>${bn ? esc(bn) : "New address"}</b><small class="mono">${short(to)} · ${NETS[S.net].name}</small></span>${bn ? `<span class="to-ok">${I.check}</span>` : ""}</div>`; })()}
-    ${bookList().length ? `<div class="book">${bookList().map(([a, n]) => `<button class="${P.to.trim() === a ? "on" : ""}" data-act="book-pick" data-a="${esc(a)}"><i>${esc(n.slice(0, 1).toUpperCase())}</i>${esc(n)}</button>`).join("")}</div>` : ""}
-    <div class="pfoot"><button class="btn primary xl" data-act="review" ${valid ? "" : "disabled"}>Review</button></div>`;
+    <div class="pfoot"><button class="btn primary xl" data-act="review" ${valid ? "" : "disabled"}>Continue</button></div>`;
 }
 
 // ------------------------------------------------------------------ guard rails on the Wallet side (this device)
@@ -2015,6 +2028,14 @@ function safetyView() {
     <p class="fine pad">The limit and the pause protect this device. Your Safe's own rules protect your money even from someone who has your recovery phrase.</p>`;
 }
 
+/** Copied: the button's copy icon turns into a check for a moment. False when the button has no icon to swap. */
+function copied(el) {
+  const ic = el?.querySelector("svg"); if (!ic) return false;
+  haptic("light"); clearTimeout(el._ct); if (!el._ic) el._ic = ic.outerHTML;
+  ic.outerHTML = I.check.replace("<svg", '<svg class="cp-ok"'); el.classList.add("copied");
+  el._ct = setTimeout(() => { const now = el.querySelector("svg"); if (now && el._ic) now.outerHTML = el._ic; el._ic = null; el.classList.remove("copied"); }, 1400);
+  return true;
+}
 function hold(label, busy) {
   return `<button class="hold ${busy ? "busy" : ""}" data-hold ${busy ? "disabled" : ""}><span class="hold-fill"></span><span class="hold-t">${busy ? `<i class="spin"></i>` : I.shield}${label}</span></button>`;
 }
@@ -2860,6 +2881,9 @@ const actions = {
   grp: (el) => { S.open = { ...(S.open || {}), [el.dataset.u]: !S.open?.[el.dataset.u] }; render(); },
   wn: (el) => { S.wn = Number(el.dataset.n); render(); },
   "book-pick": (el) => { S.panel.to = el.dataset.a; renderPanel(); },
+  "send-to": (el) => { const P = S.panel; P.to = el.dataset.a; P.named = null; P.whoDone = true; P.anim = true; renderPanel(); },
+  "send-who": () => { const P = S.panel; P.whoDone = false; P.anim = false; renderPanel(); },
+  "send-confirm": () => confirmSend(),
   "book-save": async () => { const n = ($("#panel [data-bookname]")?.value || "").trim(); if (!n) return; const f = NETS[S.net].fam; S.book[f] = { ...(S.book[f] || {}), [S.panel.to.trim()]: n }; await local.set({ book: S.book }); toast(`Saved as ${n}`, "win"); renderPanel(); },
   "share-addr": async () => { try { await navigator.share({ title: "My " + NETS[S.net].name + " address", text: ENG.address }); } catch (_) {} },
   "ob-hide": async () => { S.obHide = true; await local.set({ obHide: true }); render(); },
@@ -2977,11 +3001,12 @@ const actions = {
   forgot: async () => { if (await ask("Without the password, the only way back in is your recovery phrase. Remove this wallet from this device and import it again?", { title: "Forgot your password?", ok: "Remove and re-import", danger: true })) forget(); },
   copy: async (el) => {
     await navigator.clipboard.writeText(el.dataset.v);
+    if (!el.classList.contains("ad-copy") && copied(el)) return;
     if (el.classList.contains("ad-copy")) { const t = el.querySelector("span"); el.classList.add("ok"); t.textContent = S.lang === "fr" ? "Copiée" : "Copied"; clearTimeout(el._t); el._t = setTimeout(() => { el.classList.remove("ok"); t.textContent = S.lang === "fr" ? "Copier l'adresse" : "Copy address"; }, 1600); navigator.vibrate?.(8); }
     else toast("Address copied", "win");
   },
   "qr-for": async (el) => { if (el.dataset.n !== S.net) { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; await eng(); refresh(); } S.panel = { p: "receive", step: "form", asset: "native", amount: "", to: "" }; renderPanel(); },
-  "copy-addr": async () => { await navigator.clipboard.writeText(ENG.address); toast("Address copied", "win"); },
+  "copy-addr": async (el) => { await navigator.clipboard.writeText(ENG.address); if (!copied(el)) toast("Address copied", "win"); },
   hide: async () => { S.hide = !S.hide; await local.set({ hide: S.hide }); render(); if (S.panel) renderPanel(); },
   panel: async (el) => {
     const p = el.dataset.p;
@@ -3190,7 +3215,30 @@ async function confirmSend() {
   const P = S.panel, units = parseAmt(P.amount, P.asset), to = P.to.trim();
   P.sent = units;
   const lim = await limitCheck(usdOf(units, P.asset)); if (lim) { P.step = "form"; renderPanel(); return toast(lim, "err"); }
-  await txRun(async () => (await eng()).send(P.asset, to, units, { speed: P.speed }), async () => { await rememberDest(to); await countSpend(usdOf(units, P.asset)); }, { t: "send", a: P.asset, n: units, to });
+  if (S.upd?.must) return toast("A security update is required before you can send. Update Ecrin Wallet first.", "err");
+  // Like major wallets: the sheet closes as soon as you confirm, and a small Ecrin pill follows the transaction.
+  const a = P.asset, net = S.net, nm = bookName(to), what = `${amt(units, a)} ${A(a).unit}`, who = nm || short(to), usd = usdOf(units, a);
+  closePanel(); txPill("run", `Sending ${what}`, `to ${who}`);
+  try {
+    S.lastTx = Date.now(); const e = await eng(); const sig = await e.send(a, to, units, { speed: P.speed }); S.lastTx = Date.now();
+    await rememberDest(to); await countSpend(usd); await logActivity({ t: "send", a, n: units, to, sig: typeof sig === "string" ? sig : null });
+    if (S.bal && S.net === net) { const k = a === "usdc" ? "usdc" : "native"; S.bal = { ...S.bal, [k]: Math.max(0, Number(S.bal[k] || 0) - units) }; render(); }
+    haptic("success"); txPill("ok", `Sent ${what}`, `to ${who}`, typeof sig === "string" && NETS[net].explorer ? NETS[net].explorer("tx", sig) : null);
+    refresh().then(() => { loadActivity(); loadAll(); });
+  } catch (err) { console.warn(err); txPill(null); toast(errText(err), "err"); }
+}
+
+/** The small confirmation after a send: Ecrin's diamond turns while it travels, then fills with a check. */
+function txPill(state, title, sub, link) {
+  let el = document.getElementById("txpill");
+  if (!state) { el?.classList.remove("in"); return; }
+  if (!el) { el = document.createElement("div"); el.id = "txpill"; el.className = "txpill"; el.setAttribute("role", "status"); (document.querySelector(".device") || document.body).append(el); }
+  clearTimeout(el._t);
+  el.className = `txpill ${state}`;
+  el.innerHTML = `<span class="tp-ic">${state === "ok" ? dcheck("sm") : `<svg class="tp-spin" viewBox="0 0 40 40" aria-hidden="true"><rect x="11" y="11" width="18" height="18" rx="5" transform="rotate(45 20 20)"/></svg>`}</span>
+    <span class="tp-t"><b>${esc(trText(title, S.lang))}</b><small>${esc(trText(sub, S.lang))}</small></span>${link ? `<a class="tp-l" href="${esc(link)}" target="_blank" rel="noopener">${esc(trText("View", S.lang))}</a>` : ""}`;
+  requestAnimationFrame(() => el.classList.add("in"));
+  if (state === "ok") el._t = setTimeout(() => el.classList.remove("in"), 4200);
 }
 
 document.addEventListener("click", (e) => {
