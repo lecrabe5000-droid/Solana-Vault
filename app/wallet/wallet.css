@@ -3879,6 +3879,11 @@ html:root[data-theme] .act-q svg { width: 17px; height: 17px; }
 /* The chosen 25% / 50% / Max reads as selected, not disabled (Swap and Bridge). */
 html:root[data-theme="dark"] #panel .sx-pcts button.on:not(#z) { background: var(--ivory) !important; color: var(--ivory-ink) !important; opacity: 1 !important; box-shadow: none !important; }
 
+/* Money in motion: while it's on its way there's no button, so the footer has no backing band (no dark box), and the
+   diamond clears the phone's status bar instead of being cut off at the top. */
+html:root[data-theme] .mo > .pfoot.mo-foot-wait { position: static !important; background: none !important; box-shadow: none !important; }
+html:root[data-theme] .mo { padding-top: max(34px, calc(env(safe-area-inset-top, 0px) + 22px)) !important; overflow-x: clip !important; overflow-y: visible !important; }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
 #root, #panel { top: 0; bottom: 0; }

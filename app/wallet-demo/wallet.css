@@ -3878,3 +3878,8 @@ html:root[data-theme] .act-q svg { width: 17px; height: 17px; }
 :root[data-theme="light"] .br-net, :root[data-theme="light"] .br-path > span { background: rgba(16, 17, 20, .06); }
 /* The chosen 25% / 50% / Max reads as selected, not disabled (Swap and Bridge). */
 html:root[data-theme="dark"] #panel .sx-pcts button.on:not(#z) { background: var(--ivory) !important; color: var(--ivory-ink) !important; opacity: 1 !important; box-shadow: none !important; }
+
+/* Money in motion: while it's on its way there's no button, so the footer has no backing band (no dark box), and the
+   diamond clears the phone's status bar instead of being cut off at the top. */
+html:root[data-theme] .mo > .pfoot.mo-foot-wait { position: static !important; background: none !important; box-shadow: none !important; }
+html:root[data-theme] .mo { padding-top: max(34px, calc(env(safe-area-inset-top, 0px) + 22px)) !important; overflow-x: clip !important; overflow-y: visible !important; }

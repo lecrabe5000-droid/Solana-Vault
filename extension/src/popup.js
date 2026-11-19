@@ -2103,7 +2103,7 @@ function motionView(P, o) {
     <ol class="mo-steps">${steps}</ol>
     ${done && o.note ? `<div class="mo-note">${I.shield}<span>${o.note}</span></div>` : ""}
     ${done ? `<div class="mo-rc">${rows.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("")}</div>${o.extra || ""}` : ""}
-    <div class="pfoot">${done ? `<button class="btn primary xl" data-act="close">Done</button>` : `<p class="mo-wait">You can close this. It keeps going, and Activity shows when it lands.</p>`}</div>
+    <div class="pfoot${done ? "" : " mo-foot-wait"}">${done ? `<button class="btn primary xl" data-act="close">Done</button>` : `<p class="mo-wait">You can close this. It keeps going, and Activity shows when it lands.</p>`}</div>
   </div>`;
 }
 function doneView(title, text, extra = "") {
