@@ -3822,6 +3822,27 @@ html:root[data-theme] #panel .pane:has(.tk-page) .phead { background: color-mix(
 html:root[data-skin="ecrin"] #panel .pfoot.snd-foot { background: linear-gradient(to bottom, rgba(7, 11, 29, 0), #070b1d 34%); }
 :root[data-theme="light"] #panel .pfoot.snd-foot { background: linear-gradient(to bottom, rgba(243, 242, 238, 0), #f3f2ee 34%); }
 
+/* ---- Receive, MetaMask/Exodus-style: one card, QR, address (ends in bold), Copy and Share. */
+.rc { display: grid; justify-items: center; gap: 14px; margin-top: 4px; padding: 18px 16px 16px; border-radius: 24px; background: var(--s1, rgba(255, 255, 255, .04)); box-shadow: inset 0 0 0 1px var(--line); text-align: center; }
+.rc-who { display: flex; align-items: center; gap: 8px; max-width: 100%; font-size: 14px; }
+.rc-who .acct-ic { width: 26px; height: 26px; flex: none; } .rc-who b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rc-net { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px 3px 4px; border-radius: 999px; background: rgba(127, 152, 255, .12); color: var(--muted); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.rc-net .coin { width: 16px !important; height: 16px !important; }
+.rc .rc-qr { width: 196px; height: 196px; margin: 2px 0; }
+.rc-addr { max-width: 280px; margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.55; word-break: break-all; }
+.rc-addr b { color: var(--ink); font-weight: 700; }
+.rc-acts { display: flex; gap: 10px; width: 100%; }
+.rc-acts .btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin: 0; min-height: 48px; }
+.rc-acts .btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.rc-acts .rc-share { flex: 0 0 auto; padding: 0 18px; }
+.rc-copy.copied { background: #1f9d6c !important; color: #fff !important; }
+.rc-fine { margin: 12px 6px 0; color: var(--muted); font-size: 12px; line-height: 1.5; text-align: center; }
+.rc-more { margin-top: 14px; } .rc-ic { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; background: rgba(47, 91, 255, .14); color: #9fb3ff; }
+.rc-ic svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.rc-more .arow > svg:last-child { width: 14px; height: 14px; fill: none; stroke: var(--muted); stroke-width: 2; flex: none; }
+.rc-fau { display: grid; justify-items: center; margin-top: 10px; }
+:root[data-theme="light"] .rc { background: #fff; } :root[data-theme="light"] .rc-ic { color: #2f5bff; background: rgba(47, 91, 255, .09); }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
 #root, #panel { top: 0; bottom: 0; }

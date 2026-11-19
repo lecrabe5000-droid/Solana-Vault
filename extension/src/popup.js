@@ -2033,7 +2033,8 @@ function copied(el) {
   const ic = el?.querySelector("svg"); if (!ic) return false;
   haptic("light"); clearTimeout(el._ct); if (!el._ic) el._ic = ic.outerHTML;
   ic.outerHTML = I.check.replace("<svg", '<svg class="cp-ok"'); el.classList.add("copied");
-  el._ct = setTimeout(() => { const now = el.querySelector("svg"); if (now && el._ic) now.outerHTML = el._ic; el._ic = null; el.classList.remove("copied"); }, 1400);
+  const lab = el.querySelector("[data-cl]"); if (lab) { lab._t ??= lab.textContent; lab.textContent = trText("Copied", S.lang); }
+  el._ct = setTimeout(() => { const now = el.querySelector("svg"); if (now && el._ic) now.outerHTML = el._ic; el._ic = null; el.classList.remove("copied"); if (lab?._t) lab.textContent = lab._t; }, 1400);
   return true;
 }
 function hold(label, busy) {
@@ -2201,19 +2202,25 @@ function acctNewView() {
 }
 
 function receiveView() {
-  const e = ENG, N = NETS[S.net];
-  const q = qrcode(0, "H"); q.addData(e.address); q.make(); // high error correction: the logo in the middle can't break it
+  const e = ENG, N = NETS[S.net], ad = String(e.address);
+  const q = qrcode(0, "H"); q.addData(ad); q.make(); // high error correction: the logo in the middle can't break it
+  // Like MetaMask and Exodus: one card with the QR, who and which network, the address with its start and end in bold
+  // (the parts people check), then Copy and Share.
+  const cut = ad.length > 16 ? 6 : 0, addrHTML = cut ? `<b>${esc(ad.slice(0, cut))}</b>${esc(ad.slice(cut, -cut))}<b>${esc(ad.slice(-cut))}</b>` : esc(ad);
+  const m = S.panel?.asset === "usdc" ? "usdc" : N.unit === "ETH" ? "eth" : S.net;
   return `${phead("Receive")}${fromRow()}
-    <div class="recv">
-      <div class="qr">${q.createSvgTag({ cellSize: 5, margin: 0, scalable: true })}<span class="qr-c">${(() => { const m = S.panel?.asset === "usdc" ? "usdc" : N.unit === "ETH" ? "eth" : S.net; return coin(m) + (m !== S.net ? `<span class="qr-b">${coin(S.net)}</span>` : ""); })()}</span></div>
-      <p class="recv-n">Your ${N.name} address</p>
-      ${navigator.share ? `<button class="btn sm share" data-act="share-addr">${I.send}Share address</button>` : ""}
-      <button class="addr" data-act="copy-addr"><span class="mono">${esc(e.address)}</span>${I.copy}</button>
-      <p class="fine">Only send ${N.name} ${N.net} coins${N.usdc ? " or USDC" : ""} to this address. ${N.fam === "tron" ? (N.real ? "Tron addresses start with T. USDT shows with your tokens." : "Tron addresses start with T. Test USDT on Nile shows with your tokens.") : ""}${N.fam === "sui" ? "Sui addresses are 0x and 64 characters, different from your Ethereum one. " : ""}${N.fam === "evm" ? "The same address works on every Ethereum-style network." : ""}</p>
-      ${faucetBtn(N)}
-      <button class="btn sm buy-b" data-act="payreq">${I.recv}Request an amount</button>
-      <button class="btn sm buy-b" data-act="panel" data-p="buy">${I.card}Buy with a card</button>
-    </div>`;
+    <div class="rc">
+      <div class="rc-who">${acctIc(curAcct(), "sm")}<b>${esc(curAcct().name)}</b><span class="rc-net">${coin(S.net)}${esc(nname(N))}</span></div>
+      <div class="qr rc-qr">${q.createSvgTag({ cellSize: 5, margin: 0, scalable: true })}<span class="qr-c">${coin(m) + (m !== S.net ? `<span class="qr-b">${coin(S.net)}</span>` : "")}</span></div>
+      <p class="rc-addr mono" data-notr>${addrHTML}</p>
+      <div class="rc-acts"><button class="btn primary rc-copy" data-act="copy-addr">${I.copy}<span data-cl>Copy address</span></button>${navigator.share ? `<button class="btn rc-share" data-act="share-addr">${I.send}<span>Share</span></button>` : ""}</div>
+    </div>
+    <p class="rc-fine">Only send ${N.name} ${N.net} coins${N.usdc ? " or USDC" : ""} to this address. ${N.fam === "tron" ? (N.real ? "Tron addresses start with T. USDT shows with your tokens." : "Tron addresses start with T. Test USDT on Nile shows with your tokens.") : ""}${N.fam === "sui" ? "Sui addresses are 0x and 64 characters, different from your Ethereum one. " : ""}${N.fam === "evm" ? "The same address works on every Ethereum-style network." : ""}</p>
+    <section class="list rc-more">
+      <button class="arow" data-act="payreq"><span class="rc-ic">${I.recv}</span><span class="ar-t"><b>Request an amount</b><small>A link or QR with the amount filled in</small></span>${I.arrow}</button>
+      <button class="arow" data-act="panel" data-p="buy"><span class="rc-ic">${I.card}</span><span class="ar-t"><b>Buy with a card</b><small>Through MoonPay, straight to this address</small></span>${I.arrow}</button>
+    </section>
+    ${faucetBtn(N) ? `<div class="rc-fau">${faucetBtn(N)}</div>` : ""}`;
 }
 
 /** Protect (chequing → savings) and Withdraw (savings → chequing, after the delay). */
