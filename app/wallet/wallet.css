@@ -3132,6 +3132,10 @@ html:root[data-theme="light"]:not([data-skin]) .srow.danger span { color: #b4382
 .sx-real svg { width: 18px; height: 18px; flex: none; stroke: #ffb020; }
 .sx-pickb { cursor: pointer; border: 0; background: transparent; font: inherit; color: inherit; padding: 0; text-align: left; }
 .sx-pickb > svg { width: 14px; height: 14px; opacity: .6; }
+/* The coin button: logo, then name over full name, then the chevron, all inside one pill. */
+#panel .sx .sx-coin.sx-pickb { grid-template-columns: auto auto auto; column-gap: 9px; padding: 6px 12px 6px 6px; border-radius: 999px; }
+#panel .sx .sx-coin.sx-pickb > b { grid-column: 2; grid-row: 1; align-self: end; } #panel .sx .sx-coin.sx-pickb > small { grid-column: 2; grid-row: 2; align-self: start; white-space: nowrap; }
+#panel .sx .sx-coin.sx-pickb > svg:last-child { grid-column: 3; grid-row: 1 / 3; align-self: center; margin-left: 1px; }
 .sx-out.ld { opacity: .45; }
 .pk-search { padding: 0 16px 8px; } .pk-search input { width: 100%; }
 :root[data-theme="light"] .brand-sig.real i { color: #8a5a00; background: rgba(255, 176, 32, .16); }
