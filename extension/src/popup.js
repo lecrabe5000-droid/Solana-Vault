@@ -2158,7 +2158,7 @@ function addrsView() {
     </article>`;
   const evmNets = netKeys().filter((k) => NETS[k].fam === "evm");
   return `${phead("Addresses")}
-    <div class="ad-hero">${acctIc(A0, "lg")}<span><b>${esc(A0.name)}</b><small>${A0.kind === "key" ? "Imported private key" : "From your recovery phrase"}</small></span></div>
+    <div class="ad-hero">${acctIc(A0, "lg")}<span><b>${esc(A0.name)}</b><small>${A0.kind === "key" ? "Imported private key" : A0.kind === "phrase" ? "From an imported recovery phrase" : "From your recovery phrase"}</small></span></div>
     <div class="ad-list">
       ${sol ? card("sol", sol, "Solana", "SOL, USDC and Solana tokens") : ""}
       ${evm ? card("eth", evm, "Ethereum-style networks", `One address for all ${evmNets.length}`, evmNets) : ""}
@@ -2212,23 +2212,23 @@ function acctIc(a, cls = "", over) {
   }
   return `<span class="acct-ic gen ${cls}">${logoSVG(lg.s, `${a ? acctSeedAddr(a) : "x"}:${lg.v || 0}`)}</span>`;
 }
-const acctAddr = (a) => a.kind === "key" ? a.pub : a.id === S.sel ? (ACCT.sol?.publicKey.toBase58() || ACCT.evm?.address) : deriveAccount(PHRASE, { web3, ethers }, a.i).sol.publicKey.toBase58();
+const acctAddr = (a) => a.kind === "key" ? a.pub : a.kind === "phrase" ? a.solPub || a.pub : a.id === S.sel ? (ACCT.sol?.publicKey.toBase58() || ACCT.evm?.address) : deriveAccount(PHRASE, { web3, ethers }, a.i).sol.publicKey.toBase58();
 
 /** Every account in this wallet. Tap one to switch; add another from the phrase, or import a private key. */
 function acctsView() {
   const P = S.panel, list = S.accts || DEF_ACCTS;
   return `${phead("Accounts")}
     <section class="list accts-l">${list.map((a) => `<div class="arow acc-row${a.id === S.sel ? " on" : ""}">
-      <button class="acc-main" data-act="acct-switch" data-id="${a.id}">${acctIc(a)}<span class="ar-t"><b>${esc(a.name)}</b><small class="mono">${short(acctAddr(a))}${a.kind === "key" ? ` · <span class="tagk">${a.fam === "sol" ? "Solana key" : "Ethereum key"}</span>` : ""}</small></span>${a.id === S.sel ? `<span class="acc-ok">${I.check}</span>` : ""}</button>
+      <button class="acc-main" data-act="acct-switch" data-id="${a.id}">${acctIc(a)}<span class="ar-t"><b>${esc(a.name)}</b><small class="mono">${short(acctAddr(a))}${a.kind === "key" ? ` · <span class="tagk">${a.fam === "sol" ? "Solana key" : "Ethereum key"}</span>` : a.kind === "phrase" ? ` · <span class="tagk">Other phrase</span>` : ""}</small></span>${a.id === S.sel ? `<span class="acc-ok">${I.check}</span>` : ""}</button>
       <button class="ib sm" data-act="acct-edit" data-id="${a.id}" aria-label="Rename ${esc(a.name)}">${I.pen}</button></div>
       ${P.edit === a.id ? `<div class="acc-edit"><input data-acct-name value="${esc(a.name)}" maxlength="24" aria-label="Account name"/><button class="btn sm primary" data-act="acct-save" data-id="${a.id}">Save</button>${logoPick(a)}
-        ${a.id !== "hd0" ? `<button class="btn sm ghost danger" data-act="acct-remove" data-id="${a.id}">${a.kind === "key" ? "Remove" : "Hide"}</button>` : ""}</div>` : ""}`).join("")}</section>
+        ${a.id !== "hd0" ? `<button class="btn sm ghost danger" data-act="acct-remove" data-id="${a.id}">${a.kind === "key" || a.kind === "phrase" ? "Remove" : "Hide"}</button>` : ""}</div>` : ""}`).join("")}</section>
     <div class="acc-acts">
       <button class="btn" data-act="acct-add">${I.plus}Add account</button>
-      <button class="btn" data-act="panel" data-p="acctNew">${I.key}Import key</button>
+      <button class="btn" data-act="panel" data-p="acctNew">${I.key}Import a wallet</button>
     </div>
     <button class="srow" data-act="panel" data-p="addrs"><span>${I.qr}Addresses of ${esc(curAcct().name)}</span><span class="sv">${I.arrow}</span></button>
-    <p class="fine pad">Accounts you add come from your recovery phrase, so your backup covers them. Imported keys are not in your recovery phrase: keep their own backup.</p>`;
+    <p class="fine pad">Accounts you add come from your recovery phrase, so your backup covers them. Imported wallets (another phrase or a key) are not in your recovery phrase: keep their own backup.</p>`;
 }
 
 function logoPick(a) {
@@ -2239,11 +2239,23 @@ function logoPick(a) {
 }
 
 function acctNewView() {
-  return `${phead("Import private key")}
+  const P = S.panel, mode = P.mode === "key" ? "key" : "phrase", list = S.accts || [];
+  const seg = `<div class="seg imp-seg"><button data-act="imp-mode" data-v="phrase" class="${mode === "phrase" ? "on" : ""}">Recovery phrase</button><button data-act="imp-mode" data-v="key" class="${mode === "key" ? "on" : ""}">Private key</button></div>`;
+  if (mode === "phrase") return `${phead("Import a wallet")}
     <div class="pad">
+      ${seg}
+      <p class="fine">Add another wallet with its 12 or 24 words, from Ecrin, MetaMask, Phantom or any standard wallet. You get its account on every network, next to your own.</p>
+      <label class="fld"><span>Recovery phrase</span><textarea data-ph2 rows="4" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="word1 word2 word3 …"></textarea></label>
+      <label class="fld"><span>Name</span><input data-pkname maxlength="24" placeholder="Wallet ${list.filter((a) => a.kind === "phrase").length + 2}"/></label>
+      <div class="note warn">${I.shield}<span>Keep this phrase's own backup: your Ecrin recovery phrase doesn't cover it. Never type a phrase a website or a person asked you for.</span></div>
+      <div class="pfoot"><button class="btn primary xl" data-act="acct-import-phrase">Import</button></div>
+    </div>`;
+  return `${phead("Import a wallet")}
+    <div class="pad">
+      ${seg}
       <p class="fine">Paste a private key from another wallet. Solana keys come from Phantom or Solflare (Settings → Show private key). Ethereum keys are 64 characters.</p>
       <label class="fld"><span>Private key</span><textarea data-pk rows="3" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Paste the key"></textarea></label>
-      <label class="fld"><span>Name</span><input data-pkname maxlength="24" placeholder="Imported ${(S.accts || []).filter((a) => a.kind === "key").length + 1}"/></label>
+      <label class="fld"><span>Name</span><input data-pkname maxlength="24" placeholder="Imported ${list.filter((a) => a.kind === "key").length + 1}"/></label>
       <div class="note warn">${I.shield}<span>Never paste a private key a website or a person asked you for. Ecrin keeps it encrypted on this device only.</span></div>
       <div class="pfoot"><button class="btn primary xl" data-act="acct-import">Import</button></div>
     </div>`;
@@ -2890,8 +2902,9 @@ const actions = {
   "acct-remove": async (el) => {
     const a = S.accts.find((x) => x.id === el.dataset.id); if (!a) return;
     if (a.kind === "key" && !(await ask(`Its coins stay on the blockchain, but you'll need its private key to get them back.`, { title: `Remove ${a.name}?`, ok: "Remove", danger: true }))) return;
+    if (a.kind === "phrase" && !(await ask(`Its coins stay on the blockchain, but you'll need its own recovery phrase to get them back.`, { title: `Remove ${a.name}?`, ok: "Remove", danger: true }))) return;
     S.accts = S.accts.filter((x) => x.id !== a.id); await saveAccts();
-    if (a.kind === "key") { const st = await local.get("keysBox"); const m = await openKeys(st.keysBox, PHRASE).catch(() => ({})); delete m[a.id]; await local.set({ keysBox: await sealKeys(m, PHRASE) }); }
+    if (a.kind === "key" || a.kind === "phrase") { const st = await local.get("keysBox"); const m = await openKeys(st.keysBox, PHRASE).catch(() => ({})); delete m[a.id]; await local.set({ keysBox: await sealKeys(m, PHRASE) }); }
     if (a.id === S.sel) return switchAccount(S.accts[0].id);
     S.panel.edit = null; renderPanel();
   },
@@ -2901,6 +2914,21 @@ const actions = {
     const n = (S.accts || DEF_ACCTS).length;
     S.accts = [...(S.accts || DEF_ACCTS), { id: "hd" + i, kind: "hd", i, name: `Account ${i + 1}`, c: n % COLORS.length }];
     await saveAccts(); toast(`Account ${i + 1} added`); switchAccount("hd" + i);
+  },
+  "imp-mode": (el) => { S.panel.mode = el.dataset.v; renderPanel(); },
+  "acct-import-phrase": async () => {
+    const box = $("[data-ph2]"), raw = normalize(box?.value || ""), name = ($("[data-pkname]")?.value || "").trim().slice(0, 24);
+    if (!isPhrase(raw)) return toast("That isn't a valid recovery phrase. Check every word and the order (12 or 24 words).", "err");
+    if (raw === PHRASE) return toast("That's this wallet's own recovery phrase: its accounts are already here (Add account).", "err");
+    const A0 = deriveAccount(raw, { web3, ethers }, 0), solPub = A0.sol.publicKey.toBase58(), pub = A0.evm.address;
+    const list = S.accts || DEF_ACCTS;
+    if (list.some((a) => a.kind === "phrase" && (a.pub === pub || a.solPub === solPub)) || list.some((a) => a.kind === "key" && (a.pub === pub || a.pub === solPub))) return toast("This wallet is already in Ecrin Wallet.", "err");
+    const id = "p" + Date.now().toString(36);
+    const st = await local.get("keysBox"); const m = await openKeys(st.keysBox, PHRASE).catch(() => ({})); m[id] = raw;
+    await local.set({ keysBox: await sealKeys(m, PHRASE) });
+    S.accts = [...list, { id, kind: "phrase", i: 0, pub, solPub, name: name || `Wallet ${list.filter((a) => a.kind === "phrase").length + 2}`, c: list.length % COLORS.length }];
+    if (box) box.value = "";
+    await saveAccts(); toast("Wallet imported"); switchAccount(id);
   },
   "acct-import": async () => {
     const raw = $("[data-pk]")?.value || "", name = ($("[data-pkname]")?.value || "").trim().slice(0, 24);

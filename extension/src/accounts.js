@@ -1,6 +1,8 @@
 // Several accounts in one Ecrin Wallet.
 // - Accounts from the recovery phrase: account N uses index N on every network (the same accounts Phantom and
 //   MetaMask show for that phrase), so nothing new needs backing up.
+// - Imported recovery phrases: another wallet's 12 or 24 words, giving its account on every network. Encrypted the same
+//   way as imported keys, and likewise NOT covered by this wallet's own recovery phrase backup.
 // - Imported private keys: one network family each (a Solana key, or an Ethereum-style key). They are encrypted with
 //   a key derived from the recovery phrase (AES-256-GCM), so they unlock whenever the phrase does (password or Face ID)
 //   and are as safe as the phrase itself. They are NOT covered by the recovery phrase backup: the wallet says so.
@@ -47,6 +49,8 @@ export function parseKey(text, { web3, ethers }) {
 export function keysFor(entry, phrase, imported, { web3, ethers }) {
   if (!entry || entry.kind === "hd") return { ...deriveAccount(phrase, { web3, ethers }, entry?.i || 0), only: null };
   const s = imported[entry.id];
+  // Another recovery phrase, imported: a full account on every network, kept in the same encrypted box as keys.
+  if (entry.kind === "phrase") { if (!s) throw new Error("This imported wallet's phrase is missing."); return { ...deriveAccount(s, { web3, ethers }, entry.i || 0), only: null }; }
   if (!s) throw new Error("This imported account's key is missing.");
   if (entry.fam === "sol") return { sol: web3.Keypair.fromSecretKey(bs58.decode(s)), evm: null, only: "sol" };
   return { sol: null, evm: new ethers.Wallet(s), only: "evm" };
