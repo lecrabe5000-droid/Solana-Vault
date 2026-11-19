@@ -13,6 +13,7 @@ export async function handleRpc(request, env, net = "sol") {
   const text = await request.text(); if (text.length > 64_000) return out({ error: "Request too large" }, 413);
   let body; try { body = JSON.parse(text); } catch (_) { return out({ error: "Bad JSON" }, 400); }
   const calls = Array.isArray(body) ? body : [body];
+  if (Array.isArray(body) && !body.length) return out([]); // an empty batch has an empty answer, not an error
   if (!calls.length || calls.length > 20 || calls.some((c) => !ALLOWED.has(c?.method) || (net === "solm" && c.method === "requestAirdrop"))) return out({ jsonrpc: "2.0", id: calls[0]?.id ?? null, error: { code: -32601, message: "Method not available on this route" } }, 400);
   // Mainnet (real money) has its own upstream: SOL_MAINNET_RPC (e.g. a Helius mainnet URL) or Solana's public server.
   const upstream = net === "solm" ? env.SOL_MAINNET_RPC || "https://api.mainnet-beta.solana.com" : env.SOL_RPC || "https://api.devnet.solana.com";

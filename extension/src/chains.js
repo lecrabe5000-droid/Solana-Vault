@@ -22,6 +22,8 @@ export function solConnection(web3, url, local = false, backups = SOL_RPC_BACKUP
   const urls = local ? [url] : [url, ...backups.filter((u) => u !== url)];
   let at = 0;
   const failover = async (input, init) => {
+    // Nothing to ask (an empty batch, e.g. no tokens to look up): answer it here instead of troubling a server.
+    if (init?.body === "[]") return new Response("[]", { status: 200, headers: { "content-type": "application/json" } });
     let last;
     for (let k = 0; k < urls.length; k++) {
       const u = urls[(at + k) % urls.length];
