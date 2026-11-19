@@ -3975,9 +3975,6 @@ html { background: #0c0d0f !important; } html[data-theme="light"] { background: 
 html, body, #root, #panel .pane { overscroll-behavior: none; }
 * { -webkit-tap-highlight-color: transparent; }
 html, body { touch-action: manipulation; overflow-x: hidden; } /* no double-tap zoom, never shifted sideways */
-/* iPhone can still pan a page sideways when anything is a hair wider than the screen: clip it at the edges. */
-html, body, .device, #root { overflow-x: clip !important; max-width: 100vw; }
-.home, #panel .pane { overflow-x: hidden !important; }
 button, .btn, .srow, .arow, .acard { -webkit-user-select: none; user-select: none; touch-action: manipulation; }
 input, textarea, select { font-size: max(16px, 1em); }
 /* Always portrait. iPhone doesn't let web apps lock the screen, so when the phone is turned sideways the whole app is

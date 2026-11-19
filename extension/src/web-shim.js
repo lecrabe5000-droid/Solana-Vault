@@ -37,11 +37,6 @@ const unzoom = () => {
   if (m && globalThis.visualViewport && visualViewport.scale > 1.01) { const c = m.content; m.content = c.replace(/,\s*maximum-scale=[\d.]+/, "") + ", maximum-scale=1"; }
   if (scrollX) scrollTo(0, scrollY);
 };
-// The app's frames never scroll sideways (only rows made to slide, like the shortcuts, do): if one ever has, put it back.
-const FRAMES = "html, body, .device, #root, .home, #panel, #panel .pane";
-const unshift = () => { if (scrollX) scrollTo(0, scrollY); for (const e of document.querySelectorAll(FRAMES)) if (e.scrollLeft) e.scrollLeft = 0; };
-document.addEventListener("scroll", (e) => { const t = e.target === document ? document.documentElement : e.target; if (t?.scrollLeft && t.matches?.(FRAMES)) t.scrollLeft = 0; else if (e.target === document && scrollX) scrollTo(0, scrollY); }, { capture: true, passive: true });
-addEventListener("resize", unshift); document.addEventListener("visibilitychange", () => { if (!document.hidden) unshift(); }); setInterval(unshift, 2000);
 unzoom(); addEventListener("resize", unzoom); globalThis.visualViewport?.addEventListener?.("resize", unzoom);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) unzoom(); });
 // Where the system allows it (an installed app on Android), lock portrait outright; iPhone ignores this, the turn-back above covers it.
