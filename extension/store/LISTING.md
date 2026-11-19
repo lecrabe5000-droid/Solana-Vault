@@ -15,6 +15,8 @@ The wallet with an undo button: withdrawals from your Safe wait, and you can can
 
 **Description:**
 
+(Don't list network names here: the store rejected a list of networks as keyword spam, twice.)
+
 Crypto has no undo button. Ecrin adds one.
 
 Ecrin Wallet gives you two places for your money: a Wallet for everyday spending, and a Safe for everything else. Anything leaving your Safe waits a delay you choose, and you can cancel it the whole time.
@@ -37,7 +39,7 @@ PROTECTION BEFORE YOU SIGN
 • Press and hold to confirm every send.
 
 A COMPLETE WALLET
-• One recovery phrase for Solana, Ethereum, Base, Arbitrum, Optimism, Polygon, Sui and Tron.
+• One recovery phrase for all your accounts, on the major blockchains.
 • Send, receive and swap, with the dollar value next to every amount.
 • Several accounts, private key import, an address book and price alerts.
 • Every token you hold, with scam airdrops hidden, and a collectibles gallery.
