@@ -210,7 +210,7 @@ const FR = {
   "Testnet beta · not audited · test coins only": "Bêta testnet · non audité · jetons de test uniquement",
   "Unlock": "Déverrouiller", "Password": "Mot de passe", "Wrong password": "Mot de passe incorrect", "Welcome back": "Bon retour",
   // panels
-  "Settings": "Réglages", "Accounts": "Comptes", "Add account": "Ajouter un compte", "Import key": "Importer une clé", "Import private key": "Importer une clé privée",
+  "To network": "Réseau d'arrivée", "Settings": "Réglages", "Accounts": "Comptes", "Add account": "Ajouter un compte", "Import key": "Importer une clé", "Import private key": "Importer une clé privée",
   "Name": "Nom", "Import": "Importer", "Save": "Enregistrer", "Remove": "Retirer", "Hide": "Masquer", "Show in list": "Afficher",
   "Review": "Vérifier", "Hold to send": "Maintenir pour envoyer", "Sending…": "Envoi…", "Done": "Terminé", "Back": "Retour",
   "From": "De", "To": "À", "Network fee": "Frais de réseau", "Amount": "Montant", "Send to": "Envoyer à", "Review and send": "Vérifier et envoyer",

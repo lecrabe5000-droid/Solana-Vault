@@ -1766,7 +1766,8 @@ function txdView() {
   const r = S.actShown?.[S.panel.i]; if (!r) return `${phead("Details")}<p class="fine pad">This item isn't available anymore.</p>`;
   const { e, title, ic, cls } = r, N = NETS[e.k] || NETS.sol, unit = e.sym || (e.a === "usdc" ? "USDC" : N.unit);
   const val = e.n ? (e.a === "usdc" ? e.n / USDC_BASE : e.t === "tsend" ? e.n : e.n / BASE) : null, usd = usdOfEntry(e);
-  const who = e.to || e.from, whoName = who ? nameFor(e.k, who) : null;
+  // Only sends and receives carry an address: a swap's "to" is a coin, a bridge's is a network.
+  const addrs = ["send", "tsend", "recv"].includes(e.t), who = addrs ? e.to || e.from : null, whoName = who ? nameFor(e.k, who) : null;
   const rowA = (label, a) => `<div><span>${label}</span><b class="mono wrap">${whoName && a === who ? `${esc(whoName)}<br/>` : ""}${esc(a)} <button class="ib sm" data-act="copy" data-v="${esc(a)}" aria-label="Copy">${I.copy}</button></b></div>`;
   return `${phead("Details")}
     <div class="txd-hero"><span class="act-ico lg ${cls}">${ic}</span><b>${title}</b>
@@ -1776,7 +1777,7 @@ function txdView() {
       <div><span>Status</span><b><span class="st-pill">${I.check}Confirmed</span></b></div>
       <div><span>Date</span><b>${e.at ? new Date(e.at).toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { dateStyle: "medium", timeStyle: "short" }) : "—"}</b></div>
       <div><span>Network</span><b>${N.name} ${N.net}</b></div>
-      ${e.to ? rowA("To", e.to) : ""}${e.from ? rowA("From", e.from) : ""}
+      ${addrs ? `${e.to ? rowA("To", e.to) : ""}${e.from ? rowA("From", e.from) : ""}` : e.t === "swap" ? `<div><span>Swapped</span><b>${esc(e.from || "")} → ${esc(e.to || "")}</b></div>` : e.t === "bridge" && e.to ? `<div><span>To network</span><b>${esc(e.to)}</b></div>` : ""}
       ${e.origin ? `<div><span>Website</span><b>${esc(host(e.origin))}</b></div>` : ""}
       ${e.sig ? `<div><span>Transaction</span><b class="mono">${short(e.sig)} <button class="ib sm" data-act="copy" data-v="${esc(e.sig)}" aria-label="Copy">${I.copy}</button></b></div>` : ""}
     </div>
