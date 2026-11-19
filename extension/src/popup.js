@@ -197,7 +197,7 @@ async function eng() {
 }
 
 async function boot() {
-  const pr = await local.get(["book", "hideSmall", "order", "recvNotify", "guard", "alertsOn", "showNfts", "goal", "cur", "palerts", "sounds", "obHide"]); S.obHide = !!pr.obHide; S.palerts = pr.palerts || {}; S.sounds = !!pr.sounds; S.showNfts = !!pr.showNfts; S.goal = pr.goal || null; S.cur = pr.cur || "USD"; Object.assign(S, { book: pr.book || {}, hideSmall: !!pr.hideSmall, order: pr.order || "value", recvNotify: pr.recvNotify, guard: { auto: 0, daily: 0, cool: 0, coolOver: 500, late: 1, bet: 0, ...(pr.guard || {}) }, alertsOn: !!pr.alertsOn });
+  const pr = await local.get(["book", "hideSmall", "order", "recvNotify", "guard", "alertsOn", "showNfts", "goal", "cur", "palerts", "sounds", "obHide", "earlySafe"]); S.obHide = !!pr.obHide; S.earlySafe = !!pr.earlySafe; S.palerts = pr.palerts || {}; S.sounds = !!pr.sounds; S.showNfts = !!pr.showNfts; S.goal = pr.goal || null; S.cur = pr.cur || "USD"; Object.assign(S, { book: pr.book || {}, hideSmall: !!pr.hideSmall, order: pr.order || "value", recvNotify: pr.recvNotify, guard: { auto: 0, daily: 0, cool: 0, coolOver: 500, late: 1, bet: 0, ...(pr.guard || {}) }, alertsOn: !!pr.alertsOn });
   const st = await local.get(["box", "net", "theme", "autolock", "hide", "nums", "range", "dev", "prices", "bio", "lang", "netMode"]);
   S.mode = st.netMode === "main" || st.netMode === "test" ? st.netMode : DEFAULT_MODE;
   // Which mainnet networks have a private server at Ecrin: the last known list now, a fresh one in the background (hourly).
@@ -2254,7 +2254,9 @@ function moveView() {
    Each network keeps its own Safe account (that's how blockchains work), but you only ever open one Safe: "Open my
    Safe" opens it on every network where you have coins for the fee, and any other network opens on its own, with the
    same rules, the first time you protect something there. */
-const canSafe = (k) => !!NETS[k]?.contract; // Solana devnet has its program; mainnet (real money) waits for the audit
+// Test networks have their Safe; on mainnet a Safe contract (Base) only shows to someone who turned on early access
+// in Settings, knowing it has not been audited yet.
+const canSafe = (k) => { const N = NETS[k]; return !!N?.contract && (!N.real || !!S.earlySafe); };
 // Every network with an open Safe. The network you're on uses its fresh copy (S.vault), so callers never read a
 // stale or empty one right after a change there.
 const openRows = () => (S.all || []).filter((r) => r.ok).map((r) => (r.k === S.net && S.vault !== undefined ? { ...r, v: S.vault } : r)).filter((r) => r.v?.main);
@@ -2482,7 +2484,8 @@ function settingsView() {
       ${row("panel", '<b class="nf-ico">1.2</b>', "Numbers", `${NUM_FACES.find(([k]) => k === S.nums.face)[1]} ${I.arrow}`, 'data-p="numbers"')}`)}
     ${sec("Networks", `
       <div class="srow"><span>${I.globe}Networks</span><span class="seg">${[["main", "Mainnet"], ["test", "Testnet"]].map(([m, l]) => `<button data-act="net-mode" data-v="${m}" aria-pressed="${(S.mode || DEFAULT_MODE) === m}">${l}</button>`).join("")}</span></div>
-      <p class="set-note">${isMain() ? "The Safe comes to mainnet after its security audit; until then it runs on Testnet." : "Test coins with no value: try everything, the Safe included, for free."}</p>`)}
+      ${isMain() && Object.values(NETS).some((N) => N.real && N.contract) ? row("tog", I.lock, "Safe on Base · early access", onOff(S.earlySafe), 'data-k="earlySafe"') : ""}
+      <p class="set-note">${isMain() ? (S.earlySafe ? "Early access: the Safe works on Base with USDC and ETH. It has not been audited yet, so keep amounts small." : "The Safe comes to mainnet after its security audit; until then it runs on Testnet.") : "Test coins with no value: try everything, the Safe included, for free."}</p>`)}
     ${sec("Wallet", `
       ${row("panel", I.recv, "Contacts", `${Object.values(S.book || {}).reduce((t, m) => t + Object.keys(m || {}).length, 0) || ""} ${I.arrow}`, 'data-p="contacts"')}
       ${row("report", I.spark, "Monthly report")}`)}
@@ -2876,7 +2879,9 @@ const actions = {
         if (perm !== "granted") { S.recvNotify = false; toast("Notifications are blocked for Ecrin. Allow them in your phone's settings, then try again.", "err"); }
       }
     }
+    else if (k === "earlySafe" && !S.earlySafe && !confirm("Turn on the Safe on Base?\n\nIt holds real coins and has not been audited yet. A bug could lock what you put in. Only use amounts you could lose.")) return;
     else S[k] = !S[k];
+    if (k === "earlySafe") { S.all = null; loadAll(); }
     if (k === "showNfts" && !S.showNfts && S.tab === "nfts") S.tab = "tokens";
     await local.set({ [k]: S[k] }); renderPanel(); render();
   },

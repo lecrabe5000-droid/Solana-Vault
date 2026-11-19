@@ -18,6 +18,8 @@ subtask(TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD, async ({ solcVersion }, hre, runSu
 const { DEPLOYER_KEY, SEPOLIA_DEPLOYER_KEY, ETHERSCAN_API_KEY } = process.env;
 const key = DEPLOYER_KEY || SEPOLIA_DEPLOYER_KEY;
 const accounts = key ? [key.startsWith("0x") ? key : "0x" + key] : [];
+// Mainnet (real money) has its own key, MAINNET_DEPLOYER_KEY, never the testnet one.
+const mk = process.env.MAINNET_DEPLOYER_KEY, mainAccounts = mk ? [mk.startsWith("0x") ? mk : "0x" + mk] : [];
 // RPC_<NETWORK> overrides a public RPC, e.g. RPC_BASESEPOLIA (SEPOLIA_RPC_URL still works for Sepolia).
 const rpc = (name, url) => process.env["RPC_" + name.toUpperCase()] || (name === "sepolia" && process.env.SEPOLIA_RPC_URL) || url;
 
@@ -47,6 +49,8 @@ module.exports = {
     avalancheFuji: { url: rpc("avalancheFuji", "https://avalanche-fuji-c-chain-rpc.publicnode.com"), chainId: 43113, accounts },
     robinhoodTestnet: { url: rpc("robinhoodTestnet", "https://rpc.testnet.chain.robinhood.com"), chainId: 46630, accounts },
     // HyperEVM: the contract is too big for its small blocks; scripts/hyper-big-blocks.js switches the deployer to big blocks first.
+    // Mainnet: Base only, for the early-access Safe.
+    base: { url: rpc("base", "https://mainnet.base.org"), chainId: 8453, accounts: mainAccounts },
     hyperevmTestnet: { url: rpc("hyperevmTestnet", "https://rpc.hyperliquid-testnet.xyz/evm"), chainId: 998, accounts, timeout: 300_000 },
   },
 };
