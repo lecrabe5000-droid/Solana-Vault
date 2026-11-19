@@ -3956,6 +3956,12 @@ html:root[data-theme="light"] #panel .pane.scrolled .phead:not(#z) { background:
 .fx-sw:active { transform: scale(.96); }
 .amt > .fx-sw, .mv2 > .fx-sw, .es2 > .fx-sw { display: flex; width: max-content; }
 
+/* Swap | Bridge switch at the top of both screens */
+.sb-seg { padding: 2px 16px 10px; }
+.sb-seg .seg2 { width: 100%; }
+.sb-seg .seg2 button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.sb-seg .seg2 svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
 #root, #panel { top: 0; bottom: 0; }

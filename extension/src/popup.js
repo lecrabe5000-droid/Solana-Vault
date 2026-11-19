@@ -2934,6 +2934,11 @@ const actions = {
     S.accts = [...(S.accts || DEF_ACCTS), { id: "hd" + i, kind: "hd", i, name: `Account ${i + 1}`, c: n % COLORS.length }];
     await saveAccts(); toast(`Account ${i + 1} added`); switchAccount("hd" + i);
   },
+  "sb-go": async (el) => {
+    const v = el.dataset.v; if (!S.panel || S.panel.p === v) return;
+    S.panel = { p: v, step: "form", asset: "native", amount: "", to: "" }; haptic("light"); renderPanel();
+    if (v === "swap") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); }
+  },
   "imp-mode": (el) => { S.panel.mode = el.dataset.v; renderPanel(); },
   "acct-import-phrase": async () => {
     const box = $("[data-ph2]"), raw = normalize(box?.value || ""), name = ($("[data-pkname]")?.value || "").trim().slice(0, 24);
@@ -3915,6 +3920,8 @@ async function swapNow() {
   renderPanel();
 }
 
+// Swap and Bridge are one place: a switch at the top of each, like other wallets (Mainnet only: both are real money).
+const sbSeg = (cur) => (isMain() ? `<div class="sb-seg"><div class="seg2" style="--i:${cur === "bridge" ? 1 : 0}"><i></i><button data-act="sb-go" data-v="swap" aria-pressed="${cur === "swap"}">${I.swap}Swap</button><button data-act="sb-go" data-v="bridge" aria-pressed="${cur === "bridge"}"><svg viewBox="0 0 24 24"><path d="M3 16c3-6 15-6 18 0"/><path d="M6 12.6V18M12 11v7M18 12.6V18"/></svg>Bridge</button></div></div>` : "");
 function swapView() {
   // Jupiter has markets on mainnet only.
   if (!isMain()) return `${phead("Swap")}<div class="cv"><div class="cv-art">${I.swap}</div><h2>Swaps run on Mainnet</h2><p class="sub">Swaps go through Jupiter on Solana mainnet, which has no test version. Switch Settings → Networks to Mainnet to swap.</p></div>`;
@@ -3947,7 +3954,7 @@ function swapView() {
       ${loss >= 10 ? `<p class="err">You'd lose ${loss.toFixed(0)}% to price impact. This coin has very little trading; try a smaller amount.</p>` : ""}
       <div class="sx-note">${I.shield}<span>Before you sign, Ecrin checks the swap on the network and refuses it if more would leave than you chose.</span></div>
     </div><div class="pfoot">${hold(P.step === "sending" ? "Swapping…" : "Hold to swap", P.step === "sending")}</div>`;
-  return `${phead("Swap")}
+  return `${phead("Swap")}${sbSeg("swap")}
   <div class="sx">
     <div class="sf-aura" aria-hidden="true" style="${auraT()}"><i></i><i></i><i></i></div>
     <div class="sx-soon${SWAP.live ? " real" : ""}"><i></i>${SWAP.live ? "Solana mainnet" : "Preview · swaps are being switched on"}</div>
@@ -4399,7 +4406,7 @@ function bridgeView() {
     </div>
     <div class="pfoot snd-foot"><button class="btn xl" data-act="br-back">Back</button><button class="btn primary xl" data-act="br-go">Confirm</button></div>`;
   const btn = !BRIDGE.on ? "Bridges open soon" : !raw ? "Enter an amount" : over ? `Not enough ${sym} on ${NETS[from].name}` : P.quoting || !q ? (P.qErr ? "No route right now" : "Finding the best route…") : "Review bridge";
-  return `${phead("Bridge")}
+  return `${phead("Bridge")}${sbSeg("bridge")}
     <div class="sx br">
       <div class="sx-card br-card">
         <div class="sx-top"><span class="sx-k">From</span><span class="sx-bal">Balance ${nf(brHeld(fa), fa)} ${sym}</span></div>
