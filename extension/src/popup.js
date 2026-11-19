@@ -2328,6 +2328,7 @@ function safeKind() { const r = S.vault ? { v: S.vault } : openRows()[0]; return
 const feeFloor = (k) => (NETS[k].fam === "sol" ? 3_000_000 : 1);
 async function openSafeEverywhere(kind) {
   const { dev } = await local.get("dev"), rows = S.all || [], done = [], skipped = [];
+  if (!canSafe(S.net)) { const k = netKeys().find(canSafe); if (!k) throw new Error("The Safe isn't available on this network yet."); await useNet(k); }
   // this network first: if it fails, say why and stop
   if (!S.vault) { await (await eng()).createVault(kind); done.push(S.net); }
   for (const k of netKeys().filter((k) => k !== S.net && canSafe(k))) {
@@ -2913,7 +2914,14 @@ const actions = {
     }
     else if (k === "earlySafe" && !S.earlySafe && !confirm("Turn on the Safe on Base?\n\nIt holds real coins and has not been audited yet. A bug could lock what you put in. Only use amounts you could lose.")) return;
     else S[k] = !S[k];
-    if (k === "earlySafe") { S.all = null; loadAll(); }
+    if (k === "earlySafe") {
+      S.all = null; loadAll();
+      // Turned on from Protect: go straight to the network that has the Safe (Base), with your coins there if any.
+      if (S.earlySafe && S.panel && ["protect", "withdraw"].includes(S.panel.p) && !canSafe(S.net)) {
+        const w = worth(), best = w.items.filter((i) => canSafe(i.k) && i.chq > 0).sort((x, y) => (y.usd || 0) - (x.usd || 0))[0];
+        const nk = best?.k || netKeys().find(canSafe); if (nk) { await useNet(nk); if (best) S.panel.asset = best.a; const e = await eng(); S.panel.reserve = await Promise.resolve().then(() => e.reserve(S.panel.asset)).catch(() => 0); }
+      }
+    }
     if (k === "showNfts" && !S.showNfts && S.tab === "nfts") S.tab = "tokens";
     await local.set({ [k]: S[k] }); renderPanel(); render();
   },
@@ -3019,9 +3027,11 @@ const actions = {
   panel: async (el) => {
     const p = el.dataset.p;
     if (["send", "protect", "withdraw"].includes(p) && !S.panel) {
-      const w = worth(), here = w.items.filter((i) => i.k === S.net && (p === "withdraw" ? i.sav : i.chq) > 0);
-      const best = w.items.filter((i) => (p === "withdraw" ? i.sav : i.chq) > 0).sort((x, y) => (y.usd || 0) - (x.usd || 0))[0];
+      // Protect and Withdraw only make sense where a Safe can live (on mainnet: Base, in early access).
+      const ok = (k) => p === "send" || canSafe(k), w = worth(), here = ok(S.net) ? w.items.filter((i) => i.k === S.net && (p === "withdraw" ? i.sav : i.chq) > 0) : [];
+      const best = w.items.filter((i) => ok(i.k) && (p === "withdraw" ? i.sav : i.chq) > 0).sort((x, y) => (y.usd || 0) - (x.usd || 0))[0];
       if (!here.length && best && best.k !== S.net) { await useNet(best.k); el = { dataset: { p, a: best.a } }; }
+      else if (!ok(S.net)) { const k = netKeys().find(canSafe); if (k) await useNet(k); }
     }
     if (S.panel && p !== S.panel.p) { pushPanel(p); S.panel = { p, step: "form", asset: el.dataset.a || "native", amount: "", to: "", k: el.dataset.k }; renderPanel(); }
     else openPanel(p, { a: el.dataset.a, k: el.dataset.k });
