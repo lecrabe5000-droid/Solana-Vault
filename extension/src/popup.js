@@ -2852,7 +2852,7 @@ const actions = {
     const k = best?.k || P.n || (P.u === "SOL" ? "sol" : P.u === "POL" ? "pol" : "eth"), a = P.u === "USDC" ? "usdc" : "native";
     await useNet(k); openPanel(p, { a }); if (p === "send" || p === "protect" || p === "swap") { const e = await eng(); S.panel.reserve = await e.reserve(a); renderPanel(); } },
   "mkt-all": () => { S.mktAll = !S.mktAll; render(); },
-  "pick-usdc": () => { S.panel.openU = !S.panel.openU; patchPanel ? patchPanel() : renderPanel(); },
+  "pick-grp": (el) => { const g = el.dataset.g; S.panel.openG = S.panel.openG === g ? null : g; patchPanel ? patchPanel() : renderPanel(); },
   "pick-coin": () => { const P = S.panel; if (!P) return; pushPanel("pick"); S.panel = { p: "pick", back: P.p, step: "form" }; renderPanel(); },
   "pick-go": async (el) => { await useNet(el.dataset.n); S.panel = null; openPanel(el.dataset.p, { a: el.dataset.a }); if (el.dataset.p !== "receive" && el.dataset.p !== "withdraw") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); } },
   grp: (el) => { S.open = { ...(S.open || {}), [el.dataset.u]: !S.open?.[el.dataset.u] }; render(); },
@@ -4097,17 +4097,24 @@ function pickView() {
   const P = S.panel, w = worth(), need = P.back === "withdraw" ? "sav" : P.back === "receive" ? null : "chq";
   // Protect only offers coins on networks where a Safe can live (the Safe program or contract is deployed there).
   let list = need ? w.items.filter((i) => i[need] > 0 && (P.back !== "protect" || canSafe(i.k))) : [];
-  // USDC on several networks shows as one row with the total. A transaction lives on one network, so tapping it opens
-  // the networks with what each one holds, and you pick where it comes from (the fullest first).
-  let usdNets = [];
-  if (need) { const us = list.filter((i) => i.a === "usdc"); if (us.length > 1) { usdNets = [...us].sort((x, y) => y[need] - x[need]); const tot = (k) => us.reduce((t, i) => t + (i[k] || 0), 0); list = [{ ...usdNets[0], chq: tot("chq"), sav: tot("sav"), usd: tot("chq") + tot("sav"), net: `${us.length} networks`, merged: true }, ...list.filter((i) => i.a !== "usdc")]; } }
   if (!need) list = netKeys().map((k) => NETS[k]).flatMap((N) => [{ k: N.key, a: "native", unit: N.unit, name: COIN_NAME[N.unit] || N.unit, net: nname(N), coin: N.key }, ...(N.usdc ? [{ k: N.key, a: "usdc", unit: "USDC", name: "USD Coin", net: nname(N), coin: "usdc" }] : [])]);
+  // Each coin shows once (ETH, USDC…). A coin on several networks opens its networks when tapped, and you pick where:
+  // a transaction lives on one network. With balances, the row shows the total and the fullest network comes first.
+  const groups = [];
+  for (const i of list) { const g = i.a === "usdc" ? "USDC" : i.unit; let G = groups.find((x) => x.g === g); if (!G) groups.push((G = { g, items: [] })); G.items.push(i); }
+  const amt = (x) => (need ? x[need] || 0 : 0);
+  list = groups.map(({ g, items }) => {
+    if (items.length === 1) return items[0];
+    const nets = need ? [...items].sort((x, y) => amt(y) - amt(x)) : items, tot = (k) => items.reduce((t, i) => t + (i[k] || 0), 0);
+    const face = g === "USDC" ? "usdc" : (items.find((i) => NETS[i.k].name === COIN_NAME[g]) || items[0]).coin;
+    return { ...items[0], coin: face, k: face, chq: tot("chq"), sav: tot("sav"), usd: need ? tot("usd") : null, net: `${items.length} networks`, merged: g, nets };
+  });
   const n = (v, d) => v.toLocaleString("en-US", { maximumFractionDigits: d });
   return `${phead({ send: "Send which coin?", protect: "Protect which coin?", withdraw: "Withdraw which coin?", receive: "Receive which coin?" }[P.back] || "Choose a coin")}
     <section class="list">${list.length ? list.map((i) => {
       const right = (x) => (need ? `<span class="ar-r"><b>${mask(n(x[need], x.dec))} ${x.unit}</b><small>${x.usd != null ? mask(money(x.usd * (x[need] / ((x.chq + x.sav) || 1)))) : ""}</small></span>` : "");
-      if (i.merged) return `<button class="arow pk-u${P.openU ? " open" : ""}" data-act="pick-usdc" aria-expanded="${!!P.openU}"><span class="cstack">${coin("usdc")}</span><span class="ar-t"><b>${i.name}</b><small>${i.net}</small></span>${right(i)}</button>
-        ${P.openU ? `<div class="pk-nets">${usdNets.map((x) => `<button class="arow sub" data-act="pick-go" data-n="${x.k}" data-a="usdc" data-p="${P.back}"><span class="cstack">${coin(x.k)}</span><span class="ar-t"><b>on ${x.net}</b><small>${x === usdNets[0] ? "most here" : "&nbsp;"}</small></span>${right(x)}</button>`).join("")}</div>` : ""}`;
+      if (i.merged) { const open = P.openG === i.merged; return `<button class="arow pk-u${open ? " open" : ""}" data-act="pick-grp" data-g="${i.merged}" aria-expanded="${open}"><span class="cstack">${coin(i.coin)}</span><span class="ar-t"><b>${i.name}</b><small>${i.net}</small></span>${right(i)}</button>
+        ${open ? `<div class="pk-nets">${i.nets.map((x, j) => `<button class="arow sub" data-act="pick-go" data-n="${x.k}" data-a="${x.a}" data-p="${P.back}"><span class="cstack">${coin(x.k)}</span><span class="ar-t"><b>on ${x.net}</b><small>${need && j === 0 && amt(x) > 0 ? "most here" : "&nbsp;"}</small></span>${right(x)}</button>`).join("")}</div>` : ""}`; }
       return `<button class="arow" data-act="pick-go" data-n="${i.k}" data-a="${i.a}" data-p="${P.back}"><span class="cstack">${coin(i.coin)}${i.coin !== i.k ? `<span class="cmini">${coin(i.k)}</span>` : ""}</span>
       <span class="ar-t"><b>${i.name}</b><small>${i.net}</small></span>${right(i)}</button>`; }).join("") : `<div class="empty">${I.recv}<b>Nothing here yet</b><span>${need === "sav" ? "Your Safe is empty." : isMain() ? "Use Receive to add some." : "Use Receive to get free test coins."}</span></div>`}</section>`;
 }
