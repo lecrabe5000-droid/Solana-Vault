@@ -26,6 +26,7 @@ export const BRIDGE_NETS = {
   opm: { chain: 10, fam: "evm", usdc: EVM_MAIN.opm.usdc, native: ETH, unit: "ETH" },
   polm: { chain: 137, fam: "evm", usdc: EVM_MAIN.polm.usdc, native: null, unit: "POL" },
   avaxm: { chain: 43114, fam: "evm", usdc: EVM_MAIN.avaxm.usdc, native: null, unit: "AVAX" },
+  hypem: { chain: 999, fam: "evm", usdc: EVM_MAIN.hypem.usdc, native: null, unit: "HYPE" },
 };
 const ADDR = { sol: /^[1-9A-HJ-NP-Za-km-z]{32,44}$/, evm: /^0x[0-9a-fA-F]{40}$/ };
 

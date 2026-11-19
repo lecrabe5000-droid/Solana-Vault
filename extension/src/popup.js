@@ -4238,7 +4238,7 @@ function recvFx(label) {
    transaction; Ecrin's server adds Ecrin's fee; the wallet checks the transaction before signing (chains.js
    bridgeSend), sends it, and a small Ecrin pill follows it until it arrives on the other network. */
 const BRIDGE = { on: false, fee: 0.00875, api: "https://ecrinprotocol.app/api/bridge", checked: 0 };
-const BR_USDC = ["solm", "ethm", "basem", "arbm", "opm", "polm", "avaxm"], BR_ETH = ["ethm", "basem", "arbm", "opm"];
+const BR_USDC = ["solm", "ethm", "basem", "arbm", "opm", "polm", "avaxm", "hypem"], BR_ETH = ["ethm", "basem", "arbm", "opm"];
 const ZERO_EVM = "0x0000000000000000000000000000000000000000";
 async function bridgeStatus() {
   if (globalThis.ECRIN_DEMO) { BRIDGE.on = true; return; }
