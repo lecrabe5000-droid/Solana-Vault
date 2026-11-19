@@ -1576,13 +1576,14 @@ async function previewTok() {
     const info = await tokInfoAt(k, addr);
     if (ticket !== P.ticket || S.panel !== P) return;
     S.tokCache[key] = info; P.info = info;
-  } catch (e) { if (ticket !== P.ticket || S.panel !== P) return; P.info = { err: e?.message === "slow" ? `${NETS[k].name} is slow to answer. Try again in a moment.` : `No token at that address on ${NETS[k].name}.` }; P.lastKey = null; }
+  } catch (e) { if (ticket !== P.ticket || S.panel !== P) return; P.info = { err: e?.message === "demo" ? "The demo can't read real tokens. In Ecrin Wallet, any token address works here." : e?.message === "slow" ? `${NETS[k].name} is slow to answer. Try again in a moment.` : `No token at that address on ${NETS[k].name}.` }; P.lastKey = null; }
   P.looking = false; paintTokPrev();
 }
 async function tokInfoAt(k, addr) {
   const key = `${k}:${addr.toLowerCase()}`; S.tokCache ||= {}; if (S.tokCache[key]) return S.tokCache[key];
   const { dev } = await local.get("dev");
-  const info = await Promise.race([engine({ web3, ethers, acct: ACCT, net: k, dev: dev || {} }).tokenInfo(addr), new Promise((_, no) => setTimeout(() => no(new Error("slow")), 10_000))]);
+  const eg = engine({ web3, ethers, acct: ACCT, net: k, dev: dev || {} }); if (!eg.tokenInfo) throw new Error("demo");
+  const info = await Promise.race([eg.tokenInfo(addr), new Promise((_, no) => setTimeout(() => no(new Error("slow")), 10_000))]);
   return (S.tokCache[key] = info);
 }
 
@@ -2847,17 +2848,19 @@ const actions = {
     try {
       const { dev } = await local.get("dev");
       const info = P.info;
-      const list = S.tokList[k] || []; if (list.some((t) => t.mint === info.mint)) throw new Error("You already follow this token.");
+      const list = S.tokList[k] || [], same = (a, b) => String(a || "").toLowerCase() === String(b || "").toLowerCase();
+      if (same(info.mint, NETS[k].usdc)) throw new Error(`USDC is already in your wallet on ${NETS[k].name}.`);
+      if (list.some((t) => same(t.mint, info.mint))) throw new Error("You already follow this token.");
       S.tokList = { ...S.tokList, [k]: [...list, info] }; await local.set({ tokList: S.tokList });
       toast(`${info.symbol} added`); closePanel(); loadExtras(dev);
-    } catch (e) { S.panel.busy = false; renderPanel(); toast(/already/.test(e.message) ? e.message : "Couldn't read a token at that address on this network.", "err"); }
+    } catch (e) { S.panel.busy = false; renderPanel(); toast(/already (follow|in your wallet)/.test(e.message) ? e.message : "Couldn't read a token at that address on this network.", "err"); }
   },
   xsend: async () => {
     const P = S.panel, t = (S.extra || []).find((x) => x.mint === P.m && x.k === P.n);
     P.to = ($("[data-xto]")?.value || "").trim(); P.amount = ($("[data-xamt]")?.value || "").trim().replace(",", ".");
     const { dev } = await local.get("dev"); const e = engine({ web3, ethers, acct: ACCT, net: t.k, dev: dev || {} });
     if (!e.isAddress(P.to)) return toast(`That isn't a ${NETS[t.k].name} address.`, "err");
-    const v = Number(P.amount); if (!(v > 0)) return toast("Enter an amount.", "err");
+    const v = Number(P.amount); if (!(v > 0) || !/^\d*\.?\d*$/.test(P.amount)) return toast("Enter an amount.", "err");
     const [w, f = ""] = P.amount.split("."); if (f.length > t.dec) return toast(`This token has ${t.dec} decimals at most.`, "err");
     const raw = BigInt(w || "0") * 10n ** BigInt(t.dec) + BigInt((f + "0".repeat(t.dec)).slice(0, t.dec) || "0");
     if (raw > BigInt(t.raw)) return toast("You don't have that much.", "err");
