@@ -7,7 +7,7 @@
 // Cloudflare variables (Settings → Variables and Secrets):
 //   JUPITER_API_KEY (secret)       nothing works until it's set: the relay answers "coming soon"
 //   JUPITER_REFERRAL_ACCOUNT       Ecrin's referral account (public address), where swap fees collect
-//   JUPITER_FEE_BPS                fee in basis points, 50–255 (default 50 = 0.5%)
+//   JUPITER_FEE_BPS                fee in basis points, 50–255 (default 88 ≈ 0.875%, Ecrin's fee; Jupiter only takes whole bps)
 //   SWAP_ENABLED                   "1" to open swaps; anything else keeps them closed even with a key
 const JUP = "https://api.jup.ag/swap/v2";
 const SOLANA = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -17,7 +17,7 @@ const json = (body, status = 200) => Response.json(body, { status, headers: { "C
 export const swapMode = (env) => (env.JUPITER_API_KEY && env.SWAP_ENABLED === "1" ? "on" : "soon");
 export function swapFeeBps(env) {
   const n = Math.round(Number(env.JUPITER_FEE_BPS));
-  return Number.isFinite(n) && n > 0 ? Math.min(255, Math.max(50, n)) : 50;
+  return Number.isFinite(n) && n > 0 ? Math.min(255, Math.max(50, n)) : 88;
 }
 
 async function jupiter(env, path, init = {}) {

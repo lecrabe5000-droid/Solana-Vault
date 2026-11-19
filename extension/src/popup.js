@@ -3735,7 +3735,9 @@ function buyView() {
 // Swaps run on Solana mainnet (real money) through Jupiter, with Ecrin's fee, via ecrinprotocol.app/api/swap. They
 // open when the server says so (/api/swap/status → "on"); until then the screen shows a preview. Before signing,
 // the wallet dry-runs Jupiter's transaction and refuses anything that takes more than you chose (chains.js swapSign).
-const SWAP = { live: false, feeBps: 50, api: "https://ecrinprotocol.app/api/swap", checked: 0 };
+/** A fee as people read it: 0.0088 → "0.88%", 0.00875 → "0.875%". */
+const feePct = (f) => `${(Math.round(f * 1e5) / 1e3).toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { maximumFractionDigits: 3 })}${S.lang === "fr" ? " " : ""}%`;
+const SWAP = { live: false, feeBps: 88, api: "https://ecrinprotocol.app/api/swap", checked: 0 };
 const STAKE_APY = 0.065, STAKE_APY_TEXT = "6–7%"; // Earn: Solana staking from the Safe (Ethereum: about 3% through Lido)
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 const SWAP_NET = "solm";
@@ -3743,7 +3745,7 @@ const swapEng = () => (S.net === SWAP_NET && ENG ? ENG : engine({ web3, ethers, 
 async function swapStatus() {
   if (Date.now() - SWAP.checked < 60_000) return;
   SWAP.checked = Date.now();
-  try { const r = await fetch(SWAP.api + "/status", { cache: "no-store" }); const d = await r.json(); SWAP.live = d.mode === "on"; SWAP.feeBps = Number(d.feeBps) || 50; } catch (_) {}
+  try { const r = await fetch(SWAP.api + "/status", { cache: "no-store" }); const d = await r.json(); SWAP.live = d.mode === "on"; SWAP.feeBps = Number(d.feeBps) || 88; } catch (_) {}
   if (S.panel?.p === "swap") renderPanel();
 }
 const toRaw = (s, dec) => { const m = /^(\d*)(?:\.(\d*))?$/.exec(String(s || "").trim()); if (!m || (!m[1] && !m[2])) return 0n; const f = (m[2] || "").slice(0, dec).padEnd(dec, "0"); return BigInt((m[1] || "0") + f); };
@@ -3813,7 +3815,7 @@ function swapView() {
   if (P.step === "done" || P.step === "sending") {
     const got = P.got ? fromRaw(P.got, P.to.dec) : P.quote ? fromRaw(P.quote.outAmount, P.to.dec) : 0, nf = (v) => v.toLocaleString("en-US", { maximumFractionDigits: P.to.dec > 4 ? 4 : P.to.dec });
     return motionView(P, { kind: "swap", N, title: ["Swapping", "Swapped"], amount: `${esc(P.amount)} ${esc(P.from.sym)} → ${nf(got)} ${esc(P.to.sym)}`, usd: P.inUsd || P.quote?.inUsdValue ? money(Number(P.inUsd || P.quote.inUsdValue)) : "", line: "on Solana mainnet",
-      rows: [["You paid", `${esc(P.amount)} ${esc(P.from.sym)}`], ["You got", `${nf(got)} ${esc(P.to.sym)}`], ["Ecrin fee", `${(SWAP.feeBps / 100).toFixed(1)}% (included)`], ["Route", `Jupiter${P.quote?.router ? " · " + esc(String(P.quote.router)) : ""}`]] });
+      rows: [["You paid", `${esc(P.amount)} ${esc(P.from.sym)}`], ["You got", `${nf(got)} ${esc(P.to.sym)}`], ["Ecrin fee", `${feePct(SWAP.feeBps / 1e4)} (included)`], ["Route", `Jupiter${P.quote?.router ? " · " + esc(String(P.quote.router)) : ""}`]] });
   }
   if (P.pick) return swapPickView();
   const raw = toRaw(P.amount, P.from.dec), max = swapMaxRaw(P.from), over = raw > max, q = P.quote;
@@ -3829,7 +3831,7 @@ function swapView() {
       <div class="tk-info"><div><span>You pay</span><b>${nf(inAmt, 6)} ${esc(P.from.sym)}${inUsd ? ` · ${money(inUsd)}` : ""}</b></div>
         <div><span>You receive about</span><b>${nf(out, 6)} ${esc(P.to.sym)}${outUsd ? ` · ${money(outUsd)}` : ""}</b></div>
         <div><span>Price impact + fees</span><b class="${loss >= 10 ? "bad" : ""}">${loss == null ? "—" : loss < 0.1 ? "< 0.1%" : "−" + loss.toFixed(loss < 10 ? 2 : 1) + "%"}</b></div>
-        <div><span>Ecrin fee</span><b>${(SWAP.feeBps / 100).toFixed(1)}% (included)</b></div>
+        <div><span>Ecrin fee</span><b>${feePct(SWAP.feeBps / 1e4)} (included)</b></div>
         <div><span>Route</span><b>Jupiter${q?.router ? " · " + esc(String(q.router)) : ""}</b></div></div>
       ${loss >= 10 ? `<p class="err">You'd lose ${loss.toFixed(0)}% to price impact. This coin has very little trading; try a smaller amount.</p>` : ""}
       <div class="sx-note">${I.shield}<span>Before you sign, Ecrin checks the swap on the network and refuses it if more would leave than you chose.</span></div>
@@ -3852,7 +3854,7 @@ function swapView() {
       </div>
     </div>
     <div class="sx-rate"><span class="sx-live"><i></i>${q && inAmt && out ? `1 ${esc(P.from.sym)} ≈ ${nf(out / inAmt, 6)} ${esc(P.to.sym)}` : "Best price"}</span><span class="sx-route">via Jupiter</span></div>
-    <div class="sx-kv"><div><span>Ecrin fee</span><b>${(SWAP.feeBps / 100).toFixed(1)}%</b></div><div><span>Network fee</span><b>&lt; 0.001 SOL</b></div><div><span>Price impact</span><b class="${loss >= 10 ? "bad" : ""}">${loss == null ? "—" : loss < 0.1 ? "< 0.1%" : loss.toFixed(2) + "%"}</b></div><div><span>Slippage</span><b>Automatic · Jupiter</b></div></div>
+    <div class="sx-kv"><div><span>Ecrin fee</span><b>${feePct(SWAP.feeBps / 1e4)}</b></div><div><span>Network fee</span><b>&lt; 0.001 SOL</b></div><div><span>Price impact</span><b class="${loss >= 10 ? "bad" : ""}">${loss == null ? "—" : loss < 0.1 ? "< 0.1%" : loss.toFixed(2) + "%"}</b></div><div><span>Slippage</span><b>Automatic · Jupiter</b></div></div>
     ${loss >= 4 ? `<div class="sx-warn${loss >= 10 ? " hi" : ""}">${I.warn}<span>${loss >= 10 ? `<b>You'd lose about ${loss.toFixed(0)}%.</b> This coin has very little trading at this size. Try a smaller amount.` : `<b>About ${loss.toFixed(1)}% goes to price impact and fees.</b> A smaller amount usually gets a better rate.`}</span></div>` : ""}
     <div class="sx-note">${I.lock}<span>Swaps use your Wallet on Solana mainnet. Money in your Safe never moves without its delay.</span></div>
     ${(P.flipped = false, "")}<button class="sx-go" data-act="swap-review" ${SWAP.live && raw && !over && q ? "" : "disabled"}>${btn}</button>
