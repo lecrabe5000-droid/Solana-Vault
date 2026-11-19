@@ -801,6 +801,21 @@ setInterval(() => { if (S.screen === "home" && !document.hidden && ACCT) loadPri
 let polls = 0;
 setInterval(() => { if (S.screen !== "home" || document.hidden || !ACCT || S.panel?.step === "sending") return; polls++; refresh(); if (polls % 4 === 0) loadAll(); }, 15_000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden && S.screen === "home" && ACCT) { refresh(); loadAll(); } });
+// Web app: a phone keeps a home-screen app's page alive for days, so it can run an old version long after a new one is
+// live. Coming back to the app, it checks the build it's running against the server's and reloads when there's a new
+// one (never in the middle of a transaction).
+if (globalThis.ECRIN_WEB) {
+  const src = [...document.scripts].map((x) => x.src).find((u) => /\/(wallet|demo)\.js(\?|$)/.test(u));
+  const tag = () => (src ? fetch(src, { method: "HEAD", cache: "no-store" }).then((r) => r.headers.get("etag") || r.headers.get("last-modified")).catch(() => null) : Promise.resolve(null));
+  let built = null; tag().then((t) => (built = t));
+  const check = async () => {
+    if (document.hidden || !built) return;
+    const now = await tag(); if (!now || now === built) return;
+    if (S.panel?.step === "sending" || Date.now() - (S.lastTx || 0) < 60_000) return;
+    location.reload();
+  };
+  document.addEventListener("visibilitychange", check); setInterval(check, 10 * 60_000);
+}
 
 // Rolling digits, driven by time rather than CSS transitions, so a redraw in the middle doesn't restart or cut them.
 const ROLL_MS = 1100, ease = (k) => 1 - Math.pow(1 - k, 4);
