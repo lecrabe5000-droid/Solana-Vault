@@ -2408,17 +2408,17 @@ function vaultView() {
   const isMine = (d) => mine.includes(String(d)) || mine.includes(String(d).toLowerCase());
   const t = now() + (S.clockOff || 0), px = (k) => S.prices[NETS[k].cg]?.usd;
   const live = rows.filter((r) => r.ok).map((r) => (r.k === S.net && S.vault !== undefined ? { ...r, v: S.vault } : r));
-  const open = live.filter((r) => r.v), closed = Object.values(NETS).filter((N) => netKeys().includes(N.key) && canSafe(N.key) && !open.some((r) => r.k === N.key));
+  const safes = live.filter((r) => r.v), closed = Object.values(NETS).filter((N) => netKeys().includes(N.key) && canSafe(N.key) && !safes.some((r) => r.k === N.key));
   const usdOf = (r) => ((r.v.main.balance / BASE) * (px(r.k) || 0)) + ((r.v.usdc?.balance || 0) / USDC_BASE);
-  const total = open.reduce((x, r) => x + usdOf(r), 0);
-  const waiting = open.reduce((x, r) => x + r.v.main.withdrawals.length + (r.v.usdc?.withdrawals?.length || 0), 0);
+  const total = safes.reduce((x, r) => x + usdOf(r), 0);
+  const waiting = safes.reduce((x, r) => x + r.v.main.withdrawals.length + (r.v.usdc?.withdrawals?.length || 0), 0);
   // ---- the Shield: brighter the more of your money is in the Safe
   const w = worth(), share = w.total ? Math.min(1, total / w.total) : 0, pct = Math.round(share * 100);
-  const lvl = !open.length ? ["off", "No shield yet"] : pct >= 70 ? ["max", "Fortress"] : pct >= 40 ? ["strong", "Strong"] : pct >= 15 ? ["mid", "Building"] : ["low", "Exposed"];
+  const lvl = !safes.length ? ["off", "No shield yet"] : pct >= 70 ? ["max", "Fortress"] : pct >= 40 ? ["strong", "Strong"] : pct >= 15 ? ["mid", "Building"] : ["low", "Exposed"];
   if (!S.shT0) S.shT0 = performance.now();
   const el = performance.now() - S.shT0, intro = el < 2600 ? " intro" : "";
-  const pend = open.flatMap((r) => [...r.v.main.withdrawals.map((x) => ({ ...x, a: "native", r })), ...(r.v.usdc?.withdrawals || []).map((x) => ({ ...x, a: "usdc", r }))]).sort((x, y) => x.readyAt - y.readyAt);
-  const next = pend[0], dl = open[0]?.v.main.withdrawDelay;
+  const pend = safes.flatMap((r) => [...r.v.main.withdrawals.map((x) => ({ ...x, a: "native", r })), ...(r.v.usdc?.withdrawals || []).map((x) => ({ ...x, a: "usdc", r }))]).sort((x, y) => x.readyAt - y.readyAt);
+  const next = pend[0], dl = safes[0]?.v.main.withdrawDelay;
   const blocked = (S.activity || []).filter((e) => e.t === "cancel"), saved = blocked.reduce((t, e) => t + usdOfEntry(e), 0);
   const hms = clockTxt;
   const shield = `<svg class="sf-sh" viewBox="0 0 300 300" aria-hidden="true">
@@ -2427,7 +2427,7 @@ function vaultView() {
     <g transform="rotate(45 150 150)">
       <rect class="sf-tk" x="34" y="34" width="232" height="232" rx="52" pathLength="100"/>
       <rect class="sf-base" x="52" y="52" width="196" height="196" rx="44"/>
-      <rect class="sf-arc" x="52" y="52" width="196" height="196" rx="44" pathLength="100" style="--p:${Math.max(pct, open.length ? 2 : 0)}"/>
+      <rect class="sf-arc" x="52" y="52" width="196" height="196" rx="44" pathLength="100" style="--p:${Math.max(pct, safes.length ? 2 : 0)}"/>
       <rect class="sf-run" x="52" y="52" width="196" height="196" rx="44" pathLength="100"/>
       <rect class="sf-core" x="66" y="66" width="168" height="168" rx="36"/>
     </g></svg>`;
@@ -2453,7 +2453,7 @@ function vaultView() {
       <div class="sf-stage">${shield}
         <div class="sf-mid"><span class="sf-ic">${I.shield}</span><span class="lbl">Protected</span><b class="sf-tot${(() => { const n = money(total).length; return n > 12 ? " xs" : n > 9 ? " sm" : ""; })()}">${mask(fig(money(total)))}</b></div>
       </div>
-      <div class="sf-lvl"><span class="sf-pill"><i></i>${open.length ? `Shield ${lvl[1]}` : lvl[1]}</span><span class="sf-pct">${open.length ? `${pct}% of everything you own` : "Open your Safe to raise it"}</span></div>
+      <div class="sf-lvl"><span class="sf-pill"><i></i>${safes.length ? `Shield ${lvl[1]}` : lvl[1]}</span><span class="sf-pct">${safes.length ? `${pct}% of everything you own` : "Open your Safe to raise it"}</span></div>
     </section>
     ${pend.length ? `<div class="list-h sf-lh"><b>Leaving your Safe</b><span>you can cancel any time</span></div>
       <div class="sf-outs${pend.length > 1 ? " many" : ""}">${pend.map((x) => {
@@ -2469,15 +2469,15 @@ function vaultView() {
             : `<button class="so-x" data-act="cancel-w" data-n="${x.r.k}" data-id="${x.id}" data-a="${x.a}">${I.shield}Cancel this withdrawal</button>`}
         </article>`; }).join("")}</div>` : ""}
     <div class="sf-tiles">
-      <div class="sf-tile t-lock"><span class="st-ic">${I.lock}</span><span class="st-k">Locked</span><b>${mask(money(total))}</b><small>${open.length ? "every network" : "Not opened"}</small></div>
+      <div class="sf-tile t-lock"><span class="st-ic">${I.lock}</span><span class="st-k">Locked</span><b>${mask(money(total))}</b><small>${safes.length ? "every network" : "Not opened"}</small></div>
       <div class="sf-tile t-out${waiting ? " hot" : ""}"><span class="st-ic">${I.out}</span><span class="st-k">Leaving</span><b>${waiting || "None"}</b><small>${next ? `first in ${nextLeft > 0 ? dur(nextLeft) : "now"}` : "all quiet"}</small></div>
       <button class="sf-tile t-rules" data-act="panel" data-p="rules"><span class="st-ic">${I.gear}</span><span class="st-k">Rules</span><b>${dl ? delay(dl) : "—"}</b><small>delay · alerts ${I.arrow}</small></button>
     </div>
-    <div class="sf-cta"><button class="sf-go" data-act="${open.length ? "safe-pick" : "safe-go"}" data-n="${S.net}" data-p="protect">${I.protect}${open.length ? "Protect more" : "Open my Safe"}</button>${open.length ? `<button class="sf-go2" data-act="safe-pick" data-p="withdraw">${I.out}Withdraw</button>` : ""}</div>
+    <div class="sf-cta"><button class="sf-go" data-act="${safes.length ? "safe-pick" : "safe-go"}" data-n="${S.net}" data-p="protect">${I.protect}${safes.length ? "Protect more" : "Open my Safe"}</button>${safes.length ? `<button class="sf-go2" data-act="safe-pick" data-p="withdraw">${I.out}Withdraw</button>` : ""}</div>
     <div class="list-h"><b>Blocked</b><span>${blocked.length ? `${blocked.length} stopped${saved ? ` · ${mask(money(saved))} kept` : ""}` : "nothing yet"}</span></div>
     <div class="sf-blocked">${blocked.length ? blocked.slice(0, 4).map((e) => `<div class="sb-r"><i class="sb-d"></i><span><b>Withdrawal stopped</b><small>${e.at ? new Date(e.at).toLocaleDateString(S.lang === "fr" ? "fr-CA" : "en-US", { month: "short", day: "numeric" }) : ""}${e.n ? ` · ${amt(e.n, e.a === "usdc" ? "usdc" : "native")} ${e.a === "usdc" ? "USDC" : NETS[e.k]?.unit || ""}` : ""}</small></span><em>Kept</em></div>`).join("")
       : `<div class="sb-empty"><b>Nothing has tried to leave.</b><span>If anything ever does, even with your own key, it waits ${dl ? delay(dl) : "the delay"} and you can stop it right here.</span></div>`}</div>
-    ${open.length ? safeHoldings([], t, isMine, ring, hms) : ""}
+    ${safes.length ? safeHoldings([], t, isMine, ring, hms) : ""}
     ${safeTimeline()}
     ${stakeNets().length ? `<button class="earn-card" data-act="panel" data-p="earn"><span class="ec-ic">${I.spark}</span><span class="ec-t"><b>Earn on your Safe</b><small>Stake without taking it out · about ${STAKE_APY_TEXT} a year on SOL</small></span><span class="ec-go">${I.arrow}</span></button>`
       : `<button class="earn-card" data-act="panel" data-p="earn"><span class="ec-ic">${I.spark}</span><span class="ec-t"><b>Earn on your Safe</b><small>Stake without taking it out · about ${STAKE_APY_TEXT} a year</small></span><span class="soon">${isMain() ? "After the audit" : "Coming soon"}</span></button>`}
@@ -2798,8 +2798,8 @@ const actions = {
     await saveGuard(); renderPanel(); render();
   },
   "freeze-now": async (el) => {
-    const open = (S.all || []).filter((r) => r.v);
-    if (!open.length) return toast("Set up your Safe first: there's nothing to freeze yet.", "err");
+    const safes = (S.all || []).filter((r) => r.v);
+    if (!safes.length) return toast("Set up your Safe first: there's nothing to freeze yet.", "err");
     if (!(await ask("Nothing can leave your Safe on any network for 24 hours, including withdrawals already waiting. A freeze can't be ended early.", { title: "Freeze your Safe?", ok: "Freeze for 24 hours", danger: true }))) return;
     el.disabled = true; el.classList.add("busy");
     try { await applyEverywhere([["all", { kind: "SetLockedUntil", value: now() + 86400 + 120 }]]); await logActivity({ t: "freeze" }); toast("Frozen for 24 hours on every network", "win"); loadAll(); }
@@ -4374,7 +4374,7 @@ function pickView() {
   return `${phead({ send: "Send which coin?", protect: "Protect which coin?", withdraw: "Withdraw which coin?", receive: "Receive which coin?", payreq: "Request which coin?" }[P.back] || "Choose a coin")}
     <section class="list">${list.length ? list.map((i) => {
       const right = (x) => (need ? `<span class="ar-r"><b>${mask(n(x[need], x.dec))} ${x.unit}</b><small>${x.usd != null ? mask(money(x.usd * (x[need] / ((x.chq + x.sav) || 1)))) : ""}</small></span>` : "");
-      if (i.merged) { const open = P.openG === i.merged; return `<button class="arow pk-u${open ? " open" : ""}" data-act="pick-grp" data-g="${i.merged}" aria-expanded="${open}"><span class="cstack">${coin(i.coin)}</span><span class="ar-t"><b>${i.name}</b><small>${i.net}</small></span>${right(i)}</button>
+      if (i.merged) { const isOpen = P.openG === i.merged; return `<button class="arow pk-u${isOpen ? " open" : ""}" data-act="pick-grp" data-g="${i.merged}" aria-expanded="${isOpen}"><span class="cstack">${coin(i.coin)}</span><span class="ar-t"><b>${i.name}</b><small>${i.net}</small></span>${right(i)}</button>
         ${open ? `<div class="pk-nets">${i.nets.map((x, j) => `<button class="arow sub" data-act="pick-go" data-n="${x.k}" data-a="${x.a}" data-p="${P.back}"><span class="cstack">${coin(x.k)}</span><span class="ar-t"><b>on ${x.net}</b><small>${need && j === 0 && amt(x) > 0 ? "most here" : "&nbsp;"}</small></span>${right(x)}</button>`).join("")}</div>` : ""}`; }
       return `<button class="arow" data-act="pick-go" data-n="${i.k}" data-a="${i.a}" data-p="${P.back}"><span class="cstack">${coin(i.coin)}${i.coin !== i.k ? `<span class="cmini">${coin(i.k)}</span>` : ""}</span>
       <span class="ar-t"><b>${i.name}</b><small>${i.net}</small></span>${right(i)}</button>`; }).join("") : `<div class="empty">${I.recv}<b>Nothing here yet</b><span>${need === "sav" ? "Your Safe is empty." : isMain() ? "Use Receive to add some." : "Use Receive to get free test coins."}</span></div>`}</section>`;

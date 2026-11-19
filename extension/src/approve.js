@@ -1,4 +1,4 @@
-import { solConnection, evmProvider, SOLM_RPC_BACKUPS } from "./chains.js";
+import { solConnection, evmProvider as makeEvmProvider, SOLM_RPC_BACKUPS } from "./chains.js";
 import { evmByChain, solIsMain, SOL_RPC } from "./netmode.js";
 // Requests from websites: what Ecrin shows before you approve, and how it signs once you do.
 // The rule: show exactly what would leave your wallet, in plain words, before anything is signed. Solana
@@ -25,8 +25,7 @@ export function makeApprovals({ web3, ethers, getAcct, getDev }) {
   /* ---------- reading what a request does ---------- */
   async function evmProvider(chainId) {
     const N = byChain(chainId), dev = await getDev();
-    const rpc = dev?.evm?.[N.key]?.rpc || N.rpc;
-    return { N, provider: evmProvider(ethers, N, dev?.evm?.[N.key]?.rpc) };
+    return { N, provider: makeEvmProvider(ethers, N, dev?.evm?.[N.key]?.rpc) };
   }
   async function tokenMeta(provider, addr) {
     const c = new ethers.Contract(addr, ["function symbol() view returns (string)", "function decimals() view returns (uint8)", "function name() view returns (string)"], provider);
