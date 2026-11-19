@@ -3842,3 +3842,4 @@ html:root[data-skin="ecrin"] #panel .pfoot.snd-foot { background: linear-gradien
 .rc-more .arow > svg:last-child { width: 14px; height: 14px; fill: none; stroke: var(--muted); stroke-width: 2; flex: none; }
 .rc-fau { display: grid; justify-items: center; margin-top: 10px; }
 :root[data-theme="light"] .rc { background: #fff; } :root[data-theme="light"] .rc-ic { color: #2f5bff; background: rgba(47, 91, 255, .09); }
+#panel .pfoot .btn.primary + .btn.ghost { display: block; width: 100%; margin-top: 10px; }
