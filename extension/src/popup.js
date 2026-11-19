@@ -1654,7 +1654,7 @@ function netsView() {
   return `${phead("Networks")}
     <div class="nets">
       <div class="nets-mode"><span class="seg">${[["main", "Mainnet"], ["test", "Testnet"]].map(([m, l]) => `<button data-act="net-mode" data-v="${m}" aria-pressed="${(S.mode || DEFAULT_MODE) === m}">${l}</button>`).join("")}</span>
-        <p>${isMain() ? "Real money." : "Test coins with no value."} ${keys.length} networks.</p></div>
+        <p>${isMain() ? "" : "Test coins with no value. "}${keys.length} networks.</p></div>
       ${mine.length ? `<div class="list-h"><b>Your networks</b><span>${mask(money(mine.reduce((t, k) => t + usdOn(k), 0)))}</span></div><section class="list nlist">${mine.map(row).join("")}</section>` : ""}
       <div class="list-h"><b>${mine.length ? "Other networks" : "All networks"}</b><span>${rest.length}</span></div>
       <section class="list nlist">${rest.map(row).join("")}</section>
@@ -1912,7 +1912,6 @@ function sendView() {
         ${self ? `<p class="warn-n">That's your own address.</p>` : P.lookalike ? lookalikeNote(P) : P.fresh ? `<p class="warn-n">${I.shield}<span>You've never sent to this address from Ecrin. Check the first and last characters against where you copied it.</span></p>` : ""}
       </div>
       ${P.coolUntil > Date.now() ? `<div class="cool"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17"/><circle class="cl-p" cx="20" cy="20" r="17" style="stroke-dashoffset:${(106.8 * (P.coolUntil - Date.now())) / (S.guard.cool * 1000)}"/></svg><span><b data-cool>${Math.ceil((P.coolUntil - Date.now()) / 1000)}s</b><small>Cooling-off pause for big sends. Take a breath: is this really who you think it is?</small></span></div>` : ""}
-      ${NETS[S.net].real ? `<div class="sx-real">${I.warn}<span><b>Real money.</b> These are real coins. Once sent, they can't be brought back.</span></div>` : ""}
       <div class="pfoot">${P.coolUntil > Date.now() ? `<button class="hold" disabled><span class="hold-t">${I.clock}Wait for the pause</span></button>` : hold(P.step === "sending" ? "Sending…" : "Hold to send", P.step === "sending")}</div>`;
   }
   const nm = P.named && P.named.name === P.to.trim() ? P.named : null, nmOk = !!(nm?.addr && e.isAddress(nm.addr));
@@ -2483,7 +2482,7 @@ function settingsView() {
       ${row("panel", '<b class="nf-ico">1.2</b>', "Numbers", `${NUM_FACES.find(([k]) => k === S.nums.face)[1]} ${I.arrow}`, 'data-p="numbers"')}`)}
     ${sec("Networks", `
       <div class="srow"><span>${I.globe}Networks</span><span class="seg">${[["main", "Mainnet"], ["test", "Testnet"]].map(([m, l]) => `<button data-act="net-mode" data-v="${m}" aria-pressed="${(S.mode || DEFAULT_MODE) === m}">${l}</button>`).join("")}</span></div>
-      <p class="set-note">${isMain() ? "Real money on every network. The Safe comes to mainnet after its security audit; until then it runs on Testnet." : "Test coins with no value: try everything, the Safe included, for free."}</p>`)}
+      <p class="set-note">${isMain() ? "The Safe comes to mainnet after its security audit; until then it runs on Testnet." : "Test coins with no value: try everything, the Safe included, for free."}</p>`)}
     ${sec("Wallet", `
       ${row("panel", I.recv, "Contacts", `${Object.values(S.book || {}).reduce((t, m) => t + Object.keys(m || {}).length, 0) || ""} ${I.arrow}`, 'data-p="contacts"')}
       ${row("report", I.spark, "Monthly report")}`)}
@@ -3128,7 +3127,7 @@ const actions = {
     local.get("wcOn").then(({ wcOn }) => (WC || wcOn) && wcClient().then(async (c) => { const list = c.sessions(); for (const x of list) await c.disconnect(x.topic).catch(() => {}); if (list.length) toast(`Disconnected ${list.length} app${list.length > 1 ? "s" : ""}. Reconnect them on ${m === "main" ? "Mainnet" : "Testnet"}.`); })).catch(() => {});
     const keys = netKeys(); S.net = keys.find((k) => NETS[k].name === was?.name) || keys[0]; await local.set({ net: S.net });
     Object.assign(S, { bal: null, vault: undefined, all: null, extra: null, hist: null, histAt: 0, activity: null, series: {}, drawChart: true, lzT0: 0 }); ENG = null;
-    toast(m === "main" ? "Mainnet: real money" : "Testnet: test coins with no value", m === "main" ? "" : "win");
+    toast(m === "main" ? "Mainnet" : "Testnet: test coins with no value", m === "main" ? "" : "win");
     renderPanel(); await eng(); refresh(); loadAll(); loadActivity(); loadSeries();
   },
   net: async (el) => { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; S.drawChart = true; closePanel(); await eng(); loadActivity(); refresh(); loadSeries(); },
@@ -3702,7 +3701,7 @@ async function swapNow() {
 
 function swapView() {
   // Jupiter has markets on mainnet only.
-  if (!isMain()) return `${phead("Swap")}<div class="cv"><div class="cv-art">${I.swap}</div><h2>Swaps use real money</h2><p class="sub">Swaps go through Jupiter on Solana mainnet, which has no test version. Switch Settings → Networks to Mainnet to swap.</p></div>`;
+  if (!isMain()) return `${phead("Swap")}<div class="cv"><div class="cv-art">${I.swap}</div><h2>Swaps run on Mainnet</h2><p class="sub">Swaps go through Jupiter on Solana mainnet, which has no test version. Switch Settings → Networks to Mainnet to swap.</p></div>`;
   const P = S.panel, N = NETS[SWAP_NET], coins = swapCoins();
   swapStatus();
   P.from ||= coins[0]; P.to ||= coins[1];
@@ -3724,7 +3723,6 @@ function swapView() {
   const btn = !SWAP.live ? "Coming soon" : !raw ? "Enter an amount" : over ? `Not enough ${esc(P.from.sym)}` : P.quoting || !q ? (P.qErr ? "No price right now" : "Getting the best price…") : `Review swap`;
   if (P.step === "review" || P.step === "sending") return `${phead("Review swap")}
     <div class="sx sx-rv">
-      <div class="sx-real">${I.warn}<span><b>Real money.</b> This swap happens on Solana mainnet and can't be undone.</span></div>
       <div class="tk-info"><div><span>You pay</span><b>${nf(inAmt, 6)} ${esc(P.from.sym)}${inUsd ? ` · ${money(inUsd)}` : ""}</b></div>
         <div><span>You receive about</span><b>${nf(out, 6)} ${esc(P.to.sym)}${outUsd ? ` · ${money(outUsd)}` : ""}</b></div>
         <div><span>Price impact + fees</span><b class="${loss >= 10 ? "bad" : ""}">${loss == null ? "—" : loss < 0.1 ? "< 0.1%" : "−" + loss.toFixed(loss < 10 ? 2 : 1) + "%"}</b></div>
@@ -3736,7 +3734,7 @@ function swapView() {
   return `${phead("Swap")}
   <div class="sx">
     <div class="sf-aura" aria-hidden="true" style="${auraT()}"><i></i><i></i><i></i></div>
-    <div class="sx-soon${SWAP.live ? " real" : ""}"><i></i>${SWAP.live ? "Solana mainnet · real money" : "Preview · swaps are being switched on"}</div>
+    <div class="sx-soon${SWAP.live ? " real" : ""}"><i></i>${SWAP.live ? "Solana mainnet" : "Preview · swaps are being switched on"}</div>
     <div class="sx-pair">
       <div class="sx-card${over ? " over" : ""}">
         <div class="sx-top"><span class="sx-k">You pay</span><span class="sx-bal">Balance ${bal(P.from)} ${esc(P.from.sym)}</span></div>
@@ -3850,7 +3848,7 @@ function earnSoonView() {
         <div class="ap-li">${I.spark}<span>Native Solana staking, and Ethereum staking through Lido. Rates change; nothing is guaranteed.</span></div>
         <div class="ap-li">${I.shield}<span>No Ecrin fee on rewards.</span></div>
       </div>
-      <p class="fine pad">${main ? "Staking with real money opens after Ecrin's independent security audit." : "Staking opens on test networks with the next update."}</p>
+      <p class="fine pad">${main ? "Staking on Mainnet opens after Ecrin's independent security audit." : "Staking opens on test networks with the next update."}</p>
     </div>`;
 }
 /** The Earn diamond: the outer edge fills with how much of the Safe is staked; a point of light circles while it earns. */
