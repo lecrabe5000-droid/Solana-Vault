@@ -1,1 +1,1 @@
-{"latest": "0.30.5", "chrome": "0.30.4", "minimum": "0.2.0", "notes": "Bridges between networks, websites can ask for transactions again, payment links follow Mainnet/Testnet, clearer address checks."}
+{"latest": "0.30.6", "chrome": "0.30.4", "minimum": "0.2.0", "notes": "Bitcoin and XRP, bridges between any coins, import another wallet's recovery phrase, type amounts in your currency."}
