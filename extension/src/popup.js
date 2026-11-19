@@ -2241,11 +2241,11 @@ function receiveView() {
 /** Protect (chequing → savings) and Withdraw (savings → chequing, after the delay). */
 /** Mainnet before the audit: the Safe isn't there yet. Says so plainly and offers Testnet to try it. */
 function safeSoonView(title) {
-  const early = isMain() && !S.earlySafe && Object.values(NETS).some((N) => N.real && N.contract); // the early-access Safe, one tap away
+  const early = isMain() && Object.values(NETS).some((N) => N.real && N.contract); // the early-access Safe, one tap away
   return `${phead(title)}<div class="cv"><div class="cv-art">${I.lock}</div><h2>${early ? "The Safe is in early access" : "The Safe comes to mainnet after its audit"}</h2>
     <p class="sub">${early ? "Everywhere else, the Safe opens on mainnet once an independent security audit is done." : "Your Wallet works on mainnet today: send, receive and swap. The Safe, which makes every withdrawal wait, opens on mainnet once an independent security audit is done."}</p>
     ${early ? `<div class="note early-n">${I.lock}<span><b>Early access on Base.</b> The Safe already works on Base with USDC and ETH. It has not been audited yet: only use amounts you could lose.</span></div>` : `<div class="note">${I.shield}<span>Want to try it now? It runs on Testnet with free test coins, exactly as it will on mainnet.</span></div>`}</div>
-    <div class="pfoot">${early ? `<button class="btn primary xl" data-act="tog" data-k="earlySafe">Use the Safe on Base</button><button class="btn ghost" data-act="net-mode" data-v="test">Try it on Testnet instead</button>` : `<button class="btn xl" data-act="net-mode" data-v="test">Try the Safe on Testnet</button>`}</div>`;
+    <div class="pfoot">${early ? `<button class="btn primary xl" data-act="early-on">Use the Safe on Base</button><button class="btn ghost" data-act="net-mode" data-v="test">Try it on Testnet instead</button>` : `<button class="btn xl" data-act="net-mode" data-v="test">Try the Safe on Testnet</button>`}</div>`;
 }
 const noSafeHere = () => !netKeys().some(canSafe);
 function moveView() {
@@ -2908,6 +2908,22 @@ const actions = {
   "send-to": (el) => { const P = S.panel; P.to = el.dataset.a; P.named = null; P.whoDone = true; P.anim = true; renderPanel(); },
   "send-who": () => { const P = S.panel; P.whoDone = false; P.anim = false; renderPanel(); },
   "send-confirm": () => confirmSend(),
+  // Early-access Safe on Base: turn it on (once, with the warning), then go to Base with your coins there.
+  "early-on": async () => {
+    if (!S.earlySafe) {
+      if (!confirm("Turn on the Safe on Base?\n\nIt holds real coins and has not been audited yet. A bug could lock what you put in. Only use amounts you could lose.")) return;
+      S.earlySafe = true; await local.set({ earlySafe: true }); S.all = null; loadAll();
+    }
+    const safeNets = netKeys().filter(canSafe);
+    if (!safeNets.length) {
+      const why = ACCT?.only ? `This account only has ${ACCT.only === "sol" ? "a Solana" : ACCT.only === "evm" ? "an Ethereum" : "one network's"} address, and the Safe on Base needs an Ethereum address. Add an account from your recovery phrase in Settings → Accounts.` : `Base isn't among this account's networks (${netKeys().length} found, mode ${S.mode || DEFAULT_MODE}).`;
+      return toast(why, "err");
+    }
+    const w = worth(), best = w.items.filter((i) => canSafe(i.k) && i.chq > 0).sort((x, y) => (y.usd || 0) - (x.usd || 0))[0], nk = best?.k || safeNets[0];
+    if (nk !== S.net) await useNet(nk);
+    if (S.panel) { if (best) S.panel.asset = best.a; const e = await eng(); S.panel.reserve = await Promise.resolve().then(() => e.reserve(S.panel.asset)).catch(() => 0); }
+    renderPanel(); render();
+  },
   "book-save": async () => { const n = ($("#panel [data-bookname]")?.value || "").trim(); if (!n) return; const f = NETS[S.net].fam; S.book[f] = { ...(S.book[f] || {}), [S.panel.to.trim()]: n }; await local.set({ book: S.book }); toast(`Saved as ${n}`, "win"); renderPanel(); },
   "share-addr": async () => { try { await navigator.share({ title: "My " + NETS[S.net].name + " address", text: ENG.address }); } catch (_) {} },
   "ob-hide": async () => { S.obHide = true; await local.set({ obHide: true }); render(); },
@@ -4243,10 +4259,10 @@ function tokenView() {
   const acts = (S.activity || []).filter((e) => e.n && A(e.a).unit === P.u).slice(0, 5);
   const when = (ms) => new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric" });
   const savPct = tot.amt ? Math.round((tot.sav / tot.amt) * 100) : 0;
-  return `<div class="tk-page" style="--cc:${cc}">${phead("")}
+  return `<div class="tk-page" style="--cc:${cc}">${phead(`<span class="tk-ht">${icon}${esc(name)}</span>`)}
     <div class="tk-top">${icon}<span><b>${esc(name)}</b><small>${esc(P.u)}${nets.length ? ` · ${esc(nets.join(", "))}` : ""}</small></span></div>
     <div class="tk-px" data-tkpx>${px != null ? fig(money(px)) : "—"}</div>
-    <div class="tk-ch ${dd >= 0 ? "up" : "dn"}" data-tkch>${P.u === "USDC" ? "Stays close to $1" : v ? `${dd >= 0 ? "+" : "−"}${money(Math.abs(dd))} (${Math.abs(pc).toFixed(2)}%) <span>${rl}</span>` : "&nbsp;"}</div>
+    <div class="tk-ch ${dd >= 0 ? "up" : "dn"}" data-tkch>${P.u === "USDC" ? (curCode() === "USD" ? "Stays close to $1" : `Stays close to 1 US dollar · ${money(1)}`) : v ? `${dd >= 0 ? "+" : "−"}${money(Math.abs(dd))} (${Math.abs(pc).toFixed(2)}%) <span>${rl}</span>` : "&nbsp;"}</div>
     ${chart}${ranges}
     <nav class="acts tk-acts">${[["send", "Send", I.send], ["receive", "Receive", I.recv], ["swap", "Swap", I.swap], ["protect", "Protect", I.protect]].map(([p2, l, ic]) => `<button data-act="tok-do" data-p="${p2}"><span>${ic}</span>${l}</button>`).join("")}</nav>
     <div class="tk-bal"><span class="lbl">Your balance</span><b>${S.hide ? "••••" : fig(money(tot.usd))}</b><small>${mask(n(tot.amt, dec))} ${esc(P.u)}${(() => { const c = pr.usd_24h_change; if (c == null || !tot.usd || P.u === "USDC") return ""; const pl = tot.usd - tot.usd / (1 + c / 100); return ` · <span class="${pl >= 0 ? "up" : "dn"}">${pl >= 0 ? "+" : "−"}${mask(money(Math.abs(pl)))} today</span>`; })()}</small>

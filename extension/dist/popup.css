@@ -3843,3 +3843,12 @@ html:root[data-skin="ecrin"] #panel .pfoot.snd-foot { background: linear-gradien
 .rc-fau { display: grid; justify-items: center; margin-top: 10px; }
 :root[data-theme="light"] .rc { background: #fff; } :root[data-theme="light"] .rc-ic { color: #2f5bff; background: rgba(47, 91, 255, .09); }
 #panel .pfoot .btn.primary + .btn.ghost { display: block; width: 100%; margin-top: 10px; }
+
+/* Coin page header: no separate dark band. While scrolled it turns into the page's own glass, and the coin's name
+   slides into it (like major wallets), so you always know which coin you're on. */
+#panel .tk-page .phead b .tk-ht { display: inline-flex; align-items: center; gap: 8px; opacity: 0; transform: translateY(6px); transition: opacity .2s, transform .25s; }
+#panel .tk-page .phead b .tk-ht .coin { width: 22px !important; height: 22px !important; box-shadow: none !important; }
+#panel .pane.scrolled .tk-page .phead b .tk-ht { opacity: 1; transform: none; }
+html:root[data-theme="dark"] #panel .pane.scrolled .tk-page .phead { background: rgba(12, 13, 15, .72) !important; box-shadow: none !important; }
+html:root[data-skin="ecrin"] #panel .pane.scrolled .tk-page .phead { background: rgba(9, 13, 34, .72) !important; box-shadow: none !important; }
+html:root[data-theme="light"] #panel .pane.scrolled .tk-page .phead { box-shadow: none !important; }
