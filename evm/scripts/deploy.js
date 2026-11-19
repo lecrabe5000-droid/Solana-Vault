@@ -22,7 +22,8 @@ async function main() {
   if (have?.v >= (cfg.lidoLocator ? VERSION : 3) && process.env.REDEPLOY !== "1") { console.log(`Already live on ${network.name} at ${have.address}; skipping. Pick ${network.name} by itself to replace it.`); return; }
   const [deployer] = await ethers.getSigners();
   if (!deployer) throw new Error("No deployer key. Set the EVM_DEPLOYER_KEY (or SEPOLIA_DEPLOYER_KEY) secret.");
-  if (cfg.real && process.env.CONFIRM_MAINNET !== "BASE") throw new Error("Mainnet deploys run only from the deploy-evm-mainnet workflow.");
+  // A real network deploys only from the deploy-evm-mainnet workflow, where its name was typed to confirm.
+  if (cfg.real && process.env.CONFIRM_MAINNET !== network.name.toUpperCase()) throw new Error("Mainnet deploys run only from the deploy-evm-mainnet workflow, confirmed with the network's name.");
 
   // The USDC the site will offer on this network must really be a 6-decimal USDC (networks without one show the coin only).
   if (cfg.usdc) {
@@ -33,7 +34,8 @@ async function main() {
 
   // Staking: Lido's addresses come from its on-chain directory, never typed in, and must point at each other.
   let lidoArgs = [ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress];
-  if (cfg.lidoLocator) {
+  // Staking stays off on every real network until the audit.
+  if (cfg.lidoLocator && !cfg.real) {
     const loc = new ethers.Contract(cfg.lidoLocator, LOCATOR, ethers.provider);
     const [lido, queue] = await Promise.all([loc.lido(), loc.withdrawalQueue()]);
     const q = new ethers.Contract(queue, QUEUE, ethers.provider);
@@ -48,7 +50,7 @@ async function main() {
   const fee = await ethers.provider.getFeeData();
   const need = (gas * (fee.maxFeePerGas || fee.gasPrice || 0n) * 3n) / 2n;
   console.log(`Deployer ${deployer.address} has ${ethers.formatEther(bal)} ${cfg.unit} on ${network.name}; the deploy needs about ${ethers.formatEther(need)}`);
-  if (bal < need) throw new Error(cfg.real ? `Not enough ${cfg.unit} on ${cfg.name}. Send about $1 of ${cfg.unit} on ${cfg.name} to ${deployer.address}.` : `Not enough ${cfg.unit} on ${network.name}. Send some test ${cfg.unit} to ${deployer.address} (${cfg.faucetName}: ${cfg.faucet}).`);
+  if (bal < need) throw new Error(cfg.real ? `Not enough ${cfg.unit} on ${cfg.name}: the deployer has ${ethers.formatEther(bal)}, the deploy needs about ${ethers.formatEther(need)}. Send a little more ${cfg.unit} on ${cfg.name} to ${deployer.address}.` : `Not enough ${cfg.unit} on ${network.name}. Send some test ${cfg.unit} to ${deployer.address} (${cfg.faucetName}: ${cfg.faucet}).`);
 
   const vault = await factory.deploy(...lidoArgs);
   const receipt = await vault.deploymentTransaction().wait(2);

@@ -51,6 +51,14 @@ module.exports = {
     // HyperEVM: the contract is too big for its small blocks; scripts/hyper-big-blocks.js switches the deployer to big blocks first.
     // Mainnet: Base only, for the early-access Safe.
     base: { url: rpc("base", "https://mainnet.base.org"), chainId: 8453, accounts: mainAccounts },
+    // The other mainnets: the Safe for early access, each deployed on purpose from the deploy-evm-mainnet workflow.
+    ethereum: { url: rpc("ethereum", "https://ethereum-rpc.publicnode.com"), chainId: 1, accounts: mainAccounts },
+    arbitrum: { url: rpc("arbitrum", "https://arbitrum-one-rpc.publicnode.com"), chainId: 42161, accounts: mainAccounts },
+    optimism: { url: rpc("optimism", "https://optimism-rpc.publicnode.com"), chainId: 10, accounts: mainAccounts },
+    polygon: { url: rpc("polygon", "https://polygon-bor-rpc.publicnode.com"), chainId: 137, accounts: mainAccounts },
+    bsc: { url: rpc("bsc", "https://bsc-rpc.publicnode.com"), chainId: 56, accounts: mainAccounts },
+    avalanche: { url: rpc("avalanche", "https://avalanche-c-chain-rpc.publicnode.com"), chainId: 43114, accounts: mainAccounts },
+    hyperevm: { url: rpc("hyperevm", "https://rpc.hyperliquid.xyz/evm"), chainId: 999, accounts: mainAccounts, timeout: 300_000 },
     hyperevmTestnet: { url: rpc("hyperevmTestnet", "https://rpc.hyperliquid-testnet.xyz/evm"), chainId: 998, accounts, timeout: 300_000 },
   },
 };
