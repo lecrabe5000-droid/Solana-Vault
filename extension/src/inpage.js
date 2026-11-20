@@ -66,7 +66,8 @@
   const bytes = (u8) => Array.from(u8 instanceof Uint8Array ? u8 : new Uint8Array(u8));
   const signTx = async (send, inputs) => {
     if (!accounts.length) throw Object.assign(new Error("Connect Ecrin Wallet first."), { code: 4100 });
-    const r = await call("sol", "signTransactions", { send, chain: inputs[0]?.chain || "solana:devnet", txs: inputs.map((i) => bytes(i.transaction)), options: inputs[0]?.options || {} });
+    // No chain given by the site: the wallet uses the mode chosen in its Settings (Mainnet or Testnet).
+    const r = await call("sol", "signTransactions", { send, chain: inputs[0]?.chain || null, txs: inputs.map((i) => bytes(i.transaction)), options: inputs[0]?.options || {} });
     return r.map((x) => (send ? { signature: new Uint8Array(x) } : { signedTransaction: new Uint8Array(x) }));
   };
   const wallet = {
