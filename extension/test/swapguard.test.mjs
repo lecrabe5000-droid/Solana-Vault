@@ -72,5 +72,16 @@ after = [acc(SOL), acc(2039280, tokData(USDC, me, 0), TOKEN), acc(2039280, tokDa
 await no(() => e.swapSign(swapTx(jup, me), payUsdc), /more than you typed/);
 after = [acc(SOL - 500_000_000), acc(2039280, tokData(USDC, me, 40_000_000), TOKEN), acc(2039280, tokData(BONK, me, 9_500_000), TOKEN)];
 await no(() => e.swapSign(swapTx(jup, me), payUsdc), /more SOL/);
+// A route's single-use key (CCTP / Mayan), already signed by the route: allowed when you pay the fee
+{
+  const eph = web3.Keypair.generate();
+  const m = new web3.TransactionMessage({ payerKey: me, recentBlockhash: "11111111111111111111111111111111", instructions: [web3.SystemProgram.createAccount({ fromPubkey: me, newAccountPubkey: eph.publicKey, lamports: 2_000_000, space: 100, programId: web3.SystemProgram.programId })] }).compileToV0Message();
+  const unsigned = new web3.VersionedTransaction(m), presigned = new web3.VersionedTransaction(m); presigned.sign([eph]);
+  const b64 = (t) => Buffer.from(t.serialize()).toString("base64");
+  after = [acc(SOL - 2_100_000), acc(2039280, tokData(USDC, me, 40_000_000), TOKEN), acc(2039280, tokData(BONK, me, 9_000_000), TOKEN)]; // 10 USDC out
+  const out = web3.VersionedTransaction.deserialize(Buffer.from(await e.swapSign(b64(presigned), { inMint: USDC.toBase58(), inRaw: "10000000" }), "base64"));
+  assert.ok(out.signatures.every((g) => g.some((x) => x !== 0)), "both signatures present: yours and the route's");
+  await no(() => e.swapSign(b64(unsigned), { inMint: USDC.toBase58(), inRaw: "10000000" }), /another signer/); // the other signer hasn't signed: refused
+}
 srv.close();
 console.log("swap guard ok");

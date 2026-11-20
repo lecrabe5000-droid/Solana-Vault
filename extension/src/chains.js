@@ -182,7 +182,11 @@ function solEngine({ web3, acct, N, dev }) {
       // then Jupiter is the fee payer (first signer) and you sign second, nothing else. Only allowed on Jupiter's own
       // route (coPayer), whose server adds its signature. The dry run below checks your accounts either way.
       const nSig = tx.message.header.numRequiredSignatures;
-      const okSigners = (nSig === 1 && keys[0]?.equals(me)) || (coPayer && nSig === 2 && keys[1]?.equals(me) && !keys[0]?.equals(me));
+      // Some routes (Circle's CCTP, Mayan) add a single-use key that creates a temporary message account: it arrives
+      // already signed by the route and has no say over your coins. Allowed only when you pay the fee (first signer) and
+      // every other signer has signed already, so nothing waits on anyone else and Ecrin adds no other signature.
+      const preSigned = nSig >= 2 && nSig <= 3 && keys[0]?.equals(me) && tx.signatures.slice(1, nSig).every((g) => g.some((x) => x !== 0)) && keys.slice(1, nSig).every((k) => !k.equals(me));
+      const okSigners = (nSig === 1 && keys[0]?.equals(me)) || preSigned || (coPayer && nSig === 2 && keys[1]?.equals(me) && !keys[0]?.equals(me));
       if (!okSigners) throw new Error("This swap asks for another signer. Ecrin refused it.");
       const progs = [TOKEN, TOKEN22];
       const held = (await Promise.all(progs.map((pid) => conn.getTokenAccountsByOwner(me, { programId: pid }, "confirmed").then((r) => r.value)))).flat();
