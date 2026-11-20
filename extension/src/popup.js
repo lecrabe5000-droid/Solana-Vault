@@ -4496,8 +4496,14 @@ function bridgeView() {
         ${bxNets("to", ta, all)}
         <div class="sx-foot"><span></span><span class="sx-usd">${outUsd && raw ? money(outUsd) : ""}</span></div>
       </div>
-      ${raw && !over ? `<div class="bx-rate${q ? " in" : ""}">${q ? `<span>${rateTxt}</span><span>${I.clock}${brSecs(q.seconds) || "a few minutes"}${fees > 0 ? ` · fees ≈ ${money(fees)}` : ""}</span>` : P.qErr ? `<span class="bad">${esc(P.qErr)}</span>` : `<span class="bx-dots">Finding the best price<i></i><i></i><i></i></span>`}</div>` : ""}
-      ${cross && !raw ? `<p class="bx-hint">${coin(from)}${esc(NETS[from].name)} ${I.arrow} ${coin(to)}${esc(NETS[to].name)}<span>Swapped and moved across networks in one step.</span></p>` : ""}
+      ${raw && !over ? (q ? `<div class="bx-q in">
+          <div><span>Rate</span><b>${rateTxt}</b></div>
+          <div><span>Network fee</span><b>${q.gasUSD > 0 ? `≈ ${q.gasUSD < 0.01 ? "< " + money(0.01) : money(q.gasUSD)}` : "included"}</b></div>
+          ${q.feesUSD > 0.004 ? `<div><span>${cross ? "Bridge fee" : "Route fee"}</span><b>≈ ${money(q.feesUSD)}</b></div>` : ""}
+          <div><span>${cross ? "Arrives in" : "Time"}</span><b>${brSecs(q.seconds) || "a few minutes"}</b></div>
+          <div class="bx-qt"><span>${I.clock}New quote in <b data-qtimer>${Math.max(0, 25 - Math.floor((Date.now() - (q.at || Date.now())) / 1000))}</b> s</span><small>Ecrin fee ${feePct(BRIDGE.fee)} included</small></div>
+        </div>` : P.qErr ? `<div class="bx-q err"><b>${esc(P.qErr)}</b></div>` : `<div class="bx-q"><span class="bx-dots">Getting the best price<i></i><i></i><i></i></span></div>`) : ""}
+      ${cross && !raw ? `<div class="bx-hint"><div class="bx-route"><span>${coin(from)}<b>${esc(NETS[from].name)}</b></span><i aria-hidden="true">→</i><span>${coin(to)}<b>${esc(NETS[to].name)}</b></span></div><small>Swapped and moved across networks in one step.</small></div>` : ""}
       ${gas ? `<p class="br-note warn">${I.shield}<span>${gas.native ? `The network fee is about <b>${bxNum(gas.need, `${from}:native`)} ${gas.unit}</b>, on top of what you swap. Lower the amount or tap Max, which keeps the fee aside.` : `Sending ${sym} on ${esc(gas.net)} costs a small fee paid in <b>${gas.unit}</b>: about ${bxNum(gas.need, `${from}:native`)} ${gas.unit}. You have ${bxNum(gas.have, `${from}:native`)} ${gas.unit}. Add a little ${gas.unit} to this Wallet first${from === "solm" ? `, or swap with <button class="link" data-act="swap-sol">Jupiter</button>, which can pay the Solana fee for you` : ""}.`}</span></p>` : ""}
       ${from === "tronm" ? `<p class="br-note">${I.clock}<span>Swapping from Tron burns some TRX for the network (often 10 to 40 TRX). Keep some TRX in this Wallet.</span></p>` : ""}
       ${!BRIDGE.on ? `<p class="br-note">${I.clock}<span>Swaps open very soon: Ecrin is finishing its setup with LI.FI.</span></p>` : ""}
@@ -4520,6 +4526,8 @@ const bxNum = (v, id) => { const n = Number(v) || 0, L = S.lang === "fr" ? "fr-C
   return brC(id) !== "native" ? n.toLocaleString(L, { maximumFractionDigits: 2 }) : Math.abs(n) >= 1 ? n.toLocaleString(L, { maximumFractionDigits: 4 }) : n.toLocaleString(L, { maximumSignificantDigits: 6 }); };
 /** A swap can be left once it's on its way (sent, now arriving or confirming): the pill keeps following it. */
 const bxSent = (P) => !!P.sig || (P.mo ? P.mo.at >= P.mo.steps.findIndex((x) => x.k === "conf") : false);
+// "New quote in N s": counts down to the quiet 25-second refresh, like other wallets.
+setInterval(() => { const el = document.querySelector("#panel [data-qtimer]"), q = S.panel?.p === "bridge" ? S.panel.quote : null; if (el && q?.at) el.textContent = String(Math.max(0, 25 - Math.floor((Date.now() - q.at) / 1000))); }, 1000);
 /** Which quote matches what's on screen: the same coins and amount. */
 const brKey = (P) => `${P.fa}>${P.ta}:${P.amount}`;
 /** The coin list in the picker: your coins first, then every other coin; search and network filter. */

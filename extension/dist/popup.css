@@ -4042,3 +4042,21 @@ html:root[data-theme="light"] #panel .pane.scrolled .phead:not(#z) { background:
 .who-go { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 16px 0; }
 .who-go .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; } .who-go .btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .who-go .btn:only-child { grid-column: 1 / -1; }
+/* Swap quote box: rate, fees, time, and when the next quote comes */
+.bx-q { display: grid; gap: 8px; margin: 12px 0 0; padding: 12px 14px; border-radius: 16px; background: rgba(127, 127, 127, .07); font-size: 14.5px; font-variant-numeric: tabular-nums; }
+.bx-q > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.bx-q > div > span { color: var(--muted); } .bx-q > div > b { font-weight: 600; text-align: right; }
+.bx-q.in { animation: bxin .35s ease-out; }
+.bx-q.err { color: var(--neg, #e5484d); } .bx-q.err b { font-weight: 600; }
+.bx-q .bx-qt { padding-top: 8px; border-top: 1px solid rgba(127, 127, 127, .14); font-size: 13px; }
+.bx-q .bx-qt span { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); } .bx-q .bx-qt span b { color: var(--ink); font-weight: 600; min-width: 1.4em; display: inline-block; text-align: right; }
+.bx-q .bx-qt svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.bx-q .bx-qt small { color: var(--muted); }
+.bx-q .bx-dots { color: var(--muted); }
+/* the route hint: one line */
+.bx-hint { display: grid; justify-items: center; gap: 6px; margin: 16px 0 0; text-align: center; }
+.bx-route { display: inline-flex; align-items: center; gap: 10px; white-space: nowrap; }
+.bx-route > span { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px 5px 5px; border-radius: 999px; background: rgba(127, 127, 127, .09); font-size: 14.5px; }
+.bx-route .coin { width: 22px !important; height: 22px !important; border-radius: 50%; overflow: hidden; flex: none; }
+.bx-route > i { font-style: normal; color: var(--muted); font-size: 16.5px; }
+.bx-hint small { color: var(--muted); font-size: 13px; }

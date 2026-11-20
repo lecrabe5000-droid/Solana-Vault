@@ -47,13 +47,29 @@ export function bridgeTokens(from, to, fromCoin, toCoin = fromCoin) {
   return [x, y];
 }
 
+/** LI.FI's reasons in plain words, with a code the wallet can act on. */
+export function swapWhy(err) {
+  const e = String(err || "");
+  if (/AMOUNT_TOO_LOW|too low|too small|below (the )?min|minimum/i.test(e)) return { error: "This amount is too small for this route. Try a larger amount.", code: "AMOUNT_LOW" };
+  if (/price impact|slippage/i.test(e)) return { error: "The price would move too much for this amount. Try a smaller amount.", code: "IMPACT" };
+  if (/AMOUNT_TOO_HIGH|amount (is )?too (high|large)|exceeds (the )?max|above (the )?max|maximum amount|not enough liquidity/i.test(e)) return { error: "This amount is too large for this route right now. Try a smaller amount.", code: "AMOUNT_HIGH" };
+  if (/insufficient|balance/i.test(e)) return { error: "Not enough balance for this swap, including the network fee.", code: "BALANCE" };
+  if (/busy|rate.?limit|429/i.test(e)) return { error: "Swaps are busy. Try again in a few seconds.", code: "BUSY" };
+  if (/unreachable/i.test(e)) return { error: "The swap service is unreachable right now. Try again in a minute.", code: "DOWN" };
+  if (/no available quotes|no route|none of the available routes|NO_QUOTE/i.test(e)) return { error: "No route for this swap right now. Try another amount, coin or network.", code: "NO_ROUTE" };
+  return { error: "This swap isn't available right now. Try another amount, coin or network.", code: "OTHER", detail: e.slice(0, 160) };
+}
 async function lifi(env, path) {
   const headers = { Accept: "application/json" };
   if (env.LIFI_API_KEY) headers["x-lifi-api-key"] = env.LIFI_API_KEY;
   let res; try { res = await fetch(API + path, { headers }); } catch (_) { return [null, "LI.FI is unreachable right now. Try again in a minute."]; }
   const body = await res.json().catch(() => null);
   if (res.status === 429) return [null, "Bridges are busy. Try again in a few seconds."];
-  if (!res.ok) return [null, body?.message ? String(body.message).slice(0, 200) : `LI.FI answered ${res.status}`];
+  if (!res.ok) {
+    // LI.FI says why in its details: routes it filtered out (reason) and routes that failed (code, message).
+    const why = [body?.message, ...((body?.errors?.filteredOut || []).map((x) => x?.reason)), ...((body?.errors?.failed || []).flatMap((f) => Object.values(f?.subpaths || {}).flat().map((x) => `${x?.code || ""} ${x?.message || ""}`)))].filter(Boolean).join(" | ");
+    return [null, why ? why.slice(0, 600) : `LI.FI answered ${res.status}`];
+  }
   return [body, null];
 }
 
@@ -79,7 +95,7 @@ export async function handleBridge(request, env) {
     if (err) {
       // LI.FI refuses a network until Ecrin has a fee wallet there (set in LI.FI's portal): say it opens soon.
       if (/not configured for collecting fees/i.test(err)) return json({ error: `Bridges from ${A.fam === "tron" ? "Tron" : A.fam === "sui" ? "Sui" : A.fam === "btc" ? "Bitcoin" : "this network"} open very soon.`, code: "BRIDGE_NET_SOON" }, 503);
-      return json({ error: /no available quotes|no route|none of the available routes/i.test(err) ? "No bridge can move this amount right now. Try a larger amount." : err }, 502);
+      return json(swapWhy(err), 502);
     }
     const e = qt.estimate || {}, t = qt.transactionRequest || {}, isToken = tk[0] !== A.coins.native;
     const usd = (list) => (list || []).reduce((s, c) => s + (Number(c.amountUSD) || 0), 0);
