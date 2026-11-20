@@ -4031,3 +4031,5 @@ html:root[data-theme="light"] #panel .pane.scrolled .phead:not(#z) { background:
 :root[data-theme="dark"] .mo-steps li.now .mo-dot .spin { border-color: rgba(255, 255, 255, .12); border-top-color: var(--ivory, #f3efe6); }
 :root[data-skin="ecrin"] .mo-steps li.now .mo-dot .spin { border-color: rgba(255, 255, 255, .14); border-top-color: #9fb3ff; }
 .mo-steps li:not(.ok):not(.now) .mo-dot { box-shadow: inset 0 0 0 1.5px rgba(127, 127, 127, .25); }
+/* every network visible at once: the toggles wrap instead of sliding */
+.bx-nets { flex-wrap: wrap; overflow: visible; margin: 12px 0 2px; padding: 0; }

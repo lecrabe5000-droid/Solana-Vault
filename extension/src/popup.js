@@ -4352,16 +4352,22 @@ const brHeld = (id) => {
 };
 const brPx = (id) => (brC(id) === "native" ? S.prices[NETS[brK(id)].cg]?.usd : 1);
 /** Keep a little of the network's own coin behind for its fees (Tron needs more: contract calls burn TRX for energy). */
-const BR_KEEP = { btcm: 0.0002, solm: 0.01, ethm: 0.003, bnbm: 0.002, polm: 0.5, avaxm: 0.02, hypem: 0.02, tronm: 40, suim: 0.1 };
-// Sending a token (USDC, USDT) still costs a little of the network's own coin. Roughly what a bridge or swap needs.
-const BR_GAS = { solm: 0.005, ethm: 0.0005, basem: 0.00002, arbm: 0.00002, opm: 0.00002, polm: 0.2, bnbm: 0.0005, avaxm: 0.01, hypem: 0.005, tronm: 30, suim: 0.05 };
-/** For a token, what's missing of the network's own coin to pay the fee: null when there's enough (or we can't tell yet). */
-const brGasShort = (id) => {
-  const k = brK(id); if (brC(id) === "native" || !BR_GAS[k]) return null;
-  if (!worth().items.some((i) => i.k === k)) return null; // balances on that network not loaded yet
-  const have = brHeld(`${k}:native`); return have < BR_GAS[k] ? { need: BR_GAS[k], have, unit: NETS[k].unit, net: NETS[k].name } : null;
+// The network fee, in the network's own coin, when there's no quote yet to tell (a swap or bridge, approvals included).
+const BR_GAS = { solm: 0.003, ethm: 0.0002, basem: 0.00002, arbm: 0.00002, opm: 0.00002, polm: 0.1, bnbm: 0.0002, avaxm: 0.005, hypem: 0.002, tronm: 25, suim: 0.02, btcm: 0.00003 };
+/** Like MetaMask: the fee comes from the live quote when there is one (its gas cost, with a margin), else the estimate above. */
+const brFee = (id) => {
+  const k = brK(id), P = S.panel, q = P?.p === "bridge" && P.quote && brK(P.fa) === k ? P.quote : null, px = brPx(`${k}:native`);
+  const fromQuote = q && q.gasUSD > 0 && px ? (q.gasUSD / px) * 1.3 : 0;
+  return Math.max(fromQuote, fromQuote ? 0 : BR_GAS[k] ?? 0.0002);
 };
-const brMax = (id) => Math.max(0, brHeld(id) - (brC(id) === "native" ? BR_KEEP[brK(id)] ?? 0.0004 : 0));
+/** The most you can pay: all of a token; for the network's own coin, all but the fee. */
+const brMax = (id) => Math.max(0, brHeld(id) - (brC(id) === "native" ? brFee(id) : 0));
+/** Is the network's own coin short for the fee? (Paying with it: the amount plus the fee. Paying a token: the fee alone.) */
+const brGasShort = (id, amt = 0) => {
+  const k = brK(id); if (!worth().items.some((i) => i.k === k)) return null; // balances on that network not loaded yet
+  const have = brHeld(`${k}:native`), need = brFee(id), spend = brC(id) === "native" ? Number(amt) || 0 : 0;
+  return have < spend + need ? { need, have, unit: NETS[k].unit, net: NETS[k].name, native: brC(id) === "native" } : null;
+};
 /** The coin's logo, with its network's logo in the corner when they differ (USDC on Base, ETH on Arbitrum). */
 const brLogo = (id) => { const k = brK(id), c = brC(id); return c === "usdc" ? "usdc" : c === "usdt" ? "usdt" : NETS[k].unit === "ETH" ? "eth" : k; };
 const brIcon = (id) => { const l = brLogo(id), k = brK(id), same = l === k || (l === "eth" && k === "ethm"); return `<span class="cstack">${coin(l)}${same ? "" : `<span class="cmini">${coin(k)}</span>`}</span>`; };
@@ -4371,7 +4377,7 @@ function bridgeQuoteSoon(ms = 450, quiet = false) {
   clearTimeout(S.brT); clearTimeout(S.brRe); const mine = (P.qSeq = (P.qSeq || 0) + 1); P.qErr = null;
   if (P.quote) P.lastQ = { ...P.quote, pair: `${P.fa}>${P.ta}` }; // keeps the last price on screen while the new one loads
   if (!quiet) P.quote = null;
-  const raw = toRaw(P.amount, brDec(P.fa)); if (!raw || !BRIDGE.on || !P.ta || Number(P.amount) > brMax(P.fa) + 1e-12) { P.quoting = false; patchPanel(); return; }
+  const raw = toRaw(P.amount, brDec(P.fa)); if (!raw || !BRIDGE.on || !P.ta || Number(P.amount) > brHeld(P.fa) + 1e-12) { P.quoting = false; patchPanel(); return; }
   P.quoting = !quiet; if (!quiet) patchPanel();
   const key = brKey(P);
   S.brT = setTimeout(async () => {
@@ -4409,7 +4415,7 @@ function bridgeView() {
     P.ta = (c === "native" ? [`${k}:usdc`, `${k}:usdt`, "solm:usdc", "basem:usdc"] : [`${k}:native`, "solm:native", "basem:native"]).find((x) => x !== P.fa && all.includes(x)) || all.find((x) => x !== P.fa);
   }
   const fa = P.fa, ta = P.ta, from = brK(fa), to = brK(ta), sym = brSym(fa), tsym = brSym(ta), cross = from !== to;
-  const raw = toRaw(P.amount, brDec(fa)), max = brMax(fa), over = Number(P.amount || 0) > max + 1e-12;
+  const raw = toRaw(P.amount, brDec(fa)), max = brMax(fa), over = Number(P.amount || 0) > brHeld(fa) + 1e-12;
   const q = P.quote && P.quote.key === brKey(P) ? P.quote : null, shown = q || (P.lastQ && P.lastQ.pair === `${fa}>${ta}` ? P.lastQ : null);
   const nf = bxNum;
   const outN = shown ? fromRaw(shown.toAmount, brDec(ta)) : 0, minN = q?.toAmountMin ? fromRaw(q.toAmountMin, brDec(ta)) : 0;
@@ -4435,7 +4441,7 @@ function bridgeView() {
     </div>`;
 
   const assetBtn = (side, id) => `<button class="br-net br-asset bx-coin" data-act="br-pick" data-v="${side}">${bxLogo(id)}<span><b>${esc(brSym(id))}</b></span>${I.chev}</button>`;
-  const gas = brGasShort(fa);
+  const gas = raw && !over ? brGasShort(fa, P.amount) : brC(fa) === "native" ? null : brGasShort(fa);
 
   // ---- review: what you pay, what you get, what it costs; hold to confirm like every send
   if (P.step === "review" && q) return `${phead("Review swap")}
@@ -4458,7 +4464,7 @@ function bridgeView() {
 
   // ---- the form
   const quoting = P.quoting && raw && !over;
-  const btn = !BRIDGE.on ? "Swaps open soon" : !raw ? "Enter an amount" : over ? `Not enough ${sym}` : gas ? `Needs ${gas.unit} for the fee` : P.qErr ? "No route right now" : !q ? "Getting the best price…" : "Review swap";
+  const btn = !BRIDGE.on ? "Swaps open soon" : !raw ? "Enter an amount" : over ? `Not enough ${sym}` : gas ? `Not enough ${gas.unit} for the network fee` : P.qErr ? "No route right now" : !q ? "Getting the best price…" : "Review swap";
   return `${phead("Swap")}
     <div class="sx br bx">
       <div class="sx-card br-card">
@@ -4476,7 +4482,7 @@ function bridgeView() {
       </div>
       ${raw && !over ? `<div class="bx-rate${q ? " in" : ""}">${q ? `<span>${rateTxt}</span><span>${I.clock}${brSecs(q.seconds) || "a few minutes"}${fees > 0 ? ` · fees ≈ ${money(fees)}` : ""}</span>` : P.qErr ? `<span class="bad">${esc(P.qErr)}</span>` : `<span class="bx-dots">Finding the best price<i></i><i></i><i></i></span>`}</div>` : ""}
       ${cross && !raw ? `<p class="bx-hint">${coin(from)}${esc(NETS[from].name)} ${I.arrow} ${coin(to)}${esc(NETS[to].name)}<span>Swapped and moved across networks in one step.</span></p>` : ""}
-      ${gas ? `<p class="br-note warn">${I.shield}<span>Sending ${sym} on ${esc(gas.net)} costs a small fee paid in <b>${gas.unit}</b>: about ${gas.need} ${gas.unit}. You have ${nf(gas.have, `${from}:native`)} ${gas.unit}. Add a little ${gas.unit} to this Wallet first${from === "solm" ? `, or swap with <button class="link" data-act="swap-sol">Jupiter</button>, which can pay the Solana fee for you` : ""}.</span></p>` : ""}
+      ${gas ? `<p class="br-note warn">${I.shield}<span>${gas.native ? `The network fee is about <b>${bxNum(gas.need, `${from}:native`)} ${gas.unit}</b>, on top of what you swap. Lower the amount or tap Max, which keeps the fee aside.` : `Sending ${sym} on ${esc(gas.net)} costs a small fee paid in <b>${gas.unit}</b>: about ${bxNum(gas.need, `${from}:native`)} ${gas.unit}. You have ${bxNum(gas.have, `${from}:native`)} ${gas.unit}. Add a little ${gas.unit} to this Wallet first${from === "solm" ? `, or swap with <button class="link" data-act="swap-sol">Jupiter</button>, which can pay the Solana fee for you` : ""}.`}</span></p>` : ""}
       ${from === "tronm" ? `<p class="br-note">${I.clock}<span>Swapping from Tron burns some TRX for the network (often 10 to 40 TRX). Keep some TRX in this Wallet.</span></p>` : ""}
       ${!BRIDGE.on ? `<p class="br-note">${I.clock}<span>Swaps open very soon: Ecrin is finishing its setup with LI.FI.</span></p>` : ""}
       ${netKeys().includes(SWAP_NET) ? `<button class="link br-jup" data-act="swap-sol">Other Solana tokens →</button>` : ""}
@@ -4491,7 +4497,7 @@ const bxLogo = (id) => coin(brLogo(id));
 const bxNets = (side, id, all) => {
   const ids = bxCoins(all).get(brSym(id)) || [id];
   if (ids.length < 2) return `<div class="bx-nets one"><span class="chip on">${coin(brK(id))}${esc(NETS[brK(id)].name)}</span></div>`;
-  return `<div class="bx-nets" role="radiogroup" aria-label="Network">${ids.map((x) => { const h = brHeld(x); return `<button class="chip${x === id ? " on" : ""}" role="radio" aria-checked="${x === id}" data-act="br-set" data-k="${side}" data-v="${x}">${coin(brK(x))}${esc(NETS[brK(x)].name)}${h > 0 && side === "from" ? `<em>${bxNum(h, x)}</em>` : ""}</button>`; }).join("")}</div>`;
+  return `<div class="bx-nets" role="radiogroup" aria-label="Network">${ids.map((x) => { const h = brHeld(x); return `<button class="chip${x === id ? " on" : ""}" role="radio" aria-checked="${x === id}" data-act="br-set" data-k="${side}" data-v="${x}">${coin(brK(x))}${esc(NETS[brK(x)].name)}${h > 0 && side === "from" && h * (brPx(x) || 0) >= 0.01 ? `<em>${bxNum(h, x)}</em>` : ""}</button>`; }).join("")}</div>`;
 };
 /** A coin amount the way people read it: 2 decimals for dollar coins, 4 from 1 up, 6 significant digits below 1. */
 const bxNum = (v, id) => { const n = Number(v) || 0, L = S.lang === "fr" ? "fr-CA" : "en-US";
