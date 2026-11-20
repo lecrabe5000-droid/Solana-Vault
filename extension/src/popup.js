@@ -2309,10 +2309,12 @@ function receiveView() {
 function safeSoonView(title) {
   const early = isMain() && Object.values(NETS).some((N) => N.real && N.contract); // the early-access Safe, one tap away
   return `${phead(title)}<div class="cv"><div class="cv-art">${I.lock}</div><h2>${early ? "The Safe is in early access" : "The Safe comes to mainnet after its audit"}</h2>
-    <p class="sub">${early ? "Your Safe already works on Base, with USDC and ETH." : "Your Wallet works on mainnet today: send, receive and swap. The Safe, which makes every withdrawal wait, opens on mainnet once an independent security audit is done."}</p>
+    <p class="sub">${early ? `Your Safe already works on ${earlyList()}, with USDC and each network's own coin.` : "Your Wallet works on mainnet today: send, receive and swap. The Safe, which makes every withdrawal wait, opens on mainnet once an independent security audit is done."}</p>
     ${early ? `<div class="note early-n">${I.lock}<span><b>Not audited yet.</b> Only use amounts you could lose. The other networks get the Safe after Ecrin's independent security audit.</span></div>` : `<div class="note">${I.shield}<span>Want to try it now? It runs on Testnet with free test coins, exactly as it will on mainnet.</span></div>`}</div>
-    <div class="pfoot">${early ? `<button class="btn primary xl" data-act="early-on">Use the Safe on Base</button><button class="btn ghost" data-act="net-mode" data-v="test">Try it on Testnet instead</button>` : `<button class="btn xl" data-act="net-mode" data-v="test">Try the Safe on Testnet</button>`}</div>`;
+    <div class="pfoot">${early ? `<button class="btn primary xl" data-act="early-on">Use the Safe</button><button class="btn ghost" data-act="net-mode" data-v="test">Try it on Testnet instead</button>` : `<button class="btn xl" data-act="net-mode" data-v="test">Try the Safe on Testnet</button>`}</div>`;
 }
+/** The mainnets where the early-access Safe is live, by name ("Base, Ethereum … and Avalanche"). */
+const earlyList = () => { const n = Object.values(NETS).filter((N) => N.real && N.contract && N.fam === "evm").map((N) => N.name); return n.length > 1 ? `${n.slice(0, -1).join(", ")} ${S.lang === "fr" ? "et" : "and"} ${n[n.length - 1]}` : n[0] || "Base"; };
 const noSafeHere = () => !netKeys().some(canSafe);
 function moveView() {
   if (noSafeHere()) return safeSoonView(S.panel.p === "protect" ? "Protect" : "Withdraw");
@@ -2595,8 +2597,8 @@ function settingsView() {
       ${row("panel", '<b class="nf-ico">1.2</b>', "Numbers", `${NUM_FACES.find(([k]) => k === S.nums.face)[1]} ${I.arrow}`, 'data-p="numbers"')}`)}
     ${sec("Networks", `
       <div class="srow"><span>${I.globe}Networks</span><span class="seg">${[["main", "Mainnet"], ["test", "Testnet"]].map(([m, l]) => `<button data-act="net-mode" data-v="${m}" aria-pressed="${(S.mode || DEFAULT_MODE) === m}">${l}</button>`).join("")}</span></div>
-      ${isMain() && Object.values(NETS).some((N) => N.real && N.contract) ? row("tog", I.lock, "Safe on Base · early access", onOff(S.earlySafe), 'data-k="earlySafe"') : ""}
-      <p class="set-note">${isMain() ? (S.earlySafe ? "Early access: the Safe works on Base with USDC and ETH. It has not been audited yet, so keep amounts small." : "The Safe comes to mainnet after its security audit; until then it runs on Testnet.") : "Test coins with no value: try everything, the Safe included, for free."}</p>`)}
+      ${isMain() && Object.values(NETS).some((N) => N.real && N.contract) ? row("tog", I.lock, "Safe on mainnet · early access", onOff(S.earlySafe), 'data-k="earlySafe"') : ""}
+      <p class="set-note">${isMain() ? (S.earlySafe ? `Early access: the Safe works on ${earlyList()}. It has not been audited yet, so keep amounts small.` : "The Safe comes to mainnet after its security audit; until then it runs on Testnet.") : "Test coins with no value: try everything, the Safe included, for free."}</p>`)}
     ${sec("Wallet", `
       ${row("panel", I.recv, "Contacts", `${Object.values(S.book || {}).reduce((t, m) => t + Object.keys(m || {}).length, 0) || ""} ${I.arrow}`, 'data-p="contacts"')}
       ${row("report", I.spark, "Monthly report")}`)}
@@ -3004,12 +3006,12 @@ const actions = {
   // Early-access Safe on Base: turn it on (once, with the warning), then go to Base with your coins there.
   "early-on": async () => {
     if (!S.earlySafe) {
-      if (!confirm("Turn on the Safe on Base?\n\nIt holds real coins and has not been audited yet. A bug could lock what you put in. Only use amounts you could lose.")) return;
+      if (!confirm("Turn on the Safe on mainnet?\n\nIt holds real coins and has not been audited yet. A bug could lock what you put in. Only use amounts you could lose.")) return;
       S.earlySafe = true; await local.set({ earlySafe: true }); S.all = null; loadAll();
     }
     const safeNets = netKeys().filter(canSafe);
     if (!safeNets.length) {
-      const why = ACCT?.only ? `This account only has ${ACCT.only === "sol" ? "a Solana" : ACCT.only === "evm" ? "an Ethereum" : "one network's"} address, and the Safe on Base needs an Ethereum address. Add an account from your recovery phrase in Settings → Accounts.` : `Base isn't among this account's networks (${netKeys().length} found, mode ${S.mode || DEFAULT_MODE}).`;
+      const why = ACCT?.only ? `This account only has ${ACCT.only === "sol" ? "a Solana" : ACCT.only === "evm" ? "an Ethereum" : "one network's"} address, and the Safe on mainnet needs an Ethereum address. Add an account from your recovery phrase in Settings → Accounts.` : `Base isn't among this account's networks (${netKeys().length} found, mode ${S.mode || DEFAULT_MODE}).`;
       return toast(why, "err");
     }
     const w = worth(), best = w.items.filter((i) => canSafe(i.k) && i.chq > 0).sort((x, y) => (y.usd || 0) - (x.usd || 0))[0], nk = best?.k || safeNets[0];
@@ -3036,7 +3038,7 @@ const actions = {
         if (perm !== "granted") { S.recvNotify = false; toast("Notifications are blocked for Ecrin. Allow them in your phone's settings, then try again.", "err"); }
       }
     }
-    else if (k === "earlySafe" && !S.earlySafe && !confirm("Turn on the Safe on Base?\n\nIt holds real coins and has not been audited yet. A bug could lock what you put in. Only use amounts you could lose.")) return;
+    else if (k === "earlySafe" && !S.earlySafe && !confirm("Turn on the Safe on mainnet?\n\nIt holds real coins and has not been audited yet. A bug could lock what you put in. Only use amounts you could lose.")) return;
     else S[k] = !S[k];
     if (k === "earlySafe") {
       S.all = null; loadAll();
