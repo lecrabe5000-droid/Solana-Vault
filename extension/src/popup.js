@@ -1266,9 +1266,11 @@ function tokenList(w) {
   if (!w.ready) return `<section class="list">${[1, 2, 3].map(() => `<div class="arow"><span class="coin sk"></span><span class="ar-t"><b class="sk">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</b><small class="sk">&nbsp;&nbsp;&nbsp;&nbsp;</small></span></div>`).join("")}</section>`;
   if (!w.items.length && !(S.extra || []).length) return `<section class="list"><div class="empty art">${emptyArt("coins")}<b>Your wallet is empty</b><span>${isMain() ? "Receive coins from an exchange or another wallet to get started." : "Get free test coins to try Ecrin. They're not worth anything."}</span><button class="btn sm primary" data-act="panel" data-p="receive">${isMain() ? "Receive" : "Get test coins"}</button></div></section>`;
   const n = (v, d) => v.toLocaleString("en-US", { maximumFractionDigits: d });
-  let items = S.hideSmall ? w.items.filter((i) => !(i.usd != null && i.usd < 1)) : w.items;
+  // "Hide balances of $1 or less": network by network (dust on one network goes, the real balance stays); tap the note to peek.
+  const small = (i) => i.usd != null && i.usd <= 1 && !i.sav;
+  let items = S.hideSmall && !S.peekSmall ? w.items.filter((i) => !small(i)) : w.items;
   if (S.order === "name") items = [...items].sort((x, y) => x.name.localeCompare(y.name));
-  const hidden = w.items.length - items.length;
+  const hidden = w.items.length - items.length, peeking = S.hideSmall && S.peekSmall ? w.items.filter(small).length : 0;
   // Real money never merges with test coins of the same name: it gets its own row.
   const groups = {}; for (const i of items) (groups[i.unit + (i.real ? ":real" : "")] ||= []).push(i);
   const row = (i, sub) => {
@@ -1284,7 +1286,7 @@ function tokenList(w) {
       <span class="ar-t"><b>${f.name}</b><small>${g.length} networks ${I.chev}</small></span>${spark(f.cg)}
       <span class="ar-r"><b>${mask(money(t.usd))}</b><small>${mask(n(t.amt, f.dec))} ${f.unit}${t.sav ? ` <span class="sv">${I.lock}${mask(n(t.sav, f.dec))}</span>` : ""}</small></span></button>${open ? g.map((i) => `<button class="arow sub" data-act="row-send" data-n="${i.k}" data-a="${i.a}">${coin(i.k)}<span class="ar-t"><b>${NETS[i.k].name}</b><small>${NETS[i.k].net}</small></span><span class="ar-r"><b>${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}</small></span></button>`).join("") : ""}`;
   });
-  return `<section class="list">${hidden ? `<div class="hid-note">${hidden} small balance${hidden > 1 ? "s" : ""} hidden</div>` : ""}${out.join("")}${extraRows()}</section>
+  return `<section class="list">${hidden ? `<button class="hid-note btnish" data-act="peek-small">${I.eyeOff}${hidden} balance${hidden > 1 ? "s" : ""} of $1 or less hidden · Show</button>` : peeking ? `<button class="hid-note btnish" data-act="peek-small">${I.eyeOff}Hide balances of $1 or less</button>` : ""}${out.join("")}${extraRows()}</section>
     ${netKeys().some((k) => NETS[k].fam === "evm") ? `<button class="add-tok" data-act="panel" data-p="addTok">${I.plus}Add a token</button>` : ""}
 `;
 }
@@ -2623,7 +2625,7 @@ function settingsView() {
       ${row("tog", I.recv, "Notify when I receive coins", onOff(S.recvNotify !== false && !(globalThis.ECRIN_WEB && window.Notification && Notification.permission === "denied")), 'data-k="recvNotify"')}
       ${row("tog", I.spark, "Sounds", onOff(S.sounds), 'data-k="sounds"')}
       ${row("tog", I.img, "Show collectibles (NFTs)", onOff(S.showNfts), 'data-k="showNfts"')}
-      ${row("tog", I.eyeOff, "Hide small balances", onOff(S.hideSmall), 'data-k="hideSmall"')}
+      ${row("tog", I.eyeOff, "Hide balances of $1 or less", onOff(S.hideSmall), 'data-k="hideSmall"')}
       ${row("tog", I.arrow, "Order coins by", S.order === "name" ? "Name" : "Value", 'data-k="order"')}`)}
     ${sec("About", `
       ${row("panel", I.spark, "What's new", `${VERSION}${typeof __ECRIN_BUILD__ !== "undefined" ? ` · ${__ECRIN_BUILD__}` : ""} ${I.arrow}`, 'data-p="news"')}
@@ -2958,6 +2960,7 @@ const actions = {
     S.accts = [...(S.accts || DEF_ACCTS), { id: "hd" + i, kind: "hd", i, name: `Account ${i + 1}`, c: n % COLORS.length }];
     await saveAccts(); toast(`Account ${i + 1} added`); switchAccount("hd" + i);
   },
+  "peek-small": () => { S.peekSmall = !S.peekSmall; haptic("light"); render(); },
   "imp-mode": (el) => { S.panel.mode = el.dataset.v; renderPanel(); },
   "acct-import-phrase": async () => {
     const box = $("[data-ph2]"), raw = normalize(box?.value || ""), name = ($("[data-pkname]")?.value || "").trim().slice(0, 24);

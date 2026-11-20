@@ -2,6 +2,7 @@
 // French version: exact phrases first, then patterns for phrases with numbers or names in them. Anything not
 // listed stays in English rather than being guessed.
 const FR = {
+  "Hide balances of $1 or less": "Masquer les soldes de 1 $ ou moins",
   "Use the Safe": "Utiliser le coffre", "Safe on mainnet · early access": "Coffre sur mainnet · accès anticipé",
   "Other Solana tokens →": "Autres jetons Solana →", "Solana tokens": "Jetons Solana", "Swaps open soon": "Les échanges ouvrent bientôt", "Review": "Vérifier",
   "Type amounts in your currency": "Saisir les montants dans votre devise", "Tap the ⇅ button under an amount to type it in dollars, euros or your own currency instead of the coin. The coin amount shows right under it, so you always know what moves.": "Touchez le bouton ⇅ sous un montant pour le saisir en dollars, en euros ou dans votre devise plutôt qu'en crypto. Le montant en crypto s'affiche juste en dessous, pour toujours savoir ce qui part.", "Bitcoin and XRP": "Bitcoin et XRP", "Your recovery phrase now gives you a Bitcoin and an XRP address too: send and receive them next to your other coins.": "Votre phrase de récupération vous donne aussi une adresse Bitcoin et une adresse XRP : envoyez-les et recevez-les à côté de vos autres cryptos.", "Bridge any coin": "Bridge entre toutes les cryptos", "Move coins between networks and change them on the way: USDC on Base into SOL on Solana, or into Bitcoin.": "Déplacez vos cryptos d'un réseau à l'autre en les changeant au passage : de l'USDC sur Base en SOL sur Solana, ou en Bitcoin.", "Import another wallet": "Importer un autre portefeuille", "Settings → Accounts → Import a wallet: add another wallet's recovery phrase and get its account on every network, next to your own.": "Paramètres → Comptes → Importer un portefeuille : ajoutez la phrase de récupération d'un autre portefeuille et retrouvez son compte sur chaque réseau, à côté du vôtre.",
@@ -282,6 +283,7 @@ const FR = {
 };
 // Phrases with numbers or names: [pattern, replacement].
 const FR_RE = [
+  [/^(\d+) balances? of \$1 or less hidden · Show$/, "$1 solde(s) de 1 $ ou moins masqué(s) · Afficher"],
   [/^Your Safe already works on (.+), with USDC and each network's own coin\.$/, "Votre coffre fonctionne déjà sur $1, avec l'USDC et la crypto propre à chaque réseau."],
   [/^Early access: the Safe works on (.+)\. It has not been audited yet, so keep amounts small\.$/, "Accès anticipé : le coffre fonctionne sur $1. Il n'a pas encore été audité, gardez de petits montants."],
   [/^Needs (\S+) for the fee$/, "Il faut des $1 pour les frais"],
