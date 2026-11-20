@@ -31,7 +31,9 @@ async function jupiter(env, path, init = {}) {
 export async function handleSwap(request, env) {
   const url = new URL(request.url);
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
-  if (url.pathname === "/api/swap/status") return json({ mode: swapMode(env), feeBps: swapFeeBps(env) });
+  // The referral account is a public address: show its ends so a wrong or missing value is easy to spot.
+  const ref = env.JUPITER_REFERRAL_ACCOUNT || "", refShown = SOLANA.test(ref) ? `${ref.slice(0, 4)}…${ref.slice(-4)}` : ref ? "invalid" : null;
+  if (url.pathname === "/api/swap/status") return json({ mode: swapMode(env), feeBps: swapFeeBps(env), referral: refShown });
   if (swapMode(env) !== "on") return json({ error: "Swaps open with mainnet. Coming soon.", code: "SWAP_SOON" }, 503);
   if (request.method === "GET") {
     const q = url.searchParams, inputMint = q.get("inputMint") || "", outputMint = q.get("outputMint") || "", amount = q.get("amount") || "", taker = q.get("taker") || "";
@@ -40,7 +42,8 @@ export async function handleSwap(request, env) {
     if (taker && !SOLANA.test(taker)) return json({ error: "Bad wallet" }, 400);
     const params = new URLSearchParams({ inputMint, outputMint, amount });
     if (taker) params.set("taker", taker);
-    if (!SOLANA.test(env.JUPITER_REFERRAL_ACCOUNT || "")) return jupiter(env, "/order?" + params);
+    const tag = (r, v) => { const h = new Headers(r.headers); h.set("x-ecrin-fee", v.slice(0, 180)); h.set("Access-Control-Expose-Headers", "x-ecrin-fee"); return new Response(r.body, { status: r.status, headers: h }); };
+    if (!SOLANA.test(env.JUPITER_REFERRAL_ACCOUNT || "")) return tag(await jupiter(env, "/order?" + params), "none: no referral account set");
     const plain = new URLSearchParams(params);
     params.set("referralAccount", env.JUPITER_REFERRAL_ACCOUNT); params.set("referralFee", String(swapFeeBps(env)));
     const res = await jupiter(env, "/order?" + params);
@@ -48,9 +51,9 @@ export async function handleSwap(request, env) {
     // swapping: quote without Ecrin's fee instead, and say so in the server log.
     if (res.status >= 400 || res.status === 200) {
       const body = await res.clone().text();
-      if (/referral/i.test(body) && !/"transaction"/.test(body)) { console.log("swap: Jupiter refused the referral account, quoting without Ecrin's fee:", body.slice(0, 200)); return jupiter(env, "/order?" + plain); }
+      if (/referral/i.test(body) && !/"transaction"/.test(body)) { console.log("swap: Jupiter refused the referral account, quoting without Ecrin's fee:", body.slice(0, 200)); return tag(await jupiter(env, "/order?" + plain), "off: Jupiter refused the referral account: " + body.replace(/\s+/g, " ").slice(0, 140)); }
     }
-    return res;
+    return tag(res, "on");
   }
   if (request.method === "POST") {
     let input; try { input = await request.json(); } catch (_) { return json({ error: "Invalid JSON" }, 400); }
