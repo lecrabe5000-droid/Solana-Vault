@@ -1849,6 +1849,7 @@ function openPanel(p, opts = {}) {
 /** Back: first a step back inside the current screen, then the previous screen, then home. */
 function goBack() {
   const P = S.panel; if (!P) return;
+  if (P.step === "sending" && P.p === "bridge" && P.sig) { closePanel(); return txPill("run", `Swapping ${P.amount} ${brSym(P.fa)}`, brK(P.fa) !== brK(P.ta) ? `Arriving on ${NETS[brK(P.ta)].name}` : "Confirming"); }
   if (P.step === "sending") return; // a transaction is on its way: its sheet stays until it's done
   if (P.p === "earn" && P.step === "done") { P.step = "form"; P.mo = null; P.mode = "home"; P.st = undefined; return renderPanel(); }
   if (P.p === "earn" && (P.mode === "stake" || P.mode === "unstake")) { P.mode = "home"; P.amount = ""; P.pct = null; return renderPanel(); }
@@ -3083,11 +3084,12 @@ const actions = {
   },
   "swap-pct": (el) => { const P = S.panel, p = BigInt(el.dataset.v), m = swapMaxRaw(P.from), u = (m * p) / 100n; P.pct = Number(p); P.amount = u ? String(fromRaw(u, P.from.dec)) : ""; swapQuoteSoon(0); },
   "swap-review": () => { const P = S.panel; if (!P.quote) return; P.step = "review"; renderPanel(); },
-  "br-pick": (el) => { S.panel.pick = el.dataset.v; renderPanel(); },
+  "br-pick": (el) => { const P = S.panel; P.pick = el.dataset.v; P.q = ""; P.qnet = ""; renderPanel(); setTimeout(() => { if (!globalThis.ECRIN_WEB) $("#panel [data-brq]")?.focus(); }, 250); },
+  "br-qnet": (el) => { const P = S.panel; P.qnet = el.dataset.v; renderPanel(); },
   "br-set": (el) => { const P = S.panel, side = el.dataset.k === "from" ? "fa" : "ta", v = el.dataset.v; if (side === "fa") { if (v === P.ta) P.ta = P.fa; if (v !== P.fa) { P.amount = ""; P.pct = null; } } else if (v === P.fa) P.fa = P.ta; P[side] = v; P.pick = null; renderPanel(); bridgeQuoteSoon(0); },
   "br-pct": (el) => { const P = S.panel, m = brMax(P.fa), v = (m * Number(el.dataset.v)) / 100; P.pct = Number(el.dataset.v); P.amount = v > 0 ? String(Math.floor(v * 1e6) / 1e6) : ""; renderPanel(); bridgeQuoteSoon(0); },
   "br-flip": () => { const P = S.panel; [P.fa, P.ta] = [P.ta, P.fa]; P.amount = ""; P.pct = null; P.quote = null; renderPanel(); },
-  "br-review": () => { const P = S.panel; if (!P.quote) return; P.step = "review"; renderPanel(); },
+  "br-review": () => { const P = S.panel; if (!P.quote || P.quote.key !== brKey(P)) return; P.step = "review"; P.anim = true; renderPanel(); },
   "br-back": () => { S.panel.step = "form"; renderPanel(); },
   "br-go": () => bridgeNow(),
   "swap-sol": async () => { await useNet(SWAP_NET); openPanel("swap", { jup: true }); const e = await eng(); S.panel.reserve = await e.reserve("native"); renderPanel(); },
@@ -3366,6 +3368,7 @@ async function xSendNow() {
 async function confirmSend() {
   if (S.panel?.p === "xtok") return xSendNow();
   if (S.panel?.p === "swap") return swapNow();
+  if (S.panel?.p === "bridge") return bridgeNow();
   const P = S.panel, units = parseAmt(P.amount, P.asset), to = P.to.trim();
   P.sent = units;
   const lim = await limitCheck(usdOf(units, P.asset)); if (lim) { P.step = "form"; renderPanel(); return toast(lim, "err"); }
@@ -3429,6 +3432,7 @@ document.addEventListener("input", (e) => {
   } else if (t.matches("[data-reqamt]") || t.matches("[data-reqlabel]")) { const k = t.matches("[data-reqamt]") ? "amount" : "label", sel = k === "amount" ? "[data-reqamt]" : "[data-reqlabel]"; S.panel[k] = k === "amount" ? t.value.replace(/[^\d.,]/g, "").replace(",", ".") : t.value; const pos = t.selectionStart; patchPanel(); const n = $("#panel " + sel); if (n && document.activeElement !== n) n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {}
   } else if (t.matches("[data-to]") && (/^wc:/i.test(t.value.trim()) || parsePayLink(t.value))) { const v = t.value.trim(); t.value = ""; onScanned(v);
   } else if (t.matches("[data-to]")) { lookupTo(t.value); S.panel.to = t.value; patchPanel(); }
+  else if (t.matches("[data-brq]")) { const P = S.panel; P.q = t.value; const el = $("#brlist"); if (el) { el.innerHTML = bxList(P, brAssets()); translate(el, S.lang); } }
   else if (t.matches("[data-bramt]")) { const v = t.value.replace(",", ".").replace(/[^\d.]/g, ""); if (v !== t.value) t.value = v; S.panel.amount = v; S.panel.pct = null; bridgeQuoteSoon(); }
   else if (t.matches("[data-bugtext]")) S.panel.text = t.value;
   else if (t.matches("[data-bugwho]")) S.panel.who = t.value;
@@ -3905,7 +3909,7 @@ async function swapNow() {
     const d = await r.json().catch(() => ({}));
     if (!r.ok || !d.transaction) throw new Error(SWAP_ERR[d.errorCode] || (typeof d.error === "string" ? d.error : d.error?.message) || d.errorMessage || "Jupiter couldn't build this swap. Try again.");
     motionStep(P, "check");
-    const signed = await e.swapSign(d.transaction, { inMint: P.from.mint, inRaw: String(raw) });
+    const signed = await e.swapSign(d.transaction, { inMint: P.from.mint, inRaw: String(raw), coPayer: true }); // Jupiter may pay the fee (gasless)
     motionStep(P, "sent");
     const x = await fetch(SWAP.api, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ signedTransaction: signed, requestId: d.requestId }) });
     const res = await x.json().catch(() => ({}));
@@ -4351,95 +4355,151 @@ const brMax = (id) => Math.max(0, brHeld(id) - (brC(id) === "native" ? BR_KEEP[b
 const brLogo = (id) => { const k = brK(id), c = brC(id); return c === "usdc" ? "usdc" : c === "usdt" ? "usdt" : NETS[k].unit === "ETH" ? "eth" : k; };
 const brIcon = (id) => { const l = brLogo(id), k = brK(id), same = l === k || (l === "eth" && k === "ethm"); return `<span class="cstack">${coin(l)}${same ? "" : `<span class="cmini">${coin(k)}</span>`}</span>`; };
 const brName = (id) => `${brSym(id)} on ${NETS[brK(id)].name}`;
-function bridgeQuoteSoon(ms = 450) {
+function bridgeQuoteSoon(ms = 450, quiet = false) {
   const P = S.panel; if (!P || P.p !== "bridge") return;
-  clearTimeout(S.brT); const mine = (P.qSeq = (P.qSeq || 0) + 1); P.quote = null; P.qErr = null;
-  const raw = toRaw(P.amount, brDec(P.fa)); if (!raw || !BRIDGE.on || !P.ta) { patchPanel(); return; }
-  P.quoting = true; patchPanel();
+  clearTimeout(S.brT); clearTimeout(S.brRe); const mine = (P.qSeq = (P.qSeq || 0) + 1); P.qErr = null;
+  if (P.quote) P.lastQ = { ...P.quote, pair: `${P.fa}>${P.ta}` }; // keeps the last price on screen while the new one loads
+  if (!quiet) P.quote = null;
+  const raw = toRaw(P.amount, brDec(P.fa)); if (!raw || !BRIDGE.on || !P.ta || Number(P.amount) > brMax(P.fa) + 1e-12) { P.quoting = false; patchPanel(); return; }
+  P.quoting = !quiet; if (!quiet) patchPanel();
+  const key = brKey(P);
   S.brT = setTimeout(async () => {
     try {
       let d;
       if (globalThis.ECRIN_DEMO) {
-        await new Promise((r) => setTimeout(r, 600));
+        await new Promise((r) => setTimeout(r, 700));
         const out = (Number(P.amount) * (brPx(P.fa) || 1) / (brPx(P.ta) || 1)) * (1 - BRIDGE.fee - 0.0012), dec = brDec(P.ta);
         const outRaw = toRaw(out.toFixed(Math.min(dec, 8)), dec) || 0n;
         d = { toAmount: String(outRaw), toAmountMin: String((outRaw * 995n) / 1000n), seconds: brK(P.fa) === brK(P.ta) ? 15 : 40, feesUSD: 0.03, gasUSD: 0.01, tool: "Across", bridge: "demo" };
       } else {
         const r = await fetch(`${BRIDGE.api}/quote?` + new URLSearchParams({ from: brK(P.fa), to: brK(P.ta), fromCoin: brC(P.fa), toCoin: brC(P.ta), amount: String(raw), fromAddress: brAddr(brK(P.fa)), toAddress: brAddr(brK(P.ta)) }), { cache: "no-store" });
-        d = await r.json().catch(() => ({})); if (!r.ok || !d.toAmount) throw new Error(d.error || "No route right now");
+        d = await r.json().catch(() => ({})); if (!r.ok || !d.toAmount) throw new Error(d.error || "No route right now. Try another amount or coin.");
       }
-      if (P.qSeq !== mine || S.panel !== P) return; P.quote = d;
-    } catch (e) { if (P.qSeq === mine) P.qErr = e.message || "No route right now"; }
-    if (P.qSeq === mine && S.panel === P) { P.quoting = false; renderPanel(); }
+      if (P.qSeq !== mine || S.panel !== P || brKey(P) !== key) return;
+      P.quote = { ...d, key, at: Date.now() };
+    } catch (e) { if (P.qSeq === mine && !quiet) { P.qErr = e.message || "No route right now"; P.quote = null; } }
+    if (P.qSeq === mine && S.panel === P) {
+      P.quoting = false; if (P.step !== "sending" && P.step !== "done") renderPanel();
+      // Prices move: refresh quietly every 25 seconds while you look at it.
+      S.brRe = setTimeout(() => { if (S.panel === P && (P.step === "form" || P.step === "review") && !P.pick && !document.hidden) bridgeQuoteSoon(0, true); }, 25000);
+    }
   }, ms);
 }
 const brSecs = (s) => (!s ? "" : s < 90 ? `about ${Math.max(5, Math.round(s / 5) * 5)} seconds` : `about ${Math.round(s / 60)} minutes`);
 function bridgeView() {
-  if (!isMain()) return `${phead("Bridge")}<div class="cv"><div class="cv-art">${I.swap}</div><h2>Bridges run on Mainnet</h2><p class="sub">Bridges move real coins between networks, and have no test version. Switch Settings → Networks to Mainnet to bridge.</p></div>`;
+  if (!isMain()) return `${phead("Swap")}<div class="cv"><div class="cv-art">${I.swap}</div><h2>Swaps run on Mainnet</h2><p class="sub">Swaps and bridges move real coins, and have no test version. Switch Settings → Networks to Mainnet to swap.</p></div>`;
   const P = S.panel; bridgeStatus();
   const all = brAssets(), usdOf = (id) => brHeld(id) * (brPx(id) || 0);
-  if (!all.includes(P.fa)) P.fa = [...all].sort((a, b) => usdOf(b) - usdOf(a))[0];
-  if (!P.fa || all.length < 2) return `${phead("Bridge")}<div class="cv"><div class="cv-art">${I.swap}</div><h2>Nothing to bridge here</h2><p class="sub">Bridges need an address on two networks. This account has only one.</p></div>`;
+  if (!all.includes(P.fa)) P.fa = [...all].sort((a, b) => usdOf(b) - usdOf(a) || all.indexOf(a) - all.indexOf(b))[0];
+  if (!P.fa || all.length < 2) return `${phead("Swap")}<div class="cv"><div class="cv-art">${I.swap}</div><h2>Nothing to swap here</h2><p class="sub">This account has an address on one network only.</p></div>`;
   if (!all.includes(P.ta) || P.ta === P.fa) {
-    // By default: the same coin on another network (Base first), else USDC on Base.
+    // By default, like other wallets: another coin on the same network (SOL → USDC, USDC → ETH), else USDC elsewhere.
     const c = brC(P.fa), k = brK(P.fa);
-    P.ta = [`basem:${c}`, `solm:${c}`, `arbm:${c}`, "basem:usdc", "solm:usdc"].find((x) => x !== P.fa && brK(x) !== k && all.includes(x)) || all.find((x) => x !== P.fa);
+    P.ta = (c === "native" ? [`${k}:usdc`, `${k}:usdt`, "solm:usdc", "basem:usdc"] : [`${k}:native`, "solm:native", "basem:native"]).find((x) => x !== P.fa && all.includes(x)) || all.find((x) => x !== P.fa);
   }
-  const fa = P.fa, ta = P.ta, from = brK(fa), to = brK(ta), sym = brSym(fa), tsym = brSym(ta);
-  const raw = toRaw(P.amount, brDec(fa)), max = brMax(fa), over = Number(P.amount || 0) > max + 1e-12, q = P.quote;
-  const outN = q ? fromRaw(q.toAmount, brDec(ta)) : 0, nf = (v, id) => v.toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { maximumFractionDigits: brC(id) === "native" ? 6 : 2 });
-  const px = brPx(fa), inUsd = px ? Number(P.amount || 0) * px : null, tpx = brPx(ta), outUsd = q && tpx ? outN * tpx : null;
-  if (P.pick) {
-    const list = P.pick === "from" ? [...all].sort((a, b) => usdOf(b) - usdOf(a) || all.indexOf(a) - all.indexOf(b)) : all.filter((x) => x !== fa);
-    const row = (id) => { const h = brHeld(id); return `<button class="arow" data-act="br-set" data-k="${P.pick}" data-v="${id}">${brIcon(id)}<span class="ar-t"><b>${esc(brSym(id))}</b><small>${esc(NETS[brK(id)].name)}</small></span><span class="ar-r">${h > 0 ? `<b>${nf(h, id)}</b>${brPx(id) ? `<small>${money(h * brPx(id))}</small>` : ""}` : ""}</span>${P[P.pick === "from" ? "fa" : "ta"] === id ? `<span class="acc-ok">${I.check}</span>` : ""}</button>`; };
-    return `${phead(P.pick === "from" ? "Send which coin?" : "Receive which coin?")}<section class="list">${list.map(row).join("")}</section>`;
+  const fa = P.fa, ta = P.ta, from = brK(fa), to = brK(ta), sym = brSym(fa), tsym = brSym(ta), cross = from !== to;
+  const raw = toRaw(P.amount, brDec(fa)), max = brMax(fa), over = Number(P.amount || 0) > max + 1e-12;
+  const q = P.quote && P.quote.key === brKey(P) ? P.quote : null, shown = q || (P.lastQ && P.lastQ.pair === `${fa}>${ta}` ? P.lastQ : null);
+  const nf = bxNum;
+  const outN = shown ? fromRaw(shown.toAmount, brDec(ta)) : 0, minN = q?.toAmountMin ? fromRaw(q.toAmountMin, brDec(ta)) : 0;
+  const px = brPx(fa), inUsd = px ? Number(P.amount || 0) * px : null, tpx = brPx(ta), outUsd = shown && tpx ? outN * tpx : null;
+  const rate = q && Number(P.amount) > 0 ? outN / Number(P.amount) : 0, rateTxt = rate ? `1 ${sym} ≈ ${rate.toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { maximumSignificantDigits: 5 })} ${tsym}` : "";
+  const fees = q ? q.feesUSD + q.gasUSD : 0;
+  const netTag = (id) => `<small class="bx-net">${coin(brK(id))}${esc(NETS[brK(id)].name)}</small>`;
+
+  // ---- after confirming: the same live sheet as every send, then a receipt
+  if (P.step === "sending" || P.step === "done") {
+    const got = P.got != null ? P.got : outN, done = P.step === "done";
+    return motionView(P, { kind: "swap", N: NETS[from], title: [cross ? "Swapping across networks" : "Swapping", cross ? `${tsym} arrived on ${NETS[to].name}` : "Swapped"],
+      amount: `${esc(P.amount)} ${sym} <i class="mo-to">→</i> ${done && P.got != null ? "" : "≈ "}${nf(got, ta)} ${tsym}`, usd: inUsd != null ? money(inUsd) : "",
+      line: cross ? `${esc(NETS[from].name)} → ${esc(NETS[to].name)}` : esc(NETS[from].name),
+      rows: [["You paid", `${esc(P.amount)} ${sym}`], ["You got", `${done && P.got != null ? "" : "≈ "}${nf(got, ta)} ${tsym}`], ...(P.rateTxt ? [["Rate", P.rateTxt]] : []), ["Ecrin fee", `${feePct(BRIDGE.fee)} (included)`], ...(P.feesUSD ? [["Network fees", `≈ ${money(P.feesUSD)}`]] : []), ...(P.link ? [["Details", `<a href="${esc(P.link)}" target="_blank" rel="noopener">LI.FI explorer ${I.ext}</a>`]] : [])] });
   }
+
+  // ---- choosing a coin: search, your coins first, then every coin, filtered by network
+  if (P.pick) return `${phead(P.pick === "from" ? "Pay with" : "Get")}
+    <div class="bx-pick">
+      <label class="bx-search">${I.search || `<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>`}<input data-brq placeholder="Search a coin or network" value="${esc(P.q || "")}" autocomplete="off" autocapitalize="none" spellcheck="false"/></label>
+      <div class="bx-chips">${["", ...new Set(all.map(brK))].map((k) => `<button class="chip${(P.qnet || "") === k ? " on" : ""}" data-act="br-qnet" data-v="${k}">${k ? `${coin(k)}${esc(NETS[k].name)}` : "All"}</button>`).join("")}</div>
+      <div id="brlist">${bxList(P, all)}</div>
+    </div>`;
+
   const assetBtn = (side, id) => `<button class="br-net br-asset" data-act="br-pick" data-v="${side}">${brIcon(id)}<span><b>${esc(brSym(id))}</b><small>${esc(NETS[brK(id)].name)}</small></span>${I.chev}</button>`;
-  const feeLine = `<div class="sx-kv">
-      <div><span>You receive</span><b>${q ? `≈ ${nf(outN, ta)} ${tsym}` : "—"}</b></div>
-      <div><span>Arrives in</span><b>${q ? brSecs(q.seconds) || "a few minutes" : "—"}</b></div>
-      <div><span>Ecrin fee</span><b>${feePct(BRIDGE.fee)} (included)</b></div>
-      <div><span>Network and bridge fees</span><b>${q ? (q.feesUSD + q.gasUSD > 0 ? `≈ ${money(q.feesUSD + q.gasUSD)}` : "included") : "—"}</b></div>
-      ${q?.tool ? `<div><span>Route</span><b>${esc(String(q.tool))} · via LI.FI</b></div>` : ""}</div>`;
-  if (P.step === "review") return `${phead("Review bridge")}
-    <div class="br br-rv">
-      <div class="br-rv-amt">${brIcon(fa)}<b>${esc(P.amount)} ${sym}</b><small>${inUsd != null ? money(inUsd) : ""}</small></div>
-      <div class="br-path"><span>${coin(from)}${esc(NETS[from].name)}</span><i>${I.arrow}</i><span>${coin(to)}${esc(NETS[to].name)}</span></div>
-      ${feeLine}
-      <p class="br-note">${I.shield}<span>It arrives at your own address on ${esc(NETS[to].name)}${sym !== tsym ? `, as ${tsym}` : ""}. Ecrin checks the transaction before you sign: only the ${sym} you chose can leave.</span></p>
-    </div>
-    <div class="pfoot snd-foot"><button class="btn xl" data-act="br-back">Back</button><button class="btn primary xl" data-act="br-go">Confirm</button></div>`;
   const gas = brGasShort(fa);
-  const btn = !BRIDGE.on ? "Swaps open soon" : !raw ? "Enter an amount" : over ? `Not enough ${sym} on ${NETS[from].name}` : gas ? `Needs ${gas.unit} for the fee` : P.quoting || !q ? (P.qErr ? "No route right now" : "Finding the best route…") : "Review";
+
+  // ---- review: what you pay, what you get, what it costs; hold to confirm like every send
+  if (P.step === "review" && q) return `${phead("Review swap")}
+    <div class="br bx-rv">
+      <div class="bx-pair">
+        <div class="bx-side"><span class="bx-k">You pay</span><div class="bx-amt">${brIcon(fa)}<b>${esc(P.amount)} <em>${sym}</em></b></div><small class="bx-usd">${inUsd != null ? money(inUsd) : ""}</small>${netTag(fa)}</div>
+        <i class="bx-arrow">${I.arrow}</i>
+        <div class="bx-side"><span class="bx-k">You get</span><div class="bx-amt">${brIcon(ta)}<b>≈ ${nf(outN, ta)} <em>${tsym}</em></b></div><small class="bx-usd">${outUsd != null ? money(outUsd) : ""}</small>${netTag(ta)}</div>
+      </div>
+      <div class="sx-kv bx-kv">
+        <div><span>Rate</span><b>${rateTxt}</b></div>
+        ${minN ? `<div><span>At least</span><b>${nf(minN, ta)} ${tsym}</b></div>` : ""}
+        <div><span>${cross ? "Arrives in" : "Takes"}</span><b>${brSecs(q.seconds) || "a few minutes"}</b></div>
+        <div><span>Network fees</span><b>${fees > 0 ? `≈ ${money(fees)}` : "included"}</b></div>
+        <div><span>Ecrin fee</span><b>${feePct(BRIDGE.fee)} (included)</b></div>
+      </div>
+      <p class="br-note">${I.shield}<span>${cross ? `It arrives at your own address on ${esc(NETS[to].name)}. ` : ""}Ecrin checks the transaction before you sign: only the ${esc(P.amount)} ${sym} you chose can leave.</span></p>
+    </div>
+    <div class="pfoot">${hold(`Hold to ${cross ? "swap across" : "swap"}`)}<button class="sr-only" data-act="br-go">Confirm swap</button></div>`;
+
+  // ---- the form
+  const quoting = P.quoting && raw && !over;
+  const btn = !BRIDGE.on ? "Swaps open soon" : !raw ? "Enter an amount" : over ? `Not enough ${sym}` : gas ? `Needs ${gas.unit} for the fee` : P.qErr ? "No route right now" : !q ? "Getting the best price…" : "Review swap";
   return `${phead("Swap")}
-    <div class="sx br">
+    <div class="sx br bx">
       <div class="sx-card br-card">
-        <div class="sx-top"><span class="sx-k">From</span><span class="sx-bal">Balance ${nf(brHeld(fa), fa)} ${sym}</span></div>
+        <div class="sx-top"><span class="sx-k">You pay</span><button class="sx-bal link" data-act="br-pct" data-v="100">Balance ${nf(brHeld(fa), fa)} ${sym}</button></div>
         <div class="sx-row">${assetBtn("from", fa)}<input class="sx-in" data-bramt inputmode="decimal" placeholder="0" value="${esc(P.amount || "")}" autocomplete="off"/></div>
-        <div class="sx-foot"><span class="sx-pcts">${[25, 50, 100].map((v) => `<button data-act="br-pct" data-v="${v}" class="${P.pct === v ? "on" : ""}">${v === 100 ? "Max" : v + "%"}</button>`).join("")}</span><span class="sx-usd">${over ? `<span class="bad">Not enough</span>` : inUsd ? money(inUsd) : ""}</span></div>
+        <div class="sx-foot"><span class="sx-pcts">${[25, 50, 100].map((v) => `<button data-act="br-pct" data-v="${v}" class="${P.pct === v ? "on" : ""}">${v === 100 ? "Max" : v + "%"}</button>`).join("")}</span><span class="sx-usd">${over ? `<span class="bad">More than you have</span>` : inUsd ? money(inUsd) : ""}</span></div>
       </div>
       <button class="sx-flip br-flip" data-act="br-flip" aria-label="Switch"><svg viewBox="0 0 24 24"><path d="M8 4v15M8 19l-4-4M8 19l4-4M16 20V5M16 5l-4 4M16 5l4 4"/></svg></button>
       <div class="sx-card to br-card">
-        <div class="sx-top"><span class="sx-k">To</span><span class="sx-bal">Your address on ${esc(NETS[to].name)}</span></div>
-        <div class="sx-row">${assetBtn("to", ta)}<span class="sx-out">${q ? nf(outN, ta) : P.quoting ? `<i class="spin"></i>` : "0"}</span></div>
-        ${outUsd ? `<div class="sx-foot"><span></span><span class="sx-usd">${money(outUsd)}</span></div>` : ""}
+        <div class="sx-top"><span class="sx-k">You get</span><span class="sx-bal">${cross ? `On ${esc(NETS[to].name)}` : ""}</span></div>
+        <div class="sx-row">${assetBtn("to", ta)}<span class="sx-out${quoting ? " bx-wait" : ""}">${shown && raw ? nf(outN, ta) : quoting ? `<i class="bx-sk"></i>` : "0"}</span></div>
+        <div class="sx-foot"><span></span><span class="sx-usd">${outUsd && raw ? money(outUsd) : ""}</span></div>
       </div>
-      ${P.qErr && raw ? `<p class="err">${esc(P.qErr)}</p>` : ""}
-      ${feeLine}
-      ${gas ? `<p class="br-note warn">${I.shield}<span>Sending ${sym} on ${esc(gas.net)} costs a small fee paid in <b>${gas.unit}</b>: about ${gas.need} ${gas.unit}. You have ${nf(gas.have, `${from}:native`)} ${gas.unit}. Add a little ${gas.unit} to this Wallet first (Receive, or swap some in from another network).</span></p>` : ""}
-      ${brK(fa) === "tronm" ? `<p class="br-note">${I.clock}<span>Bridging from Tron burns some TRX for the network (often 10 to 40 TRX). Keep some TRX in this Wallet.</span></p>` : ""}
+      ${raw && !over ? `<div class="bx-rate${q ? " in" : ""}">${q ? `<span>${rateTxt}</span><span>${I.clock}${brSecs(q.seconds) || "a few minutes"}${fees > 0 ? ` · fees ≈ ${money(fees)}` : ""}</span>` : P.qErr ? `<span class="bad">${esc(P.qErr)}</span>` : `<span class="bx-dots">Finding the best price<i></i><i></i><i></i></span>`}</div>` : ""}
+      ${cross && !raw ? `<p class="bx-hint">${coin(from)}${esc(NETS[from].name)} ${I.arrow} ${coin(to)}${esc(NETS[to].name)}<span>Swapped and moved across networks in one step.</span></p>` : ""}
+      ${gas ? `<p class="br-note warn">${I.shield}<span>Sending ${sym} on ${esc(gas.net)} costs a small fee paid in <b>${gas.unit}</b>: about ${gas.need} ${gas.unit}. You have ${nf(gas.have, `${from}:native`)} ${gas.unit}. Add a little ${gas.unit} to this Wallet first${from === "solm" ? `, or swap with <button class="link" data-act="swap-sol">Jupiter</button>, which can pay the Solana fee for you` : ""}.</span></p>` : ""}
+      ${from === "tronm" ? `<p class="br-note">${I.clock}<span>Swapping from Tron burns some TRX for the network (often 10 to 40 TRX). Keep some TRX in this Wallet.</span></p>` : ""}
       ${!BRIDGE.on ? `<p class="br-note">${I.clock}<span>Swaps open very soon: Ecrin is finishing its setup with LI.FI.</span></p>` : ""}
       ${netKeys().includes(SWAP_NET) ? `<button class="link br-jup" data-act="swap-sol">Other Solana tokens →</button>` : ""}
     </div>
     <div class="pfoot"><button class="btn primary xl" data-act="br-review" ${BRIDGE.on && raw && !over && !gas && q ? "" : "disabled"}>${btn}</button></div>`;
 }
+/** A coin amount the way people read it: 2 decimals for dollar coins, 4 from 1 up, 6 significant digits below 1. */
+const bxNum = (v, id) => { const n = Number(v) || 0, L = S.lang === "fr" ? "fr-CA" : "en-US";
+  return brC(id) !== "native" ? n.toLocaleString(L, { maximumFractionDigits: 2 }) : Math.abs(n) >= 1 ? n.toLocaleString(L, { maximumFractionDigits: 4 }) : n.toLocaleString(L, { maximumSignificantDigits: 6 }); };
+/** Which quote matches what's on screen: the same coins and amount. */
+const brKey = (P) => `${P.fa}>${P.ta}:${P.amount}`;
+/** The coin list in the picker: your coins first, then every other coin; search and network filter. */
+function bxList(P, all) {
+  const q = String(P.q || "").trim().toLowerCase(), cur = P[P.pick === "from" ? "fa" : "ta"];
+  const val = (id) => brHeld(id) * (brPx(id) || 0);
+  const nf = bxNum;
+  const names = { native: "", usdc: "usd coin", usdt: "tether" };
+  const ok = (id) => (!P.qnet || brK(id) === P.qnet) && (!q || `${brSym(id)} ${NETS[brK(id)].name} ${names[brC(id)] || ""}`.toLowerCase().includes(q));
+  const list = all.filter(ok), mine = list.filter((id) => brHeld(id) > 0).sort((a, b) => val(b) - val(a)), rest = list.filter((id) => !(brHeld(id) > 0));
+  const row = (id) => { const h = brHeld(id); return `<button class="arow${cur === id ? " on" : ""}" data-act="br-set" data-k="${P.pick}" data-v="${id}">${brIcon(id)}<span class="ar-t"><b>${esc(brSym(id))}</b><small>${esc(NETS[brK(id)].name)}</small></span><span class="ar-r">${h > 0 ? `<b>${nf(h, id)}</b>${brPx(id) ? `<small>${money(h * brPx(id))}</small>` : ""}` : brPx(id) ? `<small>${money(brPx(id))}</small>` : ""}</span>${cur === id ? `<span class="acc-ok">${I.check}</span>` : ""}</button>`; };
+  if (!list.length) return `<p class="bx-none">No coin matches "${esc(P.q || "")}".</p>`;
+  return `${mine.length ? `<div class="list-h"><b>Your coins</b></div><section class="list">${mine.map(row).join("")}</section>` : ""}${rest.length ? `<div class="list-h"><b>${mine.length ? "Other coins" : "Coins"}</b></div><section class="list">${rest.map(row).join("")}</section>` : ""}`;
+}
 async function bridgeNow() {
-  const P = S.panel; if (!P?.quote) return;
-  if (S.upd?.must) return toast("A security update is required before you can bridge. Update Ecrin Wallet first.", "err");
-  const fa = P.fa, ta = P.ta, from = brK(fa), to = brK(ta), coinK = brC(fa), unit = brSym(fa), tunit = brSym(ta), amount = P.amount, raw = toRaw(amount, brDec(fa));
-  const usd = brPx(fa) ? Number(amount) * brPx(fa) : null;
+  const P = S.panel; if (!P?.quote || P.p !== "bridge" || P.step === "sending") return;
+  if (S.upd?.must) return toast("A security update is required before you can swap. Update Ecrin Wallet first.", "err");
+  const fa = P.fa, ta = P.ta, from = brK(fa), to = brK(ta), cross = from !== to, coinK = brC(fa), unit = brSym(fa), tunit = brSym(ta), amount = P.amount, raw = toRaw(amount, brDec(fa));
+  const usd = brPx(fa) ? Number(amount) * brPx(fa) : null, outN = fromRaw(P.quote.toAmount, brDec(ta));
   const lim = await limitCheck(usd); if (lim) { P.step = "form"; renderPanel(); return toast(lim, "err"); }
-  closePanel(); txPill("run", `Bridging ${amount} ${unit}`, `${NETS[from].name} → ${NETS[to].name}`);
+  P.rateTxt = Number(amount) > 0 ? `1 ${unit} ≈ ${(outN / Number(amount)).toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { maximumSignificantDigits: 5 })} ${tunit}` : ""; P.feesUSD = (P.quote.feesUSD || 0) + (P.quote.gasUSD || 0); P.got = null; P.link = null;
+  clearTimeout(S.brRe); P.step = "sending"; P.sig = null; P.pick = null;
+  motionStart(P, [{ k: "sign", run: "Signing on this device", ok: "Signed on this device" }, { k: "sent", run: `Sending on ${NETS[from].name}`, ok: `Sent on ${NETS[from].name}` },
+    { k: "conf", run: cross ? `Arriving on ${NETS[to].name}` : "Swapping", ok: cross ? `Arrived on ${NETS[to].name}` : "Swapped" }]);
+  renderPanel();
+  const here = () => S.panel === P, pill = (st, t, sub, link) => { if (!here()) txPill(st, t, sub, link); };
   try {
     const { dev } = await local.get("dev"), e = engine({ web3, ethers, acct: ACCT, net: from, dev: dev || {} });
     let d, sig;
@@ -4447,26 +4507,35 @@ async function bridgeNow() {
     else {
       // A fresh quote for the transaction itself (prices move), with the same checks.
       const r = await fetch(`${BRIDGE.api}/quote?` + new URLSearchParams({ from, to, fromCoin: coinK, toCoin: brC(ta), amount: String(raw), fromAddress: brAddr(from), toAddress: brAddr(to) }), { cache: "no-store" });
-      d = await r.json().catch(() => ({})); if (!r.ok || !d.tx) throw new Error(d.error || "LI.FI couldn't build this bridge. Try again.");
-      if (BigInt(d.fromAmount) !== raw) throw new Error("The bridge quote changed the amount. Ecrin refused it.");
-      if (d.toAmountMin && P.quote.toAmount && BigInt(d.toAmountMin) < (BigInt(P.quote.toAmount) * 97n) / 100n) throw new Error("The price moved more than 3% since your review. Try again.");
+      d = await r.json().catch(() => ({})); if (!r.ok || !d.tx) throw new Error(d.error || "LI.FI couldn't build this swap. Try again.");
+      if (BigInt(d.fromAmount) !== raw) throw new Error("The swap quote changed the amount. Ecrin refused it.");
+      if (d.toAmountMin && P.quote.toAmount && BigInt(d.toAmountMin) < (BigInt(P.quote.toAmount) * 97n) / 100n) throw new Error("The price moved more than 3% since your review. Check the new price and try again.");
       sig = await e.bridgeSend({ tx: d.tx, approval: d.approval, fromToken: d.fromToken, fromAmount: d.fromAmount });
     }
+    P.sig = typeof sig === "string" ? sig : P.sig; motionStep(P, "conf");
     S.lastTx = Date.now(); haptic("success");
-    await logActivity({ t: "bridge", k: from, to: NETS[to].name, a: coinK === "usdc" ? "usdc" : "native", n: coinK === "usdc" ? Number(amount) * USDC_BASE : 0, sym: unit, toSym: tunit, amt: amount, sig: typeof sig === "string" ? sig : null });
+    await logActivity({ t: "bridge", k: from, to: NETS[to].name, a: coinK === "usdc" ? "usdc" : "native", n: coinK === "usdc" ? Number(amount) * USDC_BASE : 0, sym: unit, toSym: tunit, amt: amount, sig: P.sig || null });
     if (usd != null) await countSpend(usd);
-    txPill("run", `Bridging ${amount} ${unit}`, `Sent from ${NETS[from].name} · arriving on ${NETS[to].name}`);
     refresh().then(() => { loadActivity(); loadAll(); });
-    // Follow it to the other side.
-    if (globalThis.ECRIN_DEMO) { await new Promise((r) => setTimeout(r, 2500)); return txPill("ok", `${tunit} arrived on ${NETS[to].name}`, `${amount} ${unit} bridged`); }
+    const finish = (got, link) => {
+      if (got != null) P.got = fromRaw(got, brDec(ta)); P.link = link || null; motionEnd(P); P.step = "done"; haptic("success");
+      if (here()) renderPanel(); else txPill("ok", cross ? `${tunit} arrived on ${NETS[to].name}` : `Swapped to ${tunit}`, `${amount} ${unit} swapped`, link || null);
+      loadAll(); refresh();
+    };
+    if (globalThis.ECRIN_DEMO) { await new Promise((r) => setTimeout(r, 2500)); return finish(d.toAmount, null); }
+    // Follow it until it lands (across networks this is where the bridge works).
     for (let i = 0; i < 90; i++) {
       await new Promise((r) => setTimeout(r, i < 6 ? 5000 : 15000));
       const t = await fetch(`${BRIDGE.api}/track?` + new URLSearchParams({ tx: String(sig), from: String(d.fromChain), to: String(d.toChain), bridge: d.bridge || "" }), { cache: "no-store" }).then((x) => x.json()).catch(() => ({}));
-      if (t.status === "DONE") { txPill("ok", `${tunit} arrived on ${NETS[to].name}`, `${amount} ${unit} bridged`, t.link || null); loadAll(); return; }
-      if (t.status === "FAILED") { txPill(null); return toast(`The bridge didn't complete. LI.FI refunds it on ${NETS[from].name}${t.link ? " (see its page)" : ""}.`, "err"); }
+      if (t.status === "DONE") return finish(t.got, t.link);
+      if (t.status === "FAILED") { motionEnd(P); P.step = "form"; P.mo = null; if (here()) renderPanel(); txPill(null); return toast(`The swap didn't complete. LI.FI refunds it on ${NETS[from].name}${t.link ? " (see its page)" : ""}.`, "err"); }
+      pill("run", `Swapping ${amount} ${unit}`, cross ? `Arriving on ${NETS[to].name}` : "Confirming");
     }
-    txPill(null); toast("The bridge is taking longer than usual. It will arrive; check Activity in a few minutes.");
-  } catch (err) { console.warn(err); txPill(null); toast(errText(err), "err"); }
+    pill("ok", `Still on its way to ${NETS[to].name}`, "Check Activity in a few minutes");
+  } catch (err) {
+    console.warn(err); txEvents.sent = null; P.mo = null; P.step = "review"; if (here()) renderPanel(); else txPill(null);
+    toast(errText(err), "err");
+  }
 }
 
 /* ------------------------------------------------------------------ coin first: pick a coin, Ecrin picks the network */

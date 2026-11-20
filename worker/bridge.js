@@ -4,7 +4,7 @@
 //   GET /api/bridge/status                                                  → { on, fee }
 //   GET /api/bridge/quote?from=&to=&fromCoin=&toCoin=&amount=&fromAddress=&toAddress=  → a quote with the transaction
 //       (coins: native | usdc | usdt; the older coin= sets both sides)
-//   GET /api/bridge/track?tx=&from=&to=&bridge=                             → { status, substatus, receiving }
+//   GET /api/bridge/track?tx=&from=&to=&bridge=                             → { status, substatus, receiving, got }
 // Cloudflare variables (Settings → Variables and Secrets):
 //   LIFI_INTEGRATOR   Ecrin's integrator name from LI.FI's Partner Portal (portal.li.fi), with fee wallets set there.
 //                     Bridges stay closed until it's set: without it LI.FI can't pay Ecrin's fee.
@@ -112,7 +112,7 @@ export async function handleBridge(request, env) {
     for (const [k, v] of [["fromChain", q.get("from")], ["toChain", q.get("to")], ["bridge", q.get("bridge")]]) if (v && /^[A-Za-z0-9]{1,24}$/.test(v)) p.set(k, v);
     const [st, err] = await lifi(env, "/status?" + p);
     if (err) return json({ status: "PENDING", note: err });
-    return json({ status: st.status, substatus: st.substatus || null, receiving: st.receiving?.txHash || null, link: st.lifiExplorerLink || null });
+    return json({ status: st.status, substatus: st.substatus || null, receiving: st.receiving?.txHash || null, got: st.receiving?.amount || null, link: st.lifiExplorerLink || null });
   }
   return json({ error: "Not found" }, 404);
 }

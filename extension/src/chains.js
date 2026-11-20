@@ -174,11 +174,16 @@ function solEngine({ web3, acct, N, dev }) {
      * you pay leaving than you typed, any other coin leaving, a token account handed to someone else or given a
      * spending permission, or more SOL than the swap plus fees. Returns the signed transaction (base64) if it passes.
      */
-    async swapSign(txB64, { inMint, inRaw }) {
+    async swapSign(txB64, { inMint, inRaw, coPayer = false }) {
       const SOL_MINT = "So11111111111111111111111111111111111111112", FEE_ROOM = 30_000_000n; // 0.03 SOL: network + priority fees and new token accounts
       const tx = web3.VersionedTransaction.deserialize(Uint8Array.from(atob(txB64), (c) => c.charCodeAt(0)));
       const keys = tx.message.staticAccountKeys;
-      if (!keys[0]?.equals(me) || tx.message.header.numRequiredSignatures !== 1) throw new Error("This swap asks for another signer. Ecrin refused it.");
+      // Normally you are the only signer. Jupiter can pay the network fee for you when you have almost no SOL ("gasless"):
+      // then Jupiter is the fee payer (first signer) and you sign second, nothing else. Only allowed on Jupiter's own
+      // route (coPayer), whose server adds its signature. The dry run below checks your accounts either way.
+      const nSig = tx.message.header.numRequiredSignatures;
+      const okSigners = (nSig === 1 && keys[0]?.equals(me)) || (coPayer && nSig === 2 && keys[1]?.equals(me) && !keys[0]?.equals(me));
+      if (!okSigners) throw new Error("This swap asks for another signer. Ecrin refused it.");
       const progs = [TOKEN, TOKEN22];
       const held = (await Promise.all(progs.map((pid) => conn.getTokenAccountsByOwner(me, { programId: pid }, "confirmed").then((r) => r.value)))).flat();
       const u64 = (d, o) => new DataView(d.buffer, d.byteOffset + o, 8).getBigUint64(0, true);

@@ -59,5 +59,18 @@ await no(() => e.swapSign(swapTx(), { inMint: USDC.toBase58(), inRaw: "10000000"
 // someone else pays / signs
 await no(() => e.swapSign(swapTx(thief), pay1), /another signer/);
 await no(() => e.swapSign(swapTx(me, thief), pay1), /another signer/);
+// Jupiter pays the fee ("gasless"): it signs first as fee payer, you second. Only on Jupiter's route (coPayer).
+const jup = web3.Keypair.generate().publicKey, payUsdc = { inMint: USDC.toBase58(), inRaw: "10000000", coPayer: true };
+after = [acc(SOL), acc(2039280, tokData(USDC, me, 40_000_000), TOKEN), acc(2039280, tokData(BONK, me, 9_500_000), TOKEN)]; // 10 USDC out, BONK in, no SOL spent
+ok(await e.swapSign(swapTx(jup, me), payUsdc));
+{ const v = web3.VersionedTransaction.deserialize(Buffer.from(await e.swapSign(swapTx(jup, me), payUsdc), "base64"));
+  assert.ok(v.signatures[1].some((x) => x !== 0), "you signed your part"); assert.ok(v.signatures[0].every((x) => x === 0), "the fee payer's part is left to Jupiter"); }
+await no(() => e.swapSign(swapTx(jup, me), { ...payUsdc, coPayer: false }), /another signer/); // not on other routes (LI.FI sends it itself)
+await no(() => e.swapSign(swapTx(me, jup), payUsdc), /another signer/); // you pay but someone else must also sign: refused
+// with Jupiter paying, the same checks on your accounts still apply
+after = [acc(SOL), acc(2039280, tokData(USDC, me, 0), TOKEN), acc(2039280, tokData(BONK, me, 9_500_000), TOKEN)];
+await no(() => e.swapSign(swapTx(jup, me), payUsdc), /more than you typed/);
+after = [acc(SOL - 500_000_000), acc(2039280, tokData(USDC, me, 40_000_000), TOKEN), acc(2039280, tokData(BONK, me, 9_500_000), TOKEN)];
+await no(() => e.swapSign(swapTx(jup, me), payUsdc), /more SOL/);
 srv.close();
 console.log("swap guard ok");
