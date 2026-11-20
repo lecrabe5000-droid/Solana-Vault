@@ -1895,6 +1895,8 @@ function morph(a, b) {
   for (let i = ac.length - 1; i >= bc.length; i--) ac[i].remove();
 }
 /** Like renderPanel, but patches the open screen in place instead of rebuilding it (used while typing). */
+/** Swap's network toggles: the chosen network is always in view (centred when the row has to slide). */
+function bxScroll(el) { el.querySelectorAll(".bx-nets").forEach((r) => { const c = r.querySelector(".chip.on"); if (!c) return; const l = c.offsetLeft - r.offsetLeft, vis = l >= r.scrollLeft + 8 && l + c.offsetWidth <= r.scrollLeft + r.clientWidth - 8; if (!vis) r.scrollTo({ left: Math.max(0, l - (r.clientWidth - c.offsetWidth) / 2), behavior: "smooth" }); }); }
 function patchPanel() {
   const el = $("#panel"), pane = el.querySelector(".pane"), P = S.panel;
   if (!P || !pane || S.holdPanel) return renderPanel();
@@ -1902,7 +1904,7 @@ function patchPanel() {
   const view = views[P.p]; if (!view) return renderPanel();
   const tmp = document.createElement("div"); tmp.innerHTML = view(); translate(tmp, S.lang);
   const next = pane.cloneNode(false); next.append(...tmp.childNodes); morph(pane, next);
-  bindHolds(el); depth(el); queueMicrotask(syncTabbar);
+  bindHolds(el); depth(el); bxScroll(el); queueMicrotask(syncTabbar);
 }
 function renderPanel(enter = false) {
   if (S.holdPanel && !enter) { S.panelDirty = true; return; } // a moment is playing on this page: redraw right after it
@@ -1919,7 +1921,7 @@ function renderPanel(enter = false) {
   if (enter) document.body.classList.toggle("grow-open", !!grow);
   P.fresh = false;
   if (enter) requestAnimationFrame(() => { el.classList.add("in"); document.body.classList.add("stacked"); });
-  bindHolds(el); depth(el); mountVault3d(el); bindTokChart(el);
+  bindHolds(el); depth(el); bxScroll(el); mountVault3d(el); bindTokChart(el);
   // the top bar turns frosted once the page scrolls under it
   const pane = el.querySelector(".pane"); if (pane) { const sync = () => pane.classList.toggle("scrolled", pane.scrollTop > 6); pane.addEventListener("scroll", sync, { passive: true }); sync(); }
   const f = el.querySelector("[autofocus]"); if (f && enter) setTimeout(() => f.focus(), 200);
@@ -3085,7 +3087,14 @@ const actions = {
   "swap-pct": (el) => { const P = S.panel, p = BigInt(el.dataset.v), m = swapMaxRaw(P.from), u = (m * p) / 100n; P.pct = Number(p); P.amount = u ? String(fromRaw(u, P.from.dec)) : ""; swapQuoteSoon(0); },
   "swap-review": () => { const P = S.panel; if (!P.quote) return; P.step = "review"; renderPanel(); },
   "br-pick": (el) => { const P = S.panel; P.pick = el.dataset.v; P.q = ""; P.qnet = ""; renderPanel(); setTimeout(() => { if (!globalThis.ECRIN_WEB) $("#panel [data-brq]")?.focus(); }, 250); },
-  "br-qnet": (el) => { const P = S.panel; P.qnet = el.dataset.v; renderPanel(); },
+  "br-coin": (el) => {
+    const P = S.panel, side = el.dataset.k, ids = bxCoins(brAssets()).get(el.dataset.v) || []; if (!ids.length) return;
+    const curK = brK(side === "from" ? P.fa : P.ta), other = side === "from" ? P.ta : P.fa;
+    let id = ids.find((x) => brK(x) === curK);
+    if (!id) id = side === "from" ? [...ids].sort((a, b) => brHeld(b) * (brPx(b) || 0) - brHeld(a) * (brPx(a) || 0))[0] : ids.find((x) => brK(x) === brK(other)) || ids[0];
+    if (id === other) id = ids.find((x) => x !== other) || id; // never the same coin on the same network on both sides
+    actions["br-set"]({ dataset: { k: side, v: id } });
+  },
   "br-set": (el) => { const P = S.panel, side = el.dataset.k === "from" ? "fa" : "ta", v = el.dataset.v; if (side === "fa") { if (v === P.ta) P.ta = P.fa; if (v !== P.fa) { P.amount = ""; P.pct = null; } } else if (v === P.fa) P.fa = P.ta; P[side] = v; P.pick = null; renderPanel(); bridgeQuoteSoon(0); },
   "br-pct": (el) => { const P = S.panel, m = brMax(P.fa), v = (m * Number(el.dataset.v)) / 100; P.pct = Number(el.dataset.v); P.amount = v > 0 ? String(Math.floor(v * 1e6) / 1e6) : ""; renderPanel(); bridgeQuoteSoon(0); },
   "br-flip": () => { const P = S.panel; [P.fa, P.ta] = [P.ta, P.fa]; P.amount = ""; P.pct = null; P.quote = null; renderPanel(); },
@@ -4419,12 +4428,11 @@ function bridgeView() {
   // ---- choosing a coin: search, your coins first, then every coin, filtered by network
   if (P.pick) return `${phead(P.pick === "from" ? "Pay with" : "Get")}
     <div class="bx-pick">
-      <label class="bx-search">${I.search || `<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>`}<input data-brq placeholder="Search a coin or network" value="${esc(P.q || "")}" autocomplete="off" autocapitalize="none" spellcheck="false"/></label>
-      <div class="bx-chips">${["", ...new Set(all.map(brK))].map((k) => `<button class="chip${(P.qnet || "") === k ? " on" : ""}" data-act="br-qnet" data-v="${k}">${k ? `${coin(k)}${esc(NETS[k].name)}` : "All"}</button>`).join("")}</div>
+      <label class="bx-search">${I.search || `<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>`}<input data-brq placeholder="Search a coin" value="${esc(P.q || "")}" autocomplete="off" autocapitalize="none" spellcheck="false"/></label>
       <div id="brlist">${bxList(P, all)}</div>
     </div>`;
 
-  const assetBtn = (side, id) => `<button class="br-net br-asset" data-act="br-pick" data-v="${side}">${brIcon(id)}<span><b>${esc(brSym(id))}</b><small>${esc(NETS[brK(id)].name)}</small></span>${I.chev}</button>`;
+  const assetBtn = (side, id) => `<button class="br-net br-asset bx-coin" data-act="br-pick" data-v="${side}">${bxLogo(id)}<span><b>${esc(brSym(id))}</b></span>${I.chev}</button>`;
   const gas = brGasShort(fa);
 
   // ---- review: what you pay, what you get, what it costs; hold to confirm like every send
@@ -4454,12 +4462,14 @@ function bridgeView() {
       <div class="sx-card br-card">
         <div class="sx-top"><span class="sx-k">You pay</span><button class="sx-bal link" data-act="br-pct" data-v="100">Balance ${nf(brHeld(fa), fa)} ${sym}</button></div>
         <div class="sx-row">${assetBtn("from", fa)}<input class="sx-in" data-bramt inputmode="decimal" placeholder="0" value="${esc(P.amount || "")}" autocomplete="off"/></div>
+        ${bxNets("from", fa, all)}
         <div class="sx-foot"><span class="sx-pcts">${[25, 50, 100].map((v) => `<button data-act="br-pct" data-v="${v}" class="${P.pct === v ? "on" : ""}">${v === 100 ? "Max" : v + "%"}</button>`).join("")}</span><span class="sx-usd">${over ? `<span class="bad">More than you have</span>` : inUsd ? money(inUsd) : ""}</span></div>
       </div>
       <button class="sx-flip br-flip" data-act="br-flip" aria-label="Switch"><svg viewBox="0 0 24 24"><path d="M8 4v15M8 19l-4-4M8 19l4-4M16 20V5M16 5l-4 4M16 5l4 4"/></svg></button>
       <div class="sx-card to br-card">
-        <div class="sx-top"><span class="sx-k">You get</span><span class="sx-bal">${cross ? `On ${esc(NETS[to].name)}` : ""}</span></div>
+        <div class="sx-top"><span class="sx-k">You get</span><span class="sx-bal">${cross ? "Across networks" : ""}</span></div>
         <div class="sx-row">${assetBtn("to", ta)}<span class="sx-out${quoting ? " bx-wait" : ""}">${shown && raw ? nf(outN, ta) : quoting ? `<i class="bx-sk"></i>` : "0"}</span></div>
+        ${bxNets("to", ta, all)}
         <div class="sx-foot"><span></span><span class="sx-usd">${outUsd && raw ? money(outUsd) : ""}</span></div>
       </div>
       ${raw && !over ? `<div class="bx-rate${q ? " in" : ""}">${q ? `<span>${rateTxt}</span><span>${I.clock}${brSecs(q.seconds) || "a few minutes"}${fees > 0 ? ` · fees ≈ ${money(fees)}` : ""}</span>` : P.qErr ? `<span class="bad">${esc(P.qErr)}</span>` : `<span class="bx-dots">Finding the best price<i></i><i></i><i></i></span>`}</div>` : ""}
@@ -4471,6 +4481,16 @@ function bridgeView() {
     </div>
     <div class="pfoot"><button class="btn primary xl" data-act="br-review" ${BRIDGE.on && raw && !over && !gas && q ? "" : "disabled"}>${btn}</button></div>`;
 }
+/** Coins by symbol: ETH lives on Ethereum, Base, Arbitrum and Optimism; USDC on most networks. */
+const bxCoins = (all) => { const m = new Map(); for (const id of all) { const k = brSym(id); if (!m.has(k)) m.set(k, []); m.get(k).push(id); } return m; };
+/** The coin's own logo, without a network badge (the network is chosen with the toggles). */
+const bxLogo = (id) => coin(brLogo(id));
+/** The networks a coin is on, as toggles; just a label when it's on one network only. */
+const bxNets = (side, id, all) => {
+  const ids = bxCoins(all).get(brSym(id)) || [id];
+  if (ids.length < 2) return `<div class="bx-nets one"><span class="chip on">${coin(brK(id))}${esc(NETS[brK(id)].name)}</span></div>`;
+  return `<div class="bx-nets" role="radiogroup" aria-label="Network">${ids.map((x) => { const h = brHeld(x); return `<button class="chip${x === id ? " on" : ""}" role="radio" aria-checked="${x === id}" data-act="br-set" data-k="${side}" data-v="${x}">${coin(brK(x))}${esc(NETS[brK(x)].name)}${h > 0 && side === "from" ? `<em>${bxNum(h, x)}</em>` : ""}</button>`; }).join("")}</div>`;
+};
 /** A coin amount the way people read it: 2 decimals for dollar coins, 4 from 1 up, 6 significant digits below 1. */
 const bxNum = (v, id) => { const n = Number(v) || 0, L = S.lang === "fr" ? "fr-CA" : "en-US";
   return brC(id) !== "native" ? n.toLocaleString(L, { maximumFractionDigits: 2 }) : Math.abs(n) >= 1 ? n.toLocaleString(L, { maximumFractionDigits: 4 }) : n.toLocaleString(L, { maximumSignificantDigits: 6 }); };
@@ -4478,14 +4498,13 @@ const bxNum = (v, id) => { const n = Number(v) || 0, L = S.lang === "fr" ? "fr-C
 const brKey = (P) => `${P.fa}>${P.ta}:${P.amount}`;
 /** The coin list in the picker: your coins first, then every other coin; search and network filter. */
 function bxList(P, all) {
-  const q = String(P.q || "").trim().toLowerCase(), cur = P[P.pick === "from" ? "fa" : "ta"];
-  const val = (id) => brHeld(id) * (brPx(id) || 0);
-  const nf = bxNum;
-  const names = { native: "", usdc: "usd coin", usdt: "tether" };
-  const ok = (id) => (!P.qnet || brK(id) === P.qnet) && (!q || `${brSym(id)} ${NETS[brK(id)].name} ${names[brC(id)] || ""}`.toLowerCase().includes(q));
-  const list = all.filter(ok), mine = list.filter((id) => brHeld(id) > 0).sort((a, b) => val(b) - val(a)), rest = list.filter((id) => !(brHeld(id) > 0));
-  const row = (id) => { const h = brHeld(id); return `<button class="arow${cur === id ? " on" : ""}" data-act="br-set" data-k="${P.pick}" data-v="${id}">${brIcon(id)}<span class="ar-t"><b>${esc(brSym(id))}</b><small>${esc(NETS[brK(id)].name)}</small></span><span class="ar-r">${h > 0 ? `<b>${nf(h, id)}</b>${brPx(id) ? `<small>${money(h * brPx(id))}</small>` : ""}` : brPx(id) ? `<small>${money(brPx(id))}</small>` : ""}</span>${cur === id ? `<span class="acc-ok">${I.check}</span>` : ""}</button>`; };
-  if (!list.length) return `<p class="bx-none">No coin matches "${esc(P.q || "")}".</p>`;
+  const q = String(P.q || "").trim().toLowerCase(), cur = brSym(P[P.pick === "from" ? "fa" : "ta"]);
+  const names = { USDC: "usd coin dollar", USDT: "tether dollar", ETH: "ether ethereum", SOL: "solana", BTC: "bitcoin", BNB: "binance bnb chain", POL: "polygon matic", AVAX: "avalanche", HYPE: "hyperliquid hyperevm", TRX: "tron", SUI: "sui" };
+  const rows = [...bxCoins(all)].map(([sym, ids]) => ({ sym, ids, held: ids.reduce((t, x) => t + brHeld(x), 0), usd: ids.reduce((t, x) => t + brHeld(x) * (brPx(x) || 0), 0) }))
+    .filter((r) => !q || `${r.sym} ${names[r.sym] || ""} ${r.ids.map((x) => NETS[brK(x)].name).join(" ")}`.toLowerCase().includes(q));
+  const mine = rows.filter((r) => r.held > 0).sort((a, b) => b.usd - a.usd), rest = rows.filter((r) => !(r.held > 0));
+  const row = (r) => `<button class="arow${cur === r.sym ? " on" : ""}" data-act="br-coin" data-k="${P.pick}" data-v="${esc(r.sym)}">${bxLogo(r.ids[0])}<span class="ar-t"><b>${esc(r.sym)}</b><small>${r.ids.length > 1 ? `${r.ids.length} networks` : esc(NETS[brK(r.ids[0])].name)}</small></span><span class="ar-r">${r.held > 0 ? `<b>${bxNum(r.held, r.ids[0])}</b>${r.usd ? `<small>${money(r.usd)}</small>` : ""}` : ""}</span>${cur === r.sym ? `<span class="acc-ok">${I.check}</span>` : ""}</button>`;
+  if (!rows.length) return `<p class="bx-none">No coin matches "${esc(P.q || "")}".</p>`;
   return `${mine.length ? `<div class="list-h"><b>Your coins</b></div><section class="list">${mine.map(row).join("")}</section>` : ""}${rest.length ? `<div class="list-h"><b>${mine.length ? "Other coins" : "Coins"}</b></div><section class="list">${rest.map(row).join("")}</section>` : ""}`;
 }
 async function bridgeNow() {
