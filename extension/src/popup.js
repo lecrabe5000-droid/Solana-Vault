@@ -1849,7 +1849,7 @@ function openPanel(p, opts = {}) {
 /** Back: first a step back inside the current screen, then the previous screen, then home. */
 function goBack() {
   const P = S.panel; if (!P) return;
-  if (P.step === "sending" && P.p === "bridge" && P.sig) { closePanel(); return txPill("run", `Swapping ${P.amount} ${brSym(P.fa)}`, brK(P.fa) !== brK(P.ta) ? `Arriving on ${NETS[brK(P.ta)].name}` : "Confirming"); }
+  if (P.step === "sending" && P.p === "bridge" && bxSent(P)) { closePanel(); return txPill("run", `Swapping ${P.amount} ${brSym(P.fa)}`, brK(P.fa) !== brK(P.ta) ? `Arriving on ${NETS[brK(P.ta)].name}` : "Confirming"); }
   if (P.step === "sending") return; // a transaction is on its way: its sheet stays until it's done
   if (P.p === "earn" && P.step === "done") { P.step = "form"; P.mo = null; P.mode = "home"; P.st = undefined; return renderPanel(); }
   if (P.p === "earn" && (P.mode === "stake" || P.mode === "unstake")) { P.mode = "home"; P.amount = ""; P.pct = null; return renderPanel(); }
@@ -2152,7 +2152,7 @@ function motionView(P, o) {
     <ol class="mo-steps">${steps}</ol>
     ${done && o.note ? `<div class="mo-note">${I.shield}<span>${o.note}</span></div>` : ""}
     ${done ? `<div class="mo-rc">${rows.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("")}</div>${o.extra || ""}` : ""}
-    <div class="pfoot${done ? "" : " mo-foot-wait"}">${done ? `<button class="btn primary xl" data-act="close">Done</button>` : `<p class="mo-wait">You can close this. It keeps going, and Activity shows when it lands.</p>`}</div>
+    <div class="pfoot${done ? "" : " mo-foot-wait"}">${done ? `<button class="btn primary xl" data-act="close">Done</button>` : o.closable ? `<p class="mo-wait">It keeps going after you close this, and Activity shows when it lands.</p><button class="btn xl mo-close" data-act="close">Close</button>` : `<p class="mo-wait">You can close this. It keeps going, and Activity shows when it lands.</p>`}</div>
   </div>`;
 }
 function doneView(title, text, extra = "") {
@@ -4419,10 +4419,10 @@ function bridgeView() {
   // ---- after confirming: the same live sheet as every send, then a receipt
   if (P.step === "sending" || P.step === "done") {
     const got = P.got != null ? P.got : outN, done = P.step === "done";
-    return motionView(P, { kind: "swap", N: NETS[from], title: [cross ? "Swapping across networks" : "Swapping", cross ? `${tsym} arrived on ${NETS[to].name}` : "Swapped"],
+    return motionView(P, { kind: "swap", closable: bxSent(P), N: NETS[from], title: [cross ? "Swapping across networks" : "Swapping", cross ? `${tsym} arrived on ${NETS[to].name}` : "Swapped"],
       amount: `${esc(P.amount)} ${sym} <i class="mo-to">→</i> ${done && P.got != null ? "" : "≈ "}${nf(got, ta)} ${tsym}`, usd: inUsd != null ? money(inUsd) : "",
       line: cross ? `${esc(NETS[from].name)} → ${esc(NETS[to].name)}` : esc(NETS[from].name),
-      rows: [["You paid", `${esc(P.amount)} ${sym}`], ["You got", `${done && P.got != null ? "" : "≈ "}${nf(got, ta)} ${tsym}`], ...(P.rateTxt ? [["Rate", P.rateTxt]] : []), ["Ecrin fee", `${feePct(BRIDGE.fee)} (included)`], ...(P.feesUSD ? [["Network fees", `≈ ${money(P.feesUSD)}`]] : []), ...(P.link ? [["Details", `<a href="${esc(P.link)}" target="_blank" rel="noopener">LI.FI explorer ${I.ext}</a>`]] : [])] });
+      rows: [["You paid", `${esc(P.amount)} ${sym}`], ["You got", `${done && P.got != null ? "" : "≈ "}${nf(got, ta)} ${tsym}`], ...(P.rateTxt ? [["Rate", P.rateTxt]] : []), ["Ecrin fee", `${feePct(BRIDGE.fee)} (included)`], ...(P.feesUSD ? [["Network fees", `≈ ${money(P.feesUSD)}`]] : []), ...(P.link ? [["Details", `<a class="mo-link" href="${esc(P.link)}" target="_blank" rel="noopener">LI.FI explorer ${I.ext}</a>`]] : [])] });
   }
 
   // ---- choosing a coin: search, your coins first, then every coin, filtered by network
@@ -4494,6 +4494,8 @@ const bxNets = (side, id, all) => {
 /** A coin amount the way people read it: 2 decimals for dollar coins, 4 from 1 up, 6 significant digits below 1. */
 const bxNum = (v, id) => { const n = Number(v) || 0, L = S.lang === "fr" ? "fr-CA" : "en-US";
   return brC(id) !== "native" ? n.toLocaleString(L, { maximumFractionDigits: 2 }) : Math.abs(n) >= 1 ? n.toLocaleString(L, { maximumFractionDigits: 4 }) : n.toLocaleString(L, { maximumSignificantDigits: 6 }); };
+/** A swap can be left once it's on its way (sent, now arriving or confirming): the pill keeps following it. */
+const bxSent = (P) => !!P.sig || (P.mo ? P.mo.at >= P.mo.steps.findIndex((x) => x.k === "conf") : false);
 /** Which quote matches what's on screen: the same coins and amount. */
 const brKey = (P) => `${P.fa}>${P.ta}:${P.amount}`;
 /** The coin list in the picker: your coins first, then every other coin; search and network filter. */
