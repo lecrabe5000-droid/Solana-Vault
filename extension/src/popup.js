@@ -1955,6 +1955,20 @@ function amountBlock(max, label) {
 
 function sendMax() { const a = S.panel.asset; return a === "native" ? Math.max(0, (S.bal?.native || 0) - (S.panel.reserve || 0)) : S.bal?.usdc || 0; }
 
+/** An address in one piece, its first and last four characters stressed (what people check). */
+const addrGroups = (a) => `<b>${esc(a.slice(0, 4))}</b>${esc(a.slice(4, -4))}<b>${esc(a.slice(-4))}</b>`;
+/** The network fee for a send, in the coin and in your currency; EVM networks ask the network for today's price. */
+function sendFee(a) {
+  const N = NETS[S.net], k = `${S.net}:${a}`, c = (S.feeEst ||= {})[k];
+  if (N.fam === "evm") {
+    if ((!c || Date.now() - c.at > 60_000) && ENG?.feeEstimate && !c?.busy) { (S.feeEst[k] = { ...(c || {}), busy: true }); ENG.feeEstimate(a).then((v) => { S.feeEst[k] = { v, at: Date.now() }; if (S.panel?.p === "send") patchPanel(); }).catch(() => { S.feeEst[k] = { at: Date.now() }; }); }
+    if (c?.v == null) return null;
+    const px = S.prices[N.cg]?.usd; return { coin: `≈ ${bxNum(c.v, `${S.net}:native`)} ${N.unit}`, usd: px != null ? c.v * px : null };
+  }
+  const m = /([\d.]+)\s*([A-Z]+)/.exec(ENG?.feeText?.() || ""), px = S.prices[N.cg]?.usd;
+  return m ? { coin: `≈ ${m[1]} ${m[2]}`, usd: px != null && m[2] === N.unit ? Number(m[1]) * px : null } : { coin: ENG?.feeText?.() || "", usd: null };
+}
+const feeLine = (a) => { const f = sendFee(a); return f ? `<div class="snd-fee"><span>Network fee</span><b>${f.coin}${f.usd != null ? ` <small>${f.usd < 0.01 ? "< " + money(0.01) : money(f.usd)}</small>` : ""}</b></div>` : ""; };
 function sendView() {
   const P = S.panel, e = ENG, a = P.asset, units = parseAmt(P.amount, a);
   if (P.whoDone === undefined) P.whoDone = !!P.to; // opened with a recipient (contact, payment link): straight to the amount
@@ -1971,9 +1985,10 @@ function sendView() {
         <div class="rev-amt">${assetCoin(a, "lg")}<b>${fig(amt(units, a))}</b><span>${A(a).unit}</span><small>${usdOf(units, a) != null ? money(usdOf(units, a)) : ""}</small></div>
         <dl class="rev-l">
           <div><dt>From</dt><dd>Wallet · ${short(e.address)}</dd></div>
-          <div><dt>To</dt><dd class="mono">${P.toName ? `<b class="to-name">${esc(P.toName)}</b>` : ""}${esc(P.to.trim())}</dd></div>
+          <div><dt>To</dt><dd class="mono rev-to">${P.toName ? `<b class="to-name">${esc(P.toName)}</b>` : ""}${addrGroups(P.to.trim())}</dd></div>
           ${P.tag ? `<div><dt>Destination tag</dt><dd class="mono">${esc(P.tag)}</dd></div>` : ""}
           <div><dt>Network</dt><dd>${NETS[S.net].name} ${NETS[S.net].net}</dd></div>
+          ${(() => { const u = usdOf(units, a), f = sendFee(a); return u != null ? `<div class="rev-tot"><dt>Total</dt><dd>${money(u + (f?.usd || 0))}<small>${fig(amt(units, a))} ${A(a).unit} + network fee</small></dd></div>` : ""; })()}
           <div><dt>Network fee</dt><dd>${NETS[S.net].fam === "evm" ? `<span class="seg fee-seg">${[["slow", "Slow"], ["normal", "Normal"], ["fast", "Fast"]].map(([k, l]) => `<button data-act="speed" data-v="${k}" aria-pressed="${(P.speed || "normal") === k}">${l}</button>`).join("")}</span>` : e.feeText()}</dd></div>
         </dl>
         ${self ? `<p class="warn-n">That's your own address.</p>` : P.lookalike ? lookalikeNote(P) : P.fresh ? `<p class="warn-n">${I.shield}<span>You've never sent to this address from Ecrin. Check the first and last characters against where you copied it.</span></p>` : ""}
@@ -1993,7 +2008,8 @@ function sendView() {
       ${ok ? `<section class="list">${person(to, bookName(to) || (nmOk ? nm.name : ""), `${short(to)} · ${NETS[S.net].name}`)}</section>` : ""}
       ${!ok && bookList().length ? `<p class="who-h">Contacts</p><section class="list">${bookList().map(([ad, n]) => person(ad, n, `${short(ad)}`)).join("")}</section>` : ""}
       ${!ok && recent.length ? `<p class="who-h">Recent</p><section class="list">${recent.map((ad) => person(ad, bookName(ad), short(ad))).join("")}</section>` : ""}
-      ${!ok && !bookList().length && !recent.length ? `<p class="who-empty">Paste an address${NETS[S.net].fam === "evm" || NETS[S.net].fam === "sol" ? " or a name (like alice.eth or alice.sol)" : ""}. Check the first and last characters before you send.</p>` : ""}`;
+      ${!ok && !P.to ? `<div class="who-go"><button class="btn xl" data-act="paste">${I.paste}Paste address</button>${globalThis.ECRIN_WEB ? `<button class="btn xl" data-act="scan">${I.qr}Scan QR code</button>` : ""}</div>` : ""}
+      ${!ok && !bookList().length && !recent.length ? `<p class="who-empty">Paste a ${esc(NETS[S.net].name)} address${NETS[S.net].fam === "evm" || NETS[S.net].fam === "sol" ? " or a name (like alice.eth or alice.sol)" : ""}. Check the first and last characters before you send.</p>` : ""}`;
   }
   // 2. How much: the recipient stays on top (tap to change), the amount is the screen.
   const valid = units > 0 && units <= sendMax() && e.isAddress(P.to.trim());
@@ -2004,7 +2020,7 @@ function sendView() {
     ${fromRow()}
     ${amountBlock(sendMax(), "Wallet")}
     ${NETS[S.net].fam === "xrp" ? `<label class="fld xtag"><span>Destination tag <small>(optional)</small></span><input data-xtag inputmode="numeric" maxlength="10" placeholder="Only if the exchange gave you one" value="${esc(P.tag || "")}" autocomplete="off"/></label>` : ""}
-    ${feeNote(a)}
+    ${feeLine(a)}${feeNote(a)}
     <div class="pfoot"><button class="btn primary xl" data-act="review" ${valid ? "" : "disabled"}>Continue</button></div>`;
 }
 

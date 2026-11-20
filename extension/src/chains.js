@@ -329,6 +329,8 @@ function evmEngine({ ethers, acct, N, dev }) {
     },
     reserve: async (asset) => (asset === "native" ? gasUnits(21_000) : 0),
     feeText: () => "a little " + N.unit + " for gas",
+    /** Today's fee for a plain send, in the network's coin: the current gas price times a transfer's gas (a token: about 65,000). */
+    async feeEstimate(asset) { const f = await provider.getFeeData(), gp = f.maxFeePerGas ?? f.gasPrice ?? 0n; return Number(gp * (asset === "native" ? 21_000n : 65_000n)) / 1e18; },
     /**
      * Bridges (LI.FI): checks the transaction before sending. The coin must go to the same contract the quote names,
      * an ETH bridge sends exactly the amount you chose, a USDC bridge sends no ETH and only approves that contract for
