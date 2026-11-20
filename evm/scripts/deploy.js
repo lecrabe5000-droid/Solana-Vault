@@ -53,7 +53,8 @@ async function main() {
   const bal = await ethers.provider.getBalance(deployer.address);
   const gas = await ethers.provider.estimateGas(await factory.getDeployTransaction(...lidoArgs));
   const fee = await ethers.provider.getFeeData();
-  const need = (gas * (fee.maxFeePerGas || fee.gasPrice || 0n) * 3n) / 2n;
+  // What the network itself asks for up front (gas limit x highest fee), plus 10%; the deploy usually costs half of that.
+  const need = (gas * (fee.maxFeePerGas || fee.gasPrice || 0n) * 11n) / 10n;
   console.log(`Deployer ${deployer.address} has ${ethers.formatEther(bal)} ${cfg.unit} on ${network.name}; the deploy needs about ${ethers.formatEther(need)}`);
   if (bal < need) throw new Error(cfg.real ? `Not enough ${cfg.unit} on ${cfg.name}: the deployer has ${ethers.formatEther(bal)}, the deploy needs about ${ethers.formatEther(need)}. Send a little more ${cfg.unit} on ${cfg.name} to ${deployer.address}.` : `Not enough ${cfg.unit} on ${network.name}. Send some test ${cfg.unit} to ${deployer.address} (${cfg.faucetName}: ${cfg.faucet}).`);
 
