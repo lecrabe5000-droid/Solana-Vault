@@ -52,12 +52,13 @@ module.exports = {
     // Mainnet: Base only, for the early-access Safe.
     base: { url: rpc("base", "https://mainnet.base.org"), chainId: 8453, accounts: mainAccounts },
     // The other mainnets: the Safe for early access, each deployed on purpose from the deploy-evm-mainnet workflow.
-    ethereum: { url: rpc("ethereum", "https://ethereum-rpc.publicnode.com"), chainId: 1, accounts: mainAccounts },
-    arbitrum: { url: rpc("arbitrum", "https://arbitrum-one-rpc.publicnode.com"), chainId: 42161, accounts: mainAccounts },
-    optimism: { url: rpc("optimism", "https://optimism-rpc.publicnode.com"), chainId: 10, accounts: mainAccounts },
-    polygon: { url: rpc("polygon", "https://polygon-bor-rpc.publicnode.com"), chainId: 137, accounts: mainAccounts },
-    bsc: { url: rpc("bsc", "https://bsc-rpc.publicnode.com"), chainId: 56, accounts: mainAccounts },
-    avalanche: { url: rpc("avalanche", "https://avalanche-c-chain-rpc.publicnode.com"), chainId: 43114, accounts: mainAccounts },
+    // drpc: publicnode refuses the recent-history reads the deploy makes while it waits for confirmations.
+    ethereum: { url: rpc("ethereum", "https://eth.drpc.org"), chainId: 1, accounts: mainAccounts },
+    arbitrum: { url: rpc("arbitrum", "https://arbitrum.drpc.org"), chainId: 42161, accounts: mainAccounts },
+    optimism: { url: rpc("optimism", "https://optimism.drpc.org"), chainId: 10, accounts: mainAccounts },
+    polygon: { url: rpc("polygon", "https://polygon.drpc.org"), chainId: 137, accounts: mainAccounts },
+    bsc: { url: rpc("bsc", "https://bsc.drpc.org"), chainId: 56, accounts: mainAccounts },
+    avalanche: { url: rpc("avalanche", "https://avalanche.drpc.org"), chainId: 43114, accounts: mainAccounts },
     hyperevm: { url: rpc("hyperevm", "https://rpc.hyperliquid.xyz/evm"), chainId: 999, accounts: mainAccounts, timeout: 300_000 },
     hyperevmTestnet: { url: rpc("hyperevmTestnet", "https://rpc.hyperliquid-testnet.xyz/evm"), chainId: 998, accounts, timeout: 300_000 },
   },

@@ -24,6 +24,11 @@ async function main() {
   if (!deployer) throw new Error("No deployer key. Set the EVM_DEPLOYER_KEY (or SEPOLIA_DEPLOYER_KEY) secret.");
   // A real network deploys only from the deploy-evm-mainnet workflow, where its name was typed to confirm.
   if (cfg.real && process.env.CONFIRM_MAINNET !== network.name.toUpperCase()) throw new Error("Mainnet deploys run only from the deploy-evm-mainnet workflow, confirmed with the network's name.");
+  // A deployer that has already sent something here, with no Safe recorded, may have deployed it already (a run that
+  // failed after sending). Stop rather than put a second copy at another address; record the first one instead.
+  if (cfg.real && !have && (await ethers.provider.getTransactionCount(deployer.address)) > 0 && process.env.DEPLOY_ANYWAY !== "1") {
+    throw new Error(`The deployer has already sent a transaction on ${network.name}, but no Safe is recorded for it. It may already be deployed at ${ethers.getCreateAddress({ from: deployer.address, nonce: 0 })}: check, and record it in app/deployments-evm.js.`);
+  }
 
   // The USDC the site will offer on this network must really be a 6-decimal USDC (networks without one show the coin only).
   if (cfg.usdc) {
