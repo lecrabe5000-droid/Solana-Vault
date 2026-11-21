@@ -98,8 +98,9 @@ html[data-rot="-90"] .device { transform: translate(-50%, -50%) rotate(90deg); }
 .phead b { font-size: 18px !important; font-weight: 700 !important; }
 .btn { height: 44px; } .btn.xl, .btn.primary:not(.sm) { min-height: 50px; font-size: 16px !important; }
 .home .tabs button { min-height: 44px; font-size: 16px !important; }
-/* The net worth emblem a little tighter, so your coins start higher on the screen (the number keeps its size). */
-.lz-wrap { width: 228px !important; height: 228px !important; margin: -16px auto -18px !important; }
+/* The net worth emblem: big enough that the balance and its cents sit well inside it (the number shrinks to fit only if it must). */
+.lz-wrap { width: min(300px, 80vw) !important; height: min(300px, 80vw) !important; margin: -14px auto -16px !important; }
+.lz-in { max-width: 200px !important; }
 `;
   fs.writeFileSync(`${D}/wallet.css`, css);
   console.log("phone wallet → app/wallet/");

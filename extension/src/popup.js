@@ -343,6 +343,22 @@ function otherAddr(v) {
   const an = /^[AEIOUX]/.test(name) ? "an" : "a";
   return can ? `That's ${an} ${name} address, not ${NETS[S.net].name}. Pick a coin on ${name === "Ethereum-style" ? "an Ethereum-style network" : name} to send there.` : `That's ${an} ${name} address. Ecrin can't send to ${name} yet.`;
 }
+/** Send: an address from another kind of network (a Solana address while you're on Base…) moves Send to that network,
+ *  the one where you hold the most of that coin (or most money), instead of refusing it. */
+async function sendFollowAddr(v) {
+  const P = S.panel; if (!P || P.p !== "send" || P.whoDone || !v) return false;
+  const hit = ADDR_SHAPES.find(([, , re]) => re.test(v)); if (!hit || hit[0] === NETS[S.net].fam) return false;
+  const f = hit[0], ks = netKeys().filter((k) => NETS[k].fam === f && (f !== "btc" || NETS[k].real)); if (!ks.length) return false; // a bc1… address is not a testnet one
+  const w = worth(), held = (k, a) => w.items.filter((i) => i.k === k && (!a || i.a === a)).reduce((t, i) => t + (i.usd || 0) + (i.chq && i.usd == null ? 1e-9 : 0), 0);
+  const want = P.asset === "usdc" ? "usdc" : null, byCoin = want ? ks.filter((k) => NETS[k].usdc).sort((x, y) => held(y, want) - held(x, want)) : [];
+  const k = byCoin.length && held(byCoin[0], want) > 0 ? byCoin[0] : [...ks].sort((x, y) => held(y) - held(x))[0];
+  const a = want && NETS[k].usdc ? "usdc" : "native", name = hit[1], an = /^[AEIOUX]/.test(name) ? "an" : "a";
+  await useNet(k);
+  S.panel = { ...P, asset: a, to: v, switched: `${an} ${name}`, named: null };
+  const e = await eng(); S.panel.reserve = await e.reserve(a); renderPanel();
+  const n = $("#panel [data-to]"); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); }
+  return true;
+}
 const addrHint = (N) => (N.fam === "btc" ? (N.real ? "Bitcoin address (bc1…, 1… or 3…)" : "Bitcoin testnet address (tb1…)") : N.fam === "xrp" ? "XRP address (r… or X…)" : N.fam === "sol" ? "Solana address" : N.fam === "tron" ? "Tron address (T…)" : N.fam === "sui" ? "Sui address (0x…, 64 characters)" : "0x… address");
 const getJSON = async (url) => { const r = await fetch(url, { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return r.json(); };
 
@@ -771,7 +787,7 @@ function render() {
   root.innerHTML = html;
   translate(root, S.lang);
   if (FULL) for (const el of document.querySelectorAll(".fp-side, .fp-h")) if (el.dataset.lang !== S.lang) { translate(el, S.lang); el.dataset.lang = S.lang; }
-  stageHome(root); maybeNews(); tourLive(root); const tr = root.querySelector(".tour2"); if (tr && S.tourDir) { tr.dataset.dir = S.tourDir; S.tourDir = null; }
+  stageHome(root); fitLz(root); maybeNews(); tourLive(root); const tr = root.querySelector(".tour2"); if (tr && S.tourDir) { tr.dataset.dir = S.tourDir; S.tourDir = null; }
   // The three floating buttons live outside #root, made once, so re-renders and panels never make them blink.
   let tb = document.getElementById("tabbar");
   if (S.screen === "home" && !tb) { (document.querySelector(".device") || document.body).insertAdjacentHTML("beforeend", TABBAR); tb = document.getElementById("tabbar"); tb.classList.add("enter"); setTimeout(() => tb.classList.remove("enter"), 1400); }
@@ -1253,6 +1269,19 @@ function lozenge(w, loading) {
     <rect class="lz-base in" x="51" y="51" width="118" height="118" rx="24"/>
     <rect class="lz-safe" x="51" y="51" width="118" height="118" rx="24" pathLength="100" style="stroke-dasharray:${(safe * 100).toFixed(2)} 100"/>
     <rect class="lz-sheen" x="38" y="38" width="144" height="144" rx="30"/><rect class="lz-sheen in" x="51" y="51" width="118" height="118" rx="24"/></g></svg>`;
+}
+/** The balance always sits inside the diamond's inner edge, cents included: when a number is too wide for it, it
+ *  gets smaller (never cut). Runs again whenever the number changes. */
+function fitLz(root) {
+  const big = root.querySelector(".lz-in .big"), wrap = big?.closest(".lz-wrap"); if (!big || !wrap) return;
+  const fit = () => {
+    big.style.removeProperty("font-size");
+    const w = wrap.getBoundingClientRect(), b = big.getBoundingClientRect(); if (!w.width || !b.width) return;
+    const s = w.width / 220, cy = w.top + w.height / 2, dy = Math.max(Math.abs(b.top - cy), Math.abs(b.bottom - cy));
+    const room = 2 * ((118 * s) / Math.SQRT2 - dy - 4 * s);
+    if (b.width > room && room > 0) big.style.setProperty("font-size", `${Math.max(16, (parseFloat(getComputedStyle(big).fontSize) * room) / b.width).toFixed(1)}px`, "important");
+  };
+  fit(); new MutationObserver(fit).observe(big, { childList: true, subtree: true, characterData: true });
 }
 function lozLegend(w, loading) {
   if (loading || !w.total) return "";
@@ -2008,6 +2037,7 @@ function sendView() {
     const recent = [...new Set((S.activity || []).filter((x) => (x.t === "send" || x.t === "tsend") && x.to && x.to !== mine && e.isAddress(x.to)).map((x) => x.to))].slice(0, 4);
     const person = (addr, name, sub) => `<button class="arow who-r" data-act="send-to" data-a="${esc(addr)}"><span class="acct-ic gen">${logoSVG("facets", `${addr}:0`)}</span><span class="ar-t"><b>${name ? esc(name) : `<span class="mono">${esc(short(addr))}</span>`}</b><small>${sub}</small></span>${I.arrow}</button>`;
     return `${phead("Send")}
+      ${fromRow()}${P.switched ? `<p class="sw-note">${I.check || ""}<span>That's ${esc(P.switched)} address, so Ecrin switched to ${esc(NETS[S.net].name)}. Tap the coin above to send another one.</span></p>` : ""}
       <label class="fld to who-in"><span>To</span><div class="in-btn"><input data-to placeholder="${addrHint(NETS[S.net])}" value="${esc(P.to)}" spellcheck="false" autocomplete="off" autofocus/><button type="button" class="ib sm" data-act="paste" aria-label="Paste">${I.paste}</button>${globalThis.ECRIN_WEB ? `<button type="button" class="ib sm" data-act="scan" aria-label="Scan a QR code">${I.qr || I.recv}</button>` : ""}</div></label>
       ${nm ? (nm.addr && !nmOk ? `<p class="err">${esc(nm.name)} is ${nm.fam === "sol" ? "a Solana" : "an Ethereum"} address. Switch to that network to send to it.</p>` : namedLine()) : P.to && !ok ? `<p class="err">${otherAddr(P.to.trim()) || `That isn't ${NETS[S.net].fam === "sol" ? "a Solana" : NETS[S.net].fam === "evm" ? "an Ethereum-style" : `a ${NETS[S.net].name}`} address.`}</p>` : ""}
       ${ok ? `<section class="list">${person(to, bookName(to) || (nmOk ? nm.name : ""), `${short(to)} · ${NETS[S.net].name}`)}</section>` : ""}
@@ -3049,8 +3079,12 @@ const actions = {
     await useNet(k); openPanel(p, { a }); if (p === "send" || p === "protect" || p === "swap") { const e = await eng(); S.panel.reserve = await e.reserve(a); renderPanel(); } },
   "mkt-all": () => { S.mktAll = !S.mktAll; render(); },
   "pick-grp": (el) => { const g = el.dataset.g; S.panel.openG = S.panel.openG === g ? null : g; patchPanel ? patchPanel() : renderPanel(); },
-  "pick-coin": () => { const P = S.panel; if (!P) return; pushPanel("pick"); S.panel = { p: "pick", back: P.p, step: "form" }; renderPanel(); },
-  "pick-go": async (el) => { await useNet(el.dataset.n); S.panel = null; openPanel(el.dataset.p, { a: el.dataset.a }); if (el.dataset.p !== "receive" && el.dataset.p !== "withdraw") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); } },
+  "pick-coin": () => { const P = S.panel; if (!P) return; pushPanel("pick"); S.panel = { p: "pick", back: P.p, step: "form", keep: P.p === "send" && P.to ? { to: P.to, whoDone: P.whoDone } : null }; renderPanel(); },
+  "pick-go": async (el) => {
+    const keep = S.panel?.keep; await useNet(el.dataset.n);
+    // Send keeps who you were sending to, if that address works on the coin's network.
+    const k2 = keep && (await eng()).isAddress(keep.to.trim()) ? keep : {};
+    S.panel = null; openPanel(el.dataset.p, { a: el.dataset.a, ...k2 }); if (el.dataset.p !== "receive" && el.dataset.p !== "withdraw") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); } },
   grp: (el) => { S.open = { ...(S.open || {}), [el.dataset.u]: !S.open?.[el.dataset.u] }; render(); },
   wn: (el) => { S.wn = Number(el.dataset.n); render(); },
   "book-pick": (el) => { S.panel.to = el.dataset.a; renderPanel(); },
@@ -3284,7 +3318,7 @@ const actions = {
     if (P.fiat) coinToFiat(P, P.p === "earn" ? "native" : a); // shows its value; the coin amount stays exact
     patchPanel();
   },
-  paste: async () => { try { S.panel.to = (await navigator.clipboard.readText()).trim(); renderPanel(); } catch (_) { toast("Couldn't read the clipboard", "err"); } },
+  paste: async () => { try { S.panel.to = (await navigator.clipboard.readText()).trim(); if (await sendFollowAddr(S.panel.to)) return; renderPanel(); } catch (_) { toast("Couldn't read the clipboard", "err"); } },
   review: async () => {
     if (S.panel.named?.addr && S.panel.named.name === S.panel.to.trim()) { S.panel.toName = S.panel.named.name; S.panel.to = S.panel.named.addr; }
     const P = S.panel, usd = usdOf(parseAmt(P.amount, P.asset), P.asset);
@@ -3521,7 +3555,7 @@ document.addEventListener("input", (e) => {
   } else if (t.matches("[data-swapq]")) { swapSearch(t.value);
   } else if (t.matches("[data-reqamt]") || t.matches("[data-reqlabel]")) { const k = t.matches("[data-reqamt]") ? "amount" : "label", sel = k === "amount" ? "[data-reqamt]" : "[data-reqlabel]"; S.panel[k] = k === "amount" ? t.value.replace(/[^\d.,]/g, "").replace(",", ".") : t.value; const pos = t.selectionStart; patchPanel(); const n = $("#panel " + sel); if (n && document.activeElement !== n) n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {}
   } else if (t.matches("[data-to]") && (/^wc:/i.test(t.value.trim()) || parsePayLink(t.value))) { const v = t.value.trim(); t.value = ""; onScanned(v);
-  } else if (t.matches("[data-to]")) { lookupTo(t.value); S.panel.to = t.value; patchPanel(); }
+  } else if (t.matches("[data-to]")) { lookupTo(t.value); S.panel.to = t.value; S.panel.switched = null; sendFollowAddr(t.value.trim()).then((sw) => { if (!sw) patchPanel(); }); }
   else if (t.matches("[data-brq]")) { const P = S.panel; P.q = t.value; bxSearch(P); bxRedraw(P); }
   else if (t.matches("[data-bramt]")) { const v = t.value.replace(",", ".").replace(/[^\d.]/g, ""); if (v !== t.value) t.value = v; S.panel.amount = v; S.panel.pct = null; bridgeQuoteSoon(); }
   else if (t.matches("[data-bugtext]")) S.panel.text = t.value;
@@ -4780,7 +4814,7 @@ function pickView() {
     <section class="list">${list.length ? list.map((i) => {
       const right = (x) => (need ? `<span class="ar-r"><b>${mask(n(x[need], x.dec))} ${x.unit}</b><small>${x.usd != null ? mask(money(x.usd * (x[need] / ((x.chq + x.sav) || 1)))) : ""}</small></span>` : "");
       if (i.merged) { const isOpen = P.openG === i.merged; return `<button class="arow pk-u${isOpen ? " open" : ""}" data-act="pick-grp" data-g="${i.merged}" aria-expanded="${isOpen}"><span class="cstack">${coin(i.coin)}</span><span class="ar-t"><b>${i.name}</b><small>${i.net}</small></span>${right(i)}</button>
-        ${open ? `<div class="pk-nets">${i.nets.map((x, j) => `<button class="arow sub" data-act="pick-go" data-n="${x.k}" data-a="${x.a}" data-p="${P.back}"><span class="cstack">${coin(x.k)}</span><span class="ar-t"><b>on ${x.net}</b><small>${need && j === 0 && amt(x) > 0 ? "most here" : "&nbsp;"}</small></span>${right(x)}</button>`).join("")}</div>` : ""}`; }
+        ${isOpen ? `<div class="pk-nets">${i.nets.map((x, j) => `<button class="arow sub" data-act="pick-go" data-n="${x.k}" data-a="${x.a}" data-p="${P.back}"><span class="cstack">${coin(x.k)}</span><span class="ar-t"><b>on ${x.net}</b><small>${need && j === 0 && amt(x) > 0 ? "most here" : "&nbsp;"}</small></span>${right(x)}</button>`).join("")}</div>` : ""}`; }
       return `<button class="arow" data-act="pick-go" data-n="${i.k}" data-a="${i.a}" data-p="${P.back}"><span class="cstack">${coin(i.coin)}${i.coin !== i.k ? `<span class="cmini">${coin(i.k)}</span>` : ""}</span>
       <span class="ar-t"><b>${i.name}</b><small>${i.net}</small></span>${right(i)}</button>`; }).join("") : `<div class="empty">${I.recv}<b>Nothing here yet</b><span>${need === "sav" ? "Your Safe is empty." : isMain() ? "Use Receive to add some." : "Use Receive to get free test coins."}</span></div>`}</section>`;
 }
