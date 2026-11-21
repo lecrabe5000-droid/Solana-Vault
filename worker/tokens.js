@@ -16,9 +16,11 @@ export function pickTokens(pairs, chain, limit = 8) {
     const key = `${p.chainId}:${String(p.baseToken.address).toLowerCase()}`, liq = Number(p.liquidity?.usd) || 0;
     const row = { address: String(p.baseToken.address), name: String(p.baseToken.name || "").slice(0, 40), symbol: String(p.baseToken.symbol || "").slice(0, 12),
       price: Number(p.priceUsd) || null, liq, vol: Number(p.volume?.h24) || 0, icon: /^https:\/\//.test(p.info?.imageUrl || "") ? p.info.imageUrl : null, ...(all ? { net: DS_NETS[p.chainId] } : {}) };
-    const was = best.get(key); if (!was || liq > was.liq) best.set(key, row);
+    const was = best.get(key); if (was) row.vol += was.vol; // trading volume adds up across the token's markets
+    if (!was || liq > was.liq) best.set(key, row); else was.vol = row.vol;
   }
-  return [...best.values()].sort((a, b) => b.liq - a.liq).slice(0, limit);
+  // Across every network, copies often show huge liquidity in pools nobody trades: real coins are the ones traded.
+  return [...best.values()].sort((a, b) => (all ? b.vol - a.vol || b.liq - a.liq : b.liq - a.liq)).slice(0, limit);
 }
 
 export async function handleTokens(request) {

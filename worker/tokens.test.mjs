@@ -13,4 +13,7 @@ assert.equal(r[1].address, "0xBBB"); assert.equal(r[2].icon, null); assert.equal
 assert.deepEqual(pickTokens(null, "base"), []);
 const a = pickTokens([...pairs, { chainId: "tron", baseToken: { address: "T1", symbol: "PEPE" } }], "all");
 assert.equal(a.length, 4); assert.deepEqual(a.map((x) => x.net).sort(), ["basem", "basem", "basem", "ethm"]); // every Ecrin token network, none other
+const v = pickTokens([{ chainId: "ethereum", baseToken: { address: "0xFAKE", symbol: "BONK" }, liquidity: { usd: 2e8 }, volume: { h24: 0 } },
+  { chainId: "solana", baseToken: { address: "Real", symbol: "Bonk" }, liquidity: { usd: 2e5 }, volume: { h24: 1e5 } }, { chainId: "solana", baseToken: { address: "Real", symbol: "Bonk" }, liquidity: { usd: 1e5 }, volume: { h24: 5e4 } }], "all");
+assert.equal(v[0].address, "Real"); assert.equal(v[0].vol, 150000); assert.equal(v[0].liq, 2e5); // traded beats fake liquidity; volume adds up
 console.log("tokens ok");

@@ -3522,7 +3522,7 @@ document.addEventListener("input", (e) => {
   } else if (t.matches("[data-reqamt]") || t.matches("[data-reqlabel]")) { const k = t.matches("[data-reqamt]") ? "amount" : "label", sel = k === "amount" ? "[data-reqamt]" : "[data-reqlabel]"; S.panel[k] = k === "amount" ? t.value.replace(/[^\d.,]/g, "").replace(",", ".") : t.value; const pos = t.selectionStart; patchPanel(); const n = $("#panel " + sel); if (n && document.activeElement !== n) n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {}
   } else if (t.matches("[data-to]") && (/^wc:/i.test(t.value.trim()) || parsePayLink(t.value))) { const v = t.value.trim(); t.value = ""; onScanned(v);
   } else if (t.matches("[data-to]")) { lookupTo(t.value); S.panel.to = t.value; patchPanel(); }
-  else if (t.matches("[data-brq]")) { const P = S.panel; P.q = t.value; bxRedraw(P); bxSearch(P); }
+  else if (t.matches("[data-brq]")) { const P = S.panel; P.q = t.value; bxSearch(P); bxRedraw(P); }
   else if (t.matches("[data-bramt]")) { const v = t.value.replace(",", ".").replace(/[^\d.]/g, ""); if (v !== t.value) t.value = v; S.panel.amount = v; S.panel.pct = null; bridgeQuoteSoon(); }
   else if (t.matches("[data-bugtext]")) S.panel.text = t.value;
   else if (t.matches("[data-bugwho]")) S.panel.who = t.value;
@@ -4646,13 +4646,13 @@ const bxFind = (q) => {
 function bxSearch(P) {
   if (!S.coinIx) coinIndex().then(() => { if (S.panel === P && P.pick) bxRedraw(P); });
   const q = String(P.q || "").trim(); clearTimeout(S.bxT);
-  if (q.length < 2 || globalThis.ECRIN_DEMO || P.dxQ === q) return;
+  if (q.length < 2 || globalThis.ECRIN_DEMO || P.dxQ === q) { P.dxBusy = false; return; }
   P.dxBusy = true;
   S.bxT = setTimeout(async () => {
     let list = [];
     try { const d = await (await fetch("https://ecrinprotocol.app/api/tokens?" + new URLSearchParams({ q, chain: "all" }))).json(); list = (d.tokens || []).filter((t) => t.net && t.address && t.symbol); } catch (_) {}
     if (S.panel !== P || String(P.q || "").trim() !== q) return;
-    P.dx = list.map((t) => ({ s: String(t.symbol).slice(0, 12), n: String(t.name || t.symbol).slice(0, 40), l: t.icon || "", p: t.price || null, liq: t.liq || 0, on: { [t.net]: [t.address, null] } }));
+    P.dx = list.map((t) => ({ s: String(t.symbol).slice(0, 12), n: String(t.name || t.symbol).slice(0, 40), l: t.icon || "", p: t.price || null, vol: t.vol || 0, on: { [t.net]: [t.address, null] } }));
     P.dxQ = q; P.dxBusy = false; bxRedraw(P);
   }, 350);
 }
@@ -4685,13 +4685,15 @@ function bxList(P, all) {
   const fresh = (c) => !have.has(c.s.toUpperCase()) && Object.entries(c.on).some(([k, [a]]) => BR_TOKNETS.includes(k) && brNetOk(k) && !seen.has(brTokId(k, a).toLowerCase()));
   const listed = q.length >= 2 ? bxFind(q).filter(fresh) : !q && S.coinIx ? BX_POPULAR.map((y) => S.coinIx.find((c) => c.s === y)).filter((c) => c && fresh(c)) : [];
   const inList = new Set(listed.flatMap((c) => Object.entries(c.on).map(([k, [a]]) => `${k}:${String(a).toLowerCase()}`)));
-  const live = q.length >= 2 && P.dxQ === String(P.q || "").trim() ? (P.dx || []).filter((c) => fresh(c) && !Object.entries(c.on).some(([k, [a]]) => inList.has(`${k}:${String(a).toLowerCase()}`))) : [];
+  // A live result named like a verified coin (or one of yours) is a copy: the real one is already in the list above.
+  const taken = new Set([...listed.flatMap((c) => [c.s.toUpperCase(), c.n.toUpperCase()]), ...have, ...(S.coinIx || []).filter((c) => Object.keys(c.on).length >= 3).flatMap((c) => [c.s.toUpperCase(), c.n.toUpperCase()])]);
+  const live = q.length >= 2 && P.dxQ === String(P.q || "").trim() ? (P.dx || []).filter((c) => fresh(c) && !taken.has(c.s.toUpperCase()) && !taken.has(c.n.toUpperCase()) && !Object.entries(c.on).some(([k, [a]]) => inList.has(`${k}:${String(a).toLowerCase()}`))) : [];
   P.found = [...listed, ...live];
   const frow = (c, i) => { const nets = Object.keys(c.on).filter((k) => BR_TOKNETS.includes(k) && brNetOk(k)), img = safeImg(c.l || "");
-    return `<button class="arow" data-act="br-find" data-i="${i}">${img ? `<span class="coin img"><img src="${esc(img)}" alt="" data-l="${esc(c.s.charAt(0).toUpperCase())}" loading="lazy" referrerpolicy="no-referrer"/></span>` : `<span class="coin letter" style="--h:${(c.s.charCodeAt(0) * 47) % 360}">${esc(c.s.charAt(0).toUpperCase())}</span>`}<span class="ar-t"><b>${esc(c.s)}</b><small>${esc(c.n)} · ${nets.length > 1 ? `${nets.length} networks` : esc(NETS[nets[0]]?.name || "")}</small></span><span class="ar-r">${c.p ? `<b>${tokPx(c.p)}</b>` : ""}${c.liq != null ? `<small>Liquidity ${money(c.liq, { notation: "compact", maximumFractionDigits: 1 })}</small>` : ""}</span></button>`; };
+    return `<button class="arow" data-act="br-find" data-i="${i}">${img ? `<span class="coin img"><img src="${esc(img)}" alt="" data-l="${esc(c.s.charAt(0).toUpperCase())}" loading="lazy" referrerpolicy="no-referrer"/></span>` : `<span class="coin letter" style="--h:${(c.s.charCodeAt(0) * 47) % 360}">${esc(c.s.charAt(0).toUpperCase())}</span>`}<span class="ar-t"><b>${esc(c.s)}</b><small>${esc(c.n)} · ${nets.length > 1 ? `${nets.length} networks` : esc(NETS[nets[0]]?.name || "")}</small></span><span class="ar-r">${c.p ? `<b>${tokPx(c.p)}</b>` : ""}${c.vol != null ? `<small>24h volume ${money(c.vol, { notation: "compact", maximumFractionDigits: 1 })}</small>` : ""}</span></button>`; };
   const more = P.found.length ? `<div class="list-h"><b>${q ? "All coins" : "Popular coins"}</b></div><section class="list">${listed.map((c, i) => frow(c, i)).join("")}</section>
-      ${live.length ? `<div class="list-h"><b>More results</b></div><p class="fine pad bx-warn">Anyone can make a token with any name. Check the liquidity: copies usually have very little.</p><section class="list">${live.map((c, i) => frow(c, listed.length + i)).join("")}</section>` : ""}` : "";
-  const busy = q.length >= 2 && P.dxBusy && !live.length ? `<p class="bx-none">Searching every network…</p>` : "";
+      ${live.length ? `<div class="list-h"><b>More results</b></div><p class="fine pad bx-warn">Anyone can make a token with any name. Check the 24h volume: copies are rarely traded.</p><section class="list">${live.map((c, i) => frow(c, listed.length + i)).join("")}</section>` : ""}` : "";
+  const busy = q.length >= 2 && (P.dxBusy || (!globalThis.ECRIN_DEMO && P.dxQ !== String(P.q || "").trim())) ? `<p class="bx-none">Searching every network…</p>` : "";
   if (!rows.length && !P.found.length) return busy || (q.length >= 2 && !S.coinIx ? `<p class="bx-none">Searching every network…</p>` : `<p class="bx-none">No coin matches "${esc(P.q || "")}".</p>`);
   return `${mine.length ? `<div class="list-h"><b>Your coins</b></div><section class="list">${mine.map(row).join("")}</section>` : ""}${rest.length ? `<div class="list-h"><b>${mine.length ? "Other coins" : "Coins"}</b></div><section class="list">${rest.map(row).join("")}</section>` : ""}${more}${busy}`;
 }
