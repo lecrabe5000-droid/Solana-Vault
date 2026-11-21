@@ -11,4 +11,6 @@ const r = pickTokens(pairs, "base");
 assert.equal(r.length, 3); assert.equal(r[0].address, "0xaaa"); assert.equal(r[0].price, 0.00002); assert.equal(r[0].icon, "https://x/i.png");
 assert.equal(r[1].address, "0xBBB"); assert.equal(r[2].icon, null); assert.equal(r[2].price, null);
 assert.deepEqual(pickTokens(null, "base"), []);
+const a = pickTokens([...pairs, { chainId: "tron", baseToken: { address: "T1", symbol: "PEPE" } }], "all");
+assert.equal(a.length, 4); assert.deepEqual(a.map((x) => x.net).sort(), ["basem", "basem", "basem", "ethm"]); // every Ecrin token network, none other
 console.log("tokens ok");

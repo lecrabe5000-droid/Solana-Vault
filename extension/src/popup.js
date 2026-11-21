@@ -1429,7 +1429,7 @@ const tokName = (t) => t.name || t.symbol || `Token ${short(t.mint)}`;
 const ipfs = (u) => String(u || "").replace(/^ipfs:\/\//, "https://ipfs.io/ipfs/").replace(/^ar:\/\//, "https://arweave.net/");
 const safeImg = (u) => (/^https:\/\/[^\s"'<>]+$/.test(u) ? u : "");
 async function loadExtras(dev) {
-  const mode = S.mode, pr = await local.get(["tokPref", "tokList", "nftMeta"]); S.tokPref = pr.tokPref || {}; S.tokList = pr.tokList || {};
+  const mode = S.mode, pr = await local.get(["tokPref", "tokList", "nftMeta", "brTok"]); S.tokPref = pr.tokPref || {}; S.tokList = pr.tokList || {}; S.brTok = { ...(pr.brTok || {}), ...(S.brTok || {}) };
   const meta = pr.nftMeta || {};
   const lists = await Promise.all(netKeys().map(async (k) => {
     try {
@@ -1453,6 +1453,8 @@ async function loadExtras(dev) {
   if (need.length) await local.set({ nftMeta: meta });
   S.nftMeta = meta;
   if (S.screen === "home" && !S.scrubbing) render();
+  // What each token is worth (Mainnet), so its row shows a value like your other coins.
+  bxPrices(S.extra.filter((t) => !t.nft && !tokHidden(t) && BR_TOKNETS.includes(t.k)).map((t) => brTokId(t.k, t.mint)));
   if (S.panel?.p === "xtok" || S.panel?.p === "nft") renderPanel();
 }
 /** Calm line drawings for empty screens, in the same thin-laser style as the Safe. */
@@ -1464,14 +1466,14 @@ function letterIc(t) {
   const known = { USDT: "usdt", USDC: "usdc" }[String(t.symbol || "").toUpperCase()]; if (known) return coin(known);
   const m = S.nftMeta?.[t.mint]?.img, ch = esc((t.symbol || t.name || "?").replace(/[^\p{L}\p{N}]/gu, "").charAt(0).toUpperCase() || "?");
   const hue = [...t.mint].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
-  return m ? `<span class="coin img"><img src="${esc(m)}" alt="" loading="lazy" referrerpolicy="no-referrer"/></span>` : `<span class="coin letter" style="--h:${hue}">${ch}</span>`;
+  return m ? `<span class="coin img"><img src="${esc(m)}" alt="" data-l="${ch}" loading="lazy" referrerpolicy="no-referrer"/></span>` : `<span class="coin letter" style="--h:${hue}">${ch}</span>`;
 }
 function extraRows() {
   const list = (S.extra || []).filter((t) => !t.nft), shown = list.filter((t) => !tokHidden(t)), hid = list.length - shown.length;
   const n = (v) => v.toLocaleString("en-US", { maximumFractionDigits: v < 1 ? 6 : 2 });
   const row = (t) => `<button class="arow${tokHidden(t) ? " muted" : ""}" data-act="xtok" data-m="${esc(t.mint)}" data-n="${t.k}"><span class="cstack">${letterIc(t)}<span class="cmini">${coin(t.k)}</span></span>
     <span class="ar-t"><b>${esc(tokName(t))}</b><small>${NETS[t.k].name}${isSpam(t) ? ` · <span class="dn">Likely spam</span>` : ""}</small></span>
-    <span class="ar-r"><b>${mask(n(tokAmt(t)))}</b><small>${esc((t.symbol || "").slice(0, 10))}</small></span></button>`;
+    <span class="ar-r"><b>${mask(n(tokAmt(t)))} <em class="tk-sym">${esc((t.symbol || "").slice(0, 10))}</em></b><small>${(() => { const px = S.tokPx?.[brTokId(t.k, t.mint)]; return px ? mask(money(tokAmt(t) * px)) : ""; })()}</small></span></button>`;
   return shown.map(row).join("") + (hid ? `<button class="hid-note btnish" data-act="tog-hidden">${I.eyeOff}${hid} hidden token${hid > 1 ? "s" : ""} · ${S.showHid ? "Hide them" : "Show"}</button>${S.showHid ? list.filter(tokHidden).map(row).join("") : ""}` : "");
 }
 function nftGrid() {
@@ -3140,13 +3142,38 @@ const actions = {
   },
   "swap-pct": (el) => { const P = S.panel, p = BigInt(el.dataset.v), m = swapMaxRaw(P.from), u = (m * p) / 100n; P.pct = Number(p); P.amount = u ? String(fromRaw(u, P.from.dec)) : ""; swapQuoteSoon(0); },
   "swap-review": () => { const P = S.panel; if (!P.quote) return; P.step = "review"; renderPanel(); },
-  "br-pick": (el) => { const P = S.panel; P.pick = el.dataset.v; P.q = ""; P.qnet = ""; renderPanel(); setTimeout(() => { if (!globalThis.ECRIN_WEB) $("#panel [data-brq]")?.focus(); }, 250); },
+  "br-pick": (el) => { const P = S.panel; P.pick = el.dataset.v; P.q = ""; P.qnet = ""; renderPanel(); bxSearch(P); setTimeout(() => { if (!globalThis.ECRIN_WEB) $("#panel [data-brq]")?.focus(); }, 250); },
   "br-coin": (el) => {
     const P = S.panel, side = el.dataset.k, ids = bxCoins(brAssets()).get(el.dataset.v) || []; if (!ids.length) return;
     const curK = brK(side === "from" ? P.fa : P.ta), other = side === "from" ? P.ta : P.fa;
     let id = ids.find((x) => brK(x) === curK);
     if (!id) id = side === "from" ? [...ids].sort((a, b) => brHeld(b) * (brPx(b) || 0) - brHeld(a) * (brPx(a) || 0))[0] : ids.find((x) => brK(x) === brK(other)) || ids[0];
     if (id === other) id = ids.find((x) => x !== other) || id; // never the same coin on the same network on both sides
+    actions["br-set"]({ dataset: { k: side, v: id } });
+  },
+  // A coin from the search: Ecrin learns its address on each network, then picks a network like for your own coins.
+  "br-find": async (el) => {
+    const P = S.panel, c = (P.found || [])[Number(el.dataset.i)], side = P.pick; if (!c || !side || P.finding) return;
+    P.finding = true; el.classList.add("busy");
+    const other = side === "from" ? P.ta : P.fa, ids = [];
+    try {
+      for (const [k, [addr, dec]] of Object.entries(c.on)) {
+        if (!BR_TOKNETS.includes(k) || !brNetOk(k)) continue;
+        const id = brTokId(k, addr);
+        if (brIsTok(id)) {
+          const d = Number.isInteger(dec) ? dec : await tokDec(k, addr).catch(() => null); if (!Number.isInteger(d)) continue;
+          brRemember(id, { sym: c.s, name: c.n, dec: d, logo: c.l || "", px: c.p || null, ck: c.s.toUpperCase() });
+          S.brAdd = [...new Set([...(S.brAdd || []), id])];
+        }
+        ids.push(id);
+      }
+    } finally { P.finding = false; }
+    if (S.panel !== P) return;
+    if (!ids.length) { el.classList.remove("busy"); return toast("Couldn't read this token. Try another.", "err"); }
+    const pref = [brK(side === "from" ? P.fa : P.ta), brK(other), "basem", "arbm", "solm", "opm", "polm", "bnbm", "avaxm", "hypem", "ethm"];
+    let id = pref.map((k) => ids.find((x) => brK(x) === k)).find(Boolean) || ids[0];
+    if (id === other) id = ids.find((x) => x !== other) || id;
+    bxPrices(ids);
     actions["br-set"]({ dataset: { k: side, v: id } });
   },
   "br-set": (el) => { const P = S.panel, side = el.dataset.k === "from" ? "fa" : "ta", v = el.dataset.v; if (side === "fa") { if (v === P.ta) P.ta = P.fa; if (v !== P.fa) { P.amount = ""; P.pct = null; } } else if (v === P.fa) P.fa = P.ta; P[side] = v; P.pick = null; renderPanel(); bridgeQuoteSoon(0); },
@@ -3495,7 +3522,7 @@ document.addEventListener("input", (e) => {
   } else if (t.matches("[data-reqamt]") || t.matches("[data-reqlabel]")) { const k = t.matches("[data-reqamt]") ? "amount" : "label", sel = k === "amount" ? "[data-reqamt]" : "[data-reqlabel]"; S.panel[k] = k === "amount" ? t.value.replace(/[^\d.,]/g, "").replace(",", ".") : t.value; const pos = t.selectionStart; patchPanel(); const n = $("#panel " + sel); if (n && document.activeElement !== n) n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {}
   } else if (t.matches("[data-to]") && (/^wc:/i.test(t.value.trim()) || parsePayLink(t.value))) { const v = t.value.trim(); t.value = ""; onScanned(v);
   } else if (t.matches("[data-to]")) { lookupTo(t.value); S.panel.to = t.value; patchPanel(); }
-  else if (t.matches("[data-brq]")) { const P = S.panel; P.q = t.value; const el = $("#brlist"); if (el) { el.innerHTML = bxList(P, brAssets()); translate(el, S.lang); } }
+  else if (t.matches("[data-brq]")) { const P = S.panel; P.q = t.value; bxRedraw(P); bxSearch(P); }
   else if (t.matches("[data-bramt]")) { const v = t.value.replace(",", ".").replace(/[^\d.]/g, ""); if (v !== t.value) t.value = v; S.panel.amount = v; S.panel.pct = null; bridgeQuoteSoon(); }
   else if (t.matches("[data-bugtext]")) S.panel.text = t.value;
   else if (t.matches("[data-bugwho]")) S.panel.who = t.value;
@@ -4389,20 +4416,43 @@ async function bridgeStatus() {
   try { const d = await (await fetch(BRIDGE.api + "/status", { cache: "no-store" })).json(); BRIDGE.on = !!d.on; BRIDGE.fee = Number(d.fee) || 0.00875; if (Array.isArray(d.nets)) BRIDGE.nets = d.nets; } catch (_) {}
   if (S.panel?.p === "bridge") renderPanel();
 }
-const brK = (id) => String(id).split(":")[0], brC = (id) => String(id).split(":")[1] || "native";
+const brK = (id) => String(id).split(":")[0], brC = (id) => { const x = String(id), i = x.indexOf(":"); return i < 0 ? "native" : x.slice(i + 1); };
+/** Any other token, by its address ("arbm:0xf97f…" is LINK on Arbitrum). Its name, decimals, logo and price are in S.brTok. */
+const brIsTok = (id) => !/^(native|usdc|usdt)$/.test(brC(id));
+const brT = (id) => (S.brTok ||= {})[id];
+const sameAddr = (a, b) => String(a || "").toLowerCase() === String(b || "").toLowerCase();
+// Networks where a token you get shows up in your wallet by itself (Ecrin follows it for you).
+const BR_TOKNETS = ["ethm", "basem", "arbm", "opm", "polm", "bnbm", "avaxm", "hypem", "solm"];
+/** A token's id on a network, or the built-in coin when it's the same one (USDC on Base is "basem:usdc"). */
+const brTokId = (k, addr) => (sameAddr(addr, NETS[k]?.usdc) ? `${k}:usdc` : /^(0x0{40}|0xe{40}|1{32}|So11111111111111111111111111111111111111112)$/i.test(addr) ? `${k}:native` : `${k}:${addr}`);
+/** Remembers what Ecrin needs to show and swap a token (kept on this device). */
+const brRemember = (id, m) => { if (!brIsTok(id)) return; S.brTok = { ...(S.brTok || {}), [id]: { ...(brT(id) || {}), ...m } }; clearTimeout(S.brTokT); S.brTokT = setTimeout(() => local.set({ brTok: S.brTok }).catch(() => {}), 400); };
 /** This account's address on a network (bridges always send to your own address on the other side). */
 const brAddr = (k) => { const f = NETS[k]?.fam; return (f === "sol" ? ACCT?.sol?.publicKey?.toBase58?.() : f === "evm" ? ACCT?.evm?.address : f === "tron" ? (ACCT?.tron && !ACCT.only ? toTron(ACCT.tron.address) : null) : f === "sui" ? (!ACCT?.only ? suiOf(ACCT) : null) : f === "btc" ? (!ACCT?.only ? btcAddress(ACCT, NETS[k]) : null) : null) || ""; };
 /** Every asset this account can bridge from or to. */
-const brAssets = () => Object.entries(BR_COINS).filter(([k]) => NETS[k] && netKeys().includes(k) && brAddr(k) && (!BRIDGE.nets || BRIDGE.nets.includes(k))).flatMap(([k, cs]) => cs.map((c) => `${k}:${c}`));
-const brSym = (id) => (brC(id) === "usdc" ? "USDC" : brC(id) === "usdt" ? "USDT" : NETS[brK(id)].unit);
-const brDec = (id) => { if (brC(id) !== "native") return 6; const f = NETS[brK(id)].fam; return f === "sol" || f === "sui" ? 9 : f === "tron" ? 6 : f === "btc" ? 8 : 18; };
+const brNetOk = (k) => NETS[k] && netKeys().includes(k) && brAddr(k) && (!BRIDGE.nets || BRIDGE.nets.includes(k));
+const brAssets = () => {
+  const base = Object.entries(BR_COINS).filter(([k]) => brNetOk(k)).flatMap(([k, cs]) => cs.map((c) => `${k}:${c}`));
+  // Tokens you hold (Solana tokens, tokens Ecrin follows on Ethereum-style networks), then coins found with the search.
+  for (const t of S.extra || []) {
+    if (t.nft || tokHidden(t) || !BR_TOKNETS.includes(t.k) || !brNetOk(t.k) || !(tokAmt(t) > 0)) continue;
+    const id = brTokId(t.k, t.mint); if (!brIsTok(id) || base.includes(id)) continue;
+    if (!brT(id)?.sym) brRemember(id, { sym: String(t.symbol || "Token").slice(0, 12), name: String(t.name || t.symbol || "").slice(0, 40), dec: t.dec, logo: S.nftMeta?.[t.mint]?.img || t.icon || "" });
+    base.push(id);
+  }
+  for (const id of S.brAdd || []) if (!base.includes(id) && brNetOk(brK(id)) && brT(id)?.sym) base.push(id);
+  return base;
+};
+const brSym = (id) => (brC(id) === "usdc" ? "USDC" : brC(id) === "usdt" ? "USDT" : brIsTok(id) ? brT(id)?.sym || "Token" : NETS[brK(id)].unit);
+const brDec = (id) => { if (brIsTok(id)) return Number.isInteger(brT(id)?.dec) ? brT(id).dec : 18; if (brC(id) !== "native") return 6; const f = NETS[brK(id)].fam; return f === "sol" || f === "sui" ? 9 : f === "tron" ? 6 : f === "btc" ? 8 : 18; };
 /** What you hold of it, in coins (Wallet side only: the Safe's coins stay in the Safe). */
 const brHeld = (id) => {
   const k = brK(id), c = brC(id);
   if (c === "usdt") { const t = (S.extra || []).find((x) => x.k === k && x.symbol === "USDT"); return t ? tokAmt(t) : 0; }
+  if (brIsTok(id)) { const t = (S.extra || []).find((x) => x.k === k && sameAddr(x.mint, c)); return t ? tokAmt(t) : 0; }
   const it = worth().items.find((i) => i.k === k && (c === "usdc" ? i.a === "usdc" : i.a !== "usdc")); return it ? it.chq || 0 : 0;
 };
-const brPx = (id) => (brC(id) === "native" ? S.prices[NETS[brK(id)].cg]?.usd : 1);
+const brPx = (id) => (brC(id) === "native" ? S.prices[NETS[brK(id)].cg]?.usd : brIsTok(id) ? S.tokPx?.[id] ?? brT(id)?.px ?? null : 1);
 /** Keep a little of the network's own coin behind for its fees (Tron needs more: contract calls burn TRX for energy). */
 // The network fee, in the network's own coin, when there's no quote yet to tell (a swap or bridge, approvals included).
 const BR_GAS = { solm: 0.003, ethm: 0.0002, basem: 0.00002, arbm: 0.00002, opm: 0.00002, polm: 0.1, bnbm: 0.0002, avaxm: 0.005, hypem: 0.002, tronm: 25, suim: 0.02, btcm: 0.00003 };
@@ -4422,7 +4472,10 @@ const brGasShort = (id, amt = 0) => {
 };
 /** The coin's logo, with its network's logo in the corner when they differ (USDC on Base, ETH on Arbitrum). */
 const brLogo = (id) => { const k = brK(id), c = brC(id); return c === "usdc" ? "usdc" : c === "usdt" ? "usdt" : NETS[k].unit === "ETH" ? "eth" : k; };
-const brIcon = (id) => { const l = brLogo(id), k = brK(id), same = l === k || (l === "eth" && k === "ethm"); return `<span class="cstack">${coin(l)}${same ? "" : `<span class="cmini">${coin(k)}</span>`}</span>`; };
+/** A token's logo (from its list or market), or its first letter. */
+const tokIc = (id) => { const m = brT(id) || {}, img = safeImg(m.logo || ""); if (img) return `<span class="coin img"><img src="${esc(img)}" alt="" data-l="${esc((m.sym || "?").charAt(0).toUpperCase())}" loading="lazy" referrerpolicy="no-referrer"/></span>`;
+  const hue = [...String(id)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7); return `<span class="coin letter" style="--h:${hue}">${esc((m.sym || "?").replace(/[^\p{L}\p{N}]/gu, "").charAt(0).toUpperCase() || "?")}</span>`; };
+const brIcon = (id) => { if (brIsTok(id)) return `<span class="cstack">${tokIc(id)}<span class="cmini">${coin(brK(id))}</span></span>`; const l = brLogo(id), k = brK(id), same = l === k || (l === "eth" && k === "ethm"); return `<span class="cstack">${coin(l)}${same ? "" : `<span class="cmini">${coin(k)}</span>`}</span>`; };
 const brName = (id) => `${brSym(id)} on ${NETS[brK(id)].name}`;
 function bridgeQuoteSoon(ms = 450, quiet = false) {
   const P = S.panel; if (!P || P.p !== "bridge") return;
@@ -4548,34 +4601,105 @@ function bridgeView() {
     <div class="pfoot"><button class="btn primary xl" data-act="br-review" ${BRIDGE.on && raw && !over && !gas && q ? "" : "disabled"}>${btn}</button></div>`;
 }
 /** Coins by symbol: ETH lives on Ethereum, Base, Arbitrum and Optimism; USDC on most networks. */
-const bxCoins = (all) => { const m = new Map(); for (const id of all) { const k = brSym(id); if (!m.has(k)) m.set(k, []); m.get(k).push(id); } return m; };
+const brGrp = (id) => (brIsTok(id) ? String(brT(id)?.ck || brSym(id)).toUpperCase() : brSym(id));
+const BR_ORDER = Object.keys(BR_COINS);
+const bxCoins = (all) => { const m = new Map(); for (const id of all) { const k = brGrp(id); if (!m.has(k)) m.set(k, []); m.get(k).push(id); } for (const v of m.values()) v.sort((a, b) => BR_ORDER.indexOf(brK(a)) - BR_ORDER.indexOf(brK(b))); return m; };
+// A coin logo that doesn't load (blocked, moved) turns into the coin's first letter instead of a broken picture.
+document.addEventListener("error", (e) => { const im = e.target; if (im?.tagName !== "IMG") return; const c = im.closest(".coin.img"); if (!c) return;
+  c.className = "coin letter"; c.style.setProperty("--h", String((String(im.dataset.l || "?").charCodeAt(0) * 47) % 360)); c.textContent = im.dataset.l || "?"; }, true);
 /** The coin's own logo, without a network badge (the network is chosen with the toggles). */
-const bxLogo = (id) => coin(brLogo(id));
+const bxLogo = (id) => (brIsTok(id) ? tokIc(id) : coin(brLogo(id)));
 /** The networks a coin is on, as toggles; just a label when it's on one network only. */
 const bxNets = (side, id, all) => {
-  const ids = bxCoins(all).get(brSym(id)) || [id];
+  const ids = bxCoins(all).get(brGrp(id)) || [id];
   if (ids.length < 2) return `<div class="bx-nets one"><span class="chip on">${coin(brK(id))}${esc(NETS[brK(id)].name)}</span></div>`;
   return `<div class="bx-nets" role="radiogroup" aria-label="Network">${ids.map((x) => { const h = brHeld(x); return `<button class="chip${x === id ? " on" : ""}" role="radio" aria-checked="${x === id}" data-act="br-set" data-k="${side}" data-v="${x}">${coin(brK(x))}${esc(NETS[brK(x)].name)}${h > 0 && side === "from" && h * (brPx(x) || 0) >= 0.01 ? `<em>${bxNum(h, x)}</em>` : ""}</button>`; }).join("")}</div>`;
 };
 /** A coin amount the way people read it: 2 decimals for dollar coins, 4 from 1 up, 6 significant digits below 1. */
 const bxNum = (v, id) => { const n = Number(v) || 0, L = S.lang === "fr" ? "fr-CA" : "en-US";
-  return brC(id) !== "native" ? n.toLocaleString(L, { maximumFractionDigits: 2 }) : Math.abs(n) >= 1 ? n.toLocaleString(L, { maximumFractionDigits: 4 }) : n.toLocaleString(L, { maximumSignificantDigits: 6 }); };
+  return brC(id) === "usdc" || brC(id) === "usdt" || (brIsTok(id) && /USD/i.test(brSym(id))) ? n.toLocaleString(L, { maximumFractionDigits: 2 }) : Math.abs(n) >= 1 ? n.toLocaleString(L, { maximumFractionDigits: 4 }) : n.toLocaleString(L, { maximumSignificantDigits: 6 }); };
 /** A swap can be left once it's on its way (sent, now arriving or confirming): the pill keeps following it. */
 const bxSent = (P) => !!P.sig || (P.mo ? P.mo.at >= P.mo.steps.findIndex((x) => x.k === "conf") : false);
 // "New quote in N s": counts down to the quiet 25-second refresh, like other wallets.
 setInterval(() => { const el = document.querySelector("#panel [data-qtimer]"), q = S.panel?.p === "bridge" ? S.panel.quote : null; if (el && q?.at) el.textContent = String(Math.max(0, 25 - Math.floor((Date.now() - q.at) / 1000))); }, 1000);
 /** Which quote matches what's on screen: the same coins and amount. */
 const brKey = (P) => `${P.fa}>${P.ta}:${P.amount}`;
+/** Every coin Ecrin can swap to (LI.FI's verified tokens, grouped across networks): one file, loaded once, searched on this device. */
+function coinIndex() {
+  if (S.coinIx) return Promise.resolve(S.coinIx);
+  return (S.coinIxP ||= fetch(/^https?:/.test(location.protocol) ? "/coins.json" : "https://ecrinprotocol.app/coins.json").then((r) => r.json())
+    .then((d) => (S.coinIx = Array.isArray(d?.coins) ? d.coins : [])).catch(() => { S.coinIxP = null; return []; }));
+}
+// Coins people look for most, shown before you type.
+const BX_POPULAR = ["WBTC", "LINK", "UNI", "AAVE", "PEPE", "ARB", "SHIB", "LDO", "ONDO", "CRV"];
+/** The coins in the list whose symbol or name matches, best first: exact symbol, then starts with, then contains. */
+const bxFind = (q) => {
+  const out = [], x = q.toLowerCase();
+  for (const c of S.coinIx || []) {
+    const sy = c.s.toLowerCase(), nm = c.n.toLowerCase();
+    const r = sy === x ? 0 : sy.startsWith(x) ? 1 : nm.startsWith(x) ? 2 : nm.includes(x) || (x.length > 2 && sy.includes(x)) ? 3 : -1;
+    if (r >= 0 && Object.keys(c.on).some((k) => BR_TOKNETS.includes(k) && brNetOk(k))) out.push([r, c]);
+  }
+  return out.sort((a, b) => a[0] - b[0] || Object.keys(b[1].on).length - Object.keys(a[1].on).length).slice(0, 25).map((y) => y[1]);
+};
+/** Search as you type: the list on the device at once, then the live market search for everything else (one network each). */
+function bxSearch(P) {
+  if (!S.coinIx) coinIndex().then(() => { if (S.panel === P && P.pick) bxRedraw(P); });
+  const q = String(P.q || "").trim(); clearTimeout(S.bxT);
+  if (q.length < 2 || globalThis.ECRIN_DEMO || P.dxQ === q) return;
+  P.dxBusy = true;
+  S.bxT = setTimeout(async () => {
+    let list = [];
+    try { const d = await (await fetch("https://ecrinprotocol.app/api/tokens?" + new URLSearchParams({ q, chain: "all" }))).json(); list = (d.tokens || []).filter((t) => t.net && t.address && t.symbol); } catch (_) {}
+    if (S.panel !== P || String(P.q || "").trim() !== q) return;
+    P.dx = list.map((t) => ({ s: String(t.symbol).slice(0, 12), n: String(t.name || t.symbol).slice(0, 40), l: t.icon || "", p: t.price || null, liq: t.liq || 0, on: { [t.net]: [t.address, null] } }));
+    P.dxQ = q; P.dxBusy = false; bxRedraw(P);
+  }, 350);
+}
+const bxRedraw = (P) => { const el = $("#brlist"); if (el) { el.innerHTML = bxList(P, brAssets()); translate(el, S.lang); } };
+/** Live prices for tokens (LI.FI), so amounts show their value. */
+async function bxPrices(ids) {
+  const want = [...new Set(ids)].filter((id) => brIsTok(id)).slice(0, 30); if (!want.length || globalThis.ECRIN_DEMO || !isMain()) return;
+  try {
+    const d = await (await fetch(`${BRIDGE.api}/price?ids=${encodeURIComponent(want.join(","))}`)).json();
+    S.tokPx = { ...(S.tokPx || {}), ...(d.prices || {}) };
+    if (S.panel?.p === "bridge" && !S.panel.pick && S.panel.step === "form") patchPanel(); else if (S.screen === "home" && !S.panel && !S.scrubbing) render();
+  } catch (_) {}
+}
+/** A token's decimals, read from its network when the search didn't say. */
+async function tokDec(k, addr) {
+  const { dev } = await local.get("dev"), e = engine({ web3, ethers, acct: ACCT, net: k, dev: dev || {} });
+  if (NETS[k].fam === "evm") return (await e.tokenInfo(addr)).dec;
+  const r = await (k === SWAP_NET ? swapEng() : e).decimals?.(addr); return Number.isInteger(r) ? r : null;
+}
 /** The coin list in the picker: your coins first, then every other coin; search and network filter. */
 function bxList(P, all) {
-  const q = String(P.q || "").trim().toLowerCase(), cur = brSym(P[P.pick === "from" ? "fa" : "ta"]);
+  const q = String(P.q || "").trim().toLowerCase(), cur = brGrp(P[P.pick === "from" ? "fa" : "ta"]);
   const names = { USDC: "usd coin dollar", USDT: "tether dollar", ETH: "ether ethereum", SOL: "solana", BTC: "bitcoin", BNB: "binance bnb chain", POL: "polygon matic", AVAX: "avalanche", HYPE: "hyperliquid hyperevm", TRX: "tron", SUI: "sui" };
   const rows = [...bxCoins(all)].map(([sym, ids]) => ({ sym, ids, held: ids.reduce((t, x) => t + brHeld(x), 0), usd: ids.reduce((t, x) => t + brHeld(x) * (brPx(x) || 0), 0) }))
-    .filter((r) => !q || `${r.sym} ${names[r.sym] || ""} ${r.ids.map((x) => NETS[brK(x)].name).join(" ")}`.toLowerCase().includes(q));
+    .filter((r) => !q || `${r.sym} ${brSym(r.ids[0])} ${brIsTok(r.ids[0]) ? brT(r.ids[0])?.name || "" : ""} ${names[r.sym] || ""} ${r.ids.map((x) => NETS[brK(x)].name).join(" ")}`.toLowerCase().includes(q));
   const mine = rows.filter((r) => r.held > 0).sort((a, b) => b.usd - a.usd), rest = rows.filter((r) => !(r.held > 0));
-  const row = (r) => `<button class="arow${cur === r.sym ? " on" : ""}" data-act="br-coin" data-k="${P.pick}" data-v="${esc(r.sym)}">${bxLogo(r.ids[0])}<span class="ar-t"><b>${esc(r.sym)}</b><small>${r.ids.length > 1 ? `${r.ids.length} networks` : esc(NETS[brK(r.ids[0])].name)}</small></span><span class="ar-r">${r.held > 0 ? `<b>${bxNum(r.held, r.ids[0])}</b>${r.usd ? `<small>${money(r.usd)}</small>` : ""}` : ""}</span>${cur === r.sym ? `<span class="acc-ok">${I.check}</span>` : ""}</button>`;
-  if (!rows.length) return `<p class="bx-none">No coin matches "${esc(P.q || "")}".</p>`;
-  return `${mine.length ? `<div class="list-h"><b>Your coins</b></div><section class="list">${mine.map(row).join("")}</section>` : ""}${rest.length ? `<div class="list-h"><b>${mine.length ? "Other coins" : "Coins"}</b></div><section class="list">${rest.map(row).join("")}</section>` : ""}`;
+  const row = (r) => `<button class="arow${cur === r.sym ? " on" : ""}" data-act="br-coin" data-k="${P.pick}" data-v="${esc(r.sym)}">${bxLogo(r.ids[0])}<span class="ar-t"><b>${esc(brSym(r.ids[0]))}</b><small>${r.ids.length > 1 ? `${r.ids.length} networks` : esc(NETS[brK(r.ids[0])].name)}</small></span><span class="ar-r">${r.held > 0 ? `<b>${bxNum(r.held, r.ids[0])}</b>${r.usd ? `<small>${money(r.usd)}</small>` : ""}` : ""}</span>${cur === r.sym ? `<span class="acc-ok">${I.check}</span>` : ""}</button>`;
+  // Every other coin, from the list (several networks each) and the live search (one network, with its liquidity).
+  const have = new Set(rows.map((r) => r.sym)), seen = new Set(all.map((id) => id.toLowerCase()));
+  const fresh = (c) => !have.has(c.s.toUpperCase()) && Object.entries(c.on).some(([k, [a]]) => BR_TOKNETS.includes(k) && brNetOk(k) && !seen.has(brTokId(k, a).toLowerCase()));
+  const listed = q.length >= 2 ? bxFind(q).filter(fresh) : !q && S.coinIx ? BX_POPULAR.map((y) => S.coinIx.find((c) => c.s === y)).filter((c) => c && fresh(c)) : [];
+  const inList = new Set(listed.flatMap((c) => Object.entries(c.on).map(([k, [a]]) => `${k}:${String(a).toLowerCase()}`)));
+  const live = q.length >= 2 && P.dxQ === String(P.q || "").trim() ? (P.dx || []).filter((c) => fresh(c) && !Object.entries(c.on).some(([k, [a]]) => inList.has(`${k}:${String(a).toLowerCase()}`))) : [];
+  P.found = [...listed, ...live];
+  const frow = (c, i) => { const nets = Object.keys(c.on).filter((k) => BR_TOKNETS.includes(k) && brNetOk(k)), img = safeImg(c.l || "");
+    return `<button class="arow" data-act="br-find" data-i="${i}">${img ? `<span class="coin img"><img src="${esc(img)}" alt="" data-l="${esc(c.s.charAt(0).toUpperCase())}" loading="lazy" referrerpolicy="no-referrer"/></span>` : `<span class="coin letter" style="--h:${(c.s.charCodeAt(0) * 47) % 360}">${esc(c.s.charAt(0).toUpperCase())}</span>`}<span class="ar-t"><b>${esc(c.s)}</b><small>${esc(c.n)} · ${nets.length > 1 ? `${nets.length} networks` : esc(NETS[nets[0]]?.name || "")}</small></span><span class="ar-r">${c.p ? `<b>${tokPx(c.p)}</b>` : ""}${c.liq != null ? `<small>Liquidity ${money(c.liq, { notation: "compact", maximumFractionDigits: 1 })}</small>` : ""}</span></button>`; };
+  const more = P.found.length ? `<div class="list-h"><b>${q ? "All coins" : "Popular coins"}</b></div><section class="list">${listed.map((c, i) => frow(c, i)).join("")}</section>
+      ${live.length ? `<div class="list-h"><b>More results</b></div><p class="fine pad bx-warn">Anyone can make a token with any name. Check the liquidity: copies usually have very little.</p><section class="list">${live.map((c, i) => frow(c, listed.length + i)).join("")}</section>` : ""}` : "";
+  const busy = q.length >= 2 && P.dxBusy && !live.length ? `<p class="bx-none">Searching every network…</p>` : "";
+  if (!rows.length && !P.found.length) return busy || (q.length >= 2 && !S.coinIx ? `<p class="bx-none">Searching every network…</p>` : `<p class="bx-none">No coin matches "${esc(P.q || "")}".</p>`);
+  return `${mine.length ? `<div class="list-h"><b>Your coins</b></div><section class="list">${mine.map(row).join("")}</section>` : ""}${rest.length ? `<div class="list-h"><b>${mine.length ? "Other coins" : "Coins"}</b></div><section class="list">${rest.map(row).join("")}</section>` : ""}${more}${busy}`;
+}
+/** A token you swap to shows up in your wallet by itself: Solana lists every token; on Ethereum-style networks Ecrin follows it for you. */
+async function followTok(id) {
+  const k = brK(id), m = brT(id); if (!brIsTok(id) || NETS[k]?.fam !== "evm" || !m?.sym || globalThis.ECRIN_DEMO) return;
+  const addr = brC(id), list = S.tokList?.[k] || []; if (list.some((t) => sameAddr(t.mint, addr))) return;
+  S.tokList = { ...(S.tokList || {}), [k]: [...list, { mint: addr, symbol: m.sym, name: m.name || m.sym, dec: m.dec }] }; await local.set({ tokList: S.tokList }).catch(() => {});
 }
 async function bridgeNow() {
   const P = S.panel; if (!P?.quote || P.p !== "bridge" || P.step === "sending") return;
@@ -4602,6 +4726,7 @@ async function bridgeNow() {
       sig = await e.bridgeSend({ tx: d.tx, approval: d.approval, fromToken: d.fromToken, fromAmount: d.fromAmount });
     }
     P.sig = typeof sig === "string" ? sig : P.sig; motionStep(P, "conf");
+    followTok(ta);
     S.lastTx = Date.now(); haptic("success");
     await logActivity({ t: "bridge", k: from, to: NETS[to].name, a: coinK === "usdc" ? "usdc" : "native", n: coinK === "usdc" ? Number(amount) * USDC_BASE : 0, sym: unit, toSym: tunit, amt: amount, sig: P.sig || null });
     if (usd != null) await countSpend(usd);

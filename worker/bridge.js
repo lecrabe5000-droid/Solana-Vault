@@ -3,7 +3,8 @@
 // server, so a wallet can't change them. The server never holds funds or keys.
 //   GET /api/bridge/status                                                  → { on, fee }
 //   GET /api/bridge/quote?from=&to=&fromCoin=&toCoin=&amount=&fromAddress=&toAddress=  → a quote with the transaction
-//       (coins: native | usdc | usdt; the older coin= sets both sides)
+//       (coins: native | usdc | usdt | a token address on that network; the older coin= sets both sides)
+//   GET /api/bridge/price?ids=net:address,…                                → { prices: { id: usd } }
 //   GET /api/bridge/track?tx=&from=&to=&bridge=                             → { status, substatus, receiving, got }
 // Cloudflare variables (Settings → Variables and Secrets):
 //   LIFI_INTEGRATOR   Ecrin's integrator name from LI.FI's Partner Portal (portal.li.fi), with fee wallets set there.
@@ -34,6 +35,10 @@ export const BRIDGE_NETS = {
 };
 const ADDR = { btc: /^(bc1[02-9ac-hj-np-z]{11,71}|[13][1-9A-HJ-NP-Za-km-z]{25,34})$/, sol: /^[1-9A-HJ-NP-Za-km-z]{32,44}$/, evm: /^0x[0-9a-fA-F]{40}$/, tron: /^T[1-9A-HJ-NP-Za-km-z]{33}$/, sui: /^0x[0-9a-fA-F]{64}$/ };
 const COIN = /^(native|usdc|usdt)$/;
+// Any other token, by its address on that network (LINK on Arbitrum, BONK on Solana…). LI.FI only routes tokens it
+// knows, and the wallet checks every transaction before signing, so an address can't make it send something else.
+const TOKEN = { evm: /^0x[0-9a-fA-F]{40}$/, sol: /^[1-9A-HJ-NP-Za-km-z]{32,44}$/ };
+const coinOf = (N, c) => (COIN.test(c) ? N.coins[c] : TOKEN[N.fam]?.test(c || "") ? c : null);
 
 export const bridgeFee = (env) => { const f = Number(env.LIFI_FEE); return Number.isFinite(f) && f >= 0 && f < 0.05 ? f : 0.00875; };
 export const bridgeOn = (env) => /^[A-Za-z0-9._-]{2,40}$/.test(env.LIFI_INTEGRATOR || "");
@@ -41,9 +46,9 @@ export const bridgeOn = (env) => /^[A-Za-z0-9._-]{2,40}$/.test(env.LIFI_INTEGRAT
 /** The token to send and the token to receive. Null when a coin isn't on that network, or it's the same coin twice. */
 export function bridgeTokens(from, to, fromCoin, toCoin = fromCoin) {
   const a = BRIDGE_NETS[from], b = BRIDGE_NETS[to];
-  if (!a || !b || !COIN.test(fromCoin) || !COIN.test(toCoin)) return null;
-  const x = a.coins[fromCoin], y = b.coins[toCoin];
-  if (!x || !y || (from === to && x === y)) return null;
+  if (!a || !b) return null;
+  const x = coinOf(a, fromCoin), y = coinOf(b, toCoin);
+  if (!x || !y || (from === to && String(x).toLowerCase() === String(y).toLowerCase())) return null;
   return [x, y];
 }
 
@@ -78,6 +83,19 @@ export async function handleBridge(request, env) {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (request.method !== "GET") return json({ error: "Method not allowed" }, 405);
   if (url.pathname === "/api/bridge/status") return json({ on: bridgeOn(env), fee: bridgeFee(env), nets: Object.keys(BRIDGE_NETS) });
+  // Live prices for tokens Ecrin doesn't price itself: GET /api/bridge/price?ids=arbm:0x…,solm:Mint… (at most 30)
+  if (url.pathname === "/api/bridge/price") {
+    const ids = [...new Set((url.searchParams.get("ids") || "").split(",").filter(Boolean))].slice(0, 30), prices = {};
+    await Promise.all(ids.map(async (id) => {
+      const i = id.indexOf(":"), N = BRIDGE_NETS[id.slice(0, i)], c = id.slice(i + 1);
+      if (!N || !TOKEN[N.fam]?.test(c)) return;
+      const ck = new Request(`https://cache.ecrin/price/${id}`), cache = typeof caches !== "undefined" ? caches.default : null;
+      const hit = cache && (await cache.match(ck)); if (hit) { const v = Number(await hit.text()); if (v > 0) prices[id] = v; return; }
+      const [t] = await lifi(env, `/token?chain=${N.chain}&token=${c}`); const v = Number(t?.priceUSD) || 0;
+      if (v > 0) { prices[id] = v; if (cache) await cache.put(ck, new Response(String(v), { headers: { "cache-control": "public, max-age=120" } })); }
+    }));
+    return Response.json({ prices }, { headers: { "Cache-Control": "public, max-age=60", ...CORS } });
+  }
   if (!bridgeOn(env)) return json({ error: "Bridges are coming soon.", code: "BRIDGE_SOON" }, 503);
   const q = url.searchParams;
 

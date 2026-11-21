@@ -4060,3 +4060,8 @@ html:root[data-theme="light"] #panel .pane.scrolled .phead:not(#z) { background:
 .bx-route .coin { width: 22px !important; height: 22px !important; border-radius: 50%; overflow: hidden; flex: none; }
 .bx-route > i { font-style: normal; color: var(--muted); font-size: 16.5px; }
 .bx-hint small { color: var(--muted); font-size: 13px; }
+/* Coin search in Swap: every coin on every network */
+.ar-r .tk-sym { font-style: normal; font-weight: 500; color: var(--muted); font-size: .86em; }
+#panel .arow.busy { opacity: .55; pointer-events: none; }
+#panel .bx-warn { margin: 0 0 6px; }
+#panel .arow .ar-t small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }

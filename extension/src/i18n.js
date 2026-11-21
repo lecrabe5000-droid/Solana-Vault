@@ -284,6 +284,7 @@ const FR = {
 };
 // Phrases with numbers or names: [pattern, replacement].
 const FR_RE = [
+  [/^Liquidity (.+)$/, "Liquidité $1"], [/^(.+) · (\d+) networks$/, "$1 · $2 réseaux"], [/^(\d+) networks$/, "$1 réseaux"],
   [/^Found (\d+) more accounts? with activity$/, "$1 compte(s) utilisé(s) trouvé(s) en plus"], [/^Checking account (\d+)…$/, "Vérification du compte $1…"], [/^Wallet imported, with (\d+) accounts that have activity$/, "Portefeuille importé, avec $1 comptes utilisés"],
   [/^(\d+) balances? of \$1 or less hidden · Show$/, "$1 solde(s) de 1 $ ou moins masqué(s) · Afficher"],
   [/^Your Safe already works on (.+), with USDC and each network's own coin\.$/, "Votre coffre fonctionne déjà sur $1, avec l'USDC et la crypto propre à chaque réseau."],
@@ -378,6 +379,8 @@ Object.assign(FR, {
   "These are real coins. Once sent, they can't be brought back.": "Ce sont de vraies cryptos. Une fois envoyées, elles ne reviennent pas.",
   "You pay": "Vous payez", "You receive": "Vous recevez", "You receive about": "Vous recevez environ", "Price impact + fees": "Impact sur le prix + frais", "Ecrin fee": "Frais Ecrin", "Route": "Route",
   "Before you sign, Ecrin checks the swap on the network and refuses it if more would leave than you chose.": "Avant de signer, Ecrin vérifie l'échange sur le réseau et le refuse si plus que prévu devait partir.",
+  "Your coins": "Vos cryptos", "Other coins": "Autres cryptos", "Coins": "Cryptos", "All coins": "Toutes les cryptos", "Popular coins": "Cryptos populaires", "More results": "Plus de résultats", "Searching every network…": "Recherche sur tous les réseaux…", "Search a coin": "Chercher une crypto",
+  "Anyone can make a token with any name. Check the liquidity: copies usually have very little.": "N'importe qui peut créer un jeton avec n'importe quel nom. Regardez la liquidité : les copies en ont très peu.", "Couldn't read this token. Try another.": "Impossible de lire ce jeton. Essayez-en un autre.",
   "Hold to swap": "Maintenez pour échanger", "Swapping…": "Échange…", "Search any Solana token by name": "Chercher un jeton Solana par son nom", "Searching…": "Recherche…",
   "Several tokens can share a name. Check the liquidity: copies usually have very little.": "Plusieurs jetons peuvent porter le même nom. Regardez la liquidité : les copies en ont très peu.",
   "No Solana token by that name. Paste its address instead.": "Aucun jeton Solana de ce nom. Collez plutôt son adresse.", "A smaller amount usually gets a better rate.": "Un montant plus petit obtient souvent un meilleur taux.",

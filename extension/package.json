@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node build.mjs",
     "watch": "node build.mjs --watch",
-    "test": "node test/shadow.test.mjs && node test/btcxrp.test.mjs && node test/bridgesign.test.mjs && node test/keyring.test.mjs && node test/sui.test.mjs && node test/swapguard.test.mjs && node ../worker/sw.test.mjs && node ../worker/rpcempty.test.mjs && node ../worker/bridge.test.mjs && node ../worker/swapfee.test.mjs && node ../worker/swapwhy.test.mjs && node ../worker/btcxrp.test.mjs"
+    "test": "node test/shadow.test.mjs && node test/btcxrp.test.mjs && node test/bridgesign.test.mjs && node test/keyring.test.mjs && node test/sui.test.mjs && node test/swapguard.test.mjs && node ../worker/sw.test.mjs && node ../worker/rpcempty.test.mjs && node ../worker/bridge.test.mjs && node ../worker/swapfee.test.mjs && node ../worker/swapwhy.test.mjs && node ../worker/tokens.test.mjs && node ../worker/btcxrp.test.mjs"
   },
   "dependencies": {
     "@noble/hashes": "1.8.0",

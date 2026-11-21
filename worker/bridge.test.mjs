@@ -31,3 +31,17 @@ assert.deepEqual(bridgeTokens("btcm", "basem", "native", "usdc"), ["bitcoin", "0
 assert.deepEqual(bridgeTokens("solm", "btcm", "usdc", "native"), ["EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "bitcoin"]); // USDC → BTC
 assert.equal(bridgeTokens("btcm", "basem", "usdc", "usdc"), null); // no USDC on Bitcoin
 console.log("bridge ok");
+// Any token by address: LINK on Arbitrum, a Solana token; addresses must match the network's format.
+const LINK_ARB = "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4", BONK = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263";
+assert.deepEqual(bridgeTokens("basem", "arbm", "usdc", LINK_ARB), ["0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", LINK_ARB]);
+assert.deepEqual(bridgeTokens("solm", "solm", BONK, "usdc"), [BONK, "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"]);
+assert.equal(bridgeTokens("arbm", "solm", "usdc", LINK_ARB), null); // an EVM address on Solana
+assert.equal(bridgeTokens("solm", "arbm", "native", BONK), null); // a Solana address on Arbitrum
+assert.equal(bridgeTokens("tronm", "basem", "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", "usdc"), null); // Tron tokens: USDT only
+assert.equal(bridgeTokens("arbm", "arbm", LINK_ARB, LINK_ARB.toLowerCase()), null); // same token twice
+assert.equal(bridgeTokens("arbm", "basem", "0x123", "usdc"), null);
+// Prices: only known networks and well-formed token addresses are looked up.
+globalThis.fetch = async (u) => new Response(JSON.stringify(String(u).includes(LINK_ARB) ? { priceUSD: "8.61" } : {}), { status: 200 });
+const pr = await (await handleBridge(new Request(`https://x/api/bridge/price?ids=arbm:${LINK_ARB},arbm:0xbad,zzz:${LINK_ARB}`), {})).json();
+assert.deepEqual(pr.prices, { [`arbm:${LINK_ARB}`]: 8.61 });
+console.log("bridge tokens ok");
