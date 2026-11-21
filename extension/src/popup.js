@@ -1,6 +1,7 @@
 // Ecrin Wallet popup. Two accounts on every network: Wallet (spend instantly) and Safe (the
 // Ecrin vault: anything leaving waits its delay and can be cancelled). One recovery phrase, encrypted on disk;
 // while unlocked it sits only in the browser's memory (chrome.storage.session) and is wiped by auto-lock.
+import { usedIndexes } from "./discover.js";
 import * as web3 from "@solana/web3.js";
 import { ethers } from "ethers";
 import qrcode from "qrcode-generator";
@@ -2264,6 +2265,7 @@ function acctsView() {
         ${a.id !== "hd0" ? `<button class="btn sm ghost danger" data-act="acct-remove" data-id="${a.id}">${a.kind === "key" || a.kind === "phrase" ? "Remove" : "Hide"}</button>` : ""}</div>` : ""}`).join("")}</section>
     <div class="acc-acts">
       <button class="btn" data-act="acct-add">${I.plus}Add account</button>
+      <button class="btn ghost" data-act="acct-discover" ${S.discovering ? "disabled" : ""}>${S.discovering ? `<i class="spin"></i>Checking account ${(S.discoverAt || 1) + 1}…` : `${I.search}Find accounts with activity`}</button>
       <button class="btn" data-act="panel" data-p="acctNew">${I.key}Import a wallet</button>
     </div>
     <button class="srow" data-act="panel" data-p="addrs"><span>${I.qr}Addresses of ${esc(curAcct().name)}</span><span class="sv">${I.arrow}</span></button>
@@ -2815,6 +2817,22 @@ async function useNet(n) {
 }
 
 async function saveAccts() { await local.set({ accts: S.accts }); }
+/** Restoring a wallet, or Settings → Accounts → Find: add every account of your phrase that has activity. */
+async function discoverMain(manual = false) {
+  if (globalThis.ECRIN_DEMO || !PHRASE || S.discovering) return; S.discovering = true; if (S.panel?.p === "accts") renderPanel();
+  if (manual) toast("Looking for accounts with activity…");
+  try {
+    const have = new Set((S.accts || DEF_ACCTS).filter((a) => a.kind === "hd").map((a) => a.i));
+    const found = await usedIndexes(PHRASE, { web3, ethers, main: "both", onStep: (k) => { S.discoverAt = k; if (S.panel?.p === "accts") renderPanel(); } });
+    const add = found.filter((k) => !have.has(k));
+    if (add.length) {
+      const n = (S.accts || DEF_ACCTS).length;
+      S.accts = [...(S.accts || DEF_ACCTS), ...add.map((k, j) => ({ id: "hd" + k, kind: "hd", i: k, name: `Account ${k + 1}`, c: (n + j) % COLORS.length }))];
+      await saveAccts(); toast(`Found ${add.length} more account${add.length > 1 ? "s" : ""} with activity`, "win");
+    } else if (manual) toast("No other accounts with activity on this phrase.");
+  } catch (_) { if (manual) toast("Couldn't check right now. Try again in a minute.", "err"); }
+  S.discovering = false; S.discoverAt = 0; if (S.panel?.p === "accts") renderPanel(); else render();
+}
 const actions = {
   "tb-home": () => { if (S.panel) return closePanel(); $("#root").scrollTo({ top: 0, behavior: "smooth" }); },
   "tb-go": (el) => { if (S.panel?.p === el.dataset.p) return; if (S.panel) { S.panel = null; $("#panel").innerHTML = ""; } openPanel(el.dataset.p); },
@@ -2953,6 +2971,7 @@ const actions = {
     if (a.id === S.sel) return switchAccount(S.accts[0].id);
     S.panel.edit = null; renderPanel();
   },
+  "acct-discover": () => discoverMain(true),
   "acct-add": async () => {
     const used = (S.accts || DEF_ACCTS).filter((a) => a.kind === "hd").map((a) => a.i), i = Math.max(...used) + 1;
     if (i > 49) return toast("That's the most accounts one phrase can hold here.", "err");
@@ -2972,9 +2991,23 @@ const actions = {
     const id = "p" + Date.now().toString(36);
     const st = await local.get("keysBox"); const m = await openKeys(st.keysBox, PHRASE).catch(() => ({})); m[id] = raw;
     await local.set({ keysBox: await sealKeys(m, PHRASE) });
-    S.accts = [...list, { id, kind: "phrase", i: 0, pub, solPub, name: name || `Wallet ${list.filter((a) => a.kind === "phrase").length + 2}`, c: list.length % COLORS.length }];
+    const base = name || `Wallet ${list.filter((a) => a.kind === "phrase").length + 2}`;
+    S.accts = [...list, { id, kind: "phrase", i: 0, pub, solPub, name: base, c: list.length % COLORS.length }];
     if (box) box.value = "";
-    await saveAccts(); toast("Wallet imported"); switchAccount(id);
+    await saveAccts();
+    // Like MetaMask and Phantom: every other account under this phrase that has been used comes along.
+    let more = [];
+    if (!globalThis.ECRIN_DEMO) {
+      const btn = $("#panel [data-act='acct-import-phrase']"); if (btn) { btn.disabled = true; btn.innerHTML = `<i class="spin"></i>Looking for accounts with activity…`; }
+      more = await usedIndexes(raw, { web3, ethers, main: "both", onStep: (k) => { if (btn) btn.innerHTML = `<i class="spin"></i>Checking account ${k + 1}…`; } }).catch(() => []);
+      if (more.length) {
+        const m2 = await openKeys((await local.get("keysBox")).keysBox, PHRASE).catch(() => ({}));
+        const extra = more.map((k, j) => { const A = deriveAccount(raw, { web3, ethers }, k); m2[`${id}_${k}`] = raw; return { id: `${id}_${k}`, kind: "phrase", i: k, pub: A.evm.address, solPub: A.sol.publicKey.toBase58(), name: `${base} ${k + 1}`.slice(0, 24), c: (S.accts.length + j) % COLORS.length }; });
+        await local.set({ keysBox: await sealKeys(m2, PHRASE) });
+        S.accts = [...S.accts, ...extra]; await saveAccts();
+      }
+    }
+    toast(more.length ? `Wallet imported, with ${more.length + 1} accounts that have activity` : "Wallet imported"); switchAccount(id);
   },
   "acct-import": async () => {
     const raw = $("[data-pk]")?.value || "", name = ($("[data-pkname]")?.value || "").trim().slice(0, 24);
@@ -3496,7 +3529,7 @@ document.addEventListener("submit", async (e) => {
   if (kind === "import") {
     if (!isPhrase(d.phrase)) return err("That phrase isn't valid. Check each word and the order.");
     if (strength(d.pw) < 2) return err("Use at least 8 characters, mixing letters and numbers.");
-    S.busy = true; render(); await saveWallet(d.phrase, d.pw); S.busy = false; return home();
+    S.busy = true; render(); await saveWallet(d.phrase, d.pw); S.busy = false; await home(); discoverMain(); return;
   }
   if (kind === "unlock") {
     const lk = $("#root .lk2"), go = $("#root [data-unlock]"), x = $("[data-err]"), f = $("#root form");

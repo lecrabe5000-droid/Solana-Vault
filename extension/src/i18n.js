@@ -2,6 +2,7 @@
 // French version: exact phrases first, then patterns for phrases with numbers or names in them. Anything not
 // listed stays in English rather than being guessed.
 const FR = {
+  "Find accounts with activity": "Trouver les comptes utilisés", "Looking for accounts with activity…": "Recherche des comptes utilisés…", "No other accounts with activity on this phrase.": "Aucun autre compte utilisé avec cette phrase.", "Couldn't check right now. Try again in a minute.": "Vérification impossible pour l'instant. Réessayez dans une minute.",
   "Hide balances of $1 or less": "Masquer les soldes de 1 $ ou moins",
   "Use the Safe": "Utiliser le coffre", "Safe on mainnet · early access": "Coffre sur mainnet · accès anticipé",
   "Other Solana tokens →": "Autres jetons Solana →", "Solana tokens": "Jetons Solana", "Swaps open soon": "Les échanges ouvrent bientôt", "Review": "Vérifier",
@@ -283,6 +284,7 @@ const FR = {
 };
 // Phrases with numbers or names: [pattern, replacement].
 const FR_RE = [
+  [/^Found (\d+) more accounts? with activity$/, "$1 compte(s) utilisé(s) trouvé(s) en plus"], [/^Checking account (\d+)…$/, "Vérification du compte $1…"], [/^Wallet imported, with (\d+) accounts that have activity$/, "Portefeuille importé, avec $1 comptes utilisés"],
   [/^(\d+) balances? of \$1 or less hidden · Show$/, "$1 solde(s) de 1 $ ou moins masqué(s) · Afficher"],
   [/^Your Safe already works on (.+), with USDC and each network's own coin\.$/, "Votre coffre fonctionne déjà sur $1, avec l'USDC et la crypto propre à chaque réseau."],
   [/^Early access: the Safe works on (.+)\. It has not been audited yet, so keep amounts small\.$/, "Accès anticipé : le coffre fonctionne sur $1. Il n'a pas encore été audité, gardez de petits montants."],
