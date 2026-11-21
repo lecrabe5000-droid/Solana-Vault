@@ -3210,9 +3210,9 @@ const actions = {
     bxPrices(ids);
     actions["br-set"]({ dataset: { k: side, v: id } });
   },
-  "br-set": (el) => { const P = S.panel, side = el.dataset.k === "from" ? "fa" : "ta", v = el.dataset.v; if (side === "fa") { if (v === P.ta) P.ta = P.fa; if (v !== P.fa) { P.amount = ""; P.pct = null; } } else if (v === P.fa) P.fa = P.ta; P[side] = v; P.pick = null; renderPanel(); bridgeQuoteSoon(0); },
-  "br-pct": (el) => { const P = S.panel, m = brMax(P.fa), v = (m * Number(el.dataset.v)) / 100; P.pct = Number(el.dataset.v); P.amount = v > 0 ? String(Math.floor(v * 1e6) / 1e6) : ""; renderPanel(); bridgeQuoteSoon(0); },
-  "br-flip": () => { const P = S.panel; [P.fa, P.ta] = [P.ta, P.fa]; P.amount = ""; P.pct = null; P.quote = null; renderPanel(); },
+  "br-set": (el) => { const P = S.panel, side = el.dataset.k === "from" ? "fa" : "ta", v = el.dataset.v; if (side === "fa") { if (v === P.ta) P.ta = P.fa; if (v !== P.fa) { P.amount = ""; P.pct = null; } } else if (v === P.fa) P.fa = P.ta; P[side] = v; P.pick = null; if (P.dir === "out") { P.refine = 0; P.amount = brFromWant(P); } renderPanel(); bridgeQuoteSoon(0); },
+  "br-pct": (el) => { const P = S.panel, m = brMax(P.fa), v = (m * Number(el.dataset.v)) / 100; P.pct = Number(el.dataset.v); P.dir = "in"; P.want = null; P.amount = v > 0 ? String(Math.floor(v * 1e6) / 1e6) : ""; renderPanel(); bridgeQuoteSoon(0); },
+  "br-flip": () => { const P = S.panel; [P.fa, P.ta] = [P.ta, P.fa]; P.amount = ""; P.pct = null; P.quote = null; P.dir = "in"; P.want = null; renderPanel(); },
   "br-review": () => { const P = S.panel; if (!P.quote || P.quote.key !== brKey(P)) return; P.step = "review"; P.anim = true; renderPanel(); },
   "br-back": () => { S.panel.step = "form"; renderPanel(); },
   "br-go": () => bridgeNow(),
@@ -3557,7 +3557,8 @@ document.addEventListener("input", (e) => {
   } else if (t.matches("[data-to]") && (/^wc:/i.test(t.value.trim()) || parsePayLink(t.value))) { const v = t.value.trim(); t.value = ""; onScanned(v);
   } else if (t.matches("[data-to]")) { lookupTo(t.value); S.panel.to = t.value; S.panel.switched = null; sendFollowAddr(t.value.trim()).then((sw) => { if (!sw) patchPanel(); }); }
   else if (t.matches("[data-brq]")) { const P = S.panel; P.q = t.value; bxSearch(P); bxRedraw(P); }
-  else if (t.matches("[data-bramt]")) { const v = t.value.replace(",", ".").replace(/[^\d.]/g, ""); if (v !== t.value) t.value = v; S.panel.amount = v; S.panel.pct = null; bridgeQuoteSoon(); }
+  else if (t.matches("[data-bramt]")) { const v = t.value.replace(",", ".").replace(/[^\d.]/g, ""); if (v !== t.value) t.value = v; S.panel.amount = v; S.panel.pct = null; S.panel.dir = "in"; S.panel.want = null; bridgeQuoteSoon(); }
+  else if (t.matches("[data-brout]")) { const P = S.panel, v = t.value.replace(",", ".").replace(/[^\d.]/g, ""); if (v !== t.value) t.value = v; P.dir = "out"; P.want = v; P.pct = null; P.refine = 0; P.amount = brFromWant(P); bridgeQuoteSoon(); }
   else if (t.matches("[data-bugtext]")) S.panel.text = t.value;
   else if (t.matches("[data-bugwho]")) S.panel.who = t.value;
   else if (t.matches("[data-wdto]")) { S.panel.to = t.value; const ok = !t.value.trim() || !!ENG?.isAddress(t.value.trim()); t.closest(".fld")?.classList.toggle("bad-in", !ok); }
@@ -4511,6 +4512,15 @@ const tokIc = (id) => { const m = brT(id) || {}, img = safeImg(m.logo || ""); if
   const hue = [...String(id)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7); return `<span class="coin letter" style="--h:${hue}">${esc((m.sym || "?").replace(/[^\p{L}\p{N}]/gu, "").charAt(0).toUpperCase() || "?")}</span>`; };
 const brIcon = (id) => { if (brIsTok(id)) return `<span class="cstack">${tokIc(id)}<span class="cmini">${coin(brK(id))}</span></span>`; const l = brLogo(id), k = brK(id), same = l === k || (l === "eth" && k === "ethm"); return `<span class="cstack">${coin(l)}${same ? "" : `<span class="cmini">${coin(k)}</span>`}</span>`; };
 const brName = (id) => `${brSym(id)} on ${NETS[brK(id)].name}`;
+/** "You get" typed in: what to pay for it, from the last quote's rate (or the two coins' prices before any quote),
+ *  rounded up so you get at least that much. The quote that follows corrects it (see bridgeQuoteSoon). */
+const brUp = (x, id) => { const d = Math.min(brDec(id), 6), m = 10 ** d; return x > 0 ? String(Math.ceil(x * m) / m) : ""; };
+function brFromWant(P) {
+  const want = Number(P.want); if (!(want > 0)) return "";
+  const q = P.quote && P.quote.key === brKey(P) && P.quote.inAmt > 0 ? P.quote : null;
+  const rate = q ? fromRaw(q.toAmount, brDec(P.ta)) / q.inAmt : brPx(P.fa) && brPx(P.ta) ? (brPx(P.fa) / brPx(P.ta)) * (1 - BRIDGE.fee - 0.003) : 0;
+  return rate > 0 ? brUp(want / rate, P.fa) : "";
+}
 function bridgeQuoteSoon(ms = 450, quiet = false) {
   const P = S.panel; if (!P || P.p !== "bridge") return;
   clearTimeout(S.brT); clearTimeout(S.brRe); const mine = (P.qSeq = (P.qSeq || 0) + 1); P.qErr = null;
@@ -4532,7 +4542,13 @@ function bridgeQuoteSoon(ms = 450, quiet = false) {
         d = await r.json().catch(() => ({})); if (!r.ok || !d.toAmount) throw new Error(d.error || "No route right now. Try another amount or coin.");
       }
       if (P.qSeq !== mine || S.panel !== P || brKey(P) !== key) return;
-      P.quote = { ...d, key, at: Date.now() };
+      P.quote = { ...d, key, at: Date.now(), inAmt: Number(P.amount) };
+      // You typed what you want to get: nudge what you pay until the quote gives at least that (twice at most).
+      const want = Number(P.want), got = fromRaw(d.toAmount, brDec(P.ta));
+      if (!quiet && P.dir === "out" && want > 0 && got > 0 && (P.refine || 0) < 2 && (got < want * 0.9995 || got > want * 1.01)) {
+        P.refine = (P.refine || 0) + 1; const amt2 = brUp(Number(P.amount) * (want / got) * (got < want ? 1.0008 : 1), P.fa);
+        if (amt2 && amt2 !== P.amount) { P.amount = amt2; P.quoting = false; return bridgeQuoteSoon(0); }
+      }
     } catch (e) { if (P.qSeq === mine && !quiet) { P.qErr = e.message || "No route right now"; P.quote = null; } }
     if (P.qSeq === mine && S.panel === P) {
       P.quoting = false; if (P.step !== "sending" && P.step !== "done") renderPanel();
@@ -4615,7 +4631,7 @@ function bridgeView() {
       <button class="sx-flip br-flip" data-act="br-flip" aria-label="Switch"><svg viewBox="0 0 24 24"><path d="M8 4v15M8 19l-4-4M8 19l4-4M16 20V5M16 5l-4 4M16 5l4 4"/></svg></button>
       <div class="sx-card to br-card">
         <div class="sx-top"><span class="sx-k">You get</span><span class="sx-bal">${cross ? "Across networks" : ""}</span></div>
-        <div class="sx-row">${assetBtn("to", ta)}<span class="sx-out${quoting ? " bx-wait" : ""}">${shown && raw ? nf(outN, ta) : quoting ? `<i class="bx-sk"></i>` : "0"}</span></div>
+        <div class="sx-row">${assetBtn("to", ta)}<input class="sx-in sx-get${quoting && P.dir !== "out" ? " ld" : ""}" data-brout inputmode="decimal" placeholder="0" aria-label="Amount you get" value="${esc(P.dir === "out" ? P.want || "" : shown && raw ? String(Number(outN.toFixed(Math.min(brDec(ta), 6)))) : "")}" autocomplete="off"/></div>
         ${bxNets("to", ta, all)}
         <div class="sx-foot"><span></span><span class="sx-usd">${outUsd && raw ? money(outUsd) : ""}</span></div>
       </div>
