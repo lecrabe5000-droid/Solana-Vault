@@ -4100,6 +4100,15 @@ html:root[data-theme] #panel .mo .mo-x { position: absolute; top: max(14px, calc
 .bx-nets.all .chip { animation: bxn-in .25s cubic-bezier(.2, .8, .2, 1) both; } @keyframes bxn-in { from { opacity: 0; transform: scale(.94); } }
 /* "You get": many digits shrink instead of being cut */
 .sx-in.sx-get { text-overflow: ellipsis; }
+/* Home: Wallet and Safe as one slim bar under the balance (the total is already in the diamond), like a real wallet's
+   account split: label left, amount right, a thin line showing how much is in the Safe. */
+html:root[data-theme] .home .wsplit { position: relative; display: grid !important; grid-template-columns: 1fr 1fr; gap: 0 !important; padding: 0 !important; overflow: hidden; border-radius: 18px !important; }
+html:root[data-theme] .home .wsplit > button { display: flex !important; flex-direction: column; align-items: flex-start !important; justify-content: center; gap: 2px !important; min-height: 58px; padding: 10px 16px 12px !important; transition: background-color .2s ease; }
+html:root[data-theme] .home .wsplit > button.sp-s { align-items: flex-end !important; box-shadow: inset 1px 0 0 var(--line) !important; }
+html:root[data-theme] .home .wsplit > button:active { background: var(--h1) !important; }
+html:root[data-theme] .home .wsplit > button > span { font-size: 13.5px !important; color: var(--muted); display: inline-flex; align-items: center; gap: 4px; }
+html:root[data-theme] .home .wsplit > button > b { font-size: 18px !important; line-height: 1.2; }
+html:root[data-theme] .home .wsplit .sp-bar { position: absolute !important; left: 0; right: 0; bottom: 0; height: 2px !important; margin: 0 !important; border-radius: 0 !important; }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */

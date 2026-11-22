@@ -2611,7 +2611,7 @@ Message: ${r}.
       ${t("tog",N.eyeOff,"Hide balances of $1 or less",e(l.hideSmall),'data-k="hideSmall"')}
       ${t("tog",N.arrow,"Order coins by",l.order==="name"?"Name":"Value",'data-k="order"')}`)}
     ${n("About",`
-      ${t("panel",N.spark,"What's new",`${bl} \xB7 11220129 ${N.arrow}`,'data-p="news"')}
+      ${t("panel",N.spark,"What's new",`${bl} \xB7 11220131 ${N.arrow}`,'data-p="news"')}
       <a class="srow" href="https://ecrinprotocol.app/" target="_blank"><span>${N.globe}Website</span><span class="sv">${N.ext}</span></a>
       <a class="srow" href="https://ecrinprotocol.app/how-it-works/" target="_blank"><span>${N.shield}How the Safe works</span><span class="sv">${N.ext}</span></a>
       <a class="srow" href="https://ecrinprotocol.app/security/" target="_blank"><span>${N.check}Security and audits</span><span class="sv">${N.ext}</span></a>
