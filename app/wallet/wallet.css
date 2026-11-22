@@ -4142,6 +4142,10 @@ html:root[data-theme="dark"]:not([data-skin="ecrin"]) :is(.home .acts button:not
 /* screen titles sit on the background (no dark band); they frost only once the page scrolls under them */
 html:root[data-theme] #panel .pane .phead { background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; box-shadow: none !important; transition: background-color .25s ease, box-shadow .25s ease; }
 html:root[data-theme] #panel .pane.scrolled .phead { background: color-mix(in srgb, var(--bg-deep) 72%, transparent) !important; -webkit-backdrop-filter: blur(18px) saturate(1.4) !important; backdrop-filter: blur(18px) saturate(1.4) !important; box-shadow: 0 1px 0 var(--line) !important; }
+/* the transaction pill opens its transaction: it looks and feels tappable */
+.txpill { cursor: pointer; -webkit-user-select: none; user-select: none; }
+.txpill .tp-t::after { content: ""; }
+.txpill:active { filter: brightness(1.12); }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */

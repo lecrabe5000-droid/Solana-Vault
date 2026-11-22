@@ -1906,7 +1906,7 @@ function goBack() {
 // page instead, so it jumps up over the first token rows: a blank or faded strip until the slide ends. body.stacked
 // and body.settling hide it while home is moved, and it fades back once home is still.
 function settleHome() { const b = document.body; clearTimeout(S.settleT); b.classList.add("settling"); S.settleT = setTimeout(() => b.classList.remove("settling"), 460); }
-function closePanel() { S.pstack = []; if (S.panel?.step === "done" && (S.panel.p === "protect" || S.panel.p === "withdraw")) S.fly = S.panel.p; const el = $("#panel"); el.classList.remove("in"); document.body.classList.remove("stacked"); settleHome(); setTimeout(() => { if (!S.panel) el.innerHTML = ""; }, 260); S.panel = null;
+function closePanel() { if (S.panel?.mo && (S.panel.step === "sending" || S.panel.step === "done")) S.moLast = S.panel; S.pstack = []; if (S.panel?.step === "done" && (S.panel.p === "protect" || S.panel.p === "withdraw")) S.fly = S.panel.p; const el = $("#panel"); el.classList.remove("in"); document.body.classList.remove("stacked"); settleHome(); setTimeout(() => { if (!S.panel) el.innerHTML = ""; }, 260); S.panel = null;
   // Coming back to home: if nothing on it changed, keep the screen as it is instead of rebuilding it mid-slide
   // (a rebuild re-decodes every coin logo and the rows visibly settle for a moment).
   if (S.screen === "home" && !S.fly && S.homeSig && viewSig(homeView()) === S.homeSig) { syncTabbar(); return; }
@@ -3535,10 +3535,17 @@ async function confirmSend() {
 }
 
 /** The small confirmation after a send: Ecrin's diamond turns while it travels, then fills with a check. */
+function openMoLast() {
+  const P = S.moLast; txPill(null); haptic("light");
+  if (P && S.screen === "home") { if (S.panel) S.pstack = []; pushPanel(P.p); S.panel = P; P.anim = false; return renderPanel(true); }
+  document.querySelector('.home .tabs button:nth-child(2)')?.click();
+}
 function txPill(state, title, sub, link) {
   let el = document.getElementById("txpill");
   if (!state) { el?.classList.remove("in"); return; }
-  if (!el) { el = document.createElement("div"); el.id = "txpill"; el.className = "txpill"; el.setAttribute("role", "status"); (document.querySelector(".device") || document.body).append(el); }
+  if (!el) { el = document.createElement("div"); el.id = "txpill"; el.className = "txpill"; el.setAttribute("role", "status"); (document.querySelector(".device") || document.body).append(el);
+    // Tap the pill: back to the transaction's own screen (still following it live), or to Activity if it's gone.
+    el.addEventListener("click", (e) => { if (e.target.closest(".tp-l")) return; openMoLast(); }); }
   clearTimeout(el._t);
   el.className = `txpill ${state}`;
   el.innerHTML = `<span class="tp-ic">${state === "ok" ? dcheck("sm") : `<svg class="tp-spin" viewBox="0 0 40 40" aria-hidden="true"><rect x="11" y="11" width="18" height="18" rx="5" transform="rotate(45 20 20)"/></svg>`}</span>
