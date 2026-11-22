@@ -880,3 +880,4 @@ html { -webkit-tap-highlight-color: transparent; }
 .see:active, .addr-item:active, .vf-t:active { transform: scale(.98); transition-duration: .08s; }
 .see svg { transition: transform .25s cubic-bezier(.2, .8, .2, 1); } .see:hover svg { transform: translate(2px, -2px); }
 .rn:disabled, .btn:disabled { cursor: default; }
+.foot-links a { min-width: 44px; justify-content: center; }
