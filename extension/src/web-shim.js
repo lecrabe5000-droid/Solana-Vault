@@ -37,7 +37,9 @@ const unzoom = () => {
   if (m && globalThis.visualViewport && visualViewport.scale > 1.01) { const c = m.content; m.content = c.replace(/,\s*maximum-scale=[\d.]+/, "") + ", maximum-scale=1"; }
   if (scrollX) scrollTo(0, scrollY);
 };
-unzoom(); addEventListener("resize", unzoom); globalThis.visualViewport?.addEventListener?.("resize", unzoom);
+unzoom(); addEventListener("resize", unzoom);
+// The app's frames never stay shifted sideways (a focused field or something too wide can scroll them): put them back at once.
+document.addEventListener("scroll", (e) => { const t = e.target === document ? document.scrollingElement : e.target; if (t?.scrollLeft && t.matches?.("html, body, .device, #root, .home, #panel .pane")) t.scrollLeft = 0; }, { capture: true, passive: true }); globalThis.visualViewport?.addEventListener?.("resize", unzoom);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) unzoom(); });
 // Where the system allows it (an installed app on Android), lock portrait outright; iPhone ignores this, the turn-back above covers it.
 try { screen.orientation?.lock?.("portrait")?.catch?.(() => {}); } catch (_) {}

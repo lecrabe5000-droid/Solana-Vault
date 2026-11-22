@@ -53,6 +53,7 @@ const short = (a) => (a ? `${String(a).slice(0, 4)}…${String(a).slice(-4)}` : 
 const now = () => Math.floor(Date.now() / 1000);
 
 const S = { screen: "loading", net: "sol", theme: "dark", autolock: 15, panel: null, prices: {}, bal: null, vault: undefined, busy: false, hide: false, range: "7", series: {}, nums: { face: "sans", weight: "500", cents: "dim" }, tab: "tokens" };
+if (globalThis.ECRIN_DEMO) globalThis.__S = S; // demo only: lets tests read the wallet's state
 const NUM_FACES = [["display", "Display"], ["sans", "Sans"], ["serif", "Serif"], ["mono", "Mono"]];
 const NUM_WEIGHTS = [["400", "Light"], ["500", "Regular"], ["600", "Bold"]];
 const NUM_CENTS = [["dim", "Dimmed"], ["full", "Full"], ["hide", "Hidden"]];
@@ -464,11 +465,12 @@ function worth() {
   for (const r of rows) {
     // Staked coins are still yours and still in your Safe: they count in the Safe's share and in every total.
     const stk = Math.max(0, S.stakes?.[r.k]?.staked || 0);
-    const N = NETS[r.k], px = S.prices[N.cg]?.usd, natC = r.b.native || 0, natS = (r.v?.main?.balance || 0) + stk, uC = r.b.usdc || 0, uS = r.v?.usdc?.balance || 0;
-    if (r.v) vaults++;
-    leaving += (r.v?.main?.withdrawals?.length || 0) + (r.v?.usdc?.withdrawals?.length || 0);
-    for (const x of r.v?.main?.withdrawals || []) leaveAmt[N.unit] = (leaveAmt[N.unit] || 0) + x.amount / BASE;
-    for (const x of r.v?.usdc?.withdrawals || []) leaveAmt.USDC = (leaveAmt.USDC || 0) + x.amount / USDC_BASE;
+    const V = r.v || r.sv; // r.sv: the Safe's amounts from the last visit, until the live Safe loads
+    const N = NETS[r.k], px = S.prices[N.cg]?.usd, natC = r.b.native || 0, natS = (V?.main?.balance || 0) + stk, uC = r.b.usdc || 0, uS = V?.usdc?.balance || 0;
+    if (V) vaults++;
+    leaving += (V?.main?.withdrawals?.length || 0) + (V?.usdc?.withdrawals?.length || 0);
+    for (const x of V?.main?.withdrawals || []) leaveAmt[N.unit] = (leaveAmt[N.unit] || 0) + x.amount / BASE;
+    for (const x of V?.usdc?.withdrawals || []) leaveAmt.USDC = (leaveAmt.USDC || 0) + x.amount / USDC_BASE;
     if (natC + natS > 0) {
       coins[N.cg] = (coins[N.cg] || 0) + (natC + natS) / BASE;
       const c = px != null ? (natC / BASE) * px : 0, v = px != null ? (natS / BASE) * px : 0; chq += c; sav += v;
@@ -1434,7 +1436,7 @@ const ACT = { send: ["Sent", I.send], protect: ["Moved to Safe", I.protect], wit
 const snapKey = () => `snap:${S.mode || DEFAULT_MODE}:${curAcct()?.id || "hd0"}`;
 const slimV = (v) => (v ? { main: v.main ? { balance: v.main.balance, withdrawals: (v.main.withdrawals || []).map((x) => ({ amount: x.amount })) } : null, usdc: v.usdc ? { balance: v.usdc.balance, withdrawals: (v.usdc.withdrawals || []).map((x) => ({ amount: x.amount })) } : null } : null);
 function saveSnap(rows) {
-  try { const keep = rows.filter((r) => r.ok && r.b).map((r) => ({ k: r.k, b: JSON.parse(JSON.stringify(r.b, (_, x) => (typeof x === "bigint" ? Number(x) : x))), v: slimV(r.v), ok: true, snap: true }));
+  try { const keep = rows.filter((r) => r.ok && r.b).map((r) => ({ k: r.k, b: JSON.parse(JSON.stringify(r.b, (_, x) => (typeof x === "bigint" ? Number(x) : x))), sv: slimV(r.v), ok: true, snap: true }));
     if (keep.length) local.set({ [snapKey()]: { at: Date.now(), rows: keep } }); } catch (_) {}
 }
 async function restoreSnap() {
@@ -3378,6 +3380,11 @@ const actions = {
   hide: async () => { S.hide = !S.hide; await local.set({ hide: S.hide }); render(); if (S.panel) renderPanel(); },
   panel: async (el) => {
     const p = el.dataset.p;
+    // Right after unlocking, balances can still be last visit's: Safe screens wait for the live Safe (never act on old data).
+    if (["protect", "withdraw", "vault", "earn", "rules"].includes(p) && S.all?.some((r) => r.snap)) {
+      toast("One moment: loading your Safe");
+      for (let i = 0; i < 40 && S.all?.some((r) => r.snap); i++) await new Promise((r) => setTimeout(r, 250));
+    }
     if (["send", "protect", "withdraw"].includes(p) && !S.panel) {
       // Protect and Withdraw only make sense where a Safe can live (on mainnet: Base, in early access).
       const ok = (k) => p === "send" || canSafe(k), w = worth(), here = ok(S.net) ? w.items.filter((i) => i.k === S.net && (p === "withdraw" ? i.sav : i.chq) > 0) : [];
@@ -3826,10 +3833,13 @@ document.addEventListener("submit", async (e) => {
 
 // Countdowns in the vault tick without a refetch.
 setInterval(() => { if (S.panel?.p === "vault") renderPanel(); }, 30_000);
-// Safe countdowns tick every second without re-rendering.
+// Every countdown on screen ticks each second without re-rendering: the Safe, and the "leaving" card on Home and on a
+// coin's page. When one reaches zero, its screen redraws once so it says it's ready (and offers what to do).
 setInterval(() => {
-  if (S.panel?.p !== "vault") return; const t = now() + (S.clockOff || 0);
-  document.querySelectorAll("[data-until]").forEach((n) => { const s = Math.floor(Number(n.dataset.until) - t); n.textContent = s <= 0 ? "Ready" : clockTxt(s); });
+  if (document.hidden) return; const t = now() + (S.clockOff || 0); let ended = false;
+  document.querySelectorAll("[data-until]").forEach((n) => { const s = Math.floor(Number(n.dataset.until) - t); const txt = s <= 0 ? "Ready" : clockTxt(s); if (n.textContent !== txt) { n.textContent = txt; if (s <= 0) ended = true; } });
+  if (ended) { if (S.panel) renderPanel(); else if (S.screen === "home") render(); }
+  if (S.panel?.p !== "vault") return;
   // the ring drains a little each second; a one-second linear transition joins the steps into one smooth motion
   document.querySelectorAll("[data-ru]").forEach((c) => { const f = Math.max(0, Math.min(1, (Number(c.dataset.ru) - t - 1) / Number(c.dataset.rd))); c.style.strokeDasharray = `${(f * 100).toFixed(3)} 100`; });
 }, 1000);
@@ -5162,23 +5172,40 @@ async function syncRulesTo(k, eng0) {
 }
 
 /** Apply or cancel a waiting rule change on every network it was made on, then come back to the network you were on. */
+/** A waiting change, as one comparable key (the same change made on several networks has the same key). */
+const chKey = (c) => `${c?.kind}:${JSON.stringify(c?.value ?? null)}`;
 async function rcRun(el, method, done) {
-  const list = (el.dataset.list || `${el.dataset.n}:${el.dataset.id}`).split(",").map((x) => x.split(":")), back = S.net, fails = [];
+  let list = (el.dataset.list || `${el.dataset.n}:${el.dataset.id}`).split(",").map((x) => x.split(":")); const back = S.net, fails = [];
   el.disabled = true; el.innerHTML = `<i class="spin"></i>`;
-  for (const [k, id] of list) { try { await useNet(k); await (await eng())[method](Number(id)); } catch (e) { fails.push(`${NETS[k]?.name || k}: ${errText(e)}`); } }
-  await useNet(back);
+  // Cancel or apply it on every Safe that has it right now, not only the ones this screen knew when it was drawn.
+  if (el.dataset.ck) {
+    await loadAll(); const t = now() + (S.clockOff || 0);
+    const fresh = openVaults().flatMap((r) => (r.v.main.changes || []).filter((c) => chKey(c.change) === el.dataset.ck && (method !== "applyChange" || c.readyAt <= t)).map((c) => [r.k, String(c.id)]));
+    if (fresh.length) list = fresh;
+  }
+  const { dev } = await local.get("dev"); void back;
+  // each network through its own connection (never by switching the wallet's network: see applyEverywhere)
+  for (const [k, id] of list) { try { const e = k === S.net && ENG ? ENG : engine({ web3, ethers, acct: ACCT, net: k, dev: dev || {} }); await e[method](Number(id)); } catch (e) { fails.push(`${NETS[k]?.name || k}: ${errText(e)}`); } }
+  await refresh();
   toast(fails.length ? fails[0] : list.length > 1 ? `${done} on ${list.length} networks` : done, fails.length ? "err" : "win");
   await loadAll(); renderPanel();
 }
 async function applyEverywhere(jobs) {
   const P = S.panel; P.busy = true; renderPanel();
-  const back = S.net; let done = 0; const fails = [];
-  for (const [f, change] of jobs) for (const r of openVaults().filter((r) => f === "all" || famOf(r.k) === f)) {
-    try { await useNet(r.k); await (await eng()).propose(change); done++; } catch (e) { fails.push(`${NETS[r.k].name}: ${errText(e)}`); }
+  const back = S.net, { dev } = await local.get("dev"); let done = 0; const fails = [];
+  // A freeze or a rule must reach every Safe you have, including one opened since the list was last read: read it fresh,
+  // and count the Safe of the network you're on even if the list hasn't caught up with it.
+  await loadAll();
+  const targets = [...openVaults()]; if (S.vault && !targets.some((r) => r.k === S.net)) targets.push({ k: S.net, ok: true, v: S.vault });
+  for (const [f, change] of jobs) for (const r of targets.filter((r) => f === "all" || famOf(r.k) === f)) {
+    // each network through its own connection: never by switching the wallet's network, so leaving this screen (or
+    // anything else switching networks meanwhile) can't send a change to the wrong network or stop it halfway
+    try { const e = r.k === S.net && ENG ? ENG : engine({ web3, ethers, acct: ACCT, net: r.k, dev: dev || {} }); await e.propose(change); done++; } catch (e) { fails.push(`${NETS[r.k].name}: ${errText(e)}`); }
   }
-  await useNet(back); P.busy = false; P.edit = null;
+  void back; P.busy = false; P.edit = null;
   if (fails.length) toast(fails[0], "err"); else toast(done ? `Done on ${done} network${done > 1 ? "s" : ""}. Stricter rules apply now; looser ones wait.` : "Open your Safe first.", done ? "win" : "err");
-  await loadAll(); renderPanel();
+  // the network you're on too: its Safe is read again, so a freeze or a stricter rule shows at once on its screens
+  await refresh(); await loadAll(); renderPanel();
 }
 
 async function alertCall(path, extra) {
@@ -5235,7 +5262,7 @@ function rulesView() {
       // The same change made on several networks is one row: one Apply, one Cancel for all of them.
       const groups = []; for (const c of pending) { const key = label(c.change); let g = groups.find((x) => x.key === key); if (!g) groups.push((g = { key, items: [] })); g.items.push(c); }
       return groups.map((g) => { const at = Math.max(...g.items.map((c) => c.readyAt)), ready = at <= t, list = g.items.map((c) => `${c.k}:${c.id}`).join(","), n = g.items.length;
-        return `<div class="wrow ${ready ? "ready" : ""}"><span class="cstack">${coin(g.items[0].k)}${n > 1 ? `<span class="cmini wr-n">${n}</span>` : ""}</span><span class="wr-t"><b>${esc(g.key)}</b><small>${n > 1 ? `${n} networks` : NETS[g.items[0].k].name}</small></span><span class="wr-r"><b class="cd">${ready ? "Ready" : dur(at - t)}</b>${ready ? `<button class="btn sm primary" data-act="rc-apply" data-list="${list}">Apply</button>` : ""}<button class="btn sm danger" data-act="rc-cancel" data-list="${list}">Cancel</button></span></div>`; }).join(""); })()}</section>` : ""}
+        return `<div class="wrow ${ready ? "ready" : ""}"><span class="cstack">${coin(g.items[0].k)}${n > 1 ? `<span class="cmini wr-n">${n}</span>` : ""}</span><span class="wr-t"><b>${esc(g.key)}</b><small>${n > 1 ? `${n} networks` : NETS[g.items[0].k].name}</small></span><span class="wr-r"><b class="cd">${ready ? "Ready" : dur(at - t)}</b>${ready ? `<button class="btn sm primary" data-act="rc-apply" data-list="${list}" data-ck="${esc(chKey(g.items[0].change))}">Apply</button>` : ""}<button class="btn sm danger" data-act="rc-cancel" data-list="${list}" data-ck="${esc(chKey(g.items[0].change))}">Cancel</button></span></div>`; }).join(""); })()}</section>` : ""}
     <div class="list-h"><b>Alerts</b><span>when a withdrawal is requested</span></div>
     <div class="sets">
       <button class="srow" data-act="al-tg"><span>${I.send}Telegram</span><span class="sv">Turn on ${I.ext}</span></button>

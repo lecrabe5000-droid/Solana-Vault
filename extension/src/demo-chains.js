@@ -56,7 +56,8 @@ export function engine({ acct, net }) {
       B.vault = { main: { balance: 0, withdrawDelay: d, ruleDelay: 7 * 86400, dailyLimit: null, lockedUntil: null, withdrawals: [], trusted: [], changes: [] }, usdc: { balance: 0, dailyLimit: null, withdrawals: [], changes: [] } };
     }),
     protect: (a, amount) => act(() => { B[a] -= amount; side(a).balance += amount; }),
-    request: (a, dest, amount) => act(() => { side(a).withdrawals.push({ id: B.id++, amount, dest, readyAt: now() + B.vault.main.withdrawDelay }); }),
+    // like the contracts: a withdrawal can start while the Safe is frozen, but it can't be ready before the freeze ends
+    request: (a, dest, amount) => act(() => { side(a).withdrawals.push({ id: B.id++, amount, dest, readyAt: Math.max(now() + B.vault.main.withdrawDelay, B.vault.main.lockedUntil || 0) }); }),
     cancel: (a, id) => act(() => { const t = side(a); t.withdrawals = t.withdrawals.filter((w) => w.id !== id); }),
     execute: (a, id) => act(() => { const t = side(a), w = t.withdrawals.find((x) => x.id === id); t.withdrawals = t.withdrawals.filter((x) => x.id !== id); t.balance -= w.amount; B[a] += w.amount; }),
     chainTime: async () => now(),
