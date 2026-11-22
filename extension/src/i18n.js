@@ -456,6 +456,43 @@ Object.assign(FR, {
   "The countdown starts when you confirm. You can cancel it any time before it ends.": "Le compte à rebours commence quand vous confirmez. Vous pouvez l'annuler à tout moment avant la fin.",
   "Check this address carefully: once it leaves your Safe it can't come back. Until then, you can cancel.": "Vérifiez bien cette adresse : une fois sorti du coffre, l'argent ne revient pas. D'ici là, vous pouvez annuler.",
 });
+
+// This week: Send's coin and accounts, sheets, the keypad, the release sheet, fee messages, Activity swaps.
+Object.assign(FR, {
+  "Your accounts": "Vos comptes", "Pay with": "Payer avec", "Get": "Recevoir", "Choose a coin": "Choisir une crypto",
+  "Send which coin?": "Envoyer quelle crypto ?", "Receive which coin?": "Recevoir quelle crypto ?", "Protect which coin?": "Protéger quelle crypto ?", "Withdraw which coin?": "Retirer quelle crypto ?",
+  "Releasing from your Safe": "Libération depuis votre Coffre", "Back in your Wallet": "De retour dans votre Portefeuille", "Sent from your Safe": "Envoyé depuis votre Coffre",
+  "Safe → Wallet": "Coffre → Portefeuille", "Waited": "Attente", "In your Wallet": "Dans votre Portefeuille", "Sent": "Envoyé",
+  "It waited the full delay. It's in your Wallet now, ready to spend.": "Il a attendu tout le délai. Il est maintenant dans votre Portefeuille, prêt à être dépensé.",
+  "It waited the full delay and has now left your Safe.": "Il a attendu tout le délai et a maintenant quitté votre Coffre.",
+  "One moment: loading your Safe": "Un instant : chargement de votre Coffre",
+  "Beta": "Bêta", "Close": "Fermer", "Delete": "Effacer", "Amount you get": "Montant reçu", "Amount you pay": "Montant payé",
+  "Swapping across networks": "Échange entre réseaux",
+  "Paste address": "Coller l'adresse", "Scan QR code": "Scanner un code QR",
+  "Feels like an app": "Comme une vraie app",
+  "Swipe from the left edge to go back, swipe between Tokens and Activity, pickers slide up as sheets, and everything you tap answers with a soft press.": "Glissez depuis le bord gauche pour revenir, glissez entre Jetons et Activité, les choix s'ouvrent en feuilles, et tout ce que vous touchez répond d'une légère pression.",
+  "A keypad for amounts": "Un pavé pour les montants",
+  "On your phone, Send and Swap have their own number keypad. In Swap, type what you pay or what you want to get.": "Sur téléphone, Envoyer et Échanger ont leur propre pavé numérique. Dans Échanger, tapez ce que vous payez ou ce que vous voulez recevoir.",
+  "Send to any address": "Envoyer à n'importe quelle adresse",
+  "Paste a Solana, Ethereum, Tron or Bitcoin address and Send moves to that network. Your other accounts are one tap away.": "Collez une adresse Solana, Ethereum, Tron ou Bitcoin et Envoyer passe sur ce réseau. Vos autres comptes sont à un geste.",
+  "Release, with a moment": "La libération, avec un moment",
+  "Releasing from your Safe gets its own sheet: a padlock that opens, the steps, and how long it waited.": "Libérer depuis votre Coffre a sa propre feuille : un cadenas qui s'ouvre, les étapes, et combien de temps il a attendu.",
+  "Freeze reaches every Safe": "Le gel atteint chaque Coffre",
+  "Freezing, and every rule change, now reaches your Safe on every network, even if you leave the screen.": "Le gel, et chaque changement de règle, atteint maintenant votre Coffre sur chaque réseau, même si vous quittez l'écran.",
+});
+FR_RE.push(
+  [/^That's an Ethereum-style address, so Ecrin switched to (.+)\. Tap the coin above to send another one\.$/, "C'est une adresse de type Ethereum : Ecrin est passé sur $1. Touchez la crypto ci-dessus pour en envoyer une autre."],
+  [/^That's an? (.+) address, so Ecrin switched to (.+)\. Tap the coin above to send another one\.$/, "C'est une adresse $1 : Ecrin est passé sur $2. Touchez la crypto ci-dessus pour en envoyer une autre."],
+  [/^Swapped (.+) → (.+)$/, "Échangé $1 → $2"], [/^Moved (.+) to (.+)$/, "Déplacé $1 vers $2"],
+  [/^Not enough (\S+) on (.+) for this and the network fee\. Use Receive to add some\.$/, "Pas assez de $1 sur $2 pour ce montant et les frais de réseau. Utilisez Recevoir pour en ajouter."],
+  [/^Not enough (\S+) on (.+) for this and the network fee\. Use Receive to get free test coins\.$/, "Pas assez de $1 sur $2 pour ce montant et les frais de réseau. Utilisez Recevoir pour obtenir des cryptos de test gratuites."],
+  [/^Not enough (\S+) on (.+) for the network fee: it can take up to (.+) on top of what you swap, and you have (.+)\. Lower the amount, or tap Max: it keeps the fee aside\.$/, "Pas assez de $1 sur $2 pour les frais de réseau : ils peuvent atteindre $3 en plus de ce que vous échangez, et vous avez $4. Baissez le montant, ou touchez Max : il met les frais de côté."],
+  [/^Not enough (\S+) on (.+) for the network fee: it can take up to (.+) on top of what you swap, and you have (.+)\. Add a little (\S+) to this Wallet first\.$/, "Pas assez de $1 sur $2 pour les frais de réseau : ils peuvent atteindre $3 en plus de ce que vous échangez, et vous avez $4. Ajoutez d'abord un peu de $5 à ce Portefeuille."],
+  [/^Done on (\d+) networks?\. Stricter rules apply now; looser ones wait\.$/, "Fait sur $1 réseau(x). Les règles plus strictes s'appliquent tout de suite ; les plus souples attendent."],
+  [/^Show all (\d+) networks$/, "Afficher les $1 réseaux"],
+  [/^Paste an? (.+) address or a name \(like alice\.eth or alice\.sol\)\. Check the first and last characters before you send\.$/, "Collez une adresse $1 ou un nom (comme alice.eth ou alice.sol). Vérifiez les premiers et derniers caractères avant d'envoyer."],
+  [/^Paste an? (.+) address\. Check the first and last characters before you send\.$/, "Collez une adresse $1. Vérifiez les premiers et derniers caractères avant d'envoyer."], [/^(.+) arrived on (.+)$/, "$1 arrivé sur $2"],
+);
 export function translate(root, lang) {
   if (lang !== "fr" || !root) return;
   const tr = (t) => { const k = t.trim(); if (!k) return null; if (FR[k]) return t.replace(k, FR[k]); for (const [re, to] of FR_RE) if (re.test(k)) return t.replace(k, k.replace(re, to)); return null; };

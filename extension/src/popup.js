@@ -2821,6 +2821,11 @@ function bugView() {
 }
 // What's new: shown once after an update (never on a fresh install), and any time from Settings → About.
 const NEWS = [
+  ["Feels like an app", "Swipe from the left edge to go back, swipe between Tokens and Activity, pickers slide up as sheets, and everything you tap answers with a soft press."],
+  ["A keypad for amounts", "On your phone, Send and Swap have their own number keypad. In Swap, type what you pay or what you want to get."],
+  ["Send to any address", "Paste a Solana, Ethereum, Tron or Bitcoin address and Send moves to that network. Your other accounts are one tap away."],
+  ["Release, with a moment", "Releasing from your Safe gets its own sheet: a padlock that opens, the steps, and how long it waited."],
+  ["Freeze reaches every Safe", "Freezing, and every rule change, now reaches your Safe on every network, even if you leave the screen."],
   ["Type amounts in your currency", "Tap the ⇅ button under an amount to type it in dollars, euros or your own currency instead of the coin. The coin amount shows right under it, so you always know what moves."],
   ["Bitcoin and XRP", "Your recovery phrase now gives you a Bitcoin and an XRP address too: send and receive them next to your other coins."],
   ["Bridge any coin", "Move coins between networks and change them on the way: USDC on Base into SOL on Solana, or into Bitcoin."],
