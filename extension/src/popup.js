@@ -3591,6 +3591,30 @@ document.addEventListener("input", (e) => {
   else if (t.name === "pw" && t.closest("form")?.querySelector("[data-meter]")) { const m = t.closest("form").querySelector("[data-meter]"); m.dataset.s = strength(t.value); }
 });
 
+// ------------------------------------------------------------------ the press: one feel for everything you can touch
+// Like iOS: whatever you press sinks in a little at once and springs back when you let go (a touch past, then settles).
+// Big rows move less than small buttons, so a full-width row never looks like it jumps. Uses the separate "scale"
+// property, so it never fights an element's own transform (the swap arrow's turn, a sliding pill).
+const PRESS_SEL = "button, a[href], [data-act], summary, label.chip, .arow";
+const pressReduced = matchMedia("(prefers-reduced-motion: reduce)");
+function pressOf(el) {
+  const w = el.getBoundingClientRect().width;
+  return w > 280 ? 0.985 : w > 160 ? 0.975 : w > 70 ? 0.955 : 0.92;
+}
+document.addEventListener("pointerdown", (e) => {
+  if (pressReduced.matches || e.button > 0) return;
+  const el = e.target.closest(PRESS_SEL); if (!el || el.disabled || el.closest(".slide, .hold, [data-nopress], input, textarea, .tk-chart, svg.lk-lz") || el.matches("input, textarea, select")) return;
+  const to = pressOf(el); el._press?.cancel?.();
+  el._press = el.animate([{ scale: 1 }, { scale: to }], { duration: 90, easing: "cubic-bezier(.3, 0, .2, 1)", fill: "forwards" });
+  const release = () => {
+    ["pointerup", "pointercancel", "pointerleave"].forEach((ev) => el.removeEventListener(ev, release));
+    const from = el._press ? getComputedStyle(el).scale : to; el._press?.cancel?.();
+    el._press = el.animate([{ scale: from === "none" ? to : from }, { scale: 1 + (1 - to) * 0.25, offset: 0.55 }, { scale: 1 }], { duration: 340, easing: "cubic-bezier(.2, .8, .2, 1)" });
+    el._press.onfinish = () => { el._press = null; };
+  };
+  ["pointerup", "pointercancel", "pointerleave"].forEach((ev) => el.addEventListener(ev, release, { once: true }));
+}, { passive: true });
+
 document.addEventListener("pointerdown", (e) => {
   const k = e.target.closest(".slide:not(.off) .sl-k"); if (!k) return;
   const sl = k.parentElement, act = sl.dataset.slide, max = sl.clientWidth - k.offsetWidth - 8, x0 = e.clientX; let dx = 0;
