@@ -4903,7 +4903,7 @@ function bridgeView() {
       ${!BRIDGE.on ? `<p class="br-note">${I.clock}<span>Swaps open very soon: Ecrin is finishing its setup with LI.FI.</span></p>` : ""}
       ${netKeys().includes(SWAP_NET) ? `<button class="link br-jup" data-act="swap-sol">Other Solana tokens →</button>` : ""}
     </div>
-    <div class="pfoot${usePad() && P.kf ? " kp-foot" : ""}">${usePad() && P.kf ? `<div class="kp-bar"><button data-act="br-kf" data-v="">Done</button></div>${kpHTML("br-key")}` : ""}<button class="btn primary xl" data-act="br-review" ${BRIDGE.on && raw && !over && !gas && q ? "" : "disabled"}>${btn}</button></div>`;
+    <div class="pfoot${usePad() && P.kf ? " kp-foot" : ""}">${usePad() && P.kf ? `<div class="kp-bar"><button class="kp-done" data-act="br-kf" data-v="" aria-label="Done">${I.check}</button></div>${kpHTML("br-key")}` : ""}<button class="btn primary xl" data-act="br-review" ${BRIDGE.on && raw && !over && !gas && q ? "" : "disabled"}>${btn}</button></div>`;
 }
 /** Coins by symbol: ETH lives on Ethereum, Base, Arbitrum and Optimism; USDC on most networks. */
 const brGrp = (id) => (brIsTok(id) ? String(brT(id)?.ck || brSym(id)).toUpperCase() : brSym(id));

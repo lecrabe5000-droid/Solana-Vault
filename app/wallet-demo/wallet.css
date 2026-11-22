@@ -4268,3 +4268,25 @@ html:root[data-theme] #panel .pfoot.kp-foot .kp button { height: 44px !important
   html:root[data-theme] #panel .mv2:has(.kp-foot) .mv-amt b { font-size: 36px !important; }
   html:root[data-theme] #panel .mv2:has(.kp-foot) .mv-src .from { padding-top: 4px !important; padding-bottom: 4px !important; }
 }
+
+/* Amount screens use the whole screen: the keypad dock sits on the bottom edge, and what you're typing sits centred in
+   the space above it (the amount on Send, Protect and Withdraw; both cards on Swap). */
+html:root[data-theme] #panel .pane:has(.pfoot.kp-foot) { display: flex !important; flex-direction: column !important; }
+html:root[data-theme] #panel .pane > .pfoot.kp-foot, html:root[data-theme] #panel .mv2 > .pfoot.kp-foot { margin-top: auto !important; }
+html:root[data-theme] #panel .pane > .amt:has(.amt-pad) { margin-top: auto !important; }
+html:root[data-theme] #panel .mv2:has(.kp-foot) { flex: 1 1 auto; min-height: 0; display: flex !important; flex-direction: column; }
+html:root[data-theme] #panel .mv2:has(.kp-foot) > .mv-amt { margin-top: auto !important; }
+html:root[data-theme] #panel .sx.kp-open { margin-top: auto !important; }
+/* "Done" on the swap keypad: a round check that springs */
+.kp-bar { margin: -2px 0 2px !important; }
+.kp-bar .kp-done { display: grid; place-items: center; width: 40px; height: 40px; padding: 0 !important; border: 0; border-radius: 50%; background: linear-gradient(180deg, #4d74ff, #2f5bff); color: #fff; box-shadow: 0 8px 20px -8px rgba(47, 91, 255, .9), inset 0 1px 0 rgba(255, 255, 255, .25); cursor: pointer; transition: transform .2s cubic-bezier(.3, 1.6, .5, 1), box-shadow .2s; }
+.kp-bar .kp-done svg { width: 20px; height: 20px; fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.kp-bar .kp-done:active { transform: scale(.86); box-shadow: 0 4px 10px -6px rgba(47, 91, 255, .9); }
+.pfoot.kp-foot .kp-done svg path { stroke-dasharray: 22; stroke-dashoffset: 0; animation: kp-tick .45s cubic-bezier(.2, .8, .2, 1) both .1s; }
+@keyframes kp-tick { from { stroke-dashoffset: 22; } }
+@media (prefers-reduced-motion: reduce) { .pfoot.kp-foot .kp-done svg path { animation: none; } }
+/* small phones: nothing left over to centre into, so keep the compact stack (the dock still sits on the bottom) */
+@media (max-height: 700px) {
+  html:root[data-theme] #panel .mv2:has(.kp-foot) > .mv-amt, html:root[data-theme] #panel .pane > .amt:has(.amt-pad), html:root[data-theme] #panel .sx.kp-open { margin-top: 4px !important; }
+  html:root[data-theme] #panel .mv2:has(.kp-foot) { gap: 4px !important; }
+}
