@@ -39,7 +39,10 @@ export function solConnection(web3, url, local = false, backups = SOL_RPC_BACKUP
 export function evmProvider(ethers, E, rpcOverride) {
   const urls = rpcOverride ? [rpcOverride] : [...viaProxy(E.key, E.rpc), E.rpc2].filter(Boolean);
   class Failover extends ethers.JsonRpcProvider {
-    constructor() { super(urls[0], E.chainId, { staticNetwork: true }); this.at = 0; }
+    // A plain network, not ethers' built-in one: for Polygon that one fetches fees from Polygon's "gas station" website
+    // (blocked by the wallet's security rules, and down at times), so every Polygon send and swap failed. The network's own
+    // node gives the fee and the tip it needs (eth_maxPriorityFeePerGas), like every other network.
+    constructor() { super(urls[0], new ethers.Network(`ecrin-${E.chainId}`, E.chainId), { staticNetwork: true }); this.at = 0; }
     async _send(payload) {
       let last;
       for (let k = 0; k < urls.length; k++) {

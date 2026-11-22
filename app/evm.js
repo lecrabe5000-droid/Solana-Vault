@@ -64,7 +64,7 @@ export function explainEvmError(err, iface) {
 }
 
 export function createEvmClient({ ethers, EVM, readProvider, getSigner }) {
-  const read = readProvider || new ethers.JsonRpcProvider(EVM.rpc, EVM.chainId, { staticNetwork: true });
+  const read = readProvider || new ethers.JsonRpcProvider(EVM.rpc, new ethers.Network(`ecrin-${EVM.chainId}`, EVM.chainId), { staticNetwork: true });
   const contract = new ethers.Contract(EVM.address, ABI, read);
 
   class Addr {
