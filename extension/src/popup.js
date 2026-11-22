@@ -1212,7 +1212,7 @@ function homeView() {
     ${S.err ? `<div class="banner">${esc(S.err)}</div>` : ""}
     ${loading ? "" : leaveBanner()}
     ${S.offline ? `<div class="offline"><i></i>You're offline · showing your last balances</div>` : ""}${updateBanner()}${backupCard()}
-    ${isMain() ? `<div class="brand-sig">${WORDMARK()}</div>` : `<div class="brand-sig" title="Test networks: these coins have no value">${WORDMARK()}<i>Testnet</i></div>`}
+    ${isMain() ? "" : `<div class="brand-sig" title="Test networks: these coins have no value"><i>Testnet</i></div>`}
     <section class="hero"><svg class="hero-g" viewBox="0 0 360 230" preserveAspectRatio="xMidYMin slice" aria-hidden="true">${Array.from({ length: 30 }, (_, i) => `<ellipse cx="${180 + Math.sin(i / 2.6) * 6}" cy="${-10 + Math.cos(i / 2.6) * 4}" rx="${40 + i * 9}" ry="${22 + i * 6.2}"/>`).join("")}</svg>
       <div class="lz-wrap">${lozenge(w, loading)}
         <div class="lz-in">
@@ -2198,8 +2198,9 @@ function motionView(P, o) {
       <g transform="rotate(45 110 110)">${R("lk-base", 38, 30)}${R("lk-in", 51, 24)}${R("lk-run", 38, 30)}${R("lk-run2", 51, 24)}${R("lk-full", 38, 30)}</g></svg>
       <span class="lk-ic"><span class="lk-l">${MO_IC[o.kind] || I.send}</span><svg class="lk-ok" viewBox="0 0 24 24"><path d="M6 12.5l4 4L18 8"/></svg></span></div>
     <p class="mo-k">${done ? o.title[1] : o.title[0]}</p>
-    <div class="mo-amt"><b>${o.amount}</b>${o.usd ? `<small>${o.usd}</small>` : ""}</div>
-    ${o.line ? `<p class="mo-line">${o.line}</p>` : ""}
+    ${o.pair ? `<div class="mo-pair">${o.pair.map((x, i) => `${i ? `<i class="mo-pair-ar" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg></i>` : ""}<div class="mo-pr">${x.ic}<span class="mo-pr-t"><b>${x.amt} <em>${x.sym}</em></b><small>${x.sub}</small></span></div>`).join("")}</div>`
+      : `<div class="mo-amt"><b>${o.amount}</b>${o.usd ? `<small>${o.usd}</small>` : ""}</div>
+    ${o.line ? `<p class="mo-line">${o.line}</p>` : ""}`}
     <ol class="mo-steps">${steps}</ol>
     ${done && o.note ? `<div class="mo-note">${I.shield}<span>${o.note}</span></div>` : ""}
     ${done ? `<div class="mo-rc">${rows.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("")}</div>${o.extra || ""}` : ""}
@@ -2671,7 +2672,7 @@ function settingsView() {
       <a class="srow" href="https://ecrinprotocol.app/privacy/" target="_blank"><span>${I.lock}Privacy</span><span class="sv">${I.ext}</span></a>
       <a class="srow" href="https://ecrinprotocol.app/terms/" target="_blank"><span>${I.card}Terms</span><span class="sv">${I.ext}</span></a>`)}
     <div class="sets danger-z"><button class="srow danger" data-act="forget"><span>Remove wallet from this browser</span><span></span></button></div>
-    <div class="set-sig">${WORDMARK("md")}<b>Wallet</b><small>Version ${VERSION} · beta · not audited</small></div>`;
+    <div class="set-sig">${WORDMARK("md")}<small>Version ${VERSION} · beta · not audited</small></div>`;
 }
 // ---- Report a problem: straight to the team, with what helps fix it (never keys, the phrase or balances).
 const REPORT_URL = "https://ecrinprotocol.app/api/report";
@@ -3212,6 +3213,7 @@ const actions = {
   },
   "br-set": (el) => { const P = S.panel, side = el.dataset.k === "from" ? "fa" : "ta", v = el.dataset.v; if (side === "fa") { if (v === P.ta) P.ta = P.fa; if (v !== P.fa) { P.amount = ""; P.pct = null; } } else if (v === P.fa) P.fa = P.ta; P[side] = v; P.pick = null; if (P.dir === "out") { P.refine = 0; P.amount = brFromWant(P); } renderPanel(); bridgeQuoteSoon(0); },
   "br-pct": (el) => { const P = S.panel, m = brMax(P.fa), v = (m * Number(el.dataset.v)) / 100; P.pct = Number(el.dataset.v); P.dir = "in"; P.want = null; P.amount = v > 0 ? String(Math.floor(v * 1e6) / 1e6) : ""; renderPanel(); bridgeQuoteSoon(0); },
+  "bx-nets-more": (el) => { const P = S.panel; P.netsOpen = { ...(P.netsOpen || {}), [el.dataset.k]: true }; renderPanel(); },
   "br-flip": () => { const P = S.panel; [P.fa, P.ta] = [P.ta, P.fa]; P.amount = ""; P.pct = null; P.quote = null; P.dir = "in"; P.want = null; renderPanel(); },
   "br-review": () => { const P = S.panel; if (!P.quote || P.quote.key !== brKey(P)) return; P.step = "review"; P.anim = true; renderPanel(); },
   "br-back": () => { S.panel.step = "form"; renderPanel(); },
@@ -4586,6 +4588,8 @@ function bridgeView() {
     return motionView(P, { kind: "swap", closable: bxSent(P), N: NETS[from], title: [cross ? "Swapping across networks" : "Swapping", cross ? `${tsym} arrived on ${NETS[to].name}` : "Swapped"],
       amount: `${esc(P.amount)} ${sym} <i class="mo-to">→</i> ${done && P.got != null ? "" : "≈ "}${nf(got, ta)} ${tsym}`, usd: inUsd != null ? money(inUsd) : "",
       line: cross ? `${esc(NETS[from].name)} → ${esc(NETS[to].name)}` : esc(NETS[from].name),
+      // Like other wallets: what leaves on top, what arrives below, each with its coin and network.
+      pair: [{ ic: brIcon(fa), amt: esc(P.amount), sym, sub: `${esc(NETS[from].name)}${inUsd != null ? ` · ${money(inUsd)}` : ""}` }, { ic: brIcon(ta), amt: `${done && P.got != null ? "" : "≈ "}${nf(got, ta)}`, sym: tsym, sub: `${esc(NETS[to].name)}${brPx(ta) ? ` · ${money(got * brPx(ta))}` : ""}` }],
       rows: [["You paid", `${esc(P.amount)} ${sym}`], ["You got", `${done && P.got != null ? "" : "≈ "}${nf(got, ta)} ${tsym}`], ...(P.rateTxt ? [["Rate", P.rateTxt]] : []), ["Ecrin fee", `${feePct(BRIDGE.fee)} (included)`], ...(P.feesUSD ? [["Network fees", `≈ ${money(P.feesUSD)}`]] : []), ...(P.link ? [["Details", `<a class="mo-link" href="${esc(P.link)}" target="_blank" rel="noopener">LI.FI explorer ${I.ext}</a>`]] : [])] });
   }
 
@@ -4632,7 +4636,7 @@ function bridgeView() {
       <button class="sx-flip br-flip" data-act="br-flip" aria-label="Switch"><svg viewBox="0 0 24 24"><path d="M8 4v15M8 19l-4-4M8 19l4-4M16 20V5M16 5l-4 4M16 5l4 4"/></svg></button>
       <div class="sx-card to br-card">
         <div class="sx-top"><span class="sx-k">You get</span><span class="sx-bal">${cross ? "Across networks" : ""}</span></div>
-        <div class="sx-row">${assetBtn("to", ta)}<input class="sx-in sx-get${quoting && P.dir !== "out" ? " ld" : ""}" data-brout inputmode="decimal" placeholder="0" aria-label="Amount you get" value="${esc(P.dir === "out" ? P.want || "" : shown && raw ? String(Number(outN.toFixed(Math.min(brDec(ta), 6)))) : "")}" autocomplete="off"/></div>
+        <div class="sx-row">${assetBtn("to", ta)}<input class="sx-in sx-get${quoting && P.dir !== "out" ? " ld" : ""}" data-brout inputmode="decimal" placeholder="0" aria-label="Amount you get" value="${esc(P.dir === "out" ? P.want || "" : shown && raw ? bxPlain(outN, ta) : "")}" autocomplete="off"/></div>
         ${bxNets("to", ta, all)}
         <div class="sx-foot"><span></span><span class="sx-usd">${outUsd && raw ? money(outUsd) : ""}</span></div>
       </div>
@@ -4664,11 +4668,18 @@ const bxLogo = (id) => (brIsTok(id) ? tokIc(id) : coin(brLogo(id)));
 const bxNets = (side, id, all) => {
   const ids = bxCoins(all).get(brGrp(id)) || [id];
   if (ids.length < 2) return `<div class="bx-nets one"><span class="chip on">${coin(brK(id))}${esc(NETS[brK(id)].name)}</span></div>`;
-  return `<div class="bx-nets" role="radiogroup" aria-label="Network">${ids.map((x) => { const h = brHeld(x); return `<button class="chip${x === id ? " on" : ""}" role="radio" aria-checked="${x === id}" data-act="br-set" data-k="${side}" data-v="${x}">${coin(brK(x))}${esc(NETS[brK(x)].name)}${h > 0 && side === "from" && h * (brPx(x) || 0) >= 0.01 ? `<em>${bxNum(h, x)}</em>` : ""}</button>`; }).join("")}</div>`;
+  // Many networks: the chosen one and one more (where you hold some first), then "+5" opens the rest. Keeps the card short.
+  const P = S.panel, open = P?.netsOpen?.[side], many = ids.length > 4 && !open;
+  const shown = many ? [id, ...ids.filter((x) => x !== id).sort((x, y) => (brHeld(y) > 0) - (brHeld(x) > 0)).slice(0, 1)].sort((x, y) => ids.indexOf(x) - ids.indexOf(y)) : ids;
+  const more = many ? `<button class="chip more" data-act="bx-nets-more" data-k="${side}" aria-label="Show all ${ids.length} networks">+${ids.length - shown.length}</button>` : "";
+  return `<div class="bx-nets${open ? " all" : ""}" role="radiogroup" aria-label="Network">${shown.map((x) => { const h = brHeld(x); return `<button class="chip${x === id ? " on" : ""}" role="radio" aria-checked="${x === id}" data-act="br-set" data-k="${side}" data-v="${x}">${coin(brK(x))}${esc(NETS[brK(x)].name)}${h > 0 && side === "from" && h * (brPx(x) || 0) >= 0.01 ? `<em>${bxNum(h, x)}</em>` : ""}</button>`; }).join("")}${more}</div>`;
 };
 /** A coin amount the way people read it: 2 decimals for dollar coins, 4 from 1 up, 6 significant digits below 1. */
 const bxNum = (v, id) => { const n = Number(v) || 0, L = S.lang === "fr" ? "fr-CA" : "en-US";
   return brC(id) === "usdc" || brC(id) === "usdt" || (brIsTok(id) && /USD/i.test(brSym(id))) ? n.toLocaleString(L, { maximumFractionDigits: 2 }) : Math.abs(n) >= 1 ? n.toLocaleString(L, { maximumFractionDigits: 4 }) : n.toLocaleString(L, { maximumSignificantDigits: 6 }); };
+/** The same rounding as bxNum, without thousands separators: for a field you can edit (749.75, not 749.753321). */
+const bxPlain = (v, id) => { const n = Number(v) || 0; const usd = brC(id) === "usdc" || brC(id) === "usdt" || (brIsTok(id) && /USD/i.test(brSym(id)));
+  return String(Number(usd ? n.toFixed(2) : Math.abs(n) >= 1 ? n.toFixed(4) : n.toPrecision(6))); };
 /** A swap can be left once it's on its way (sent, now arriving or confirming): the pill keeps following it. */
 const bxSent = (P) => !!P.sig || (P.mo ? P.mo.at >= P.mo.steps.findIndex((x) => x.k === "conf") : false);
 // "New quote in N s": counts down to the quiet 25-second refresh, like other wallets.

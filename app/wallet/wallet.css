@@ -4075,6 +4075,31 @@ html:root[data-theme="light"] #panel .pane.scrolled .phead:not(#z) { background:
 .home .lz-in { max-width: 200px; }
 /* Swap: "You get" is a field too: type what you want to receive and Ecrin works out what you pay */
 .sx-in.sx-get.ld { opacity: .45; transition: opacity .2s; }
+/* The mark speaks for itself: no "Ecrin" written next to it at start-up and in Settings (the welcome screen keeps the name) */
+.boot-mark .wm b, .set-sig .wm b { display: none; }
+.set-sig .wm .wm-mark { width: 40px; height: 40px; filter: drop-shadow(0 8px 20px rgba(47, 91, 255, .45)); }
+.brand-sig { margin: 0 0 -4px; }
+/* Money in motion, centred: the diamond and amounts sit in the middle of the screen, the button at the bottom */
+html:root[data-theme] #panel .mo > .mo-hero { margin-top: auto; }
+html:root[data-theme] #panel .mo.ok > .mo-hero { margin-top: 8px; }
+html:root[data-theme] #panel .mo .mo-x { position: absolute; top: max(14px, calc(env(safe-area-inset-top, 0px) + 6px)); right: 14px; }
+/* a swap shows what leaves above what arrives, like other wallets */
+.mo-pair { display: grid; width: 100%; max-width: 340px; margin: 14px 0 4px; padding: 6px; border-radius: 22px; background: rgba(255, 255, 255, .045); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07); text-align: left; }
+:root[data-theme="light"] .mo-pair { background: #fff; box-shadow: 0 0 0 1px var(--line); }
+.mo-pr { display: flex; align-items: center; gap: 12px; padding: 12px 12px; min-width: 0; }
+.mo-pr .cstack, .mo-pr > .coin { flex: none; } .mo-pr .cstack .coin, .mo-pr > .coin { width: 40px; height: 40px; }
+.mo-pr-t { display: grid; gap: 2px; min-width: 0; }
+.mo-pr-t b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 22px; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.mo-pr-t b em { font-style: normal; font-size: .72em; font-weight: 600; color: var(--muted); }
+.mo-pr-t small { color: var(--muted); font-size: 14.5px; }
+.mo-pair-ar { display: grid; place-items: center; width: 30px; height: 30px; margin: -10px 0 -10px 17px; border-radius: 10px; background: var(--s2, #1b1d22); box-shadow: 0 0 0 4px var(--mo-bg, #0c0d0f); position: relative; z-index: 1; }
+.mo-pair-ar svg { width: 15px; height: 15px; fill: none; stroke: var(--ink); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.mo.run .mo-pair-ar svg { animation: mo-ar 1.4s ease-in-out infinite; } @keyframes mo-ar { 50% { transform: translateY(2px); } }
+@media (prefers-reduced-motion: reduce) { .mo.run .mo-pair-ar svg { animation: none; } }
+.bx-nets .chip.more { padding: 0 12px; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.bx-nets.all .chip { animation: bxn-in .25s cubic-bezier(.2, .8, .2, 1) both; } @keyframes bxn-in { from { opacity: 0; transform: scale(.94); } }
+/* "You get": many digits shrink instead of being cut */
+.sx-in.sx-get { text-overflow: ellipsis; }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
