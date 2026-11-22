@@ -4270,6 +4270,11 @@ html:root[data-theme] #panel .pfoot.kp-foot .kp button { height: 44px !important
 }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
+/* Down to the very bottom of the screen: as a home-screen app, an iPhone can report a viewport shorter than the screen,
+   which left a strip of bare page under every screen. The app is as tall as the tallest viewport the phone reports,
+   and the page under it wears the same colours, so no strip can show either way. */
+@media (pointer: coarse) { html:not([data-rot]) .device { bottom: auto !important; height: max(100%, 100lvh) !important; } html, body { min-height: 100lvh; } }
+html:root[data-theme], html:root[data-theme] body { background: var(--bg-paint, var(--bg)) !important; background-color: var(--bg-deep, var(--bg)) !important; background-attachment: fixed !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
 #root, #panel { top: 0; bottom: 0; }
 .home .top, .phead { padding-top: env(safe-area-inset-top, 0px) !important; height: calc(56px + env(safe-area-inset-top, 0px)) !important; box-sizing: border-box; }
