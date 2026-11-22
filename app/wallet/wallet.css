@@ -4177,6 +4177,39 @@ html:root[data-theme] #panel .pane.as-sheet .phead { position: relative; padding
 /* in a sheet the title bar has no back arrow (swipe down, tap outside or Back closes it) and no band behind it */
 html:root[data-theme] #panel .pane.as-sheet .phead > .ib[data-act="close"] { visibility: hidden; }
 html:root[data-theme] #panel .pane.as-sheet .phead { margin-top: -6px; }
+/* keypad on Send and Swap: the amount is a display, the keypad sits above the button */
+.amt-pad { font: inherit; color: inherit; min-width: .6ch; } .amt-pad.zero { opacity: .35; }
+.pfoot.kp-foot { display: grid; gap: 8px; }
+.pfoot.kp-foot .kp { margin: 0 -4px; } .pfoot.kp-foot .kp button { height: 48px; }
+.sx-in.sx-pad { display: block; width: 100%; padding: 0; border: 0; background: none; text-align: right; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.sx-in.sx-pad.zero { color: rgba(255, 255, 255, .25); } :root[data-theme="light"] .sx-in.sx-pad.zero { color: rgba(0, 0, 0, .25); }
+.sx-in.sx-pad.on::after { content: ""; display: inline-block; width: 2px; height: .8em; margin-left: 3px; vertical-align: -.05em; border-radius: 1px; background: #5b7cff; animation: kp-caret 1s steps(1) infinite; }
+@keyframes kp-caret { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .sx-in.sx-pad.on::after { animation: none; } }
+#panel .amt-in .amt-pad { font: 400 56px/1.05 "Geist", var(--font); letter-spacing: -.04em; color: var(--ink); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.amt.over .amt-in .amt-pad { color: var(--neg); }
+/* the keypad and the button stay at the bottom while the page scrolls under them */
+html:root[data-theme] #panel .pane .pfoot.kp-foot { position: sticky; bottom: 0; z-index: 4; margin: 10px -16px 0; padding: 8px 16px max(12px, env(safe-area-inset-bottom, 0px)); background: color-mix(in srgb, var(--bg-deep, var(--bg)) 84%, transparent); -webkit-backdrop-filter: blur(20px) saturate(1.4); backdrop-filter: blur(20px) saturate(1.4); box-shadow: 0 -1px 0 var(--line); }
+
+/* Swap with the keypad open: the cards fold to coin + amount (networks and % buttons tuck away), so both amounts, the
+   keypad and the button fit one screen. "Done" folds the keypad and brings everything back. */
+html:root[data-theme] .bx.kp-open :is(.bx-nets, .sx-pcts, .bx-q, .bx-hint, .br-jup, .br-note:not(.warn)) { display: none !important; }
+html:root[data-theme] .bx.kp-open .sx-card { padding-top: 12px !important; padding-bottom: 10px !important; }
+html:root[data-theme] .bx.kp-open .sx-foot { margin-top: 2px; }
+.kp-bar { display: flex; justify-content: flex-end; margin: -2px 0 -4px; }
+.kp-bar button { padding: 6px 4px; border: 0; background: none; color: #7f98ff; font: 600 16px var(--font); cursor: pointer; }
+html:root[data-theme] #panel .pfoot.kp-foot { gap: 4px; padding-top: 4px; }
+html:root[data-theme] #panel .pfoot.kp-foot .kp { gap: 0 !important; }
+html:root[data-theme] #panel .pfoot.kp-foot .kp button { height: 46px !important; min-height: 0 !important; padding: 0 !important; font-size: 23px !important; }
+html:root[data-theme] #panel .pfoot.kp-foot .btn.xl { min-height: 50px !important; height: 50px; margin-top: 2px; }
+/* Send with the keypad: a tighter amount block so 25% / 50% / Max and the fee stay above the keypad */
+html:root[data-theme] #panel .amt:has(.amt-pad) { padding: 14px 0 6px !important; gap: 6px !important; }
+html:root[data-theme] #panel .amt:has(.amt-pad) .pcts { margin-top: 6px !important; }
+html:root[data-theme] #panel .pane:has(.amt-pad) .fee-line, html:root[data-theme] #panel .pane:has(.amt-pad) .feeline { margin-top: 6px !important; padding: 8px 12px !important; }
+html:root[data-theme] #panel .pane:has(.pfoot.kp-foot) { padding-bottom: 0 !important; }
+html:root[data-theme] #panel .pfoot.kp-foot .kp button { height: 44px !important; }
+html:root[data-theme] #panel .pfoot.kp-foot .kp-bar { margin: -4px 0 -6px; } html:root[data-theme] #panel .pfoot.kp-foot .kp-bar button { padding: 4px; }
+.pcts.kp-pcts { display: flex; justify-content: center; gap: 8px; margin: 0 0 2px; }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */

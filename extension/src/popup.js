@@ -2028,12 +2028,25 @@ function assetPick() {
 }
 
 /** The amount block: a large number, its dollar value, and 25 / 50 / 100%. */
+/** The number keypad on a phone, instead of the phone's own keyboard (like Exodus or Cash App). */
+const usePad = () => !!(globalThis.ECRIN_WEB || globalThis.ECRIN_DEMO) && matchMedia("(pointer: coarse)").matches;
+const KP_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "del"];
+const kpHTML = (act = "key") => `<div class="kp">${KP_KEYS.map((k) => `<button data-act="${act}" data-k="${k}" aria-label="${k === "del" ? "Delete" : k}">${k === "del" ? `<svg viewBox="0 0 24 24"><path d="M9 6h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5-6z"/><path d="M12.5 10l4 4M16.5 10l-4 4"/></svg>` : k}</button>`).join("")}</div>`;
+/** One key on a decimal string: at most one point, at most `dec` decimals, at most 12 digits. Returns null to ignore. */
+function kpApply(v, k, dec) {
+  v = v || "";
+  if (k === "del") return v.slice(0, -1);
+  if (k === ".") return v.includes(".") ? null : (v || "0") + ".";
+  const d = v.split(".")[1]; if (d != null && d.length >= dec) return null;
+  const n = v === "0" ? k : v + k; return n.replace(".", "").length > 12 ? null : n;
+}
+const pctBtns = (P) => [25, 50, 100].map((p) => `<button data-act="pct" data-v="${p}" class="${P.pct === p ? "on" : ""}">${p === 100 ? "Max" : p + "%"}</button>`).join("");
 function amountBlock(max, label) {
   const P = S.panel, a = P.asset, units = parseAmt(P.amount, a), u = usdOf(units, a), over = units > max;
   return `<div class="amt ${over ? "over" : ""}">
-    <div class="amt-in"><input data-amount inputmode="decimal" placeholder="0" value="${esc(amtShown(P, a))}" autocomplete="off" autofocus style="width:${Math.max(1, [...String(amtShown(P, a))].reduce((t, c) => t + (/[.,]/.test(c) ? .45 : 1), 0)) + .12}ch"/><span>${amtUnit(P, a)}</span></div>
+    <div class="amt-in">${usePad() ? `<b class="amt-pad${amtShown(P, a) ? "" : " zero"}">${esc(amtShown(P, a) || "0")}</b>` : `<input data-amount inputmode="decimal" placeholder="0" value="${esc(amtShown(P, a))}" autocomplete="off" autofocus style="width:${Math.max(1, [...String(amtShown(P, a))].reduce((t, c) => t + (/[.,]/.test(c) ? .45 : 1), 0)) + .12}ch"/>`}<span>${amtUnit(P, a)}</span></div>
     <div class="amt-usd">${units && (u != null || inFiat(P, a)) ? amtOther(P, a, units) : "&nbsp;"}</div>${fiatSw(P, a)}
-    <div class="pcts">${[25, 50, 100].map((p) => `<button data-act="pct" data-v="${p}" class="${P.pct === p ? "on" : ""}">${p === 100 ? "Max" : p + "%"}</button>`).join("")}</div>
+    ${usePad() && P.p === "send" ? "" : `<div class="pcts">${pctBtns(P)}</div>`}
     <div class="avail">${label}: <b>${amt(Math.max(0, max), a)} ${A(a).unit}</b>${usdOf(Math.max(0, max), a) != null && !A(a).stable ? ` <span class="avail-usd">≈ ${money(usdOf(Math.max(0, max), a))}</span>` : ""}${over ? ` <span class="bad">· not enough</span>` : ""}</div>
   </div>`;
 }
@@ -2108,7 +2121,7 @@ function sendView() {
     ${amountBlock(sendMax(), "Wallet")}
     ${NETS[S.net].fam === "xrp" ? `<label class="fld xtag"><span>Destination tag <small>(optional)</small></span><input data-xtag inputmode="numeric" maxlength="10" placeholder="Only if the exchange gave you one" value="${esc(P.tag || "")}" autocomplete="off"/></label>` : ""}
     ${feeLine(a)}${feeNote(a)}
-    <div class="pfoot"><button class="btn primary xl" data-act="review" ${valid ? "" : "disabled"}>Continue</button></div>`;
+    <div class="pfoot${usePad() ? " kp-foot" : ""}">${usePad() ? `<div class="pcts kp-pcts">${pctBtns(P)}</div>${kpHTML()}` : ""}<button class="btn primary xl" data-act="review" ${valid ? "" : "disabled"}>Continue</button></div>`;
 }
 
 // ------------------------------------------------------------------ guard rails on the Wallet side (this device)
@@ -3250,6 +3263,14 @@ const actions = {
   },
   "swap-pct": (el) => { const P = S.panel, p = BigInt(el.dataset.v), m = swapMaxRaw(P.from), u = (m * p) / 100n; P.pct = Number(p); P.amount = u ? String(fromRaw(u, P.from.dec)) : ""; swapQuoteSoon(0); },
   "swap-review": () => { const P = S.panel; if (!P.quote) return; P.step = "review"; renderPanel(); },
+  "br-kf": (el) => { const P = S.panel; P.kf = el.dataset.v || null; haptic("light"); renderPanel(); },
+  "br-key": (el) => {
+    const P = S.panel, out = P.kf === "out", id = out ? P.ta : P.fa, v = kpApply(out ? (P.dir === "out" ? P.want : "") : P.amount, el.dataset.k, Math.min(brDec(id), 8));
+    if (v == null) return; haptic("light");
+    if (out) { P.dir = "out"; P.want = v; P.pct = null; P.refine = 0; P.amount = brFromWant(P); }
+    else { P.amount = v; P.pct = null; P.dir = "in"; P.want = null; }
+    patchPanel(); bridgeQuoteSoon();
+  },
   "br-pick-close": () => closeSheet(() => { const P = S.panel; if (P) { P.pick = null; renderPanel(); } }),
   "pick-close": () => closeSheet(() => { const P = S.panel; if (P) { P.picking = false; renderPanel(); } }),
   "br-pick": (el) => { const P = S.panel; P.sheetFresh = true; P.pick = el.dataset.v; P.q = ""; P.qnet = ""; renderPanel(); bxSearch(P); setTimeout(() => { if (!globalThis.ECRIN_WEB) $("#panel [data-brq]")?.focus(); }, 250); },
@@ -4775,17 +4796,17 @@ function bridgeView() {
   const quoting = P.quoting && raw && !over;
   const btn = !BRIDGE.on ? "Swaps open soon" : !raw ? "Enter an amount" : over ? `Not enough ${sym}` : gas ? `Not enough ${gas.unit} for the network fee` : P.qErr ? "No route right now" : !q ? "Getting the best price…" : "Review swap";
   return `${phead("Swap")}
-    <div class="sx br bx">
+    <div class="sx br bx${usePad() && P.kf ? " kp-open" : ""}">
       <div class="sx-card br-card">
         <div class="sx-top"><span class="sx-k">You pay</span><button class="sx-bal link" data-act="br-pct" data-v="100">Balance ${nf(brHeld(fa), fa)} ${sym}</button></div>
-        <div class="sx-row">${assetBtn("from", fa)}<input class="sx-in" data-bramt inputmode="decimal" placeholder="0" value="${esc(P.amount || "")}" autocomplete="off"/></div>
+        <div class="sx-row">${assetBtn("from", fa)}${usePad() ? `<button class="sx-in sx-pad${P.kf === "in" ? " on" : ""}${P.amount ? "" : " zero"}" data-act="br-kf" data-v="in" aria-label="Amount you pay">${esc(P.amount || "0")}</button>` : `<input class="sx-in" data-bramt inputmode="decimal" placeholder="0" value="${esc(P.amount || "")}" autocomplete="off"/>`}</div>
         ${bxNets("from", fa, all)}
         <div class="sx-foot"><span class="sx-pcts">${[25, 50, 100].map((v) => `<button data-act="br-pct" data-v="${v}" class="${P.pct === v ? "on" : ""}">${v === 100 ? "Max" : v + "%"}</button>`).join("")}</span><span class="sx-usd">${over ? `<span class="bad">More than you have</span>` : inUsd ? money(inUsd) : ""}</span></div>
       </div>
       <button class="sx-flip br-flip" data-act="br-flip" aria-label="Switch"><svg viewBox="0 0 24 24"><path d="M8 4v15M8 19l-4-4M8 19l4-4M16 20V5M16 5l-4 4M16 5l4 4"/></svg></button>
       <div class="sx-card to br-card">
         <div class="sx-top"><span class="sx-k">You get</span><span class="sx-bal">${cross ? "Across networks" : ""}</span></div>
-        <div class="sx-row">${assetBtn("to", ta)}<input class="sx-in sx-get${quoting && P.dir !== "out" ? " ld" : ""}" data-brout inputmode="decimal" placeholder="0" aria-label="Amount you get" value="${esc(P.dir === "out" ? P.want || "" : shown && raw ? bxPlain(outN, ta) : "")}" autocomplete="off"/></div>
+        <div class="sx-row">${assetBtn("to", ta)}${(() => { const ov = P.dir === "out" ? P.want || "" : shown && raw ? bxPlain(outN, ta) : ""; return usePad() ? `<button class="sx-in sx-get sx-pad${P.kf === "out" ? " on" : ""}${ov ? "" : " zero"}${quoting && P.dir !== "out" ? " ld" : ""}" data-act="br-kf" data-v="out" aria-label="Amount you get">${esc(ov || "0")}</button>` : `<input class="sx-in sx-get${quoting && P.dir !== "out" ? " ld" : ""}" data-brout inputmode="decimal" placeholder="0" aria-label="Amount you get" value="${esc(ov)}" autocomplete="off"/>`; })()}</div>
         ${bxNets("to", ta, all)}
         <div class="sx-foot"><span></span><span class="sx-usd">${outUsd && raw ? money(outUsd) : ""}</span></div>
       </div>
@@ -4802,7 +4823,7 @@ function bridgeView() {
       ${!BRIDGE.on ? `<p class="br-note">${I.clock}<span>Swaps open very soon: Ecrin is finishing its setup with LI.FI.</span></p>` : ""}
       ${netKeys().includes(SWAP_NET) ? `<button class="link br-jup" data-act="swap-sol">Other Solana tokens →</button>` : ""}
     </div>
-    <div class="pfoot"><button class="btn primary xl" data-act="br-review" ${BRIDGE.on && raw && !over && !gas && q ? "" : "disabled"}>${btn}</button></div>`;
+    <div class="pfoot${usePad() && P.kf ? " kp-foot" : ""}">${usePad() && P.kf ? `<div class="kp-bar"><button data-act="br-kf" data-v="">Done</button></div>${kpHTML("br-key")}` : ""}<button class="btn primary xl" data-act="br-review" ${BRIDGE.on && raw && !over && !gas && q ? "" : "disabled"}>${btn}</button></div>`;
 }
 /** Coins by symbol: ETH lives on Ethereum, Base, Arbitrum and Optimism; USDC on most networks. */
 const brGrp = (id) => (brIsTok(id) ? String(brT(id)?.ck || brSym(id)).toUpperCase() : brSym(id));
