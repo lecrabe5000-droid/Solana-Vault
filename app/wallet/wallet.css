@@ -4210,6 +4210,12 @@ html:root[data-theme] #panel .pane:has(.pfoot.kp-foot) { padding-bottom: 0 !impo
 html:root[data-theme] #panel .pfoot.kp-foot .kp button { height: 44px !important; }
 html:root[data-theme] #panel .pfoot.kp-foot .kp-bar { margin: -4px 0 -6px; } html:root[data-theme] #panel .pfoot.kp-foot .kp-bar button { padding: 4px; }
 .pcts.kp-pcts { display: flex; justify-content: center; gap: 8px; margin: 0 0 2px; }
+/* Release: the padlock opens while it goes (the shackle lifts and swings), then the check takes its place */
+.mo-release .mo-unlock { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; overflow: visible; }
+.mo-release .mo-unlock circle { fill: currentColor; stroke: none; }
+.mo-release.run .mo-unlock .shk { transform-origin: 15.5px 11px; animation: mo-shk 1.6s cubic-bezier(.3, 0, .2, 1) infinite; }
+@keyframes mo-shk { 0%, 15% { transform: none; } 45%, 80% { transform: translateY(-2.6px) rotate(-28deg); } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .mo-release.run .mo-unlock .shk { animation: none; transform: translateY(-2.6px) rotate(-28deg); } }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */

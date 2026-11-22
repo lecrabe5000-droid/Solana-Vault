@@ -591,14 +591,16 @@ document.addEventListener("click", (e) => {
 // After protecting or withdrawing, a small diamond travels between the Wallet side and the Safe ring, and the ring beats.
 function flyFx(kind) {
   if (document.documentElement.dataset.rot) return; // sideways: skip the flourish
-  const w = document.querySelector(".wsplit .sp-w b"), z = document.querySelector(".lz-wrap"); if (!w || !z) return;
+  const w = document.querySelector(".wsplit .sp-w b"), z = kind === "released" ? document.querySelector(".wsplit .sp-s b") : document.querySelector(".lz-wrap"); if (!w || !z) return;
   const a = w.getBoundingClientRect(), b = z.getBoundingClientRect();
   const from = { x: a.left + a.width / 2, y: a.top + a.height / 2 }, to = { x: b.left + b.width / 2, y: b.top + b.height / 2 };
   const [p0, p1] = kind === "protect" ? [from, to] : [to, from], mid = { x: (p0.x + p1.x) / 2 + 40, y: Math.min(p0.y, p1.y) - 30 };
   const d = document.createElement("i"); d.className = "fly-d"; document.body.append(d);
   const at = (p, s) => `translate(${p.x - 7}px, ${p.y - 7}px) rotate(45deg) scale(${s})`;
   const an = d.animate([{ transform: at(p0, 0.4), opacity: 0 }, { transform: at(p0, 1), opacity: 1, offset: 0.12 }, { transform: at(mid, 1.15), offset: 0.5 }, { transform: at(p1, 0.7), opacity: 1, offset: 0.9 }, { transform: at(p1, 0.2), opacity: 0 }], { duration: 900, easing: "cubic-bezier(.5, 0, .3, 1)" });
-  an.onfinish = () => { d.remove(); const r = document.querySelector(".lz"); if (r) { r.classList.remove("beat"); void r.getBoundingClientRect(); r.classList.add("beat"); } haptic("medium"); };
+  an.onfinish = () => { d.remove(); const r = document.querySelector(".lz"); if (r) { r.classList.remove("beat"); void r.getBoundingClientRect(); r.classList.add("beat"); }
+    if (kind === "released") w.animate([{ transform: "scale(1)" }, { transform: "scale(1.12)", color: "#9db0ff", offset: 0.35 }, { transform: "scale(1)" }], { duration: 650, easing: "cubic-bezier(.2, .8, .2, 1)" });
+    haptic("medium"); };
 }
 
 // ------------------------------------------------------------------ sheets
@@ -1929,7 +1931,7 @@ function goBack() {
 // page instead, so it jumps up over the first token rows: a blank or faded strip until the slide ends. body.stacked
 // and body.settling hide it while home is moved, and it fades back once home is still.
 function settleHome() { const b = document.body; clearTimeout(S.settleT); b.classList.add("settling"); S.settleT = setTimeout(() => b.classList.remove("settling"), 460); }
-function closePanel() { if (S.panel?.mo && (S.panel.step === "sending" || S.panel.step === "done")) S.moLast = S.panel; S.pstack = []; if (S.panel?.step === "done" && (S.panel.p === "protect" || S.panel.p === "withdraw")) S.fly = S.panel.p; const el = $("#panel"); el.classList.remove("in"); document.body.classList.remove("stacked"); settleHome(); setTimeout(() => { if (!S.panel) el.innerHTML = ""; }, 260); S.panel = null;
+function closePanel() { if (S.panel?.mo && (S.panel.step === "sending" || S.panel.step === "done")) S.moLast = S.panel; S.pstack = []; if (S.panel?.step === "done" && (S.panel.p === "protect" || S.panel.p === "withdraw" || S.panel.p === "released")) S.fly = S.panel.p; const el = $("#panel"); el.classList.remove("in"); document.body.classList.remove("stacked"); settleHome(); setTimeout(() => { if (!S.panel) el.innerHTML = ""; }, 260); S.panel = null;
   // Coming back to home: if nothing on it changed, keep the screen as it is instead of rebuilding it mid-slide
   // (a rebuild re-decodes every coin logo and the rows visibly settle for a moment).
   if (S.screen === "home" && !S.fly && S.homeSig && viewSig(homeView()) === S.homeSig) { syncTabbar(); return; }
@@ -1997,7 +1999,7 @@ function renderPanel(enter = false) {
   queueMicrotask(syncTabbar);
   const el = $("#panel"), P = S.panel;
   if (!P) return;
-  const body = ({ nets: netsView, send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, news: newsView, report: reportHTML, txd: txdView, contacts: contactsView, pkey: pkeyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, bridge: bridgeView, earn: earnView, wc: wcView, payreq: payreqView, alerts: alertsView, bug: bugView, help: helpView, kept: keptView })[P.p]();
+  const body = ({ nets: netsView, send: sendView, receive: receiveView, protect: moveView, withdraw: moveView, vault: vaultView, assets: assetsView, settings: settingsView, reveal: revealView, numbers: numbersView, backup: backupView, pick: pickView, tok: tokenView, rules: rulesView, all: allView, buy: buyView, currency: currencyView, news: newsView, report: reportHTML, txd: txdView, contacts: contactsView, pkey: pkeyView, perms: permsView, safety: safetyView, xtok: xtokView, nft: xtokView, addTok: addTokView, addrs: addrsView, accts: acctsView, acctNew: acctNewView, sites: sitesView, swap: swapView, bridge: bridgeView, earn: earnView, wc: wcView, payreq: payreqView, alerts: alertsView, bug: bugView, help: helpView, kept: keptView, released: releasedView })[P.p]();
   if (enter || P.fresh) P.openedAt = performance.now();
   const since = P.openedAt ? performance.now() - P.openedAt : 9999;
   // A coin's page grows out of the row you tapped (the home screen stays where it is); other pages slide in.
@@ -2242,7 +2244,13 @@ function motionStart(P, steps, auto = true) {
 }
 function motionStep(P, k) { const i = P.mo?.steps.findIndex((x) => x.k === k); if (i >= 0 && P.mo.at < i) { P.mo.at = i; if (S.panel === P) patchPanel(); } }
 function motionEnd(P) { if (P.mo) { P.mo.at = P.mo.steps.length; P.mo.t1 = performance.now(); } txEvents.sent = null; }
-const MO_IC = { send: I.send, protect: I.protect, withdraw: I.clock, swap: I.swap, keep: I.shield, stake: I.spark };
+const MO_IC = { send: I.send, protect: I.protect, withdraw: I.clock, swap: I.swap, keep: I.shield, stake: I.spark, release: `<svg class="mo-unlock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path class="shk" d="M8.5 11V7.5a3.5 3.5 0 0 1 7 0V11"/><circle cx="12" cy="16" r="1.3"/></svg>` };
+function releasedView() {
+  const P = S.panel, N = NETS[P.k], u = P.a === "usdc" ? "USDC" : N.unit, usd = usdOf(P.amount, P.a), me = String(ENG?.address || ""), out = P.dest && P.dest !== me;
+  return motionView(P, { kind: "release", N, title: ["Releasing from your Safe", out ? "Sent from your Safe" : "Back in your Wallet"], amount: `${amt(P.amount, P.a)} ${u}`, usd: usd != null ? money(usd) : "",
+    line: out ? `Safe → <span class="mono">${esc(short(P.dest))}</span>` : "Safe → Wallet", note: out ? "It waited the full delay and has now left your Safe." : "It waited the full delay. It's in your Wallet now, ready to spend.",
+    rows: [...(P.waited ? [["Waited", delay(P.waited)]] : []), ["To", out ? `<span class="mono">${esc(short(P.dest))}</span>` : "Your Wallet"]] });
+}
 function keptView() {
   const P = S.panel, N = NETS[P.k], u = P.a === "usdc" ? "USDC" : N.unit, usd = usdOf(P.amount, P.a);
   return motionView(P, { kind: "keep", N, title: ["Cancelling", "Withdrawal cancelled"], amount: `${amt(P.amount, P.a)} ${u}`, usd: usd != null ? money(usd) : "",
@@ -2258,7 +2266,7 @@ function motionView(P, o) {
     return `<li class="${st}"><i class="mo-dot">${st === "ok" ? `<svg viewBox="0 0 24 24"><path d="M6 12.5l4 4L18 8"/></svg>` : st === "now" ? `<i class="spin"></i>` : ""}</i><span>${st === "ok" ? x.ok : x.run}${x.k === "sent" && link && st === "ok" ? ` <a class="mo-ln" href="${link}" target="_blank">View ${I.ext}</a>` : ""}</span>${x.k === "conf" && took ? `<small>in ${took} s</small>` : ""}</li>`; }).join("");
   const when = new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   const rows = done ? [...(o.rows || []), ["Network", `${o.N.name} ${o.N.net}`], ["Time", when], ...(P.sig && !/^demo/.test(P.sig) ? [["Transaction", `<span class="mono">${esc(short(P.sig))}</span> <button class="ib sm" data-act="copy" data-v="${esc(P.sig)}" aria-label="Copy transaction id">${I.copy}</button>`]] : [])] : [];
-  return `<div class="mo lk2 ${done ? "ok" : "run"}">
+  return `<div class="mo lk2 ${done ? "ok" : "run"} mo-${o.kind}">
     ${done ? "" : `<button class="ib mo-x" data-act="close" aria-label="Close (it keeps going)">${I.x}</button>`}
     <div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
     <div class="lk-hero mo-hero" aria-hidden="true"><svg class="lk-lz" viewBox="0 0 220 220"><defs><linearGradient id="lkg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b6c4ff"/><stop offset=".5" stop-color="#4b74ff"/><stop offset="1" stop-color="#00c8ff"/></linearGradient></defs>
@@ -3531,7 +3539,22 @@ const actions = {
     } catch (e) { txEvents.sent = null; closePanel(); toast(errText(e), "err"); }
   },
 
-  execute: async (el) => { try { el.disabled = true; await useNet(el.dataset.n); await (await eng()).execute(el.dataset.a, Number(el.dataset.id), el.dataset.d); await logActivity({ t: "release", a: el.dataset.a }); loadActivity(); toast("Released to Wallet", "win"); await refresh(); loadAll(); } catch (e) { el.disabled = false; toast(errText(e), "err"); } },
+  // Release: the same sheet as every money move (an opening lock, live steps, a receipt), then on Home a diamond
+  // flies out of the Safe into your Wallet.
+  execute: async (el) => {
+    const k = el.dataset.n, a = el.dataset.a, id = Number(el.dataset.id), N = NETS[k];
+    const row = openRows().find((r) => r.k === k), list = a === "usdc" ? row?.v.usdc?.withdrawals : row?.v.main.withdrawals;
+    const w = (list || []).find((x) => x.id === id) || { amount: 0, dest: "" };
+    const waited = row?.v?.main?.withdrawDelay || 0;
+    if (S.panel) S.pstack = [];
+    S.panel = { p: "released", k, a, id, amount: w.amount, dest: String(w.dest || ""), waited, step: "sending" };
+    const P = S.panel; motionStart(P, STEPS(N, w.dest && String(w.dest) !== String((await eng()).address) ? "Sent" : "In your Wallet")); renderPanel(true);
+    try {
+      await useNet(k); const sig = await (await eng()).execute(a, id, el.dataset.d); P.sig = typeof sig === "string" ? sig : P.sig; motionEnd(P);
+      await logActivity({ t: "release", a, sig: P.sig }); P.step = "done"; haptic("success");
+      renderPanel(); refresh().then(() => { loadActivity(); loadAll(); });
+    } catch (e) { txEvents.sent = null; closePanel(); toast(errText(e), "err"); }
+  },
   // Settings → Networks: Mainnet or Testnet. The same network family stays selected where it can (Solana ↔ Solana).
   "pw-eye": (el) => { const i = el.parentElement.querySelector("input"); const show = i.type === "password"; i.type = show ? "text" : "password"; el.innerHTML = show ? I.eyeOff : I.eye; el.setAttribute("aria-label", show ? "Hide password" : "Show password"); i.focus(); },
   "net-mode": async (el) => {
