@@ -3159,7 +3159,7 @@ const actions = {
   "rc-cancel": (el) => rcRun(el, "cancelChange", "Change cancelled"),
   "al-tg": async () => { try { const r = await alertCall("/api/alerts/start", {}); if (!r.url) throw new Error(r.error || "Alerts aren't available right now."); window.open(r.url, "_blank"); S.alertsOn = true; local.set({ alertsOn: true }); toast("Telegram opened: tap Start in the chat.", "win"); } catch (e) { toast(e.message, "err"); } },
   "al-mail": async () => { const email = ($("#panel [data-mail]")?.value || "").trim(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast("Enter your email address", "err"); try { const r = await alertCall("/api/alerts/email", { email }); if (r.error) throw new Error(r.error); S.alertsOn = true; local.set({ alertsOn: true }); toast(r.already ? "Email alerts are already on." : "Check your inbox to confirm.", "win"); } catch (e) { toast(e.message, "err"); } },
-  tok: (el) => { S.tkDrawKey = null; if (el.isConnected && !S.panel) { const r = el.getBoundingClientRect(), pr = $("#panel").getBoundingClientRect(); S.grow = { x: r.left + r.width / 2 - pr.left, y: r.top + r.height / 2 - pr.top }; } const u = el.dataset.u, cg = u === "USDC" ? null : { SOL: "solana", ETH: "ethereum", HYPE: "hyperliquid", POL: "polygon-ecosystem-token", BNB: "binancecoin", AVAX: "avalanche-2", TRX: "tron", SUI: "sui" }[u]; openPanel("tok", { u, cg, n: el.dataset.n }); if (cg) loadSeriesFor(cg).then(() => S.panel?.p === "tok" && renderPanel()); },
+  tok: (el) => { S.tkDrawKey = null; if (el.isConnected && !S.panel) { const r = el.getBoundingClientRect(), pr = $("#panel").getBoundingClientRect(); S.grow = { x: r.left + r.width / 2 - pr.left, y: r.top + r.height / 2 - pr.top }; } const u = el.dataset.u, cg = u === "USDC" ? null : { SOL: "solana", ETH: "ethereum", HYPE: "hyperliquid", POL: "polygon-ecosystem-token", BNB: "binancecoin", AVAX: "avalanche-2", TRX: "tron", SUI: "sui" }[u]; const src = el.isConnected && !S.panel ? el.querySelector(".cstack > .coin, .coin") : null; openPanel("tok", { u, cg, n: el.dataset.n }); if (src) flyLogo(src, "#panel .tk-top .coin"); if (cg) loadSeriesFor(cg).then(() => S.panel?.p === "tok" && renderPanel()); },
   "tok-do": async (el) => { const P = S.panel, w = worth(), list = w.items.filter((i) => i.unit === P.u), p = el.dataset.p;
     const best = list.filter((i) => (p === "withdraw" ? i.sav : i.chq) > 0).sort((x, y) => (y.usd || 0) - (x.usd || 0))[0] || list[0];
     const k = best?.k || P.n || (P.u === "SOL" ? "sol" : P.u === "POL" ? "pol" : "eth"), a = P.u === "USDC" ? "usdc" : "native";
@@ -3608,6 +3608,25 @@ async function confirmSend() {
 }
 
 /** The small confirmation after a send: Ecrin's diamond turns while it travels, then fills with a check. */
+/** The coin's logo flies from the row you tapped into its page's header (a shared element, like Phantom), while the page
+ *  grows in around it. The page's own logo shows once the flying one lands. */
+function flyLogo(src, destSel) {
+  if (pressReduced.matches) return;
+  const from = src.getBoundingClientRect(); if (!from.width) return;
+  requestAnimationFrame(() => {
+    const dest = document.querySelector(destSel), pane = dest?.closest(".pane"); if (!dest || !pane) return;
+    const pt = pane.style.transition, ptf = pane.style.transform; pane.style.transition = "none"; pane.style.transform = "none";
+    const to = dest.getBoundingClientRect(); pane.style.transform = ptf; void pane.offsetWidth; pane.style.transition = pt;
+    if (!to.width) return;
+    const fly = src.cloneNode(true); fly.classList.add("fly-logo");
+    Object.assign(fly.style, { position: "fixed", left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, margin: 0, zIndex: 80, pointerEvents: "none" });
+    document.body.append(fly); dest.style.visibility = "hidden";
+    const dx = to.left - from.left, dy = to.top - from.top, sc = to.width / from.width;
+    const a = fly.animate([{ transform: "translate(0, 0) scale(1)" }, { transform: `translate(${dx}px, ${dy}px) scale(${sc})` }], { duration: 460, easing: "cubic-bezier(.2, .9, .2, 1)", fill: "forwards" });
+    fly.style.transformOrigin = "0 0";
+    const done = () => { dest.style.visibility = ""; fly.remove(); }; a.onfinish = done; setTimeout(done, 900);
+  });
+}
 function openMoLast() {
   const P = S.moLast; txPill(null); haptic("light");
   if (P && S.screen === "home") { if (S.panel) S.pstack = []; pushPanel(P.p); S.panel = P; P.anim = false; return renderPanel(true); }
