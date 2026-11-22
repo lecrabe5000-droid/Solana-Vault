@@ -1235,7 +1235,7 @@ function homeView() {
     <div class="tabs ${S.showNfts ? "t3" : ""}" role="tablist">${[["tokens", "Tokens"], ...(S.showNfts ? [["nfts", "Collectibles"]] : []), ["activity", "Activity"]].map(([t, l]) => `<button role="tab" data-act="tab" data-t="${t}" aria-selected="${S.tab === t}">${l}</button>`).join("")}<i class="tab-ind" style="--i:${{ tokens: 0, nfts: 1, activity: S.showNfts ? 2 : 1 }[S.tab] || 0}"></i></div>
     <div class="tab-body">${S.tab === "activity" ? activityList() : S.tab === "nfts" && S.showNfts ? nftGrid() : tokenList(w)}</div>
     ${S.tab === "tokens" && !loading ? homeMore() : ""}
-    <footer class="home-end"><span>${LOGO}</span>Ecrin Wallet · ${isMain() ? "beta" : "testnet beta"}</footer>
+    <footer class="home-end"><span>${LOGO}</span>${isMain() ? "Beta" : "Testnet beta"}</footer>
     ${FULL ? dashSide(w, loading) : ""}
   </div>`;
 }
@@ -1751,7 +1751,7 @@ const who = (k, a) => esc(nameFor(k, a) || short(a));
 async function loadActivity() {
   const keys = netKeys(), addrOf = (k) => (NETS[k].fam === "sol" ? ACCT.sol?.publicKey.toBase58() : NETS[k].fam === "tron" ? (ACCT.tron ? toTron(ACCT.tron.address) : null) : NETS[k].fam === "sui" ? suiOf(ACCT) : NETS[k].fam === "btc" ? btcAddress(ACCT, NETS[k]) : NETS[k].fam === "xrp" ? xrpAddress(ACCT) : ACCT.evm?.address);
   const st = await local.get([...keys.map((k) => `act:${k}:${addrOf(k)}`), "apLog"]);
-  let list = keys.flatMap((k) => (st[`act:${k}:${addrOf(k)}`] || []).map((e) => ({ ...e, k })));
+  let list = keys.flatMap((k) => (st[`act:${k}:${addrOf(k)}`] || []).map((e) => ({ k, ...e }))); // an entry's own network wins (a swap from Ethereum logged while Solana was selected)
   const mine = new Set(keys.map(addrOf).filter(Boolean));
   list.push(...(st.apLog || []).filter((e) => mine.has(e.from)));
   const merge = () => { const seen = new Set(list.map((x) => x.sig).filter(Boolean)); S.activity = [...list, ...(S.hist || []).filter((x) => !seen.has(x.sig))].sort((x, y) => y.at - x.at); if (S.tab === "activity") paintActivity(); };
@@ -1767,7 +1767,7 @@ const ACT_LBL = {
   send: (e) => [`Sent to ${who(e.k, e.to)}`, I.send, "out"], tsend: (e) => [e.to ? `Sent ${esc(e.sym || "tokens")} to ${who(e.k, e.to)}` : `Sent ${esc(e.sym || "tokens")}`, I.send, "out"],
   recv: (e) => [e.from ? `Received from ${who(e.k, e.from)}` : "Received", I.recv, "in"], protect: () => ["Moved to Safe", I.protect, ""],
   withdraw: () => ["Withdrawal started", I.clock, ""], release: () => ["Released to Wallet", I.recv, "in"], cancel: () => ["Withdrawal cancelled", I.shield, ""],
-  vault: () => ["Safe opened", I.lock, ""], swap: (e) => [`Swapped ${esc(e.from || "")} for ${esc(e.to || "")}`, I.swap, ""], bridge: (e) => [`Bridged ${esc(e.amt || "")} ${esc(e.sym || "")} to ${e.toSym && e.toSym !== e.sym ? `${esc(e.toSym)} on ` : ""}${esc(e.to || "")}`, I.swap, ""], revoke: (e) => [e.site ? `Removed ${esc(host(e.site))}'s permission` : "Removed a token permission", I.ban, ""],
+  vault: () => ["Safe opened", I.lock, ""], swap: (e) => [`Swapped ${esc(e.from || "")} for ${esc(e.to || "")}`, I.swap, ""], bridge: (e) => [e.toSym && e.toSym !== e.sym ? `Swapped ${esc(e.sym || "")} → ${esc(e.toSym)}` : `Moved ${esc(e.sym || "")} to ${esc(e.to || "")}`, I.swap, ""], revoke: (e) => [e.site ? `Removed ${esc(host(e.site))}'s permission` : "Removed a token permission", I.ban, ""],
   freeze: () => ["Safe frozen", I.snow, ""], auto: () => ["Protected automatically", I.protect, ""],
   stake: () => ["Staked", I.spark, ""], unstake: () => ["Unstaking started", I.clock, ""], reclaim: () => ["Back in your Safe from staking", I.lock, "in"],
   ap: (e) => [{ connect: `Connected to ${host(e.origin)}`, sign: `Signed a message on ${host(e.origin)}`, solmsg: `Signed a message on ${host(e.origin)}`, typed: `${e.permit ? "Approved spending on" : "Signed for"} ${host(e.origin)}`, tx: `${e.permit ? "Approved spending on" : "Approved a transaction on"} ${host(e.origin)}`, soltx: `Approved a transaction on ${host(e.origin)}`, delegate: "Gave a token permission" }[e.kind] || `Approved on ${host(e.origin)}`, e.permit ? I.warn : I.link, e.permit ? "warn" : ""],
@@ -1787,7 +1787,8 @@ function actRows(only) {
     const safeEv = /^(protect|auto|withdraw|release|cancel|vault|freeze)$/.test(e.t), cu = e.a === "usdc" ? "USDC" : unit;
     return `${head}<${tag} class="arow act-row ${e.t} ${cls}${safeEv ? " safe-ev" : ""}" style="--cc:${COIN_COL[cu] || "#9aa0b4"}"><span class="act-ico">${ic}${e.k ? `<span class="cmini">${coin(e.k)}</span>` : ""}</span>
       <span class="ar-t"><b>${title}</b><small>${safeEv ? `<em class="sv-tag">${I.lock}Safe</em>` : ""}${when(e.at)}${e.k ? ` · ${N.name}` : ""}</small></span>
-      ${val != null ? `<span class="ar-r"><b class="${cls === "out" ? "neg" : cls === "in" ? "pos" : ""}">${sign}${mask(val.toLocaleString("en-US", { maximumFractionDigits: 6 }))} ${esc(unit)}</b>${(() => { const px = cu === "USDC" ? 1 : S.prices[N.cg]?.usd; return px != null && e.t !== "tsend" && !e.sym ? `<small>≈ ${mask(money(val * px))}</small>` : ""; })()}</span>` : ""}</${tag.split(" ")[0]}>`;
+      ${e.t === "bridge" && e.amt ? `<span class="ar-r"><b class="pos">${e.got != null ? `+${mask(bxShort(e.got))} ${esc(e.toSym || e.sym || "")}` : `${esc(e.toSym || e.sym || "")}`}</b><small>−${mask(esc(String(e.amt)))} ${esc(e.sym || "")}</small></span>` : ""}
+      ${val != null && e.t !== "bridge" ? `<span class="ar-r"><b class="${cls === "out" ? "neg" : cls === "in" ? "pos" : ""}">${sign}${mask(val.toLocaleString("en-US", { maximumFractionDigits: 6 }))} ${esc(unit)}</b>${(() => { const px = cu === "USDC" ? 1 : S.prices[N.cg]?.usd; return px != null && e.t !== "tsend" && !e.sym ? `<small>≈ ${mask(money(val * px))}</small>` : ""; })()}</span>` : ""}</${tag.split(" ")[0]}>`;
   }).join("");
 }
 // ------------------------------------------------------------------ monthly report
@@ -1831,7 +1832,7 @@ function txdView() {
       <div><span>Status</span><b><span class="st-pill">${I.check}Confirmed</span></b></div>
       <div><span>Date</span><b>${e.at ? new Date(e.at).toLocaleString(S.lang === "fr" ? "fr-CA" : "en-US", { dateStyle: "medium", timeStyle: "short" }) : "—"}</b></div>
       <div><span>Network</span><b>${N.name} ${N.net}</b></div>
-      ${addrs ? `${e.to ? rowA("To", e.to) : ""}${e.from ? rowA("From", e.from) : ""}` : e.t === "swap" ? `<div><span>Swapped</span><b>${esc(e.from || "")} → ${esc(e.to || "")}</b></div>` : e.t === "bridge" && e.to ? `<div><span>To network</span><b>${esc(e.to)}</b></div>` : ""}
+      ${addrs ? `${e.to ? rowA("To", e.to) : ""}${e.from ? rowA("From", e.from) : ""}` : e.t === "swap" ? `<div><span>Swapped</span><b>${esc(e.from || "")} → ${esc(e.to || "")}</b></div>` : e.t === "bridge" ? `${e.amt ? `<div><span>You paid</span><b>${esc(String(e.amt))} ${esc(e.sym || "")}</b></div>` : ""}${e.got != null ? `<div><span>You got</span><b>≈ ${bxShort(e.got)} ${esc(e.toSym || "")}</b></div>` : ""}${e.to && (!e.toK || e.toK !== e.k) ? `<div><span>To network</span><b>${esc(e.to)}</b></div>` : ""}` : ""}
       ${e.origin ? `<div><span>Website</span><b>${esc(host(e.origin))}</b></div>` : ""}
       ${e.sig ? `<div><span>Transaction</span><b class="mono">${short(e.sig)} <button class="ib sm" data-act="copy" data-v="${esc(e.sig)}" aria-label="Copy">${I.copy}</button></b></div>` : ""}
     </div>
@@ -4677,6 +4678,8 @@ const bxNets = (side, id, all) => {
 /** A coin amount the way people read it: 2 decimals for dollar coins, 4 from 1 up, 6 significant digits below 1. */
 const bxNum = (v, id) => { const n = Number(v) || 0, L = S.lang === "fr" ? "fr-CA" : "en-US";
   return brC(id) === "usdc" || brC(id) === "usdt" || (brIsTok(id) && /USD/i.test(brSym(id))) ? n.toLocaleString(L, { maximumFractionDigits: 2 }) : Math.abs(n) >= 1 ? n.toLocaleString(L, { maximumFractionDigits: 4 }) : n.toLocaleString(L, { maximumSignificantDigits: 6 }); };
+/** A coin amount for a list: 2 decimals from 1 up, 6 significant digits below. */
+const bxShort = (v) => { const n = Number(v) || 0; return Math.abs(n) >= 1 ? n.toLocaleString("en-US", { maximumFractionDigits: 2 }) : n.toLocaleString("en-US", { maximumSignificantDigits: 6 }); };
 /** The same rounding as bxNum, without thousands separators: for a field you can edit (749.75, not 749.753321). */
 const bxPlain = (v, id) => { const n = Number(v) || 0; const usd = brC(id) === "usdc" || brC(id) === "usdt" || (brIsTok(id) && /USD/i.test(brSym(id)));
   return String(Number(usd ? n.toFixed(2) : Math.abs(n) >= 1 ? n.toFixed(4) : n.toPrecision(6))); };
@@ -4792,7 +4795,7 @@ async function bridgeNow() {
     P.sig = typeof sig === "string" ? sig : P.sig; motionStep(P, "conf");
     followTok(ta);
     S.lastTx = Date.now(); haptic("success");
-    await logActivity({ t: "bridge", k: from, to: NETS[to].name, a: coinK === "usdc" ? "usdc" : "native", n: coinK === "usdc" ? Number(amount) * USDC_BASE : 0, sym: unit, toSym: tunit, amt: amount, sig: P.sig || null });
+    await logActivity({ t: "bridge", k: from, to: NETS[to].name, toK: to, got: Number(outN.toPrecision(6)), a: coinK === "usdc" ? "usdc" : "native", n: coinK === "usdc" ? Number(amount) * USDC_BASE : 0, sym: unit, toSym: tunit, amt: amount, sig: P.sig || null });
     if (usd != null) await countSpend(usd);
     refresh().then(() => { loadActivity(); loadAll(); });
     const finish = (got, link) => {
