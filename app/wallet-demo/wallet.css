@@ -4071,7 +4071,7 @@ html:root[data-theme="light"] #panel .pane.scrolled .phead:not(#z) { background:
 .sw-note { display: flex; align-items: flex-start; gap: 8px; margin: -2px 0 10px; padding: 9px 12px; border-radius: 12px; background: color-mix(in srgb, var(--eb) 12%, transparent); color: var(--ink); font-size: 13.5px; line-height: 1.4; }
 .sw-note svg { flex: none; width: 15px; height: 15px; margin-top: 1px; fill: none; stroke: var(--eb); stroke-width: 2.4; }
 /* Home: a bigger diamond, so the balance and its cents sit well inside the inner edge */
-.home .lz-wrap { width: min(320px, 86vw); height: min(320px, 86vw); margin: -12px auto -16px; }
+.home .lz-wrap { width: min(320px, 86vw, 42vh); height: min(320px, 86vw, 42vh); margin: -12px auto -16px; }
 .home .lz-in { max-width: 200px; }
 /* Swap: "You get" is a field too: type what you want to receive and Ecrin works out what you pay */
 .sx-in.sx-get.ld { opacity: .45; transition: opacity .2s; }

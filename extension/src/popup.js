@@ -2043,6 +2043,7 @@ function sendView() {
       ${nm ? (nm.addr && !nmOk ? `<p class="err">${esc(nm.name)} is ${nm.fam === "sol" ? "a Solana" : "an Ethereum"} address. Switch to that network to send to it.</p>` : namedLine()) : P.to && !ok ? `<p class="err">${otherAddr(P.to.trim()) || `That isn't ${NETS[S.net].fam === "sol" ? "a Solana" : NETS[S.net].fam === "evm" ? "an Ethereum-style" : `a ${NETS[S.net].name}`} address.`}</p>` : ""}
       ${ok ? `<section class="list">${person(to, bookName(to) || (nmOk ? nm.name : ""), `${short(to)} · ${NETS[S.net].name}`)}</section>` : ""}
       ${!ok && bookList().length ? `<p class="who-h">Contacts</p><section class="list">${bookList().map(([ad, n]) => person(ad, n, `${short(ad)}`)).join("")}</section>` : ""}
+      ${!ok && ownAccts().length ? `<p class="who-h">Your accounts</p><section class="list">${ownAccts().map((o) => `<button class="arow who-r" data-act="send-to" data-a="${esc(o.addr)}">${acctIc(o.a)}<span class="ar-t"><b>${esc(o.a.name)}</b><small class="mono">${esc(short(o.addr))}</small></span>${I.arrow}</button>`).join("")}</section>` : ""}
       ${!ok && recent.length ? `<p class="who-h">Recent</p><section class="list">${recent.map((ad) => person(ad, bookName(ad), short(ad))).join("")}</section>` : ""}
       ${!ok && !P.to ? `<div class="who-go"><button class="btn xl" data-act="paste">${I.paste}Paste address</button>${globalThis.ECRIN_WEB ? `<button class="btn xl" data-act="scan">${I.qr}Scan QR code</button>` : ""}</div>` : ""}
       ${!ok && !bookList().length && !recent.length ? `<p class="who-empty">Paste a ${esc(NETS[S.net].name)} address${NETS[S.net].fam === "evm" || NETS[S.net].fam === "sol" ? " or a name (like alice.eth or alice.sol)" : ""}. Check the first and last characters before you send.</p>` : ""}`;
@@ -2285,6 +2286,27 @@ function acctIc(a, cls = "", over) {
     return `<span class="acct-ic av ${cls}" style="--ac:${col}">${letter}</span>`;
   }
   return `<span class="acct-ic gen ${cls}">${logoSVG(lg.s, `${a ? acctSeedAddr(a) : "x"}:${lg.v || 0}`)}</span>`;
+}
+/** Your other accounts' addresses on the network you're sending on (like MetaMask's "Your accounts"), worked out from your
+ *  recovery phrase once and remembered for this session. Accounts from another phrase or key show only when they fit. */
+function ownAccts() {
+  const N = NETS[S.net], f = N.fam, out = []; S.ownCache ||= {};
+  for (const a of S.accts || DEF_ACCTS) {
+    if (a.id === S.sel) continue;
+    const ck = `${a.id}:${S.net}`;
+    if (!(ck in S.ownCache)) {
+      let addr = null;
+      try {
+        if (a.kind === "key") addr = a.fam === f ? a.pub : null;
+        else if (a.kind === "phrase") addr = f === "sol" ? a.solPub || null : f === "evm" ? a.pub || null : null;
+        else if ((a.kind === "hd" || !a.kind) && PHRASE) { const D = deriveAccount(PHRASE, { web3, ethers }, a.i);
+          addr = f === "sol" ? D.sol?.publicKey.toBase58() : f === "evm" ? D.evm?.address : f === "tron" ? (D.tron ? toTron(D.tron.address) : null) : f === "sui" ? suiOf(D) : f === "btc" ? btcAddress(D, N) : f === "xrp" ? xrpAddress(D) : null; }
+      } catch (_) { addr = null; }
+      S.ownCache[ck] = addr;
+    }
+    if (S.ownCache[ck]) out.push({ a, addr: S.ownCache[ck] });
+  }
+  return out;
 }
 const acctAddr = (a) => a.kind === "key" ? a.pub : a.kind === "phrase" ? a.solPub || a.pub : a.id === S.sel ? (ACCT.sol?.publicKey.toBase58() || ACCT.evm?.address) : deriveAccount(PHRASE, { web3, ethers }, a.i).sol.publicKey.toBase58();
 
