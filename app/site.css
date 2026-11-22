@@ -881,3 +881,11 @@ html { -webkit-tap-highlight-color: transparent; }
 .see svg { transition: transform .25s cubic-bezier(.2, .8, .2, 1); } .see:hover svg { transform: translate(2px, -2px); }
 .rn:disabled, .btn:disabled { cursor: default; }
 .foot-links a { min-width: 44px; justify-content: center; }
+/* Support: questions answer hover and press like the FAQ, the + turns, fields light up when you type */
+.sup-q summary { transition: color .2s ease, opacity .15s ease; } .sup-q summary:hover { color: var(--blue); } .sup-q summary:active { opacity: .6; }
+.sup-q summary::after { transition: transform .25s cubic-bezier(.2, .8, .2, 1); } .sup-q[open] summary::after { content: "+"; transform: rotate(45deg); }
+.sup-q[open] p { animation: sq-in .3s cubic-bezier(.2, .8, .2, 1) both; } @keyframes sq-in { from { opacity: 0; transform: translateY(-4px); } }
+:where(.sup-form, form) :is(input, textarea, select) { transition: border-color .2s ease, box-shadow .2s ease; }
+:where(.sup-form, form) :is(input, textarea, select):hover { border-color: var(--line-2); }
+:where(.sup-form, form) :is(input, textarea, select):focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 22%, transparent); }
+@media (prefers-reduced-motion: reduce) { .sup-q[open] p { animation: none; } }
