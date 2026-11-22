@@ -4216,3 +4216,55 @@ html:root[data-theme] #panel .pfoot.kp-foot .kp-bar { margin: -4px 0 -6px; } htm
 .mo-release.run .mo-unlock .shk { transform-origin: 15.5px 11px; animation: mo-shk 1.6s cubic-bezier(.3, 0, .2, 1) infinite; }
 @keyframes mo-shk { 0%, 15% { transform: none; } 45%, 80% { transform: translateY(-2.6px) rotate(-28deg); } 100% { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .mo-release.run .mo-unlock .shk { animation: none; transform: translateY(-2.6px) rotate(-28deg); } }
+
+/* ---------------------------------------------------------------- amount screens with the keypad: everything fits
+   The keypad, the % buttons and the button sit at the bottom; above them, the screen is compact enough to fit on a
+   phone without scrolling: the ⇅ currency switch sits on the same line as the value, smaller gaps, a slimmer rail. */
+html:root[data-theme] #panel .pane:has(.pfoot.kp-foot) .phead { margin-bottom: 0 !important; }
+/* Send */
+html:root[data-theme] #panel .amt:has(.amt-pad) { display: flex !important; flex-wrap: wrap; justify-content: center; align-items: center; column-gap: 8px; row-gap: 4px !important; padding: 6px 0 2px !important; }
+html:root[data-theme] #panel .amt:has(.amt-pad) > .amt-in { flex: 0 0 100%; justify-content: center; }
+html:root[data-theme] #panel .amt:has(.amt-pad) > .amt-usd { margin: 0 !important; }
+html:root[data-theme] #panel .amt:has(.amt-pad) > .fx-sw { margin: 0 !important; height: 28px; padding: 0 10px; font-size: 12.5px; }
+html:root[data-theme] #panel .amt:has(.amt-pad) > .avail { flex: 0 0 100%; margin: 2px 0 0 !important; font-size: 12.5px; }
+html:root[data-theme] #panel .pane:has(.amt-pad) .snd-fee { margin: 8px 0 0 !important; padding: 7px 12px !important; font-size: 13px !important; }
+html:root[data-theme] #panel .pane:has(.amt-pad) .who-chip { min-height: 0 !important; padding-top: 8px !important; padding-bottom: 8px !important; }
+html:root[data-theme] #panel .pane:has(.amt-pad) .from { margin-bottom: 4px !important; padding-top: 6px !important; padding-bottom: 6px !important; }
+/* Protect / Withdraw */
+html:root[data-theme] #panel .mv2:has(.kp-foot) { gap: 8px !important; }
+html:root[data-theme] #panel .mv2:has(.kp-foot) .rail .rt { padding: 8px 12px !important; min-height: 0 !important; }
+html:root[data-theme] #panel .mv2:has(.kp-foot) .rail .rt b { font-size: 18px !important; }
+html:root[data-theme] #panel .mv2:has(.kp-foot) .mv-src .from { padding-top: 6px !important; padding-bottom: 6px !important; margin: 0 !important; }
+html:root[data-theme] #panel .mv2:has(.kp-foot) .mv-to { padding-top: 8px !important; padding-bottom: 8px !important; margin: 0 !important; }
+html:root[data-theme] #panel .mv2:has(.kp-foot) .mv-amt { margin: 4px 0 0 !important; }
+html:root[data-theme] #panel .mv2:has(.kp-foot) .mv-amt b { font-size: clamp(38px, 11vw, 50px) !important; }
+html:root[data-theme] #panel .mv2:has(.kp-foot) .mv-sub { margin: 0 !important; min-height: 0 !important; }
+html:root[data-theme] #panel .mv2:has(.kp-foot) .fx-sw { margin: 0 auto !important; height: 28px; padding: 0 10px; font-size: 12.5px; }
+html:root[data-theme] #panel .mv2:has(.kp-foot) .mv-note { margin: 0 !important; padding: 0 4px !important; font-size: 12.5px !important; line-height: 1.35 !important; }
+/* the dock itself: tighter rows */
+html:root[data-theme] #panel .pfoot.kp-foot .kp-pcts { margin: 0 !important; } html:root[data-theme] #panel .pfoot.kp-foot .kp-pcts button { height: 32px !important; min-height: 0 !important; }
+html:root[data-theme] #panel .pfoot.kp-foot .kp button { height: 44px !important; }
+/* small phones (iPhone SE): a little tighter still */
+@media (max-height: 700px) {
+  html:root[data-theme] #panel .pfoot.kp-foot .kp button { height: 38px !important; font-size: 21px !important; }
+  html:root[data-theme] #panel .pfoot.kp-foot .btn.xl, html:root[data-theme] #panel .pfoot.kp-foot .slide { min-height: 46px !important; height: 46px !important; }
+  html:root[data-theme] #panel .amt-in .amt-pad, html:root[data-theme] #panel .mv2:has(.kp-foot) .mv-amt b { font-size: 40px !important; }
+  html:root[data-theme] #panel .mv2:has(.kp-foot) .rail .rt small { display: none; }
+}
+@media (max-height: 830px) {
+  html:root[data-theme] #panel .mv2:has(.kp-foot) { gap: 6px !important; }
+  html:root[data-theme] #panel .mv2:has(.kp-foot) .rail .rt small { display: none; }
+  html:root[data-theme] #panel .mv2:has(.kp-foot) .rail .rt { padding: 7px 12px !important; }
+}
+@media (max-height: 700px) {
+  html:root[data-theme] #panel .pfoot.kp-foot .kp button { height: 36px !important; }
+  html:root[data-theme] #panel .pfoot.kp-foot .kp-pcts button { height: 30px !important; }
+  html:root[data-theme] #panel .pfoot.kp-foot { padding-top: 6px !important; gap: 2px !important; }
+  html:root[data-theme] #panel .mv2:has(.kp-foot) .mv-note { font-size: 12px !important; }
+}
+@media (max-height: 700px) {
+  html:root[data-theme] #panel .mv2:has(.kp-foot) .mv-to { padding-top: 5px !important; padding-bottom: 5px !important; }
+  html:root[data-theme] #panel .mv2:has(.kp-foot) .rail .rt { padding: 5px 12px !important; }
+  html:root[data-theme] #panel .mv2:has(.kp-foot) .mv-amt b { font-size: 36px !important; }
+  html:root[data-theme] #panel .mv2:has(.kp-foot) .mv-src .from { padding-top: 4px !important; padding-bottom: 4px !important; }
+}
