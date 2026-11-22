@@ -348,7 +348,15 @@ function evmEngine({ ethers, acct, N, dev }) {
         const erc = new ethers.Contract(fromToken, ["function allowance(address,address) view returns (uint256)", "function approve(address,uint256) returns (bool)"], wallet);
         if ((await erc.allowance(wallet.address, to)) < want) { const a = await erc.approve(to, want); const r = await a.wait(); if (!r || r.status !== 1) throw new Error("The approval failed on-chain."); }
       }
-      const t = await wallet.sendTransaction({ to, data: tx.data, value, ...(tx.gasLimit ? { gasLimit: BigInt(tx.gasLimit) } : {}) });
+      // The network only accepts it if you hold the amount plus the most the fee could cost (gas limit × max fee), so
+      // check that here and say it plainly in the right coin, instead of the node's "insufficient funds".
+      const gasLimit = tx.gasLimit ? BigInt(tx.gasLimit) : await provider.estimateGas({ from: wallet.address, to, data: tx.data, value }).catch(() => null);
+      const fd = await provider.getFeeData(), maxFee = fd.maxFeePerGas ?? fd.gasPrice ?? 0n, bal = await provider.getBalance(wallet.address);
+      if (gasLimit && maxFee && bal < value + gasLimit * maxFee) {
+        const f = (x) => Number(ethers.formatEther(x)).toLocaleString("en-US", { maximumSignificantDigits: 3 });
+        throw new Error(`Not enough ${E.unit} on ${E.name} for the network fee: it can take up to ${f(gasLimit * maxFee)} ${E.unit} on top of what you swap, and you have ${f(bal)} ${E.unit}. ${value ? "Lower the amount, or tap Max: it keeps the fee aside." : `Add a little ${E.unit} to this Wallet first.`}`);
+      }
+      const t = await wallet.sendTransaction({ to, data: tx.data, value, ...(gasLimit ? { gasLimit } : {}) });
       emitSent(t.hash); return t.hash;
     },
     /** Slow, normal or fast: the network fee you offer (normal = the network's own suggestion). */

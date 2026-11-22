@@ -2797,10 +2797,10 @@ function revealView() {
 // ------------------------------------------------------------------ actions
 
 function toast(text, kind = "") { if (kind === "err") S.lastErr = { text: String(text).slice(0, 160), at: Date.now(), net: S.net }; const t = $("#toast"); t.innerHTML = `<i class="t-ic" aria-hidden="true"></i><span>${esc(trText(text, S.lang))}</span>`; t.className = "toast show " + kind; clearTimeout(t._t); t._t = setTimeout(() => (t.className = "toast " + kind), 2600); }
-const errText = (e) => {
+const errText = (e, k = S.net) => { // k: the network the transaction was on (a swap from Polygon while Solana is selected)
   const raw = String(e?.shortMessage || e?.message || e);
   if (/429|too many requests|failed to fetch|fetch failed|networkerror|network error|timed? ?out|ECONN|\b50[234]\b|block height exceeded|blockhash not found|server error/i.test(raw)) return `The ${isMain() ? "" : "test "}network is busy right now. Check Activity in a minute, and try again if it didn't go through.`;
-  if (/insufficient funds/i.test(raw)) return `Not enough ${NETS[S.net].unit} for this and the network fee. ${isMain() ? "Use Receive to add some." : "Use Receive to get free test coins."}`;
+  if (/insufficient funds/i.test(raw)) return `Not enough ${NETS[k]?.unit || NETS[S.net].unit} on ${NETS[k]?.name || NETS[S.net].name} for this and the network fee. ${isMain() ? "Use Receive to add some." : "Use Receive to get free test coins."}`;
   if (/user rejected|user denied|rejected the request|cancell?ed by (the )?user|NotAllowedError/i.test(raw)) return "Cancelled. Nothing was sent.";
   if (/nonce too low|replacement (transaction )?underpriced|already known|nonce has already been used/i.test(raw)) return "Your last transaction is still going through. Wait a minute, then try again.";
   if (/no record of a prior credit|AccountNotFound|insufficient lamports|attempt to debit an account but found no record/i.test(raw)) return `Your Wallet needs a little ${NETS[S.net].unit} to pay the network fee. ${isMain() ? "Use Receive to add some." : "Use Receive to get free test coins."}`;
@@ -4494,7 +4494,8 @@ const BR_GAS = { solm: 0.003, ethm: 0.0002, basem: 0.00002, arbm: 0.00002, opm: 
 /** Like MetaMask: the fee comes from the live quote when there is one (its gas cost, with a margin), else the estimate above. */
 const brFee = (id) => {
   const k = brK(id), P = S.panel, q = P?.p === "bridge" && P.quote && brK(P.fa) === k ? P.quote : null, px = brPx(`${k}:native`);
-  const fromQuote = q && q.gasUSD > 0 && px ? (q.gasUSD / px) * 1.3 : 0;
+  // Ethereum-style networks want the most the fee could cost set aside (about twice the usual), not the usual fee.
+  const fromQuote = q && q.gasUSD > 0 && px ? (q.gasUSD / px) * (NETS[k].fam === "evm" ? 2.6 : 1.3) : 0;
   return Math.max(fromQuote, fromQuote ? 0 : BR_GAS[k] ?? 0.0002);
 };
 /** The most you can pay: all of a token; for the network's own coin, all but the fee. */
@@ -4800,7 +4801,7 @@ async function bridgeNow() {
     pill("ok", `Still on its way to ${NETS[to].name}`, "Check Activity in a few minutes");
   } catch (err) {
     console.warn(err); txEvents.sent = null; P.mo = null; P.step = "review"; if (here()) renderPanel(); else txPill(null);
-    toast(errText(err), "err");
+    toast(errText(err, brK(P.fa)), "err");
   }
 }
 
