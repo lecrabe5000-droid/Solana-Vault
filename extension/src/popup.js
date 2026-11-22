@@ -365,7 +365,15 @@ const getJSON = async (url) => { const r = await fetch(url, { cache: "no-store" 
 
 async function spotPrices() {
   // Ecrin's own feed first: fetched once a minute for everyone, so nobody gets rate-limited into "no 24h change".
-  try { const j = await getJSON("https://ecrinprotocol.app/api/prices"); if (j?.prices?.solana?.usd) return j.prices; } catch (_) {}
+  try {
+    const j = await getJSON("https://ecrinprotocol.app/api/prices");
+    if (j?.prices?.solana?.usd) {
+      // a coin the feed couldn't price this minute (XRP, say): ask Coinbase for that one directly, so it never goes blank
+      const miss = Object.keys(SYM).filter((cg) => !(j.prices[cg]?.usd > 0));
+      await Promise.all(miss.map(async (cg) => { try { const t = await getJSON(`https://api.exchange.coinbase.com/products/${SYM[cg]}-USD/stats`); const last = Number(t.last), open = Number(t.open); if (last > 0) j.prices[cg] = { usd: last, usd_24h_change: open > 0 ? ((last - open) / open) * 100 : null }; } catch (_) {} }));
+      return j.prices;
+    }
+  } catch (_) {}
   try { const j = await getJSON(`https://api.coingecko.com/api/v3/simple/price?ids=${Object.keys(SYM).join(",")}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true`); if (j?.solana?.usd) return j; } catch (_) {}
   try {
     const j = await getJSON(`https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(Object.values(SYM).map((x) => x + "USDT")))}`);
@@ -1327,7 +1335,7 @@ function tokenList(w) {
 }
 
 // Live prices for every coin Ecrin supports, held or not: something is always moving on the home screen.
-const MARKET = [["solana", "SOL", "sol", "Solana"], ["ethereum", "ETH", "eth", "Ethereum"], ["hyperliquid", "HYPE", "hype", "Hyperliquid"], ["binancecoin", "BNB", "bnb", "BNB"], ["tron", "TRX", "tron", "TRON"], ["sui", "SUI", "sui", "Sui"], ["avalanche-2", "AVAX", "avax", "Avalanche"], ["polygon-ecosystem-token", "POL", "pol", "Polygon"]];
+const MARKET = [["bitcoin", "BTC", "btc", "Bitcoin"], ["ethereum", "ETH", "eth", "Ethereum"], ["solana", "SOL", "sol", "Solana"], ["ripple", "XRP", "xrp", "XRP"], ["hyperliquid", "HYPE", "hype", "Hyperliquid"], ["binancecoin", "BNB", "bnb", "BNB"], ["tron", "TRX", "tron", "TRON"], ["sui", "SUI", "sui", "Sui"], ["avalanche-2", "AVAX", "avax", "Avalanche"], ["polygon-ecosystem-token", "POL", "pol", "Polygon"]];
 /** Below your coins, like any good wallet: recent activity, shortcuts and the market. */
 function homeMore() {
   const all = S.activity || [];

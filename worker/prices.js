@@ -26,6 +26,18 @@ export function fromCoinbase(stats) {
   return res;
 }
 
+/** Kraken's ticker (one request for every coin) in the same shape. Kraken names some pairs its own way (XXBTZUSD for
+ *  Bitcoin, XXRPZUSD for XRP), so each coin is looked up under the names it may have. */
+export function fromKraken(result, wanted) {
+  const res = {};
+  for (const [id, sym] of wanted) {
+    const k = sym === "BTC" ? "XBT" : sym, t = result?.[`${k}USD`] || result?.[`X${k}ZUSD`] || result?.[`${k}ZUSD`];
+    const last = num(t?.c?.[0]), open = num(t?.o); if (last == null || last <= 0) continue;
+    res[id] = { usd: last, usd_24h_change: open ? ((last - open) / open) * 100 : null, usd_market_cap: null, usd_24h_vol: num(t?.v?.[1]) != null ? num(t.v[1]) * last : null };
+  }
+  return res;
+}
+
 async function getJSON(url) { const r = await fetch(url, { headers: { accept: "application/json" } }); if (!r.ok) throw new Error(String(r.status)); return r.json(); }
 
 export async function handlePrices(request, env) {
@@ -45,6 +57,15 @@ export async function handlePrices(request, env) {
     const stats = {};
     await Promise.all(missing.map(async ([id, sym]) => { try { stats[id] = await getJSON(`https://api.exchange.coinbase.com/products/${sym}-USD/stats`); } catch (_) {} }));
     for (const [id, p] of Object.entries(fromCoinbase(stats))) prices[id] = prices[id] ? { ...prices[id], usd_24h_change: prices[id].usd_24h_change ?? p.usd_24h_change } : p;
+  }
+  // Still missing (Coinbase refuses some requests when they all arrive at once, and doesn't list every coin): Kraken.
+  const still = Object.entries(COINS).filter(([id, sym]) => sym !== "USDC" && !prices[id]);
+  if (still.length) {
+    try {
+      // the full list (a coin Kraken doesn't list would make a request naming it fail for every coin in it)
+      const k = await getJSON("https://api.kraken.com/0/public/Ticker");
+      for (const [id, p] of Object.entries(fromKraken(k?.result, still))) prices[id] = p;
+    } catch (_) {}
   }
   if (!prices.solana) return out({ error: "Prices are unreachable right now." }, 502);
   const res = out({ at: Date.now(), prices }, 200, 60);
