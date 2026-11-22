@@ -268,7 +268,7 @@ function readyView() {
 async function home() {
   if (FULL && S.setupFlow) { S.setupFlow = false; S.screen = "ready"; render(); return; }
   checkUpdate(); loadBackup(); applyPendingLimit(); loadFx();
-  S.screen = "home"; await eng(); S.histAt = 0; S.hist = []; render(); loadActivity();
+  S.screen = "home"; await restoreSnap(); await eng(); S.histAt = 0; S.hist = []; render(); loadActivity();
   loadAll();
   refresh();
   loadPrices();
@@ -457,7 +457,8 @@ async function loadSeriesFor(cg) {
 /** Net worth across every network: what each holds in chequing and savings, priced. The current network's own
  *  reading is the freshest, so it wins over the background sweep. */
 function worth() {
-  const rows = (S.all || []).filter((r) => r.ok && r.k !== S.net);
+  // Until the current network's live balance arrives, its row from the last visit stands in (no empty home on open).
+  const rows = (S.all || []).filter((r) => r.ok && (r.k !== S.net || (!S.bal && r.snap)));
   if (S.bal) rows.push({ k: S.net, b: S.bal, v: S.vault, ok: true });
   const items = [], coins = {}; let usdc = 0, chq = 0, sav = 0, leaving = 0, vaults = 0; const leaveAmt = {};
   for (const r of rows) {
@@ -1428,6 +1429,17 @@ function spark(cg) {
 
 const ACT = { send: ["Sent", I.send], protect: ["Moved to Safe", I.protect], withdraw: ["Withdrawal started", I.clock], release: ["Released to Wallet", I.recv], cancel: ["Withdrawal cancelled", I.shield], vault: ["Safe opened", I.lock] };
 /** Every network at once: reads chequing and savings on each, prices them, and adds it all up. */
+/** Balances from the last visit, per account and network mode: shown the instant the wallet opens, then replaced by
+ *  live ones. Only amounts are kept (no keys, no addresses), in this device's own storage. */
+const snapKey = () => `snap:${S.mode || DEFAULT_MODE}:${curAcct()?.id || "hd0"}`;
+const slimV = (v) => (v ? { main: v.main ? { balance: v.main.balance, withdrawals: (v.main.withdrawals || []).map((x) => ({ amount: x.amount })) } : null, usdc: v.usdc ? { balance: v.usdc.balance, withdrawals: (v.usdc.withdrawals || []).map((x) => ({ amount: x.amount })) } : null } : null);
+function saveSnap(rows) {
+  try { const keep = rows.filter((r) => r.ok && r.b).map((r) => ({ k: r.k, b: JSON.parse(JSON.stringify(r.b, (_, x) => (typeof x === "bigint" ? Number(x) : x))), v: slimV(r.v), ok: true, snap: true }));
+    if (keep.length) local.set({ [snapKey()]: { at: Date.now(), rows: keep } }); } catch (_) {}
+}
+async function restoreSnap() {
+  if (S.all) return; try { const k = snapKey(), o = await local.get(k), sn = o[k]; if (sn?.rows?.length && !S.all) { S.all = sn.rows; S.snapAt = sn.at; } } catch (_) {}
+}
 async function loadAll() {
   const { dev } = await local.get("dev"), acct = ACCT, mode = S.mode;
   const rows = await Promise.all(netKeys().map(async (k) => {
@@ -1439,7 +1451,7 @@ async function loadAll() {
     } catch (_) { return { k, ok: false }; }
   }));
   if (ACCT !== acct || S.mode !== mode) return; // switched account or networks while this was loading
-  S.all = rows; queueMicrotask(checkIncoming);
+  S.all = rows; queueMicrotask(checkIncoming); saveSnap(rows);
   loadExtras(dev);
   if (S.panel?.p === "all") { S.panel.rows = rows; renderPanel(); }
   if (S.panel?.p === "vault" || S.panel?.p === "rules" || S.panel?.p === "nets") renderPanel();
@@ -1772,6 +1784,14 @@ const ACT_LBL = {
   stake: () => ["Staked", I.spark, ""], unstake: () => ["Unstaking started", I.clock, ""], reclaim: () => ["Back in your Safe from staking", I.lock, "in"],
   ap: (e) => [{ connect: `Connected to ${host(e.origin)}`, sign: `Signed a message on ${host(e.origin)}`, solmsg: `Signed a message on ${host(e.origin)}`, typed: `${e.permit ? "Approved spending on" : "Signed for"} ${host(e.origin)}`, tx: `${e.permit ? "Approved spending on" : "Approved a transaction on"} ${host(e.origin)}`, soltx: `Approved a transaction on ${host(e.origin)}`, delegate: "Gave a token permission" }[e.kind] || `Approved on ${host(e.origin)}`, e.permit ? I.warn : I.link, e.permit ? "warn" : ""],
 };
+/** An Activity row's picture, like Exodus: the coin's own logo with a small badge for what happened (sent, received,
+ *  swapped, into the Safe). Coins Ecrin doesn't know by sight keep the action icon with the network in the corner. */
+function actIco(e, cu, ic, cls) {
+  const N = NETS[e.k], unit = e.t === "bridge" ? e.sym : cu;
+  const key = unit === "USDC" ? "usdc" : unit === "USDT" ? "usdt" : N && unit === N.unit ? (N.unit === "ETH" ? "eth" : e.k) : null;
+  if (!key) return `<span class="act-ico">${ic}${e.k ? `<span class="cmini">${coin(e.k)}</span>` : ""}</span>`;
+  return `<span class="act-ico act-coin">${coin(key)}<span class="act-badge ${cls || ""} t-${e.t}">${ic}</span></span>`;
+}
 function actRows(only) {
   const q = only ? "" : (S.actQ || "").trim().toLowerCase(), all = only || S.activity || [];
   const when = (ms) => (ms ? new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "");
@@ -1785,7 +1805,7 @@ function actRows(only) {
     const sign = cls === "out" ? "−" : cls === "in" ? "+" : "";
     const tag = `button data-act="txd" data-i="${ix}"`;
     const safeEv = /^(protect|auto|withdraw|release|cancel|vault|freeze)$/.test(e.t), cu = e.a === "usdc" ? "USDC" : unit;
-    return `${head}<${tag} class="arow act-row ${e.t} ${cls}${safeEv ? " safe-ev" : ""}" style="--cc:${COIN_COL[cu] || "#9aa0b4"}"><span class="act-ico">${ic}${e.k ? `<span class="cmini">${coin(e.k)}</span>` : ""}</span>
+    return `${head}<${tag} class="arow act-row ${e.t} ${cls}${safeEv ? " safe-ev" : ""}" style="--cc:${COIN_COL[cu] || "#9aa0b4"}">${actIco(e, cu, ic, cls)}
       <span class="ar-t"><b>${title}</b><small>${safeEv ? `<em class="sv-tag">${I.lock}Safe</em>` : ""}${when(e.at)}${e.k ? ` · ${N.name}` : ""}</small></span>
       ${e.t === "bridge" && e.amt ? `<span class="ar-r"><b class="pos">${e.got != null ? `+${mask(bxShort(e.got))} ${esc(e.toSym || e.sym || "")}` : `${esc(e.toSym || e.sym || "")}`}</b><small>−${mask(esc(String(e.amt)))} ${esc(e.sym || "")}</small></span>` : ""}
       ${val != null && e.t !== "bridge" ? `<span class="ar-r"><b class="${cls === "out" ? "neg" : cls === "in" ? "pos" : ""}">${sign}${mask(val.toLocaleString("en-US", { maximumFractionDigits: 6 }))} ${esc(unit)}</b>${(() => { const px = cu === "USDC" ? 1 : S.prices[N.cg]?.usd; return px != null && e.t !== "tsend" && !e.sym ? `<small>≈ ${mask(money(val * px))}</small>` : ""; })()}</span>` : ""}</${tag.split(" ")[0]}>`;
@@ -3463,7 +3483,7 @@ const actions = {
     const keys = netKeys(); S.net = keys.find((k) => NETS[k].name === was?.name) || keys[0]; await local.set({ net: S.net });
     Object.assign(S, { bal: null, vault: undefined, all: null, extra: null, hist: null, histAt: 0, activity: null, series: {}, drawChart: true, lzT0: 0 }); ENG = null;
     toast(m === "main" ? "Mainnet" : "Testnet: test coins with no value", m === "main" ? "" : "win");
-    renderPanel(); await eng(); refresh(); loadAll(); loadActivity(); loadSeries();
+    await restoreSnap(); renderPanel(); await eng(); refresh(); loadAll(); loadActivity(); loadSeries();
   },
   net: async (el) => { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; S.drawChart = true; closePanel(); await eng(); loadActivity(); refresh(); loadSeries(); },
   "row-send": async (el) => { if (el.dataset.n !== S.net) { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; await eng(); loadActivity(); await refresh(); } openPanel("send", { a: el.dataset.a }); const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); },
@@ -3597,6 +3617,38 @@ document.addEventListener("input", (e) => {
   else if (t.matches("[data-tick]")) { S.wrote = t.checked; const b = $("#root [data-act='to-verify']"); if (b) b.disabled = !(S.revealed && S.wrote); else render(); }
   else if (t.name === "pw" && t.closest("form")?.querySelector("[data-meter]")) { const m = t.closest("form").querySelector("[data-meter]"); m.dataset.s = strength(t.value); }
 });
+
+// ------------------------------------------------------------------ gestures, like a native app
+// Swipe from the left edge: the screen follows your finger and goes back past a third (or a quick flick).
+// Swipe sideways on Home's list: Tokens ↔ Activity. Vertical scrolling is never taken over (the first 8px decide).
+(() => {
+  let g = null;
+  const reset = (pane) => { if (!pane) return; pane.style.transition = ""; pane.style.transform = ""; pane.style.boxShadow = ""; };
+  document.addEventListener("touchstart", (e) => {
+    g = null; if (e.touches.length !== 1) return; const t = e.touches[0], panel = document.getElementById("panel");
+    if (S.panel && panel?.classList.contains("in") && t.clientX < 26 && S.panel.step !== "sending" && !S.panel.pick) { g = { kind: "back", x0: t.clientX, y0: t.clientY, t0: performance.now(), pane: panel.querySelector(".pane"), dx: 0 }; return; }
+    if (S.screen === "home" && !S.panel && e.target.closest(".home .tab-body, .home .tabs") && !e.target.closest(".bx-nets, .slide, .tk-chart, input, .spark")) g = { kind: "tabs", x0: t.clientX, y0: t.clientY, t0: performance.now(), dx: 0 };
+  }, { passive: true });
+  document.addEventListener("touchmove", (e) => {
+    if (!g) return; const t = e.touches[0], dx = t.clientX - g.x0, dy = t.clientY - g.y0;
+    if (!g.lock) { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; g.lock = Math.abs(dx) > Math.abs(dy) * 1.2 ? "x" : "y"; if (g.lock === "y") { g = null; return; } }
+    g.dx = dx;
+    if (g.kind === "back" && g.pane) { const x = Math.max(0, dx); g.pane.style.transition = "none"; g.pane.style.transform = `translate3d(${x}px, 0, 0)`; g.pane.style.boxShadow = `-24px 0 48px rgba(0, 0, 0, ${(0.4 * (1 - x / innerWidth)).toFixed(2)})`; }
+  }, { passive: true });
+  document.addEventListener("touchend", () => {
+    if (!g) return; const G = g; g = null; const v = G.dx / Math.max(1, performance.now() - G.t0);
+    if (G.kind === "back" && G.pane) {
+      const w = G.pane.clientWidth, go = G.dx > w * 0.33 || (v > 0.45 && G.dx > 40);
+      G.pane.style.transition = `transform ${go ? 0.22 : 0.3}s cubic-bezier(.2, .8, .2, 1), box-shadow .3s`; G.pane.style.transform = go ? `translate3d(${w}px, 0, 0)` : "translate3d(0, 0, 0)";
+      setTimeout(() => { if (go) { haptic("light"); goBack(); } requestAnimationFrame(() => reset(G.pane)); }, go ? 210 : 300);
+    }
+    if (G.kind === "tabs" && Math.abs(G.dx) > 60 && Math.abs(v) > 0.15) {
+      const tabs = [...document.querySelectorAll('.home .tabs [data-act="tab"]')], cur = tabs.findIndex((b) => b.getAttribute("aria-selected") === "true"), nx = tabs[cur + (G.dx < 0 ? 1 : -1)];
+      if (nx) { haptic("light"); nx.click(); }
+    }
+  }, { passive: true });
+  document.addEventListener("touchcancel", () => { if (g?.kind === "back") reset(g.pane); g = null; }, { passive: true });
+})();
 
 // ------------------------------------------------------------------ the press: one feel for everything you can touch
 // Like iOS: whatever you press sinks in a little at once and springs back when you let go (a touch past, then settles).

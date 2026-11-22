@@ -4146,6 +4146,13 @@ html:root[data-theme] #panel .pane.scrolled .phead { background: color-mix(in sr
 .txpill { cursor: pointer; -webkit-user-select: none; user-select: none; }
 .txpill .tp-t::after { content: ""; }
 .txpill:active { filter: brightness(1.12); }
+/* Activity: the coin's logo with a small action badge */
+html:root[data-theme] .act-ico.act-coin { position: relative; width: 40px; height: 40px; background: none !important; box-shadow: none !important; overflow: visible; }
+html:root[data-theme] .act-ico.act-coin > .coin { width: 40px; height: 40px; }
+html:root[data-theme] .act-badge { position: absolute; right: -4px; bottom: -4px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--s3, #2a2d35); color: var(--ink); box-shadow: 0 0 0 2.5px var(--bg-deep, #0c0d0f); }
+html:root[data-theme] .act-badge svg { width: 11px !important; height: 11px !important; stroke-width: 2.4 !important; }
+html:root[data-theme] .act-badge.in { background: #3d6bff; color: #fff; }
+html:root[data-theme] :is(.act-badge.t-protect, .act-badge.t-auto, .act-badge.t-vault, .act-badge.t-cancel) { background: #3d6bff; color: #fff; }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Full screen, edge to edge: the app paints behind the clock and the home bar; only the content keeps clear of them. */
