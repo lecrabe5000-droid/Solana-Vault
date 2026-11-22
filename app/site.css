@@ -821,3 +821,62 @@ td:first-child { color: var(--ink); font-weight: 600; width: 44%; }
 
 /* Small phones: big headings may wrap inside their no-break phrases, so nothing runs off the screen */
 @media (max-width: 420px) { .nb { white-space: normal; } .big-head h2 { font-size: clamp(26px, 8.2vw, 32px); overflow-wrap: anywhere; } }
+
+/* ---------------------------------------------------------------- touch and transitions (feel pass)
+   One feel for everything you can press: no grey flash on phones, a soft press-in, a hover lift on computers,
+   a clear ring for the keyboard, and pages that fade into each other instead of flashing white. */
+html { -webkit-tap-highlight-color: transparent; }
+:where(a, button, summary, [role="button"], label) { touch-action: manipulation; }
+:where(a, button, summary, [role="button"]):focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 999px; }
+:where(p, li, dd, td) a:focus-visible, .faq summary:focus-visible { border-radius: 6px; }
+.btn, .lang, .theme, .menu-btn, .nav-pill a, .rn, .pl-btn, .mcta .btn {
+  transition: transform .18s cubic-bezier(.2, .8, .2, 1), background-color .2s ease, border-color .2s ease, color .2s ease, opacity .2s ease, box-shadow .25s ease, translate .35s cubic-bezier(.2, .8, .2, 1); }
+.btn:active, .lang:active, .theme:active, .menu-btn:active, .rn:active, .mcta .btn:active { transform: scale(.96); transition-duration: .08s; }
+.nav-pill a:active { transform: scale(.95); transition-duration: .08s; }
+.theme:hover, .menu-btn:hover, .rn:hover { border-color: var(--ink); }
+.btn.ghost:hover { background: var(--panel-2); }
+.btn.blue:hover, .btn.ivory:hover { opacity: .9; }
+.btn.blue:active, .btn.primary:active, .btn.ivory:active { opacity: .82; }
+.logo { transition: opacity .2s ease, transform .18s ease; } .logo:hover { opacity: .8; } .logo:active { transform: scale(.97); }
+.faq summary { cursor: pointer; transition: color .2s ease; } .faq summary:hover { color: var(--blue); } .faq summary:active { opacity: .7; }
+.faq details[open] summary::after { transform: rotate(45deg); }
+.mmenu nav a { transition: color .2s ease, padding-left .25s cubic-bezier(.2, .8, .2, 1), background-color .2s ease; }
+.mmenu nav a:active { color: var(--blue); padding-left: 8px; }
+/* the phone menu: links arrive one after another, and the sheet slides away when it closes */
+@media (max-width: 960px) {
+  .mmenu:not([hidden]) nav a { animation: mm-in .42s cubic-bezier(.2, .8, .2, 1) both; }
+  .mmenu:not([hidden]) nav a:nth-child(2) { animation-delay: .03s; } .mmenu:not([hidden]) nav a:nth-child(3) { animation-delay: .06s; }
+  .mmenu:not([hidden]) nav a:nth-child(4) { animation-delay: .09s; } .mmenu:not([hidden]) nav a:nth-child(5) { animation-delay: .12s; }
+  .mmenu:not([hidden]) nav a:nth-child(n+6) { animation-delay: .15s; }
+  .mmenu.closing { animation: mm-out .2s ease both !important; }
+}
+@keyframes mm-in { from { opacity: 0; transform: translateY(10px); } }
+@keyframes mm-out { to { opacity: 0; transform: translateY(-8px); } }
+/* page to page: a quick cross-fade with a small rise; the top bar stays put */
+@view-transition { navigation: auto; }
+.nav { view-transition-name: site-nav; }
+::view-transition-old(root) { animation: vt-out .18s ease both; }
+::view-transition-new(root) { animation: vt-in .32s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes vt-out { to { opacity: 0; } }
+@keyframes vt-in { from { opacity: 0; transform: translateY(10px); } }
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+  .mmenu:not([hidden]) nav a, .mmenu.closing { animation: none !important; }
+  .btn:active, .lang:active, .theme:active, .menu-btn:active, .rn:active, .nav-pill a:active { transform: none; }
+}
+/* footer and in-text links: a full finger-sized target, and they answer the press */
+.foot-links { gap: 0 18px; }
+.foot-links a { display: inline-flex; align-items: center; min-height: 44px; transition: color .2s ease, opacity .15s ease; }
+.foot-links a:active { opacity: .55; }
+.logo { padding: 9px 0; margin: -9px 0; }
+:where(p, li, h3, dd, td, small) a { transition: color .2s ease, opacity .15s ease; }
+:where(p, li, h3, dd, td, small) a:hover { color: var(--blue); }
+:where(p, li, h3, dd, td, small) a:active { opacity: .55; }
+@media (max-width: 960px) { :where(p, li, h3) a:not(.btn) { padding: 10px 0; margin: -10px 0; } }
+/* cards you can press: lift on hover, settle in on press */
+.see, .addr-item, .vf-t { transition: transform .18s cubic-bezier(.2, .8, .2, 1), background-color .2s ease, border-color .2s ease, box-shadow .25s ease, color .2s ease; }
+.see:hover { background: color-mix(in srgb, var(--blue) 20%, transparent); }
+.addr-item:hover, .vf-t:hover { border-color: var(--line-2); transform: translateY(-1px); box-shadow: 0 14px 30px -22px rgba(13, 15, 20, .45); }
+.see:active, .addr-item:active, .vf-t:active { transform: scale(.98); transition-duration: .08s; }
+.see svg { transition: transform .25s cubic-bezier(.2, .8, .2, 1); } .see:hover svg { transform: translate(2px, -2px); }
+.rn:disabled, .btn:disabled { cursor: default; }

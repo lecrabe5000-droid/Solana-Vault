@@ -20,9 +20,15 @@
 
   // Phone menu: a full-screen sheet; any link inside closes it.
   const menuBtn = document.querySelector("[data-menu]"), menu = document.querySelector("[data-mmenu]");
-  const setMenu = (open) => { menu.hidden = !open; menuBtn.setAttribute("aria-expanded", open); root.classList.toggle("menu-open", open); };
-  menuBtn?.addEventListener("click", () => setMenu(menu.hidden));
-  menu?.addEventListener("click", (e) => { if (e.target.closest("a")) setMenu(false); });
+  // It slides away when closing too (not just vanishing), unless a link was tapped: then the next page takes over.
+  const setMenu = (open, now) => {
+    menuBtn.setAttribute("aria-expanded", open); root.classList.toggle("menu-open", open); clearTimeout(menu._t);
+    if (open) { menu.classList.remove("closing"); menu.hidden = false; return; }
+    if (now || matchMedia("(prefers-reduced-motion: reduce)").matches) { menu.hidden = true; return; }
+    menu.classList.add("closing"); menu._t = setTimeout(() => { menu.hidden = true; menu.classList.remove("closing"); }, 200);
+  };
+  menuBtn?.addEventListener("click", () => setMenu(menu.hidden || menu.classList.contains("closing")));
+  menu?.addEventListener("click", (e) => { if (e.target.closest("a")) setMenu(false, true); });
   addEventListener("keydown", (e) => { if (e.key === "Escape" && menu && !menu.hidden) setMenu(false); });
 
   // Comparison and security tables become stacked cards on phones: each cell carries its column name.
