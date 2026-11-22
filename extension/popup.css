@@ -4153,3 +4153,27 @@ html:root[data-theme] .act-badge { position: absolute; right: -4px; bottom: -4px
 html:root[data-theme] .act-badge svg { width: 11px !important; height: 11px !important; stroke-width: 2.4 !important; }
 html:root[data-theme] .act-badge.in { background: #3d6bff; color: #fff; }
 html:root[data-theme] :is(.act-badge.t-protect, .act-badge.t-auto, .act-badge.t-vault, .act-badge.t-cancel) { background: #3d6bff; color: #fff; }
+
+/* ---------------------------------------------------------------- sheets */
+#panel .sheet-bk { position: absolute; inset: 0; z-index: 20; background: rgba(2, 4, 12, .5); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); pointer-events: auto; }
+#panel .sheet-bk.fresh { animation: sh-bk .28s ease both; } #panel .sheet-bk.out { animation: sh-bk .2s ease reverse both; }
+#panel .sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 21; display: flex; flex-direction: column; max-height: calc(100% - max(56px, env(safe-area-inset-top, 0px) + 40px)); padding: 0 16px max(16px, env(safe-area-inset-bottom, 0px)); border-radius: 26px 26px 0 0; pointer-events: auto;
+  background: var(--bg-paint, var(--bg)); background-color: var(--bg-deep, var(--bg)); box-shadow: 0 -1px 0 rgba(255, 255, 255, .08), 0 -24px 60px -20px rgba(0, 0, 0, .7); will-change: transform; }
+:root[data-theme="light"] #panel .sheet { box-shadow: 0 -1px 0 rgba(0, 0, 0, .06), 0 -24px 60px -24px rgba(20, 30, 80, .35); }
+#panel .sheet.fresh { animation: sh-up .42s cubic-bezier(.2, .9, .25, 1) both; } #panel .sheet.out { animation: sh-down .2s cubic-bezier(.4, 0, 1, 1) both; }
+@keyframes sh-up { from { transform: translate3d(0, 100%, 0); } } @keyframes sh-down { to { transform: translate3d(0, 100%, 0); } } @keyframes sh-bk { from { opacity: 0; } }
+.sheet-top { position: relative; display: grid; grid-template-columns: 36px 1fr 36px; align-items: center; min-height: 54px; padding-top: 8px; text-align: center; touch-action: none; cursor: grab; }
+.sheet-top b { grid-column: 2; font-size: 16px; font-weight: 650; } .sheet-top .ib { grid-column: 3; }
+.sheet-grab { position: absolute; top: 7px; left: 50%; width: 38px; height: 5px; margin-left: -19px; border-radius: 3px; background: var(--line-2); }
+.sheet-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding-bottom: 8px; } .sheet-body::-webkit-scrollbar { display: none; }
+.sheet-body > .list:first-child, .sheet-body > section:first-child { margin-top: 4px; }
+/* Home's account and network lists: the whole page is the sheet, Home stays visible and dimmed above it */
+#panel.sheeted.in { background: rgba(2, 4, 12, .5); transition: background-color .3s ease; }
+html:root[data-theme] #panel .pane.as-sheet { top: max(56px, calc(env(safe-area-inset-top, 0px) + 40px)) !important; border-radius: 26px 26px 0 0; box-shadow: 0 -1px 0 rgba(255, 255, 255, .08), 0 -24px 60px -20px rgba(0, 0, 0, .7); transform: translate3d(0, 100%, 0); transition: transform .42s cubic-bezier(.2, .9, .25, 1); }
+html:root[data-theme] #panel.in .pane.as-sheet { transform: none; }
+html:root[data-theme] #panel .pane.as-sheet .phead { position: relative; padding-top: 10px; }
+.pane-grab { position: sticky; display: block; top: 7px; z-index: 5; margin: 7px auto -12px; left: auto; touch-action: none; }
+@media (prefers-reduced-motion: reduce) { #panel .sheet.fresh, #panel .sheet-bk.fresh { animation: none; } }
+/* in a sheet the title bar has no back arrow (swipe down, tap outside or Back closes it) and no band behind it */
+html:root[data-theme] #panel .pane.as-sheet .phead > .ib[data-act="close"] { visibility: hidden; }
+html:root[data-theme] #panel .pane.as-sheet .phead { margin-top: -6px; }

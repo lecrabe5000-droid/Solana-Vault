@@ -1908,7 +1908,8 @@ function goBack() {
   if (P.step === "sending") return; // a transaction is on its way: its sheet stays until it's done
   if (P.p === "earn" && P.step === "done") { P.step = "form"; P.mo = null; P.mode = "home"; P.st = undefined; return renderPanel(); }
   if (P.p === "earn" && (P.mode === "stake" || P.mode === "unstake")) { P.mode = "home"; P.amount = ""; P.pct = null; return renderPanel(); }
-  if (P.p === "bridge" && P.pick) { P.pick = null; return renderPanel(); }
+  if (P.p === "bridge" && P.pick) return actions["br-pick-close"]();
+  if (P.picking) return actions["pick-close"]();
   if (P.p === "bridge" && P.step === "review") { P.step = "form"; return renderPanel(); }
   if (P.p === "send" && P.step === "form" && P.whoDone) { P.whoDone = false; P.anim = false; return renderPanel(); }
   if (P.step === "review" || P.step === "to") { P.step = P.p === "withdraw" && P.step === "review" && P.dest ? "form" : "form"; P.anim = false; return renderPanel(); }
@@ -1959,7 +1960,35 @@ function patchPanel() {
   const view = views[P.p]; if (!view) return renderPanel();
   const tmp = document.createElement("div"); tmp.innerHTML = view(); translate(tmp, S.lang);
   const next = pane.cloneNode(false); next.append(...tmp.childNodes); morph(pane, next);
+  const shNow = el.querySelector(".sheet"), shWant = sheetOf(P);
+  if (!!shNow !== !!shWant) return renderPanel();
   bindHolds(el); depth(el); bxScroll(el); queueMicrotask(syncTabbar);
+}
+// ------------------------------------------------------------------ sheets: pickers that slide up over the screen
+// The swap's coin picker, and the coin picker of Send / Receive / Protect / Withdraw / Request, open as a sheet over the
+// screen you're on (it stays there, dimmed), close with a swipe down, a tap outside, or Back. Opened from Home, the
+// account and network lists are sheets too.
+const SHEET_PANES = new Set(["accts", "nets"]);
+function sheetOf(P) {
+  if (!P) return null;
+  if (P.p === "bridge" && P.pick) { S.sheetBuild = true; try { return { t: P.pick === "from" ? "Pay with" : "Get", html: bridgeView(), close: "br-pick-close" }; } finally { S.sheetBuild = false; } }
+  if (P.picking) {
+    const real = S.panel; S.panel = { p: "pick", back: P.p, step: "form", openG: P.openG };
+    try { return { t: { send: "Send which coin?", protect: "Protect which coin?", withdraw: "Withdraw which coin?", receive: "Receive which coin?", payreq: "Request which coin?" }[P.p] || "Choose a coin", html: pickView().replace(/<header class="phead">[\s\S]*?<\/header>/, ""), close: "pick-close" }; }
+    finally { S.panel = real; }
+  }
+  return null;
+}
+function sheetHTML(P) {
+  const sh = sheetOf(P); if (!sh) return "";
+  const fresh = P.sheetFresh; P.sheetFresh = false;
+  return `<div class="sheet-bk${fresh ? " fresh" : ""}" data-act="${sh.close}" aria-hidden="true"></div>
+    <div class="sheet${fresh ? " fresh" : ""}" role="dialog" aria-label="${esc(sh.t)}"><div class="sheet-top" data-sheet-grab><i class="sheet-grab" aria-hidden="true"></i><b>${esc(sh.t)}</b><button class="ib sm" data-act="${sh.close}" aria-label="Close">${I.x}</button></div><div class="sheet-body">${sh.html}</div></div>`;
+}
+function closeSheet(after) {
+  const sh = document.querySelector("#panel .sheet"), bk = document.querySelector("#panel .sheet-bk");
+  if (!sh || pressReduced.matches) return after();
+  sh.classList.add("out"); bk?.classList.add("out"); setTimeout(after, 200);
 }
 function renderPanel(enter = false) {
   if (S.holdPanel && !enter) { S.panelDirty = true; return; } // a moment is playing on this page: redraw right after it
@@ -1972,7 +2001,8 @@ function renderPanel(enter = false) {
   // A coin's page grows out of the row you tapped (the home screen stays where it is); other pages slide in.
   if (enter) { P.grow = S.grow || null; S.grow = null; }
   const grow = P.grow && performance.now() - (P.openedAt || 0) < 700 ? P.grow : null;
-  el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}${since < 2300 ? " trace" : ""}${grow ? " grow" : ""}" style="--tt:${-Math.round(since)}ms${grow ? `;--gx:${Math.round(grow.x)}px;--gy:${Math.round(grow.y)}px` : ""}">${body}</div>`; translate(el, S.lang);
+  el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}${since < 2300 ? " trace" : ""}${grow ? " grow" : ""}${SHEET_PANES.has(P.p) && !S.pstack?.length ? " as-sheet" : ""}" style="--tt:${-Math.round(since)}ms${grow ? `;--gx:${Math.round(grow.x)}px;--gy:${Math.round(grow.y)}px` : ""}">${SHEET_PANES.has(P.p) && !S.pstack?.length ? `<i class="sheet-grab pane-grab" data-sheet-grab aria-hidden="true"></i>` : ""}${body}</div>${sheetHTML(P)}`; translate(el, S.lang);
+  el.classList.toggle("sheeted", SHEET_PANES.has(P.p) && !S.pstack?.length);
   if (enter) document.body.classList.toggle("grow-open", !!grow);
   P.fresh = false;
   if (enter) requestAnimationFrame(() => { el.classList.add("in"); document.body.classList.add("stacked"); });
@@ -3122,10 +3152,10 @@ const actions = {
     const k = best?.k || P.n || (P.u === "SOL" ? "sol" : P.u === "POL" ? "pol" : "eth"), a = P.u === "USDC" ? "usdc" : "native";
     await useNet(k); openPanel(p, { a }); if (p === "send" || p === "protect" || p === "swap") { const e = await eng(); S.panel.reserve = await e.reserve(a); renderPanel(); } },
   "mkt-all": () => { S.mktAll = !S.mktAll; render(); },
-  "pick-grp": (el) => { const g = el.dataset.g; S.panel.openG = S.panel.openG === g ? null : g; patchPanel ? patchPanel() : renderPanel(); },
-  "pick-coin": () => { const P = S.panel; if (!P) return; pushPanel("pick"); S.panel = { p: "pick", back: P.p, step: "form", keep: P.p === "send" && P.to ? { to: P.to, whoDone: P.whoDone } : null }; renderPanel(); },
+  "pick-grp": (el) => { const g = el.dataset.g; S.panel.openG = S.panel.openG === g ? null : g; S.panel.picking ? renderPanel() : patchPanel(); },
+  "pick-coin": () => { const P = S.panel; if (!P) return; P.picking = true; P.sheetFresh = true; renderPanel(); },
   "pick-go": async (el) => {
-    const keep = S.panel?.keep; await useNet(el.dataset.n);
+    const cur = S.panel, keep = cur?.keep || (cur?.p === "send" && cur.to ? { to: cur.to, whoDone: cur.whoDone } : null); await useNet(el.dataset.n);
     // Send keeps who you were sending to, if that address works on the coin's network.
     const k2 = keep && (await eng()).isAddress(keep.to.trim()) ? keep : {};
     S.panel = null; openPanel(el.dataset.p, { a: el.dataset.a, ...k2 }); if (el.dataset.p !== "receive" && el.dataset.p !== "withdraw") { const e = await eng(); S.panel.reserve = await e.reserve(S.panel.asset); renderPanel(); } },
@@ -3220,7 +3250,9 @@ const actions = {
   },
   "swap-pct": (el) => { const P = S.panel, p = BigInt(el.dataset.v), m = swapMaxRaw(P.from), u = (m * p) / 100n; P.pct = Number(p); P.amount = u ? String(fromRaw(u, P.from.dec)) : ""; swapQuoteSoon(0); },
   "swap-review": () => { const P = S.panel; if (!P.quote) return; P.step = "review"; renderPanel(); },
-  "br-pick": (el) => { const P = S.panel; P.pick = el.dataset.v; P.q = ""; P.qnet = ""; renderPanel(); bxSearch(P); setTimeout(() => { if (!globalThis.ECRIN_WEB) $("#panel [data-brq]")?.focus(); }, 250); },
+  "br-pick-close": () => closeSheet(() => { const P = S.panel; if (P) { P.pick = null; renderPanel(); } }),
+  "pick-close": () => closeSheet(() => { const P = S.panel; if (P) { P.picking = false; renderPanel(); } }),
+  "br-pick": (el) => { const P = S.panel; P.sheetFresh = true; P.pick = el.dataset.v; P.q = ""; P.qnet = ""; renderPanel(); bxSearch(P); setTimeout(() => { if (!globalThis.ECRIN_WEB) $("#panel [data-brq]")?.focus(); }, 250); },
   "br-coin": (el) => {
     const P = S.panel, side = el.dataset.k, ids = bxCoins(brAssets()).get(el.dataset.v) || []; if (!ids.length) return;
     const curK = brK(side === "from" ? P.fa : P.ta), other = side === "from" ? P.ta : P.fa;
@@ -3626,17 +3658,28 @@ document.addEventListener("input", (e) => {
   const reset = (pane) => { if (!pane) return; pane.style.transition = ""; pane.style.transform = ""; pane.style.boxShadow = ""; };
   document.addEventListener("touchstart", (e) => {
     g = null; if (e.touches.length !== 1) return; const t = e.touches[0], panel = document.getElementById("panel");
+    const grab = e.target.closest?.("[data-sheet-grab]"); if (grab) { const el = grab.closest(".sheet") || grab.closest(".pane"); g = { kind: "sheet", el, pane: grab.closest(".pane"), y0: t.clientY, x0: t.clientX, t0: performance.now(), dy: 0 }; return; }
     if (S.panel && panel?.classList.contains("in") && t.clientX < 26 && S.panel.step !== "sending" && !S.panel.pick) { g = { kind: "back", x0: t.clientX, y0: t.clientY, t0: performance.now(), pane: panel.querySelector(".pane"), dx: 0 }; return; }
     if (S.screen === "home" && !S.panel && e.target.closest(".home .tab-body, .home .tabs") && !e.target.closest(".bx-nets, .slide, .tk-chart, input, .spark")) g = { kind: "tabs", x0: t.clientX, y0: t.clientY, t0: performance.now(), dx: 0 };
   }, { passive: true });
   document.addEventListener("touchmove", (e) => {
     if (!g) return; const t = e.touches[0], dx = t.clientX - g.x0, dy = t.clientY - g.y0;
+    if (g.kind === "sheet") { g.dy = Math.max(0, dy); g.el.style.transition = "none"; g.el.style.transform = `translate3d(0, ${g.dy}px, 0)`; return; }
     if (!g.lock) { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; g.lock = Math.abs(dx) > Math.abs(dy) * 1.2 ? "x" : "y"; if (g.lock === "y") { g = null; return; } }
     g.dx = dx;
     if (g.kind === "back" && g.pane) { const x = Math.max(0, dx); g.pane.style.transition = "none"; g.pane.style.transform = `translate3d(${x}px, 0, 0)`; g.pane.style.boxShadow = `-24px 0 48px rgba(0, 0, 0, ${(0.4 * (1 - x / innerWidth)).toFixed(2)})`; }
   }, { passive: true });
   document.addEventListener("touchend", () => {
     if (!g) return; const G = g; g = null; const v = G.dx / Math.max(1, performance.now() - G.t0);
+    if (G.kind === "sheet") {
+      const vy = G.dy / Math.max(1, performance.now() - G.t0), go = G.dy > 110 || (vy > 0.5 && G.dy > 30), h = G.el.offsetHeight;
+      G.el.style.transition = `transform ${go ? 0.2 : 0.32}s cubic-bezier(.2, .8, .2, 1)`; G.el.style.transform = go ? `translate3d(0, ${h}px, 0)` : "translate3d(0, 0, 0)";
+      setTimeout(() => {
+        if (go) { haptic("light"); const P = S.panel; if (G.el.classList.contains("sheet")) { if (P?.pick) { P.pick = null; renderPanel(); } else if (P?.picking) { P.picking = false; renderPanel(); } } else closePanel(); }
+        requestAnimationFrame(() => { G.el.style.transition = ""; G.el.style.transform = ""; });
+      }, go ? 190 : 320);
+      return;
+    }
     if (G.kind === "back" && G.pane) {
       const w = G.pane.clientWidth, go = G.dx > w * 0.33 || (v > 0.45 && G.dx > 40);
       G.pane.style.transition = `transform ${go ? 0.22 : 0.3}s cubic-bezier(.2, .8, .2, 1), box-shadow .3s`; G.pane.style.transform = go ? `translate3d(${w}px, 0, 0)` : "translate3d(0, 0, 0)";
@@ -4700,7 +4743,7 @@ function bridgeView() {
   }
 
   // ---- choosing a coin: search, your coins first, then every coin, filtered by network
-  if (P.pick) return `${phead(P.pick === "from" ? "Pay with" : "Get")}
+  if (P.pick && S.sheetBuild) return `
     <div class="bx-pick">
       <label class="bx-search">${I.search || `<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>`}<input data-brq placeholder="Search a coin" value="${esc(P.q || "")}" autocomplete="off" autocapitalize="none" spellcheck="false"/></label>
       <div id="brlist">${bxList(P, all)}</div>
