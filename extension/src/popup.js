@@ -1258,7 +1258,7 @@ function lozShares(w) {
 function lozenge(w, loading) {
   const sh = loading ? [] : lozShares(w), safe = !loading && w.total ? w.sav / w.total : 0, G = sh.length > 1 ? 0.9 : 0;
   let at = 0;
-  const segs = sh.map(({ u, f }, i) => { const len = Math.max(0.6, f * 100 - G); const d = `<rect class="lz-seg r${Math.min(i, 3)}" x="38" y="38" width="144" height="144" rx="30" pathLength="100" style="--cc:${COIN_COL[u] || "#9aa0b4"};stroke-dasharray:${len.toFixed(2)} ${(100 - len).toFixed(2)};stroke-dashoffset:${(-at).toFixed(2)};--o:${(-at).toFixed(2)}"/>`; at += f * 100; return d; }).join("");
+  const segs = sh.map(({ u, f }, i) => { const len = Math.max(0.6, f * 100 - G); const d = `<rect class="lz-seg r${Math.min(i, 3)}" data-u="${u}" x="38" y="38" width="144" height="144" rx="30" pathLength="100" style="--cc:${COIN_COL[u] || "#9aa0b4"};stroke-dasharray:${len.toFixed(2)} ${(100 - len).toFixed(2)};stroke-dashoffset:${(-at).toFixed(2)};--o:${(-at).toFixed(2)}"/>`; at += f * 100; return d; }).join("");
   // The opening spin lasts 2.2s; a re-render in that time picks the animation up where it was, so it never restarts or cuts.
   if (!loading && !S.lzT0) S.lzT0 = performance.now();
   const el = S.lzT0 ? performance.now() - S.lzT0 : 1e9, draw = el < 2300;
@@ -4584,12 +4584,28 @@ async function checkIncomingNow() {
   for (const x of got) if (["evm", "sui"].includes(NETS[x.i.k]?.fam)) logActivity({ t: "recv", a: x.i.a, n: Math.round(x.d * (x.i.a === "usdc" ? USDC_BASE : BASE)), k: x.i.k }).then(loadActivity);
   if (document.hidden && window.Notification?.permission === "granted") try { new Notification("Ecrin Wallet", { body: `Received ${n(g.d)} ${g.i.unit} on ${g.i.net}`, icon: "/icon2-192.png" }); } catch (_) {}
   // one animation at a time: a newer arrival replaces one that hasn't played yet, and nothing replays on re-render
+  // what arrived, in dollars: the net worth counts up by that much, and that coin's part of the diamond glows
+  const add = got.reduce((t, x) => { const amt = x.i.chq + (x.i.sav || 0), px = x.i.usd != null && amt > 0 ? x.i.usd / amt : 0; return t + x.d * px; }, 0);
+  S.recvMeta = { u: g.i.unit, from: Math.max(0, w.total - add), to: w.total };
   S.recvQ = label; playRecv();
 }
 // Played only where you can see it: on home, app in front. Otherwise it waits until you are.
 function playRecv() {
   if (!S.recvQ || document.hidden || S.screen !== "home" || document.querySelector(".fx-recv")) return;
-  const l = S.recvQ; S.recvQ = null; recvFx(l);
+  const l = S.recvQ, m = S.recvMeta; S.recvQ = null; S.recvMeta = null; recvFx(l);
+  if (m && !pressReduced.matches) { if (m.to > m.from && !S.hide) worthCountUp(m.from, m.to); setTimeout(() => glowSeg(m.u), 450); }
+}
+/** The coin that just arrived lights up its part of the diamond once. */
+function glowSeg(u) {
+  for (const e of document.querySelectorAll(`.lz-seg[data-u="${CSS.escape(u)}"]`)) e.animate([{ strokeWidth: 2.2, filter: "none" }, { strokeWidth: 5.5, filter: "drop-shadow(0 0 9px var(--cc))", offset: 0.3 }, { strokeWidth: 2.2, filter: "none" }], { duration: 1800, easing: "cubic-bezier(.2, .8, .2, 1)" });
+}
+/** Net worth counts up from what it was to what it is now (eased), then hands back to the live number. */
+function worthCountUp(from, to) {
+  const big = document.querySelector(".lz-in .big"); if (!big) return;
+  const t0 = performance.now(), dur = 1100, ease = (x) => 1 - Math.pow(1 - x, 3);
+  const step = () => { const el = document.querySelector(".lz-in .big"); if (!el) return; const k = Math.min(1, (performance.now() - t0) / dur), v = from + (to - from) * ease(k);
+    el.innerHTML = fig(money(v)); if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
 }
 document.addEventListener("visibilitychange", playRecv);
 

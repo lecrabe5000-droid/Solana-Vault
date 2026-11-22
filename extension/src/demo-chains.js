@@ -12,7 +12,7 @@ import { ed25519 } from "@noble/curves/ed25519";
 export { NETS, BASE, USDC_BASE, modeNets };
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-const books = {};
+const books = {}; globalThis.__demoBooks = books; // demo only: lets a test simulate coins arriving
 const now = () => Math.floor(Date.now() / 1000);
 
 export function engine({ acct, net }) {
