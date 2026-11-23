@@ -4290,3 +4290,7 @@ html:root[data-theme] #panel .sx.kp-open { margin-top: auto !important; }
   html:root[data-theme] #panel .mv2:has(.kp-foot) > .mv-amt, html:root[data-theme] #panel .pane > .amt:has(.amt-pad), html:root[data-theme] #panel .sx.kp-open { margin-top: 4px !important; }
   html:root[data-theme] #panel .mv2:has(.kp-foot) { gap: 4px !important; }
 }
+
+/* A sheet (Accounts, Networks) rises over the home: the home stays centred and only dims, it never slides sideways. */
+html:root[data-theme] body.stacked:has(#panel .pane.as-sheet) #root { transform: none !important; filter: brightness(.55) !important; border-radius: 0 !important; }
+html:root[data-theme="light"] body.stacked:has(#panel .pane.as-sheet) #root { filter: brightness(.8) !important; }

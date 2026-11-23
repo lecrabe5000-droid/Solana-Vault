@@ -4291,6 +4291,10 @@ html:root[data-theme] #panel .sx.kp-open { margin-top: auto !important; }
   html:root[data-theme] #panel .mv2:has(.kp-foot) { gap: 4px !important; }
 }
 
+/* A sheet (Accounts, Networks) rises over the home: the home stays centred and only dims, it never slides sideways. */
+html:root[data-theme] body.stacked:has(#panel .pane.as-sheet) #root { transform: none !important; filter: brightness(.55) !important; border-radius: 0 !important; }
+html:root[data-theme="light"] body.stacked:has(#panel .pane.as-sheet) #root { filter: brightness(.8) !important; }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Down to the very bottom of the screen: as a home-screen app, an iPhone can report a viewport shorter than the screen,
    which left a strip of bare page under every screen. The app is as tall as the tallest viewport the phone reports,
