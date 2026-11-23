@@ -302,6 +302,27 @@ async function pushCheck() {
   if (!pushPossible() || Notification.permission !== "granted") { S.pushOn = false; return; }
   try { const reg = await navigator.serviceWorker.getRegistration("/"); S.pushOn = !!(await reg?.pushManager.getSubscription()) && !!(await local.get("pushOn")).pushOn; } catch (_) { S.pushOn = false; }
 }
+async function pushSub() {
+  if ((await Notification.requestPermission()) !== "granted") throw new Error(/iPhone|iPad/.test(navigator.userAgent) && !navigator.standalone ? "On iPhone, add Ecrin to your Home Screen first (Share → Add to Home Screen), then turn this on from there." : "Notifications are blocked for this site. Allow them in your browser's settings, then try again.");
+  const reg = await navigator.serviceWorker.register("/sw.js").then(() => navigator.serviceWorker.ready);
+  const { key } = await fetch("/api/push/key").then((r) => r.json());
+  return (await reg.pushManager.getSubscription()) || (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uBytes(key) }));
+}
+// Price alerts (phone app): kept on the server, which checks prices every 5 minutes and sends one notification.
+const paOk = () => !!globalThis.ECRIN_WEB && pushPossible() && !globalThis.ECRIN_DEMO;
+async function paLoad() {
+  try { const reg = await navigator.serviceWorker.getRegistration(), sub = await reg?.pushManager.getSubscription(); if (!sub) { S.pxAl = []; return; }
+    const j = await fetch("/api/price-alerts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ endpoint: sub.endpoint }) }).then((r) => r.json());
+    S.pxAl = Array.isArray(j?.alerts) ? j.alerts : []; } catch (_) { if (!Array.isArray(S.pxAl)) S.pxAl = []; }
+}
+/** The phone's "moves more than 5 / 10% in a day" setting, kept on the server too (only once notifications are allowed). */
+async function paSyncMove(cg, v) {
+  if (!paOk() || window.Notification?.permission !== "granted") return;
+  try { const sub = await pushSub(); (await navigator.serviceWorker.ready).active?.postMessage({ type: "ecrin-open", app: "wallet" });
+    if (v) await fetch("/api/price-alert", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sub: sub.toJSON(), lang: S.lang, cg, dir: "move", price: v }) });
+    else for (const pc of [5, 10]) await fetch("/api/price-alert/remove", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ endpoint: sub.endpoint, cg, dir: "move", price: pc }) });
+  } catch (_) {}
+}
 async function pushStart() {
   const t = pushTargets();
   if (!t.length) throw new Error(isMain() ? "Safe alerts follow your Safe, which runs on Testnet for now." : "Open your Safe first: alerts follow what's in it.");
@@ -317,7 +338,7 @@ async function pushStart() {
 }
 async function pushStop() {
   try { const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription();
-    if (sub) { await fetch("/api/push/unsubscribe", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ endpoint: sub.endpoint }) }).catch(() => {}); await sub.unsubscribe().catch(() => {}); } } catch (_) {}
+    if (sub) { await fetch("/api/push/unsubscribe", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ endpoint: sub.endpoint }) }).catch(() => {}); if (!S.pxAl?.length && !Object.values(S.palerts || {}).some(Boolean)) await sub.unsubscribe().catch(() => {}); } } catch (_) {}
   await local.set({ pushOn: false }); S.pushOn = false;
 }
 async function offerBio() {
@@ -2877,6 +2898,9 @@ function bugView() {
 }
 // What's new: shown once after an update (never on a fresh install), and any time from Settings → About.
 const NEWS = [
+  ["Price alerts that reach you", "On your phone, open a coin and set a price: Ecrin tells you when it goes above or below, even when the app is closed. Daily-move alerts now reach you closed too."],
+  ["Safer sending", "A look-alike of an address you used gets a red warning, and an address you've never sent to gets a gentle check. Your contacts and your own accounts don't."],
+  ["Several wallets, tidy", "Create a new wallet with its own 12 words (with its own backup check), see all wallets' total, and reorder your accounts. In Chrome, Ecrin can stay open in the side panel."],
   ["The Safe on Sui", "With early access on, the Safe now runs on Sui mainnet too, next to Base, Ethereum, Arbitrum, Optimism, Polygon, BNB Chain and Avalanche. It hasn't been audited yet: keep amounts small."],
   ["Small fixes", "Searching \"bit\" puts Bitcoin first, an address with spaces around it is accepted, typing an address from another network no longer loses letters, and the Accounts sheet stays centred."],
   ["Feels like an app", "Swipe from the left edge to go back, swipe between Tokens and Activity, pickers slide up as sheets, and everything you tap answers with a soft press."],
@@ -3043,8 +3067,13 @@ const actions = {
   "tb-home": () => { if (S.panel) return closePanel(); $("#root").scrollTo({ top: 0, behavior: "smooth" }); },
   "tb-go": (el) => { if (S.panel?.p === el.dataset.p) return; if (S.panel) { S.panel = null; $("#panel").innerHTML = ""; } openPanel(el.dataset.p); },
   speed: (el) => { S.panel.speed = el.dataset.v; renderPanel(); },
-  palert: async (el) => { S.palerts = { ...(S.palerts || {}), [el.dataset.cg]: Number(el.dataset.v) }; await local.set({ palerts: S.palerts }); renderPanel(); checkPriceAlerts(); },
-  "palert-notify": async () => { try { await Notification.requestPermission(); } catch (_) {} renderPanel(); },
+  palert: async (el) => { S.palerts = { ...(S.palerts || {}), [el.dataset.cg]: Number(el.dataset.v) }; await local.set({ palerts: S.palerts }); paSyncMove(el.dataset.cg, Number(el.dataset.v)); renderPanel(); checkPriceAlerts(); },
+  "palert-notify": async () => {
+    try { await Notification.requestPermission(); } catch (_) {}
+    // the coins already set now also reach this phone with Ecrin closed
+    if (window.Notification?.permission === "granted") for (const [cg, v] of Object.entries(S.palerts || {})) if (v) await paSyncMove(cg, v);
+    renderPanel();
+  },
   // Request opens on a coin you hold (the biggest), not on whatever network happens to be selected.
   "home-req": async () => {
     const best = worth().items.filter((i) => i.chq > 0 && !NETS[i.k]?.test === isMain()).sort((x, y) => (y.usd || 0) - (x.usd || 0))[0];
@@ -3200,6 +3229,27 @@ const actions = {
       catch (_) { toast("Done. Click the Ecrin button in Chrome's toolbar to open it in the side panel."); }
     } else toast(on ? "Ecrin now opens in the side panel." : SIDE ? "The Ecrin button opens the popup again. You can close this panel." : "Ecrin opens as a popup again.");
     renderPanel();
+  },
+  "pa-open": () => { const P = S.panel; P.paOpen = !P.paOpen; haptic("light"); patchPanel(); },
+  "pa-dir": (el) => { const P = S.panel; P.paDir = el.dataset.v; P.paPrice = undefined; patchPanel(); },
+  "pa-set": async () => {
+    const P = S.panel, price = Number(String($("#panel [data-pa-price]")?.value || "").replace(",", ".")), dir = P.paDir || "above", cg = P.cg;
+    if (!(price > 0)) return toast("Enter a price above zero.", "err");
+    P.paPrice = String(price); P.paBusy = true; patchPanel();
+    try {
+      const sub = await pushSub(); (await navigator.serviceWorker.ready).active?.postMessage({ type: "ecrin-open", app: "wallet" }); // a tap opens the wallet
+      const r = await fetch("/api/price-alert", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sub: sub.toJSON(), lang: S.lang, cg, dir, price }) });
+      const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || "Price alerts aren't available right now. Try again in a minute.");
+      S.pxAl = [...(S.pxAl || []).filter((a) => !(a.cg === cg && a.dir === dir && a.price === price)), { cg, dir, price }];
+      P.paPrice = undefined; haptic("light"); toast(`We'll tell you when ${P.u} goes ${dir} $${price.toLocaleString("en-US")}.`, "win");
+    } catch (e) { toast(e.message, "err"); }
+    P.paBusy = false; patchPanel();
+  },
+  "pa-del": async (el) => {
+    const cg = S.panel.cg, dir = el.dataset.dir, price = Number(el.dataset.price);
+    try { const reg = await navigator.serviceWorker.getRegistration(), sub = await reg?.pushManager.getSubscription();
+      if (sub) await fetch("/api/price-alert/remove", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ endpoint: sub.endpoint, cg, dir, price }) }); } catch (_) {}
+    S.pxAl = (S.pxAl || []).filter((a) => !(a.cg === cg && a.dir === dir && a.price === price)); haptic("light"); patchPanel();
   },
   "peek-small": () => { S.peekSmall = !S.peekSmall; haptic("light"); render(); },
   "imp-mode": (el) => { S.panel.mode = el.dataset.v; renderPanel(); },
@@ -4024,7 +4074,8 @@ async function checkPriceAlerts() {
 function alertsView() {
   const al = S.palerts || {}, on = Object.values(al).filter(Boolean).length;
   const LOGO = { solana: "sol", ethereum: "eth", binancecoin: "bnb", "avalanche-2": "avax", tron: "tron", "polygon-ecosystem-token": "pol", hyperliquid: "hype", sui: "sui" };
-  const canPush = !!window.Notification, pushOn = canPush && Notification.permission === "granted";
+  // Only the phone app can be reached with Ecrin closed (the server sends it); in the extension, alerts show while it's open.
+  const canPush = paOk(), pushOn = canPush && Notification.permission === "granted";
   return `${phead("Price alerts")}
     <div class="pa-hero"><span class="pa-ic">${I.spark}</span><b>${on ? `${on} alert${on > 1 ? "s" : ""} on` : "No alerts yet"}</b><small>Get a note when a coin moves more than you choose in a day. Once per coin and direction, each day.</small></div>
     <section class="list pa-list">${ALERT_COINS.map(([cg, unit]) => { const p = S.prices[cg], ch = p?.usd_24h_change, v = al[cg] || 0;
@@ -4033,7 +4084,7 @@ function alertsView() {
         <span class="pa-seg" role="group" aria-label="${unit} alert">${[0, 5, 10].map((x) => `<button data-act="palert" data-cg="${cg}" data-v="${x}" aria-label="${x ? `${x}%` : "Off"}" aria-pressed="${v === x}"${v === x ? ' class="on"' : ""}>${x ? `${x}%` : `<svg class="pa-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 10.6-3.8M18 12v2.5l1.5 2.5H8M10.5 20a1.8 1.8 0 0 0 3 0M4 4l16 16"/></svg>`}</button>`).join("")}</span></div>`; }).join("")}</section>
     ${canPush ? `<section class="list pa-push"><button class="arow" data-act="palert-notify" ${pushOn ? "disabled" : ""}><span class="pa-ic sm">${I.bell || I.check}</span>
       <span class="ar-t"><b>Notify me outside the app</b><small>${pushOn ? "On: alerts reach you even when Ecrin is closed." : Notification.permission === "denied" ? "Blocked. Allow notifications for Ecrin in your phone's settings." : "Allow notifications so alerts reach you when Ecrin is closed."}</small></span>
-      <span class="pa-sw${pushOn ? " on" : ""}" aria-hidden="true"><i></i></span></button></section>` : ""}`;
+      <span class="pa-sw${pushOn ? " on" : ""}" aria-hidden="true"><i></i></span></button></section>` : `<p class="fine pad">Alerts show while Ecrin is open. On your phone, the Ecrin app can notify you even when it's closed.</p>`}`;
 }
 
 /* ------------------------------------------------------------------ names */
@@ -5214,6 +5265,21 @@ const ABOUT = {
   POL: "POL is the coin of Polygon, a network with low fees that runs the same apps as Ethereum. It pays the fees on Polygon and secures the network.",
   USDC: "USD Coin is a digital dollar issued by Circle. Each USDC is backed by cash and short-term US government bonds, so its price stays close to $1.",
 };
+function paBlock(P, px) {
+  if (S.pxAl === undefined) { S.pxAl = []; paLoad().then(() => { if (S.panel?.p === "tok") patchPanel(); }); }
+  const mine = (S.pxAl || []).filter((a) => a.cg === P.cg), f = (n) => "$" + Number(n).toLocaleString("en-US", { maximumFractionDigits: n >= 100 ? 0 : n >= 1 ? 2 : 6 });
+  const dir = P.paDir || "above", def = px * (dir === "above" ? 1.05 : 0.95), dp = px >= 100 ? 0 : px >= 1 ? 2 : 4;
+  return `<div class="tk-pa${P.paOpen ? " open" : ""}">
+    <button class="srow" data-act="pa-open"><span>${I.bell}Price alert</span><span class="sv">${mine.length ? `${mine.length} on` : ""} ${I.arrow}</span></button>
+    ${P.paOpen ? `<div class="pa-form">
+      <div class="seg pa-seg"><button data-act="pa-dir" data-v="above" class="${dir === "above" ? "on" : ""}">Goes above</button><button data-act="pa-dir" data-v="below" class="${dir === "below" ? "on" : ""}">Goes below</button></div>
+      <label class="fld pa-in"><span>Price in US dollars · now ${f(px)}</span><input data-pa-price inputmode="decimal" value="${esc(P.paPrice ?? def.toFixed(dp))}" autocomplete="off"/></label>
+      <button class="btn primary" data-act="pa-set" ${P.paBusy ? "disabled" : ""}>${P.paBusy ? `<i class="spin"></i>` : ""}Notify me</button>
+      ${mine.length ? `<div class="pa-list">${mine.map((a) => `<div class="pa-row"><span>${a.dir === "above" ? "Above" : "Below"} <b>${f(a.price)}</b></span><button class="ib sm" data-act="pa-del" data-dir="${a.dir}" data-price="${a.price}" aria-label="Remove this alert">${I.x || "×"}</button></div>`).join("")}</div>` : ""}
+      <p class="fine">One notification when it happens, even with Ecrin closed. Prices are checked every 5 minutes.</p>
+    </div>` : ""}
+  </div>`;
+}
 function tokenView() {
   const P = S.panel, w = worth(), list = w.items.filter((i) => i.unit === P.u), f = list[0];
   const name = f?.name || COIN_NAME[P.u] || P.u, pr = P.u === "USDC" ? { usd: 1 } : S.prices[P.cg] || {}, px = pr.usd;
@@ -5258,6 +5324,7 @@ function tokenView() {
     <nav class="acts tk-acts">${[["send", "Send", I.send], ["receive", "Receive", I.recv], ["swap", "Swap", I.swap], ["protect", "Protect", I.protect]].map(([p2, l, ic]) => `<button data-act="tok-do" data-p="${p2}"><span>${ic}</span>${l}</button>`).join("")}</nav>
     <div class="tk-bal"><span class="lbl">Your balance</span><b>${S.hide ? "••••" : fig(money(tot.usd))}</b><small>${mask(n(tot.amt, dec))} ${esc(P.u)}${(() => { const c = pr.usd_24h_change; if (c == null || !tot.usd || P.u === "USDC") return ""; const pl = tot.usd - tot.usd / (1 + c / 100); return ` · <span class="${pl >= 0 ? "up" : "dn"}">${pl >= 0 ? "+" : "−"}${mask(money(Math.abs(pl)))} today</span>`; })()}</small>
       ${tot.amt ? `<div class="tk-split"><i style="width:${100 - savPct}%"></i><i class="s" style="width:${savPct}%"></i></div><div class="tk-leg"><span><i></i>Wallet ${mask(n(tot.chq, dec))}</span><span><i class="s"></i>${I.lock}Safe ${mask(n(tot.sav, dec))}</span></div>${tot.stk ? `<div class="tk-stk">${I.spark}<span>${mask(n(tot.stk, dec))} ${esc(P.u)} staked, earning inside your Safe</span></div>` : ""}` : ""}</div>
+    ${paOk() && P.cg && P.u !== "USDC" && px ? paBlock(P, px) : ""}
     ${list.length > 1 ? `<div class="list-h"><b>By network</b><span></span></div><section class="list">${list.map((i) => `<div class="arow">${coin(i.k)}<span class="ar-t"><b>${esc(nname(NETS[i.k]))}</b><small>${i.sav ? `<span class="tk-sv">${I.lock}${mask(n(i.sav, i.dec))} in Safe${i.stk ? ` · ${mask(n(i.stk, i.dec))} staked` : ""}</span>` : "Wallet"}</small></span><span class="ar-r"><b>${i.usd != null ? mask(money(i.usd)) : "—"}</b><small>${mask(n(i.chq + i.sav, i.dec))} ${i.unit}</small></span></div>`).join("")}</section>` : ""}
     <div class="list-h"><b>Market</b><span></span></div>
     <div class="tk-stats">

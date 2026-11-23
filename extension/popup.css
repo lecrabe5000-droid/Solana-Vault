@@ -4321,3 +4321,14 @@ html:root[data-theme] .ern-mid small.ern-est { font-size: 10px; letter-spacing: 
 
 /* In Chrome's side panel: fill the panel (its width is the user's choice), not the 360 × 600 popup */
 html[data-side], html[data-side] body { width: 100%; height: 100vh; min-width: 320px; }
+
+/* Coin page: price alert (phone app) */
+.tk-pa { margin: 12px 0 0; border-radius: 18px; background: var(--card-bg, rgba(255, 255, 255, .04)); box-shadow: var(--card-sh, inset 0 0 0 1px rgba(255, 255, 255, .06)); overflow: hidden; }
+.tk-pa > .srow { width: 100%; background: none; }
+.tk-pa.open > .srow .sv svg { transform: rotate(90deg); } .tk-pa > .srow .sv svg { transition: transform .22s ease; }
+.pa-form { display: grid; gap: 10px; padding: 2px 14px 14px; animation: sf-rise .32s cubic-bezier(.2, .8, .2, 1) both; }
+.pa-seg { margin: 0; }
+.pa-in input { font: 600 18px var(--num, inherit); }
+.pa-list { display: grid; gap: 6px; }
+.pa-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 12px; background: rgba(127, 127, 127, .08); }
+.pa-form .fine { margin: 0; }

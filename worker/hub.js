@@ -6,6 +6,8 @@ import { CONFIG } from "../app/config.js";
 import { EVM_NETS } from "../app/config-evm.js";
 import { SOL_USDC } from "../app/config-tokens.js";
 import { faucetSend } from "./faucet.js";
+import { handlePrices } from "./prices.js";
+import { priceAlertInput, priceAlertDue, priceAlertText } from "./pricealert.js";
 import { newVapidKeys, vapidPublic, sendPush, allowedEndpoint } from "./push.js";
 import { alertLinks, base58, b64, decodeSolVault, decodeSolTokenVault, emptyTokenSnap, tokenVaultAddresses, tokenAmount, diffSol, decodeEvmLog, message, ownerTopic, short, esc, NETS, USDC } from "./alerts.js";
 
@@ -83,6 +85,9 @@ export class AlertHub extends DurableObject {
     try { this.sql.exec("ALTER TABLE pending ADD COLUMN also TEXT"); } catch (_) {}
     this.sql.exec("CREATE TABLE IF NOT EXISTS faucet (addr TEXT, ip TEXT, at INTEGER)");
     this.sql.exec("CREATE TABLE IF NOT EXISTS reports (at INTEGER, ip TEXT, text TEXT, contact TEXT, info TEXT)");
+    // Price alerts: one notification when a coin goes above or below a price, then the alert is gone.
+    this.sql.exec("CREATE TABLE IF NOT EXISTS price_alerts (endpoint TEXT, p256dh TEXT, auth TEXT, lang TEXT, cg TEXT, dir TEXT, price REAL, created INTEGER, PRIMARY KEY (endpoint, cg, dir, price))");
+    try { this.sql.exec("ALTER TABLE price_alerts ADD COLUMN last TEXT"); } catch (_) {}
   }
 
   get(k) { return this.sql.exec("SELECT v FROM kv WHERE k = ?", k).toArray()[0]?.v ?? null; }
@@ -208,6 +213,9 @@ export class AlertHub extends DurableObject {
       if (url.pathname === "/wconfirm") return this.confirmWaitlist(url.searchParams.get("t") || "");
       if (url.pathname === "/stats") return this.stats();
       if (url.pathname === "/faucet" && request.method === "POST") return await this.faucet(request);
+      if (url.pathname === "/pricealert" && request.method === "POST") return this.priceAlertAdd(await request.json());
+      if (url.pathname === "/pricealertdel" && request.method === "POST") return this.priceAlertDel(await request.json());
+      if (url.pathname === "/pricealerts" && request.method === "POST") return this.priceAlertList(await request.json());
       if (url.pathname === "/pushkey") return json({ key: vapidPublic((await this.vapid()).publicJwk) });
       if (url.pathname === "/pushsub" && request.method === "POST") return this.pushSubscribe(await request.json());
       if (url.pathname === "/pushunsub" && request.method === "POST") { const { endpoint } = await request.json(); this.sql.exec("DELETE FROM push_subs WHERE endpoint = ?", String(endpoint || "")); return json({ ok: true }); }
@@ -322,6 +330,41 @@ export class AlertHub extends DurableObject {
     for (const t of this.targets(net, owner, vault, also))
       this.sql.exec("INSERT OR REPLACE INTO push_subs (endpoint, net, owner, vault, p256dh, auth, lang, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", endpoint, t.net, t.owner, t.vault || "", p256dh, auth, lang === "fr" ? "fr" : "en", Date.now());
     return json({ ok: true });
+  }
+
+  // --- Price alerts (phone wallet). Only coins Ecrin prices; a device keeps at most 20; each fires once.
+  priceAlertAdd({ sub, lang, cg, dir, price }) {
+    const bad = priceAlertInput({ cg, dir, price }); if (bad) return json({ error: bad }, 400);
+    const endpoint = String(sub?.endpoint || ""), p256dh = String(sub?.keys?.p256dh || ""), auth = String(sub?.keys?.auth || "");
+    if (!allowedEndpoint(endpoint) || !/^[A-Za-z0-9_-]{80,100}$/.test(p256dh) || !/^[A-Za-z0-9_-]{16,32}$/.test(auth)) return json({ error: "That browser can't receive notifications." }, 400);
+    if (this.sql.exec("SELECT COUNT(*) AS n FROM price_alerts WHERE endpoint = ?", endpoint).one().n >= 20) return json({ error: "You have 20 price alerts already. Remove one first." }, 429);
+    if (this.sql.exec("SELECT COUNT(*) AS n FROM price_alerts").one().n > 200_000) return json({ error: "Too many alerts right now." }, 429);
+    if (dir === "move") this.sql.exec("DELETE FROM price_alerts WHERE endpoint = ? AND cg = ? AND dir = 'move'", endpoint, cg); // one daily-move setting per coin
+    this.sql.exec("INSERT OR REPLACE INTO price_alerts (endpoint, p256dh, auth, lang, cg, dir, price, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", endpoint, p256dh, auth, lang === "fr" ? "fr" : "en", cg, dir, Number(price), Date.now());
+    return json({ ok: true });
+  }
+  priceAlertDel({ endpoint, cg, dir, price }) {
+    this.sql.exec("DELETE FROM price_alerts WHERE endpoint = ? AND cg = ? AND dir = ? AND price = ?", String(endpoint || ""), String(cg || ""), String(dir || ""), Number(price));
+    return json({ ok: true });
+  }
+  priceAlertList({ endpoint }) {
+    return json({ alerts: this.sql.exec("SELECT cg, dir, price FROM price_alerts WHERE endpoint = ? AND dir != 'move' ORDER BY created", String(endpoint || "")).toArray() });
+  }
+  async tickPrices() {
+    const cgs = this.sql.exec("SELECT DISTINCT cg FROM price_alerts").toArray().map((r) => r.cg); if (!cgs.length) return;
+    const prices = (await (await handlePrices(new Request("https://hub/api/prices"), this.env)).json().catch(() => ({})))?.prices || {};
+    const day = new Date().toISOString().slice(0, 10);
+    const due = this.sql.exec("SELECT endpoint, p256dh, auth, lang, cg, dir, price, last FROM price_alerts").toArray()
+      .filter((a) => priceAlertDue(a, prices, day));
+    if (!due.length) return;
+    const keys = await this.vapid();
+    for (const a of due) {
+      const ch = prices[a.cg].usd_24h_change;
+      if (a.dir === "move") this.sql.exec("UPDATE price_alerts SET last = ? WHERE endpoint = ? AND cg = ? AND dir = 'move'", `${day}:${ch > 0 ? "up" : "dn"}`, a.endpoint, a.cg);
+      else this.sql.exec("DELETE FROM price_alerts WHERE endpoint = ? AND cg = ? AND dir = ? AND price = ?", a.endpoint, a.cg, a.dir, a.price);
+      const status = await sendPush(a, { ...priceAlertText(a, prices[a.cg].usd, a.lang, ch), url: `${SITE}/wallet/` }, keys).catch(() => 0);
+      if (status === 404 || status === 410) this.sql.exec("DELETE FROM price_alerts WHERE endpoint = ?", a.endpoint);
+    }
   }
 
   /** Turns an alert's text and first button into a notification. */
@@ -481,6 +524,7 @@ export class AlertHub extends DurableObject {
   async tick() {
     await this.ensureWebhook();
     const now = Math.floor(Date.now() / 1000);
+    if (now % 300 < 60) await this.tickPrices().catch((e) => console.error("prices", e)); // every 5 minutes
     await this.tickSol(now).catch((e) => console.error("sol", e));
     for (const net of Object.keys(EVM_NETS)) await this.tickEvm(net, now).catch((e) => console.error(net, e));
   }
