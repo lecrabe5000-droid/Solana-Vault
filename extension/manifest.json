@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Ecrin Wallet",
   "short_name": "Ecrin",
-  "version": "0.30.8",
+  "version": "0.30.9",
   "description": "The wallet with an undo button: withdrawals from your Safe wait, and you can cancel them. Solana, Ethereum, Sui and more.",
   "action": {
     "default_popup": "popup.html",

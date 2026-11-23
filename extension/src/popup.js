@@ -356,7 +356,10 @@ async function sendFollowAddr(v) {
   const a = want && NETS[k].usdc ? "usdc" : "native", name = hit[1], an = /^[AEIOUX]/.test(name) ? "an" : "a";
   await useNet(k);
   S.panel = { ...P, asset: a, to: v, switched: `${an} ${name}`, named: null };
-  const e = await eng(); S.panel.reserve = await e.reserve(a); renderPanel();
+  const e = await eng(); S.panel.reserve = await e.reserve(a);
+  // keys typed while the network switched went into the box: keep them (the address may have been half typed)
+  const typed = $("#panel [data-to]")?.value.trim(); if (typed && typed.startsWith(v)) S.panel.to = typed;
+  renderPanel();
   const n = $("#panel [data-to]"); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); }
   return true;
 }
@@ -2828,6 +2831,8 @@ function bugView() {
 }
 // What's new: shown once after an update (never on a fresh install), and any time from Settings → About.
 const NEWS = [
+  ["The Safe on Sui", "With early access on, the Safe now runs on Sui mainnet too, next to Base, Ethereum, Arbitrum, Optimism, Polygon, BNB Chain and Avalanche. It hasn't been audited yet: keep amounts small."],
+  ["Small fixes", "Searching \"bit\" puts Bitcoin first, an address with spaces around it is accepted, typing an address from another network no longer loses letters, and the Accounts sheet stays centred."],
   ["Feels like an app", "Swipe from the left edge to go back, swipe between Tokens and Activity, pickers slide up as sheets, and everything you tap answers with a soft press."],
   ["A keypad for amounts", "On your phone, Send and Swap have their own number keypad. In Swap, type what you pay or what you want to get."],
   ["Send to any address", "Paste a Solana, Ethereum, Tron or Bitcoin address and Send moves to that network. Your other accounts are one tap away."],
@@ -3725,7 +3730,9 @@ document.addEventListener("input", (e) => {
   } else if (t.matches("[data-swapq]")) { swapSearch(t.value);
   } else if (t.matches("[data-reqamt]") || t.matches("[data-reqlabel]")) { const k = t.matches("[data-reqamt]") ? "amount" : "label", sel = k === "amount" ? "[data-reqamt]" : "[data-reqlabel]"; S.panel[k] = k === "amount" ? t.value.replace(/[^\d.,]/g, "").replace(",", ".") : t.value; const pos = t.selectionStart; patchPanel(); const n = $("#panel " + sel); if (n && document.activeElement !== n) n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {}
   } else if (t.matches("[data-to]") && (/^wc:/i.test(t.value.trim()) || parsePayLink(t.value))) { const v = t.value.trim(); t.value = ""; onScanned(v);
-  } else if (t.matches("[data-to]")) { lookupTo(t.value); S.panel.to = t.value; S.panel.switched = null; sendFollowAddr(t.value.trim()).then((sw) => { if (!sw) patchPanel(); }); }
+  } else if (t.matches("[data-to]")) { const v = t.value.trim(); lookupTo(v); S.panel.to = v; S.panel.switched = null; patchPanel();
+    // another network's address: switch once typing pauses (a paste is one event, so it switches at once), never mid-word
+    clearTimeout(S.followT); const P0 = S.panel; S.followT = setTimeout(() => { if (S.panel === P0) sendFollowAddr(P0.to); }, e.inputType === "insertFromPaste" || !e.inputType ? 0 : 350); }
   else if (t.matches("[data-brq]")) { const P = S.panel; P.q = t.value; bxSearch(P); bxRedraw(P); }
   else if (t.matches("[data-bramt]")) { const v = t.value.replace(",", ".").replace(/[^\d.]/g, ""); if (v !== t.value) t.value = v; S.panel.amount = v; S.panel.pct = null; S.panel.dir = "in"; S.panel.want = null; bridgeQuoteSoon(); }
   else if (t.matches("[data-brout]")) { const P = S.panel, v = t.value.replace(",", ".").replace(/[^\d.]/g, ""); if (v !== t.value) t.value = v; P.dir = "out"; P.want = v; P.pct = null; P.refine = 0; P.amount = brFromWant(P); bridgeQuoteSoon(); }
@@ -4995,8 +5002,10 @@ function bxList(P, all) {
   const q = String(P.q || "").trim().toLowerCase(), cur = brGrp(P[P.pick === "from" ? "fa" : "ta"]);
   const names = { USDC: "usd coin dollar", USDT: "tether dollar", ETH: "ether ethereum", SOL: "solana", BTC: "bitcoin", BNB: "binance bnb chain", POL: "polygon matic", AVAX: "avalanche", HYPE: "hyperliquid hyperevm", TRX: "tron", SUI: "sui" };
   const rows = [...bxCoins(all)].map(([sym, ids]) => ({ sym, ids, held: ids.reduce((t, x) => t + brHeld(x), 0), usd: ids.reduce((t, x) => t + brHeld(x) * (brPx(x) || 0), 0) }))
-    .filter((r) => !q || `${r.sym} ${brSym(r.ids[0])} ${brIsTok(r.ids[0]) ? brT(r.ids[0])?.name || "" : ""} ${names[r.sym] || ""} ${r.ids.map((x) => NETS[brK(x)].name).join(" ")}`.toLowerCase().includes(q));
-  const mine = rows.filter((r) => r.held > 0).sort((a, b) => b.usd - a.usd), rest = rows.filter((r) => !(r.held > 0));
+    // a coin whose own name matches ranks above one that only sits on a matching network ("bit": Bitcoin before USDC on Arbitrum)
+    .map((r) => ({ ...r, rank: !q ? 0 : `${r.sym} ${brSym(r.ids[0])} ${brIsTok(r.ids[0]) ? brT(r.ids[0])?.name || "" : ""} ${names[r.sym] || ""}`.toLowerCase().includes(q) ? 0 : r.ids.map((x) => NETS[brK(x)].name).join(" ").toLowerCase().includes(q) ? 1 : 2 }))
+    .filter((r) => r.rank < 2);
+  const mine = rows.filter((r) => r.held > 0).sort((a, b) => a.rank - b.rank || b.usd - a.usd), rest = rows.filter((r) => !(r.held > 0)).sort((a, b) => a.rank - b.rank);
   const row = (r) => `<button class="arow${cur === r.sym ? " on" : ""}" data-act="br-coin" data-k="${P.pick}" data-v="${esc(r.sym)}">${bxLogo(r.ids[0])}<span class="ar-t"><b>${esc(brSym(r.ids[0]))}</b><small>${r.ids.length > 1 ? `${r.ids.length} networks` : esc(NETS[brK(r.ids[0])].name)}</small></span><span class="ar-r">${r.held > 0 ? `<b>${bxNum(r.held, r.ids[0])}</b>${r.usd ? `<small>${money(r.usd)}</small>` : ""}` : ""}</span>${cur === r.sym ? `<span class="acc-ok">${I.check}</span>` : ""}</button>`;
   // Every other coin, from the list (several networks each) and the live search (one network, with its liquidity).
   const have = new Set(rows.map((r) => r.sym)), seen = new Set(all.map((id) => id.toLowerCase()));

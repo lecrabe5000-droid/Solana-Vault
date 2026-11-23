@@ -1,1 +1,1 @@
-{"latest": "0.30.8", "chrome": "0.30.4", "minimum": "0.2.0", "notes": "Feels like an app: swipe back, sheets, a keypad for amounts. Send to any address (it moves to the right network), a release animation, and Freeze now reaches every Safe. Polygon swaps fixed."}
+{"latest": "0.30.9", "chrome": "0.30.8", "minimum": "0.2.0", "notes": "The Safe on Sui mainnet (early access). Search puts the right coin first, pasted addresses with spaces work, and the Accounts sheet stays centred."}
