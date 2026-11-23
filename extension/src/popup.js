@@ -3657,8 +3657,12 @@ function flyLogo(src, destSel) {
   const from = src.getBoundingClientRect(); if (!from.width) return;
   requestAnimationFrame(() => {
     const dest = document.querySelector(destSel), pane = dest?.closest(".pane"); if (!dest || !pane) return;
-    const pt = pane.style.transition, ptf = pane.style.transform; pane.style.transition = "none"; pane.style.transform = "none";
-    const to = dest.getBoundingClientRect(); pane.style.transform = ptf; void pane.offsetWidth; pane.style.transition = pt;
+    // where the logo will be once the page has grown in: measured with the page at full size for an instant (the
+    // grow-in style is !important, so the override must be too), then the page goes back to growing
+    const pt = pane.style.getPropertyValue("transition"), ptf = pane.style.getPropertyValue("transform");
+    pane.style.setProperty("transition", "none", "important"); pane.style.setProperty("transform", "none", "important");
+    const to = dest.getBoundingClientRect();
+    pane.style.removeProperty("transform"); if (ptf) pane.style.transform = ptf; void pane.offsetWidth; pane.style.removeProperty("transition"); if (pt) pane.style.transition = pt;
     if (!to.width) return;
     const fly = src.cloneNode(true); fly.classList.add("fly-logo");
     Object.assign(fly.style, { position: "fixed", left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, margin: 0, zIndex: 80, pointerEvents: "none" });
@@ -5136,7 +5140,10 @@ function tokenView() {
   const BRAND = { SOL: "#9b6bff", ETH: "#7f96ff", USDC: "#3b8ff0", USDT: "#26a17b", POL: "#8f5cf0", BNB: "#f0b90b", AVAX: "#e84142", TRX: "#ff3b4e", SUI: "#4da2ff", HYPE: "#50d2c1" };
   const cc = BRAND[P.u] || COIN_COL[P.u] || "#5b7cff";
   const nets = [...new Set(list.map((i) => NETS[i.k].name))];
-  const acts = (S.activity || []).filter((e) => e.n && A(e.a).unit === P.u).slice(0, 5);
+  // This coin's own activity only, read from each entry's own network (not the one you have selected): ETH's page shows
+  // ETH moves and swaps in or out of ETH; opened from one network's row, only that network.
+  const unitOf = (e) => e.sym || (e.a === "usdc" ? "USDC" : NETS[e.k]?.unit);
+  const acts = (S.activity || []).filter((e) => (!P.n || e.k === P.n || e.toK === P.n) && (e.t === "bridge" ? e.sym === P.u || e.toSym === P.u : (e.n || e.t === "swap") && unitOf(e) === P.u)).slice(0, 8);
   const when = (ms) => new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric" });
   const savPct = tot.amt ? Math.round((tot.sav / tot.amt) * 100) : 0;
   return `<div class="tk-page" style="--cc:${cc}">${phead(`<span class="tk-ht">${icon}${esc(name)}</span>`)}
@@ -5156,7 +5163,7 @@ function tokenView() {
       <div><span>You hold</span><b>${mask(money(tot.usd))}</b></div>
       <div><span>In your Safe</span><b>${tot.amt ? savPct + "%" : "—"}</b></div>
     </div>
-    ${acts.length ? `<div class="list-h"><b>Activity</b><span></span></div><div class="tab-body"><section class="list">${actRows(acts.slice(0, 5)).replace(/<div class="act-day">[^<]*<\/div>/g, "")}</section></div>` : ""}
+    ${acts.length ? `<div class="list-h"><b>Activity</b><span></span></div><div class="tab-body"><section class="list">${actRows(acts).replace(/<div class="act-day">[^<]*<\/div>/g, "")}</section></div>` : ""}
     <div class="list-h"><b>About ${esc(name)}</b><span></span></div>
     <p class="tk-about">${ABOUT[P.u] || ""}</p></div>`;
 }
