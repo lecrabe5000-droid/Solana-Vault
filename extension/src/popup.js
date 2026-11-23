@@ -1547,7 +1547,7 @@ function xtokView() {
   if (P.step === "review") return `${phead("Review")}
     <div class="rv-amt">${letterIc(t)}<b>${esc(P.amount)} <small>${esc(t.symbol || "")}</small></b><span>${esc(tokName(t))}</span></div>
     <div class="tk-info"><div><span>From</span><b>${esc(curAcct().name)}</b></div><div><span>To</span><b class="mono wrap">${esc(P.to)}</b></div><div><span>Network</span><b>${N.name} ${N.net}</b></div><div><span>Network fee</span><b>${esc(N.fam === "sol" ? "≈ 0.000005 SOL" : "a little " + N.unit + " for gas")}</b></div></div>
-    ${P.lookalike ? lookalikeNote(P) : P.fresh ? `<div class="note warn">${I.shield}<span>You've never sent to this address from Ecrin. Check the first and last characters against where you copied it.</span></div>` : ""}
+    ${P.lookalike ? lookalikeNote(P) : P.newTo ? `<div class="note warn">${I.shield}<span>You've never sent to this address from Ecrin. Check the first and last characters against where you copied it.</span></div>` : ""}
     <div class="pfoot">${hold("Hold to send")}<button class="btn ghost" data-act="x-back">Back</button></div>`;
   return `${phead(t.nft ? "Collectible" : esc(t.symbol || "Token"))}
     ${t.nft ? `<div class="nft-big">${m.img ? `<img src="${esc(m.img)}" alt="" referrerpolicy="no-referrer"/>` : `<span class="nft-ph">${I.img}</span>`}</div>` : `<div class="tk-top">${letterIc(t)}<span><b>${esc(tokName(t))}</b><small>${N.name}</small></span></div>
@@ -1573,7 +1573,7 @@ async function loadPerms() {
     evm.push({ ...e.permit, k: e.k, origin: e.origin });
   }
   const live = await Promise.all(evm.filter((x) => NETS[x.k]).map(async (x) => {
-    try { const e = engine({ web3, ethers, acct: ACCT, net: x.k, dev: dev || {} }); const left = await Promise.race([e.allowance(x.token, x.spender), new Promise((_, no) => setTimeout(() => no(new Error("slow")), 8000))]); /* a slow network never blocks the page */ return left > 0n ? { ...x, left: String(left) } : null; } catch (_) { return null; }
+    try { const e = engine({ web3, ethers, acct: ACCT, net: x.k, dev: dev || {} }); const left = await Promise.race([e.allowance(x.token, x.spender), new Promise((_, no) => setTimeout(() => no(new Error("slow")), 8000))]); /* a slow network never blocks the page */ if (!(left > 0n)) return null; const ti = await Promise.race([e.tokenInfo(x.token), new Promise((r) => setTimeout(() => r(null), 5000))]).catch(() => null); return { ...x, left: String(left), sym: ti?.symbol || null, dec: ti?.dec ?? null }; } catch (_) { return null; }
   }));
   P.evm = live.filter(Boolean); P.sol = S.delegs || []; P.ready = true;
   P.permits = apLog.filter((e) => e.kind === "typed" && e.permit && e.from === mineE).length;
@@ -1588,7 +1588,7 @@ function permsView() {
       <span class="ar-t"><b>${esc(t.usdc ? "USDC" : tokName(t))}</b><small>${short(t.delegate)} can move ${Number(BigInt(t.delegated)) / 10 ** t.dec} without asking</small></span>
       <button class="btn sm danger" data-act="revoke" data-f="sol" data-acct="${esc(t.acct)}">Revoke</button></div>`);
   const evm = P.evm.map((x, i) => `<div class="arow perm"><span class="cstack"><span class="coin letter" style="--h:210">${I.ban}</span><span class="cmini">${coin(x.k)}</span></span>
-      <span class="ar-t"><b>${esc(host(x.origin))}</b><small>${short(x.spender)} can take ${big(x.left) ? "ALL" : "some"} of token ${short(x.token)}</small></span>
+      <span class="ar-t"><b>${esc(host(x.origin))}</b><small>${short(x.spender)} can take ${big(x.left) ? `all your ${x.sym ? esc(x.sym) : `token ${short(x.token)}`}` : x.sym && x.dec != null ? `up to ${(Number(BigInt(x.left)) / 10 ** x.dec).toLocaleString("en-US", { maximumFractionDigits: 4 })} ${esc(x.sym)}` : `some of token ${short(x.token)}`} on ${esc(NETS[x.k].name)}</small></span>
       <button class="btn sm danger" data-act="revoke" data-f="evm" data-i="${i}">Revoke</button></div>`);
   const all = [...sol, ...evm];
   return `${phead("Permissions")}
@@ -2111,7 +2111,7 @@ function sendView() {
           ${(() => { const u = usdOf(units, a), f = sendFee(a); return u != null ? `<div class="rev-tot"><dt>Total</dt><dd>${money(u + (f?.usd || 0))}<small>${fig(amt(units, a))} ${A(a).unit} + network fee</small></dd></div>` : ""; })()}
           <div><dt>Network fee</dt><dd>${NETS[S.net].fam === "evm" ? `<span class="seg fee-seg">${[["slow", "Slow"], ["normal", "Normal"], ["fast", "Fast"]].map(([k, l]) => `<button data-act="speed" data-v="${k}" aria-pressed="${(P.speed || "normal") === k}">${l}</button>`).join("")}</span>` : e.feeText()}</dd></div>
         </dl>
-        ${self ? `<p class="warn-n">That's your own address.</p>` : P.lookalike ? lookalikeNote(P) : P.fresh ? `<p class="warn-n">${I.shield}<span>You've never sent to this address from Ecrin. Check the first and last characters against where you copied it.</span></p>` : ""}
+        ${self ? `<p class="warn-n">That's your own address.</p>` : P.lookalike ? lookalikeNote(P) : P.newTo ? `<p class="warn-n">${I.shield}<span>You've never sent to this address from Ecrin. Check the first and last characters against where you copied it.</span></p>` : ""}
       </div>
       ${P.coolUntil > Date.now() ? `<div class="cool"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17"/><circle class="cl-p" cx="20" cy="20" r="17" style="stroke-dashoffset:${(106.8 * (P.coolUntil - Date.now())) / (S.guard.cool * 1000)}"/></svg><span><b data-cool>${Math.ceil((P.coolUntil - Date.now()) / 1000)}s</b><small>Cooling-off pause for big sends. Take a breath: is this really who you think it is?</small></span></div>` : ""}
       <div class="pfoot snd-foot"><button class="btn xl" data-act="close">Cancel</button>${P.coolUntil > Date.now() ? `<button class="btn primary xl" disabled>${I.clock}Wait for the pause</button>` : `<button class="btn primary xl" data-act="send-confirm">Confirm</button>`}</div>`;
@@ -2970,14 +2970,23 @@ async function txRun(fn, after, log) {
   renderPanel();
 }
 
-async function knownDest(to) { const { sent = {} } = await local.get("sent"); return !!sent[`${S.net}:${to}`]; }
+/** Addresses you already trust on this kind of network: sent to before (on any network of the same family: an
+ *  Ethereum address is the same on Base), your contacts, your own accounts. */
+async function trustedAddrs() {
+  const N = NETS[S.net], f = N.fam, { sent = {} } = await local.get("sent");
+  const fromSent = Object.keys(sent).map((k) => { const i = k.indexOf(":"); return [k.slice(0, i), k.slice(i + 1)]; }).filter(([k]) => NETS[k]?.fam === f).map(([, a]) => a);
+  return [...fromSent, ...Object.keys(S.book?.[f] || {}), ...ownAccts().map((o) => o.addr), String(ENG?.address || "")].filter(Boolean);
+}
+async function knownDest(to) {
+  const ci = ["evm", "sui"].includes(NETS[S.net].fam), n = (a) => (ci ? String(a).toLowerCase() : String(a)).trim();
+  const t = n(to); return (await trustedAddrs()).some((a) => n(a) === t);
+}
 /** Address poisoning: scammers send dust from an address that starts and ends like one you use, hoping you copy it
  *  from your history. Returns the real address it imitates (from your past sends, contacts or own accounts), or null. */
 async function lookalikeOf(to) {
   const N = NETS[S.net], ci = N.fam === "evm" || N.fam === "sui", norm = (a) => { const x = String(a || "").trim().replace(/^0x/i, ""); return ci ? x.toLowerCase() : x; };
   const t = norm(to); if (t.length < 20) return null;
-  const { sent = {} } = await local.get("sent");
-  const known = [...Object.keys(sent).filter((k) => k.startsWith(S.net + ":")).map((k) => k.slice(S.net.length + 1)), ...Object.keys(S.book?.[N.fam] || {}), String(ENG?.address || "")];
+  const known = await trustedAddrs();
   for (const k of known) { const n = norm(k); if (n && n !== t && n.length === t.length && n.slice(0, 4) === t.slice(0, 4) && n.slice(-4) === t.slice(-4)) return k; }
   return null;
 }
@@ -3122,7 +3131,7 @@ const actions = {
     const [w, f = ""] = P.amount.split("."); if (f.length > t.dec) return toast(`This token has ${t.dec} decimals at most.`, "err");
     const raw = BigInt(w || "0") * 10n ** BigInt(t.dec) + BigInt((f + "0".repeat(t.dec)).slice(0, t.dec) || "0");
     if (raw > BigInt(t.raw)) return toast("You don't have that much.", "err");
-    P.raw = String(raw); P.fresh = !(await knownDest(P.to)); P.lookalike = P.fresh ? await lookalikeOf(P.to) : null; P.step = "review"; renderPanel();
+    P.raw = String(raw); P.newTo = !(await knownDest(P.to)); P.lookalike = P.newTo ? await lookalikeOf(P.to) : null; P.step = "review"; renderPanel();
   },
   "x-back": () => { S.panel.step = "form"; renderPanel(); },
   "acct-switch": (el) => el.dataset.id === S.sel ? closePanel() : switchAccount(el.dataset.id),
@@ -3184,6 +3193,7 @@ const actions = {
         S.accts = [...S.accts, ...extra]; await saveAccts();
       }
     }
+    if (made) { S.wbk = { ...(S.wbk || {}), [id]: { at: Date.now(), done: false } }; await local.set({ wbk: S.wbk }); }
     toast(made ? `${base} created` : more.length ? `Wallet imported, with ${more.length + 1} accounts that have activity` : "Wallet imported"); switchAccount(id);
   },
   "acct-import": async () => {
@@ -3292,11 +3302,17 @@ const actions = {
   },
   "upd-hide": async () => { await local.set({ updHide: S.upd?.latest }); S.upd = null; render(); },
   "upd-go": () => { if (globalThis.ECRIN_WEB) location.reload(); else window.open("https://chromewebstore.google.com/detail/ecrin-wallet/nmehcocofmbhkjgjhbhbnfmhcbjpcpbd", "_blank"); },
-  "bk-later": async () => { await local.set({ backup: { ...S.backup, at: Date.now() } }); S.backup = { ...S.backup, at: Date.now() }; render(); },
+  "bk-later": async () => {
+    const wa = wbkDue(); if (wa) { S.wbk = { ...S.wbk, [wa.id]: { ...S.wbk[wa.id], at: Date.now() } }; await local.set({ wbk: S.wbk }); return render(); }
+    await local.set({ backup: { ...S.backup, at: Date.now() } }); S.backup = { ...S.backup, at: Date.now() }; render();
+  },
   "bk-check": async () => {
-    const { phrase } = await session.get("phrase"), w = phrase.split(" "), P = S.panel;
+    const wa = wbkDue(), { phrase } = await session.get("phrase");
+    const own = wa ? (await openKeys((await local.get("keysBox")).keysBox, phrase).catch(() => ({})))[wa.id] : null;
+    const w = (own || phrase).split(" "), P = S.panel;
     const ok = P.ask.every((i) => (document.querySelector(`[data-bk="${i}"]`)?.value || "").trim().toLowerCase() === w[i]);
     if (!ok) return toast("Not quite. Check your paper and try again.", "err");
+    if (wa && own) { S.wbk = { ...S.wbk, [wa.id]: { ...S.wbk[wa.id], done: true } }; await local.set({ wbk: S.wbk }); closePanel(); render(); return toast(`${wa.name}'s backup confirmed. Keep that paper safe.`, "win"); }
     S.backup = { ...S.backup, done: true }; await local.set({ backup: S.backup }); closePanel(); toast("Backup confirmed. Keep that paper safe.", "win");
   },
   "bio-unlock": async () => {
@@ -3485,7 +3501,7 @@ const actions = {
     if (S.panel.named?.addr && S.panel.named.name === S.panel.to.trim()) { S.panel.toName = S.panel.named.name; S.panel.to = S.panel.named.addr; }
     const P = S.panel, usd = usdOf(parseAmt(P.amount, P.asset), P.asset);
     const lim = await limitCheck(usd); if (lim) return toast(lim, "err");
-    P.fresh = !(await knownDest(P.to.trim())); P.lookalike = P.fresh ? await lookalikeOf(P.to.trim()) : null; P.step = "review"; P.anim = true;
+    P.newTo = !(await knownDest(P.to.trim())); P.lookalike = P.newTo ? await lookalikeOf(P.to.trim()) : null; P.step = "review"; P.anim = true;
     const G = S.guard; P.coolUntil = G.cool && usd != null && usd >= G.coolOver ? Date.now() + G.cool * 1000 : 0; if (P.coolUntil) bump("cool");
     renderPanel(); if (P.coolUntil) coolTick();
   },
@@ -4618,8 +4634,14 @@ function updateBanner() {
 }
 
 const BK_DAYS = 3;
-async function loadBackup() { S.backup = (await local.get("backup")).backup || null; }
+async function loadBackup() { const o = await local.get(["backup", "wbk"]); S.backup = o.backup || null; S.wbk = o.wbk || {}; }
+// Wallets made inside Ecrin (their own 12 words) get their own backup check, a day after they are created.
+const WBK_DAYS = 1;
+const wbkDue = () => { const a = curAcct(), b = a?.kind === "phrase" ? S.wbk?.[a.id] : null; return b && !b.done && Date.now() - b.at >= WBK_DAYS * 86400_000 ? a : null; };
 function backupCard() {
+  const wa = wbkDue();
+  if (wa) return `<div class="bk"><span class="bk-ic">${I.shield}</span><span class="bk-t"><b>Check ${esc(wa.name)}'s backup</b><small>This wallet has its own 12 words. Make sure they are written down correctly. It takes 20 seconds.</small></span>
+    <span class="bk-a"><button class="btn sm primary" data-act="panel" data-p="backup">Check</button><button class="btn sm" data-act="bk-later">Later</button></span></div>`;
   const b = S.backup; if (!b || b.done || Date.now() - b.at < BK_DAYS * 86400_000) return "";
   return `<div class="bk"><span class="bk-ic">${I.shield}</span><span class="bk-t"><b>Check your backup</b><small>Make sure your 12 words are written down correctly. It takes 20 seconds.</small></span>
     <span class="bk-a"><button class="btn sm primary" data-act="panel" data-p="backup">Check</button><button class="btn sm" data-act="bk-later">Later</button></span></div>`;
@@ -4627,8 +4649,9 @@ function backupCard() {
 function backupView() {
   const P = S.panel;
   if (!P.ask) { const a = new Set(); while (a.size < 3) a.add(Math.floor(Math.random() * 12)); P.ask = [...a].sort((x, y) => x - y); }
-  return `${phead("Check your backup")}
-    <p class="sub pad">Look at the paper where you wrote your recovery phrase and type these words.</p>
+  const wa = wbkDue();
+  return `${phead(wa ? `Check ${esc(wa.name)}'s backup` : "Check your backup")}
+    <p class="sub pad">Look at the paper where you wrote ${wa ? `${esc(wa.name)}'s 12 words` : "your recovery phrase"} and type these words.</p>
     <div class="stack pad">${P.ask.map((i) => `<label class="fld"><span>Word #${i + 1}</span><input data-bk="${i}" autocomplete="off" autocapitalize="none" spellcheck="false"/></label>`).join("")}</div>
     <div class="pfoot"><button class="btn primary xl" data-act="bk-check">Confirm</button></div>`;
 }
