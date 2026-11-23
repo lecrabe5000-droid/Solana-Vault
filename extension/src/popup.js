@@ -4430,7 +4430,7 @@ function earnSoonView() {
   return `${phead("Earn")}
     <div class="soon-row"><span class="soon">${main ? "After the audit" : "Coming soon"}</span></div>
     <div class="ern ern-soon">
-      <div class="ern-stage">${earnGem(0, true)}<div class="ern-mid"><span class="ern-ic">${I.spark}</span><span class="lbl">Earn</span><b class="ern-big">${STAKE_APY_TEXT}</b><small>a year on SOL (estimate)</small></div></div>
+      <div class="ern-stage">${earnGem(0, true)}<div class="ern-mid"><span class="ern-ic">${I.spark}</span><span class="lbl">Earn</span><b class="ern-big">${STAKE_APY_TEXT}</b><small>a year on SOL</small><small class="ern-est">estimate</small></div></div>
       <div class="ap-card ern-how">
         <div class="ap-li">${I.lock}<span>Your money stays inside your Safe while it earns. Every delay still applies.</span></div>
         <div class="ap-li">${I.spark}<span>Native Solana staking, and Ethereum staking through Lido. Rates change; nothing is guaranteed.</span></div>

@@ -4294,3 +4294,7 @@ html:root[data-theme] #panel .sx.kp-open { margin-top: auto !important; }
 /* A sheet (Accounts, Networks) rises over the home: the home stays centred and only dims, it never slides sideways. */
 html:root[data-theme] body.stacked:has(#panel .pane.as-sheet) #root { transform: none !important; filter: brightness(.55) !important; border-radius: 0 !important; }
 html:root[data-theme="light"] body.stacked:has(#panel .pane.as-sheet) #root { filter: brightness(.8) !important; }
+
+/* Earn diamond: the caption fits inside the diamond, the "estimate" note on its own smaller line */
+html:root[data-theme] .ern-mid small { white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+html:root[data-theme] .ern-mid small.ern-est { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; opacity: .7; margin-top: -1px; }
