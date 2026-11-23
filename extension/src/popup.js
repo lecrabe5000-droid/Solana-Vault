@@ -1300,7 +1300,7 @@ function homeView() {
 // own brand and kept apart from each other on the dark background.
 // Ecrin's own palette: every coin a shade of blue or grey, far enough apart to tell on the diamond, readable on dark and
 // light. Tron keeps its red. The diamond, the bubble by each name and the Activity rows all use these.
-const COIN_COL = { SOL: "#5b7cff", ETH: "#9badff", USDC: "#3d9bff", POL: "#4352c4", USDT: "#5f7a92", BNB: "#a4abba", AVAX: "#767c88", TRX: "#ff3b5c", HYPE: "#50d2c1", SUI: "#7fb8ff" };
+const COIN_COL = { BTC: "#f7931a", ETH: "#8c8cff", SOL: "#c46bff", USDC: "#2f8bff", USDT: "#26b38a", POL: "#e07bff", BNB: "#f3c623", AVAX: "#ff6060", TRX: "#ff5c9a", HYPE: "#5fe0cc", SUI: "#4fc3ff", XRP: "#c3ccdb", LINK: "#5b7cff", UNI: "#ff4fa8", EURC: "#6aa5ff" };
 const cdot = (u) => `<i class="cdot" style="--cc:${COIN_COL[u] || "#9aa0b4"}"></i>`;
 function lozShares(w) {
   const by = {}; for (const i of w.items) if (i.usd) by[i.unit] = (by[i.unit] || 0) + i.usd;
@@ -1310,7 +1310,7 @@ function lozShares(w) {
 function lozenge(w, loading) {
   const sh = loading ? [] : lozShares(w), safe = !loading && w.total ? w.sav / w.total : 0, G = sh.length > 1 ? 0.9 : 0;
   let at = 0;
-  const segs = sh.map(({ u, f }, i) => { const len = Math.max(0.6, f * 100 - G); const d = `<rect class="lz-seg r${Math.min(i, 3)}" data-u="${u}" x="38" y="38" width="144" height="144" rx="30" pathLength="100" style="--cc:${COIN_COL[u] || "#9aa0b4"};stroke-dasharray:${len.toFixed(2)} ${(100 - len).toFixed(2)};stroke-dashoffset:${(-at).toFixed(2)};--o:${(-at).toFixed(2)}"/>`; at += f * 100; return d; }).join("");
+  const segs = sh.map(({ u, f }, i) => { const len = Math.max(0.6, f * 100 - G); const d = `<rect class="lz-seg r${Math.min(i, 3)}" data-u="${u}" x="38" y="38" width="144" height="144" rx="30" pathLength="100" style="--cc:${COIN_COL[u] || "#9aa0b4"};stroke-dasharray:${len.toFixed(2)} ${(100 - len).toFixed(2)};stroke-dashoffset:${(-at).toFixed(2)};--o:${(-at).toFixed(2)};--dl:${len.toFixed(2)};--dg:${(100 - len).toFixed(2)};--i:${Math.min(i, 6)}"/>`; at += f * 100; return d; }).join("");
   // The opening spin lasts 2.2s; a re-render in that time picks the animation up where it was, so it never restarts or cuts.
   if (!loading && !S.lzT0) S.lzT0 = performance.now();
   const el = S.lzT0 ? performance.now() - S.lzT0 : 1e9, draw = el < 2300;

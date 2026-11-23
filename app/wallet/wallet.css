@@ -4339,6 +4339,28 @@ html:root[data-theme] .srow:not(:has(.seg)) > span:first-child { flex: 1 1 auto;
 html:root[data-theme] .srow:not(:has(.seg)) > .sv { flex: 0 0 auto; margin-left: 10px; text-align: right; }
 html:root[data-theme] .srow:not(:has(.seg)) > .sv:not(:has(.tsw)) { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Coin colours on the diamond: every coin keeps its own colour in every look (Ecrin, dark, light) */
+html:root[data-theme] .lz .lz-seg.lz-seg[data-u], html:root[data-skin][data-theme] .lz .lz-seg.lz-seg[data-u] { stroke: var(--cc) !important; }
+html:root[data-theme="light"] .lz .lz-seg.lz-seg[data-u] { stroke: color-mix(in srgb, var(--cc) 82%, #10121a) !important; }
+html:root[data-theme] .lz .lz-seg.lz-seg[data-u] { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--cc) 35%, transparent)) !important; }
+html:root[data-theme="light"] .lz .lz-seg.lz-seg[data-u] { filter: none !important; }
+
+/* Opening: each coin's arc unrolls into its place, largest first, glowing in its colour, then settles (no white spin) */
+html:root[data-theme] .lz.draw .lz-seg.lz-seg[data-u] { animation: lz-unroll 1.15s cubic-bezier(.22, .9, .18, 1) both !important; animation-delay: calc(var(--lt, 0ms) + 120ms + var(--i, 0) * 110ms) !important; }
+@keyframes lz-unroll {
+  0% { stroke-dasharray: 0 100; stroke-dashoffset: calc(var(--o, 0) + 6); opacity: 0; filter: drop-shadow(0 0 0 transparent); }
+  18% { opacity: 1; }
+  60% { filter: drop-shadow(0 0 9px color-mix(in srgb, var(--cc) 70%, transparent)); }
+  100% { stroke-dasharray: var(--dl) var(--dg); stroke-dashoffset: var(--o, 0); opacity: 1; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--cc) 35%, transparent)); }
+}
+html:root[data-theme] .lz.draw .lz-safe { animation: lz-unroll-s 1.3s cubic-bezier(.22, .9, .18, 1) both !important; animation-delay: calc(var(--lt, 0ms) + 380ms) !important; }
+@keyframes lz-unroll-s { from { stroke-dashoffset: -100; opacity: 0; } 20% { opacity: 1; } to { stroke-dashoffset: 0; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { html:root[data-theme] .lz.draw .lz-seg.lz-seg[data-u], html:root[data-theme] .lz.draw .lz-safe { animation: none !important; } }
+
+/* Small spinner (buttons, "Checking..."): a soft two-tone ring with eased motion instead of a hard white one */
+html:root[data-theme] .spin { border: 2px solid color-mix(in srgb, currentColor 22%, transparent) !important; border-top-color: currentColor !important; animation: spin-ease .9s cubic-bezier(.55, .15, .45, .85) infinite !important; }
+@keyframes spin-ease { to { transform: rotate(360deg); } }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Down to the very bottom of the screen: as a home-screen app, an iPhone can report a viewport shorter than the screen,
    which left a strip of bare page under every screen. The app is as tall as the tallest viewport the phone reports,
