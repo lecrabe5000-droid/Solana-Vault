@@ -4298,3 +4298,14 @@ html:root[data-theme="light"] body.stacked:has(#panel .pane.as-sheet) #root { fi
 /* Earn diamond: the caption fits inside the diamond, the "estimate" note on its own smaller line */
 html:root[data-theme] .ern-mid small { white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 html:root[data-theme] .ern-mid small.ern-est { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; opacity: .7; margin-top: -1px; }
+
+/* Settings switches: a real switch instead of the words On / Off; it slides when tapped, the screen keeps its place */
+.tsw { position: relative; display: inline-block; flex: none; width: 40px; height: 24px; border-radius: 999px; background: rgba(255, 255, 255, .14); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); transition: background .22s ease, box-shadow .22s ease; vertical-align: middle; }
+.tsw i { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .35); transition: transform .26s cubic-bezier(.3, 1.4, .5, 1), width .16s ease; }
+.tsw.on { background: var(--eb, #3d6bff); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14), 0 0 12px color-mix(in srgb, var(--eb, #3d6bff) 50%, transparent); }
+.tsw.on i { transform: translateX(16px); }
+.srow:active .tsw i { width: 22px; } .srow:active .tsw.on i { transform: translateX(12px); }
+:root[data-theme="light"] .tsw { background: rgba(10, 14, 40, .14); box-shadow: inset 0 0 0 1px rgba(10, 14, 40, .06); }
+.vh { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.srow .sv:has(.tsw) { display: inline-flex; align-items: center; gap: 6px; }
+@media (prefers-reduced-motion: reduce) { .tsw, .tsw i { transition: none; } }

@@ -2005,6 +2005,11 @@ function closeSheet(after) {
   if (!sh || pressReduced.matches) return after();
   sh.classList.add("out"); bk?.classList.add("out"); setTimeout(after, 200);
 }
+/** A settings switch slides to its new side (with a light tap on phones) before the screen updates. */
+async function flipSwitch(el) {
+  const sw = el?.querySelector?.(".tsw"); if (!sw) return;
+  sw.classList.toggle("on"); haptic("light"); await new Promise((r) => setTimeout(r, 190));
+}
 function renderPanel(enter = false) {
   if (S.holdPanel && !enter) { S.panelDirty = true; return; } // a moment is playing on this page: redraw right after it
   queueMicrotask(syncTabbar);
@@ -2016,6 +2021,7 @@ function renderPanel(enter = false) {
   // A coin's page grows out of the row you tapped (the home screen stays where it is); other pages slide in.
   if (enter) { P.grow = S.grow || null; S.grow = null; }
   const grow = P.grow && performance.now() - (P.openedAt || 0) < 700 ? P.grow : null;
+  const was = enter ? 0 : el.querySelector(".pane")?.scrollTop || 0;
   el.innerHTML = `<div class="pane${enter || P.fresh ? " fresh" : ""}${since < 2300 ? " trace" : ""}${grow ? " grow" : ""}${SHEET_PANES.has(P.p) && !S.pstack?.length ? " as-sheet" : ""}" style="--tt:${-Math.round(since)}ms${grow ? `;--gx:${Math.round(grow.x)}px;--gy:${Math.round(grow.y)}px` : ""}">${SHEET_PANES.has(P.p) && !S.pstack?.length ? `<i class="sheet-grab pane-grab" data-sheet-grab aria-hidden="true"></i>` : ""}${body}</div>${sheetHTML(P)}`; translate(el, S.lang);
   el.classList.toggle("sheeted", SHEET_PANES.has(P.p) && !S.pstack?.length);
   if (enter) document.body.classList.toggle("grow-open", !!grow);
@@ -2029,6 +2035,7 @@ function renderPanel(enter = false) {
   // phone's own page shift (left by the keyboard) is undone.
   const key = `${P.p}:${P.step}:${P.whoDone ? 1 : 0}:${P.mode || ""}:${P.pick || ""}`;
   if (key !== S.panelKey) { S.panelKey = key; if (pane) pane.scrollTop = 0; if (globalThis.ECRIN_WEB && !el.contains(document.activeElement)) window.scrollTo(0, 0); }
+  else if (pane && was) { const at = () => pane.scrollTo({ top: was, behavior: "instant" }); at(); requestAnimationFrame(() => { if (pane.isConnected && Math.abs(pane.scrollTop - was) > 1) at(); }); } // same screen redrawn (a switch flipped): stay where you were, at once (the phone scrolls smoothly otherwise)
 }
 // iPhone: the keyboard pushes the whole page up and doesn't always bring it back. When no field has focus any more,
 // put the page back where it belongs.
@@ -2749,7 +2756,7 @@ function assetsView() {
 
 function settingsView() {
   const row = (act, ic, label, val = I.arrow, extra = "") => `<button class="srow" data-act="${act}" ${extra}><span>${ic}${label}</span><span class="sv">${val}</span></button>`;
-  const onOff = (v) => (v ? "On" : "Off");
+  const onOff = (v) => `<span class="tsw${v ? " on" : ""}" aria-hidden="true"><i></i></span><span class="vh">${v ? "On" : "Off"}</span>`;
   const sec = (title, body) => `<div class="set-h">${title}</div><div class="sets">${body}</div>`;
   return `${phead("Settings")}
     <button class="set-acct" data-act="panel" data-p="accts">${acctIc(curAcct(), "lg")}<span><b>${esc(curAcct().name)}</b><small class="mono">${short(ENG?.address || "")}</small></span>${I.arrow}</button>
@@ -2757,7 +2764,7 @@ function settingsView() {
       ${row("panel", I.shield, "Safety", `Limits, freeze ${I.arrow}`, 'data-p="safety"')}
       ${row("panel", I.key, "Recovery phrase", I.arrow, 'data-p="reveal"')}
       ${row("panel", I.key, "Export private key", I.arrow, 'data-p="pkey"')}
-      ${globalThis.ECRIN_WEB && bioPossible() ? row("bio-toggle", I.face, bioName() === "Face ID" ? "Face ID" : "Biometric unlock", `${onOff(S.bio)} ${I.arrow}`) : ""}
+      ${globalThis.ECRIN_WEB && bioPossible() ? row("bio-toggle", I.face, bioName() === "Face ID" ? "Face ID" : "Biometric unlock", onOff(S.bio)) : ""}
       <div class="srow"><span>${I.clock}Auto-lock</span><span class="seg">${[0, 1, 5, 15, 60].map((m) => `<button data-act="autolock" data-v="${m}" aria-pressed="${S.autolock === m}">${m === 0 ? "Off" : m < 60 ? m + "m" : "1h"}</button>`).join("")}</span></div>
       ${row("perms", I.ban, "Token permissions")}
       ${globalThis.ECRIN_WEB || globalThis.ECRIN_DEMO ? "" : row("panel", I.link, "Connected sites", I.arrow, 'data-p="sites"')}
@@ -2778,7 +2785,7 @@ function settingsView() {
       ${row("panel", I.recv, "Contacts", `${Object.values(S.book || {}).reduce((t, m) => t + Object.keys(m || {}).length, 0) || ""} ${I.arrow}`, 'data-p="contacts"')}
       ${row("report", I.spark, "Monthly report")}`)}
     ${sec("Home screen", `
-      ${globalThis.ECRIN_WEB && pushPossible() ? row("push-toggle", I.bell, "Safe alerts on this phone", `${S.pushBusy ? "…" : S.pushOn ? "On" : "Off"} ${I.arrow}`) : ""}
+      ${globalThis.ECRIN_WEB && pushPossible() ? row("push-toggle", I.bell, "Safe alerts on this phone", S.pushBusy ? `<i class="spin"></i>` : onOff(S.pushOn)) : ""}
       ${row("tog", I.recv, "Notify when I receive coins", onOff(S.recvNotify !== false && !(globalThis.ECRIN_WEB && window.Notification && Notification.permission === "denied")), 'data-k="recvNotify"')}
       ${row("tog", I.spark, "Sounds", onOff(S.sounds), 'data-k="sounds"')}
       ${row("tog", I.img, "Show collectibles (NFTs)", onOff(S.showNfts), 'data-k="showNfts"')}
@@ -3254,7 +3261,7 @@ const actions = {
     h.scrollIntoView({ behavior: "smooth", block: "start" }); h.classList.remove("flash-sec"); void h.offsetWidth; h.classList.add("flash-sec");
   },
   tog: async (el) => {
-    const k = el.dataset.k;
+    const k = el.dataset.k; await flipSwitch(el);
     if (k === "order") S.order = S.order === "name" ? "value" : "name";
     else if (k === "recvNotify") {
       const blocked = globalThis.ECRIN_WEB && window.Notification && Notification.permission === "denied";
@@ -3264,7 +3271,7 @@ const actions = {
         if (perm !== "granted") { S.recvNotify = false; toast("Notifications are blocked for Ecrin. Allow them in your phone's settings, then try again.", "err"); }
       }
     }
-    else if (k === "earlySafe" && !S.earlySafe && !confirm("Turn on the Safe on mainnet?\n\nIt holds real coins and has not been audited yet. A bug could lock what you put in. Only use amounts you could lose.")) return;
+    else if (k === "earlySafe" && !S.earlySafe && !confirm("Turn on the Safe on mainnet?\n\nIt holds real coins and has not been audited yet. A bug could lock what you put in. Only use amounts you could lose.")) { renderPanel(); return; }
     else S[k] = !S[k];
     if (k === "earlySafe") {
       S.all = null; loadAll();
@@ -3277,8 +3284,8 @@ const actions = {
     if (k === "showNfts" && !S.showNfts && S.tab === "nfts") S.tab = "tokens";
     await local.set({ [k]: S[k] }); renderPanel(); render();
   },
-  "push-toggle": async () => {
-    if (S.pushBusy) return; S.pushBusy = true; renderPanel();
+  "push-toggle": async (el) => {
+    if (S.pushBusy) return; await flipSwitch(el); S.pushBusy = true; renderPanel();
     try { if (S.pushOn) { await pushStop(); toast("Safe alerts are off on this phone."); } else { await pushStart(); toast("Safe alerts are on. You'll see a withdrawal the moment it starts.", "win"); } }
     catch (e) { toast(e.message, "err"); }
     S.pushBusy = false; renderPanel();
@@ -3300,7 +3307,8 @@ const actions = {
       S.bioBusy = "ok"; render(); await new Promise((r) => setTimeout(r, 650)); S.bioBusy = null; S.bioRun = false; home();
     } catch (e) { S.bioBusy = null; S.bioRun = false; render(); if (e?.name !== "NotAllowedError") toast(e?.message || `${bioName()} didn't work. Use your password.`, "err"); }
   },
-  "bio-toggle": async () => {
+  "bio-toggle": async (el) => {
+    await flipSwitch(el);
     if (S.bio) { if (!(await ask("You'll unlock with your password.", { title: `Turn off ${bioName()}?`, ok: "Turn off" }))) return; await local.remove("bio"); await bioForget(); S.bio = null; toast(`${bioName()} is off`, "win"); return renderPanel(); }
     try { const { phrase } = await session.get("phrase"); const box = await bioEnable(phrase); await local.set({ bio: box }); S.bio = box; toast(`${bioName()} is on`, "win"); renderPanel(); }
     catch (e) { if (e?.name !== "NotAllowedError") toast(e?.message || `Couldn't turn on ${bioName()}`, "err"); }
