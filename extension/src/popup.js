@@ -2406,10 +2406,11 @@ function acctsView() {
     <div class="acc-acts">
       <button class="btn" data-act="acct-add">${I.plus}Add account</button>
       <button class="btn ghost" data-act="acct-discover" ${S.discovering ? "disabled" : ""}>${S.discovering ? `<i class="spin"></i>Checking account ${(S.discoverAt || 1) + 1}…` : `${I.search}Find accounts with activity`}</button>
+      <button class="btn" data-act="acct-new-wallet">${I.plus}New wallet</button>
       <button class="btn" data-act="panel" data-p="acctNew">${I.key}Import a wallet</button>
     </div>
     <button class="srow" data-act="panel" data-p="addrs"><span>${I.qr}Addresses of ${esc(curAcct().name)}</span><span class="sv">${I.arrow}</span></button>
-    <p class="fine pad">Accounts you add come from your recovery phrase, so your backup covers them. Imported wallets (another phrase or a key) are not in your recovery phrase: keep their own backup.</p>`;
+    <p class="fine pad">Accounts you add come from your recovery phrase, so your backup covers them. New and imported wallets (their own phrase, or a key) are not in your recovery phrase: keep their own backup.</p>`;
 }
 
 function logoPick(a) {
@@ -2420,8 +2421,23 @@ function logoPick(a) {
 }
 
 function acctNewView() {
-  const P = S.panel, mode = P.mode === "key" ? "key" : "phrase", list = S.accts || [];
-  const seg = `<div class="seg imp-seg"><button data-act="imp-mode" data-v="phrase" class="${mode === "phrase" ? "on" : ""}">Recovery phrase</button><button data-act="imp-mode" data-v="key" class="${mode === "key" ? "on" : ""}">Private key</button></div>`;
+  const P = S.panel, mode = P.mode === "key" || P.mode === "new" ? P.mode : "phrase", list = S.accts || [];
+  const seg = `<div class="seg imp-seg"><button data-act="imp-mode" data-v="new" class="${mode === "new" ? "on" : ""}">New</button><button data-act="imp-mode" data-v="phrase" class="${mode === "phrase" ? "on" : ""}">Recovery phrase</button><button data-act="imp-mode" data-v="key" class="${mode === "key" ? "on" : ""}">Private key</button></div>`;
+  // A brand-new wallet: its own 12 words, made on this device, kept apart from the Ecrin recovery phrase.
+  if (mode === "new") {
+    P.ph ||= newPhrase(); const ok = P.shown && P.wrote;
+    return `${phead("New wallet")}
+    <div class="pad">
+      ${seg}
+      <p class="fine">A new wallet with its own 12 words, separate from your Ecrin recovery phrase. Useful to keep money apart. It gets an account on every network.</p>
+      <div class="phrase np-words ${P.shown ? "shown" : ""}">${P.ph.split(" ").map((w, i) => `<span><i>${i + 1}</i>${esc(w)}</span>`).join("")}
+        ${P.shown ? "" : `<button class="reveal" data-act="np-reveal">${I.eye}<b>Tap to reveal</b><small>Make sure nobody can see your screen</small></button>`}</div>
+      <label class="tick"><input type="checkbox" data-npwrote ${P.wrote ? "checked" : ""} ${P.shown ? "" : "disabled"}/><span>I wrote these 12 words on paper, in order</span></label>
+      <label class="fld"><span>Name</span><input data-pkname maxlength="24" value="${esc(P.nm || "")}" placeholder="Wallet ${list.filter((a) => a.kind === "phrase").length + 2}"/></label>
+      <div class="note warn">${I.shield}<span>Your Ecrin recovery phrase does not cover this wallet. Lose these 12 words and this device, and its money is gone. You can see them again in Settings → Recovery phrase while this wallet is open.</span></div>
+      <div class="pfoot"><button class="btn primary xl" data-act="acct-import-phrase" ${ok ? "" : "disabled"}>Create wallet</button></div>
+    </div>`;
+  }
   if (mode === "phrase") return `${phead("Import a wallet")}
     <div class="pad">
       ${seg}
@@ -2902,9 +2918,14 @@ function numbersView() {
     <p class="fine pad">Applies to every number in the wallet.</p>`;
 }
 
+/** The phrase behind the wallet that's open: its own for a new or imported wallet, Ecrin's for its own accounts. */
+async function phraseOfOpenWallet(main) {
+  const a = curAcct(); if (a?.kind !== "phrase") return main;
+  const m = await openKeys((await local.get("keysBox")).keysBox, main).catch(() => ({})); return m[a.id] || main;
+}
 function revealView() {
-  const P = S.panel;
-  if (P.words) return `${phead("Recovery phrase")}<p class="sub pad">Never type these anywhere but a wallet you trust. Ecrin will never ask for them.</p><div class="phrase shown">${P.words.split(" ").map((w, i) => `<span><i>${i + 1}</i>${esc(w)}</span>`).join("")}</div>`;
+  const P = S.panel, a = curAcct(), own = a?.kind === "phrase", key = a?.kind === "key";
+  if (P.words) return `${phead(own ? `Recovery phrase of ${esc(a.name)}` : "Recovery phrase")}<p class="sub pad">${own ? `These 12 words are ${esc(a.name)}'s own, separate from your Ecrin recovery phrase${a.i ? ` (it is account ${a.i + 1} of this phrase)` : ""}. ` : key ? `${esc(a.name)} is an imported private key: it is not in this phrase. Its backup is the key itself (Export private key). ` : ""}Never type these anywhere but a wallet you trust. Ecrin will never ask for them.</p><div class="phrase shown">${P.words.split(" ").map((w, i) => `<span><i>${i + 1}</i>${esc(w)}</span>`).join("")}</div>`;
   return `${phead("Recovery phrase")}<form class="stack pad" data-form="reveal"><p class="sub">Enter your password to see your 12 words. Make sure nobody can see your screen.</p>${S.bio ? `<button type="button" class="btn primary bio-btn" data-act="reveal-bio">${I.face}Show with ${bioName()}</button><p class="or">or use your password</p>` : ""}<label class="fld"><span>Password</span><input name="pw" type="password" autofocus required/></label><p class="err" data-err></p><button class="btn primary xl">Show</button></form>`;
 }
 
@@ -3024,7 +3045,7 @@ const actions = {
   "ct-del": async (el) => { const f = el.dataset.f, a = el.dataset.a, n = S.book?.[f]?.[a]; if (!(await ask(`Delete ${n} from your contacts?`, { ok: "Delete", danger: true }))) return; delete S.book[f][a]; await local.set({ book: S.book }); renderPanel(); },
   report: async () => { S.stats = (await local.get("stats")).stats || {}; await loadActivity(); openPanel("report", { month: monthKey() }); },
   "rp-m": (el) => { if (!el.dataset.v) return; S.panel.month = el.dataset.v; renderPanel(); },
-  "reveal-bio": async () => { try { const words = await bioUnlock(S.bio); S.panel.words = normalize(words); renderPanel(); } catch (e) { toast(`${bioName()} didn't work. Use your password.`, "err"); } },
+  "reveal-bio": async () => { try { const words = await bioUnlock(S.bio); S.panel.words = await phraseOfOpenWallet(normalize(words)); renderPanel(); } catch (e) { toast(`${bioName()} didn't work. Use your password.`, "err"); } },
   cur: async (el) => { S.cur = el.dataset.v; await local.set({ cur: S.cur }); await loadFx(); toast(S.cur === "USD" || S.fx?.[S.cur] ? `Showing ${S.cur}` : `Couldn't get today's ${S.cur} rate. Showing USD until it loads.`, S.cur === "USD" || S.fx?.[S.cur] ? "win" : ""); renderPanel(); render(); },
   lang: async (el) => { S.lang = el.dataset.v; document.documentElement.lang = S.lang; await local.set({ lang: S.lang }); render(); renderPanel(); },
   "tour-prev": () => { if (S.tour > 0) { S.tour--; S.tourDir = "back"; render(); } },
@@ -3127,8 +3148,11 @@ const actions = {
   },
   "peek-small": () => { S.peekSmall = !S.peekSmall; haptic("light"); render(); },
   "imp-mode": (el) => { S.panel.mode = el.dataset.v; renderPanel(); },
+  "acct-new-wallet": () => openPanel("acctNew", { mode: "new" }),
+  "np-reveal": () => { const P = S.panel; P.nm = $("#panel [data-pkname]")?.value || P.nm; P.shown = true; renderPanel(); },
   "acct-import-phrase": async () => {
-    const box = $("[data-ph2]"), raw = normalize(box?.value || ""), name = ($("[data-pkname]")?.value || "").trim().slice(0, 24);
+    const made = S.panel?.mode === "new" && S.panel.ph; if (made && !(S.panel.shown && S.panel.wrote)) return;
+    const box = $("[data-ph2]"), raw = made ? S.panel.ph : normalize(box?.value || ""), name = ($("[data-pkname]")?.value || "").trim().slice(0, 24);
     if (!isPhrase(raw)) return toast("That isn't a valid recovery phrase. Check every word and the order (12 or 24 words).", "err");
     if (raw === PHRASE) return toast("That's this wallet's own recovery phrase: its accounts are already here (Add account).", "err");
     const A0 = deriveAccount(raw, { web3, ethers }, 0), solPub = A0.sol.publicKey.toBase58(), pub = A0.evm.address;
@@ -3143,7 +3167,7 @@ const actions = {
     await saveAccts();
     // Like MetaMask and Phantom: every other account under this phrase that has been used comes along.
     let more = [];
-    if (!globalThis.ECRIN_DEMO) {
+    if (!globalThis.ECRIN_DEMO && !made) {
       const btn = $("#panel [data-act='acct-import-phrase']"); if (btn) { btn.disabled = true; btn.innerHTML = `<i class="spin"></i>Looking for accounts with activity…`; }
       more = await usedIndexes(raw, { web3, ethers, main: "both", onStep: (k) => { if (btn) btn.innerHTML = `<i class="spin"></i>Checking account ${k + 1}…`; } }).catch(() => []);
       if (more.length) {
@@ -3153,7 +3177,7 @@ const actions = {
         S.accts = [...S.accts, ...extra]; await saveAccts();
       }
     }
-    toast(more.length ? `Wallet imported, with ${more.length + 1} accounts that have activity` : "Wallet imported"); switchAccount(id);
+    toast(made ? `${base} created` : more.length ? `Wallet imported, with ${more.length + 1} accounts that have activity` : "Wallet imported"); switchAccount(id);
   },
   "acct-import": async () => {
     const raw = $("[data-pk]")?.value || "", name = ($("[data-pkname]")?.value || "").trim().slice(0, 24);
@@ -3739,6 +3763,7 @@ document.addEventListener("input", (e) => {
   else if (t.matches("[data-bugtext]")) S.panel.text = t.value;
   else if (t.matches("[data-bugwho]")) S.panel.who = t.value;
   else if (t.matches("[data-wdto]")) { S.panel.to = t.value; const ok = !t.value.trim() || !!ENG?.isAddress(t.value.trim()); t.closest(".fld")?.classList.toggle("bad-in", !ok); }
+  else if (t.matches("[data-npwrote]")) { S.panel.wrote = t.checked; const b = $("#panel [data-act='acct-import-phrase']"); if (b) b.disabled = !(S.panel.shown && S.panel.wrote); }
   else if (t.matches("[data-tick]")) { S.wrote = t.checked; const b = $("#root [data-act='to-verify']"); if (b) b.disabled = !(S.revealed && S.wrote); else render(); }
   else if (t.name === "pw" && t.closest("form")?.querySelector("[data-meter]")) { const m = t.closest("form").querySelector("[data-meter]"); m.dataset.s = strength(t.value); }
 });
@@ -3873,7 +3898,7 @@ document.addEventListener("submit", async (e) => {
     return;
   }
   if (kind === "reveal") {
-    try { const { box } = await local.get("box"); S.panel.words = await open(box, d.pw); renderPanel(); } catch (_) { err("Wrong password"); }
+    try { const { box } = await local.get("box"); S.panel.words = await phraseOfOpenWallet(await open(box, d.pw)); renderPanel(); } catch (_) { err("Wrong password"); }
   }
 });
 
