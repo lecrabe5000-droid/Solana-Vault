@@ -19,7 +19,7 @@ export const SUI = {
 };
 // Mainnet, real money. USDC is Circle's (developers.circle.com), checked on-chain (symbol USDC, 6 decimals).
 export const SUI_MAIN = {
-  ...SUI, key: "suim", net: "Mainnet", real: true, api: "https://graphql.mainnet.sui.io/graphql", faucet: null, contract: null, safe: null,
+  ...SUI, key: "suim", net: "Mainnet", real: true, api: "https://graphql.mainnet.sui.io/graphql", faucet: null, contract: SUI_SAFE.mainnet?.package || null, safe: SUI_SAFE.mainnet || null,
   usdc: "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC",
   explorer: (k, id) => `https://suiscan.xyz/mainnet/${k === "tx" ? "tx" : k === "token" ? "coin" : "account"}/${id}`,
 };

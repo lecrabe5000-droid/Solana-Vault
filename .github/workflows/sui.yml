@@ -1,15 +1,21 @@
 name: sui-safe
-# Builds and tests the Sui Safe (sui/), and on request publishes it to Sui Testnet.
-# Publishing needs the SUI_DEPLOYER_KEY secret: a TESTNET-ONLY key (suiprivkey...) holding some test SUI.
+# Builds and tests the Sui Safe (sui/), and on request publishes it to Sui Testnet or Sui mainnet.
+# Testnet publishing uses the SUI_DEPLOYER_KEY secret (a TESTNET-ONLY key). Mainnet publishing uses its own secret,
+# SUI_MAINNET_DEPLOYER_KEY (suiprivkey..., the "Sui" line of Ecrin's Export private key), holding about 0.3 SUI or more.
 on:
   push:
     paths: ["sui/**", ".github/workflows/sui.yml"]
   workflow_dispatch:
     inputs:
       publish:
-        description: "Publish to Sui Testnet"
+        description: "Publish the Safe"
         type: boolean
         default: false
+      network:
+        description: "Where to publish"
+        type: choice
+        options: [testnet, mainnet]
+        default: testnet
       live:
         description: "Run the wallet's Safe flow for real on Sui Testnet (uses the deployer's test SUI)"
         type: boolean
@@ -22,11 +28,12 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Install the Sui CLI (Mysten Labs' latest testnet release)
+      - name: Install the Sui CLI (Mysten Labs' latest release for the network)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag=$(gh release list -R MystenLabs/sui --limit 40 --json tagName -q '.[].tagName' | grep -m1 '^testnet-v')
+          want="${{ inputs.network == 'mainnet' && 'mainnet' || 'testnet' }}"
+          tag=$(gh release list -R MystenLabs/sui --limit 40 --json tagName -q '.[].tagName' | grep -m1 "^$want-v")
           echo "Sui CLI $tag"
           gh release download "$tag" -R MystenLabs/sui -p "sui-$tag-ubuntu-x86_64.tgz" -D /tmp/sui
           mkdir -p "$HOME/.local/bin" && tar -xzf /tmp/sui/*.tgz -C /tmp/sui
@@ -40,46 +47,55 @@ jobs:
         working-directory: sui
         run: sui move test
 
-      - name: Publish to Sui Testnet
+      - name: Publish to Sui ${{ inputs.network }}
         if: ${{ inputs.publish }}
         working-directory: sui
         env:
-          KEY: ${{ secrets.SUI_DEPLOYER_KEY }}
+          NET: ${{ inputs.network }}
+          KEY: ${{ inputs.network == 'mainnet' && secrets.SUI_MAINNET_DEPLOYER_KEY || secrets.SUI_DEPLOYER_KEY }}
         run: |
-          if [ -z "$KEY" ]; then echo "::error::Add the SUI_DEPLOYER_KEY secret first (a testnet-only key)."; exit 1; fi
+          if [ -z "$KEY" ]; then
+            if [ "$NET" = mainnet ]; then echo "::error::Add the SUI_MAINNET_DEPLOYER_KEY secret first (the Sui key of the account you funded)."; else echo "::error::Add the SUI_DEPLOYER_KEY secret first (a testnet-only key)."; fi
+            exit 1
+          fi
           mkdir -p ~/.sui/sui_config
           echo '[]' > ~/.sui/sui_config/sui.keystore
           cat > ~/.sui/sui_config/client.yaml <<EOF
           keystore:
             File: $HOME/.sui/sui_config/sui.keystore
           envs:
-            - alias: testnet
-              rpc: "https://fullnode.testnet.sui.io:443"
+            - alias: $NET
+              rpc: "https://fullnode.$NET.sui.io:443"
               ws: ~
-          active_env: testnet
+          active_env: $NET
           active_address: ~
           EOF
           sui keytool import "$KEY" ed25519 > /dev/null
           addr=$(sui keytool list --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s)[0].suiAddress))')
           sui client switch --address "$addr"
           echo "Deployer $addr"
+          echo "Publishing from \`$addr\` on Sui $NET" >> "$GITHUB_STEP_SUMMARY"
           # Balance from Sui's own GraphQL service (coins and the address balance both count).
-          bal=$(curl -sS https://graphql.testnet.sui.io/graphql -H 'content-type: application/json' --data "{\"query\":\"{address(address:\\\"$addr\\\"){balance(coinType:\\\"0x2::sui::SUI\\\"){totalBalance coinBalance}}}\"}")
+          bal=$(curl -sS https://graphql.$NET.sui.io/graphql -H 'content-type: application/json' --data "{\"query\":\"{address(address:\\\"$addr\\\"){balance(coinType:\\\"0x2::sui::SUI\\\"){totalBalance coinBalance}}}\"}")
           echo "Balance: $bal"
           total=$(echo "$bal" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).data?.address?.balance?.totalBalance||0))')
-          if [ "$total" -lt 300000000 ]; then echo "::error::The deployer needs about 0.3 test SUI. Send some to $addr from faucet.sui.io (Testnet)."; exit 1; fi
+          if [ "$total" -lt 300000000 ]; then echo "::error::The deployer $addr holds $total MIST; it needs about 0.3 SUI on $NET."; exit 1; fi
           sui client publish --gas-budget 300000000 --json > /tmp/pub.json
           node - <<'JS'
-          const fs = require("fs"), r = JSON.parse(fs.readFileSync("/tmp/pub.json", "utf8"));
+          const fs = require("fs"), r = JSON.parse(fs.readFileSync("/tmp/pub.json", "utf8")), net = process.env.NET;
           if (r.effects?.status?.status !== "success") { console.error(JSON.stringify(r.effects?.status)); process.exit(1); }
           const ch = r.objectChanges || [];
           const pkg = ch.find((c) => c.type === "published")?.packageId;
           const registry = ch.find((c) => c.type === "created" && /::safe::Registry$/.test(c.objectType))?.objectId;
+          const cap = ch.find((c) => c.type === "created" && /::package::UpgradeCap$/.test(c.objectType))?.objectId;
           if (!pkg || !registry) { console.error("Couldn't find the package or the registry", JSON.stringify(ch)); process.exit(1); }
-          const out = "../app/deployments-sui.js";
-          fs.writeFileSync(out, `// Written by the sui-safe workflow after each publish (sui/). Sui Testnet.\nexport const SUI_SAFE = ${JSON.stringify({ testnet: { package: pkg, registry, digest: r.digest } }, null, 2)};\n`);
-          console.log("Published", pkg, "registry", registry);
-          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Ecrin Safe on Sui Testnet\n\nPackage \`${pkg}\`, registry \`${registry}\` ([tx](https://suiscan.xyz/testnet/tx/${r.digest}))\n`);
+          // keep the other network's entry: testnet and mainnet live side by side
+          const out = "../app/deployments-sui.js", src = fs.readFileSync(out, "utf8");
+          const prev = JSON.parse(src.slice(src.indexOf("{"), src.lastIndexOf("}") + 1));
+          prev[net] = { package: pkg, registry, digest: r.digest, ...(cap ? { upgradeCap: cap } : {}) };
+          fs.writeFileSync(out, `// Written by the sui-safe workflow after each publish (sui/): Sui Testnet and Sui mainnet.\nexport const SUI_SAFE = ${JSON.stringify(prev, null, 2)};\n`);
+          console.log("Published", net, pkg, "registry", registry, "upgrade cap", cap);
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Ecrin Safe on Sui ${net}\n\nPackage \`${pkg}\`, registry \`${registry}\`${cap ? `, upgrade cap \`${cap}\` (held by the deployer)` : ""} ([tx](https://suiscan.xyz/${net}/tx/${r.digest}))\n`);
           JS
       - name: Point the wallet at it
         if: ${{ inputs.publish }}
@@ -87,7 +103,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/deployments-sui.js
-          git diff --cached --quiet || { git commit -m "Sui Safe published on testnet"; git pull --rebase origin main && git push; }
+          git diff --cached --quiet || { git commit -m "Sui Safe published on ${{ inputs.network }}"; git pull --rebase origin main && git push; }
 
       - uses: actions/setup-node@v4
         if: ${{ inputs.live }}

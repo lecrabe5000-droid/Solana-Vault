@@ -2471,7 +2471,7 @@ function safeSoonView(title) {
     <div class="pfoot">${early ? `<button class="btn primary xl" data-act="early-on">Use the Safe</button><button class="btn ghost" data-act="net-mode" data-v="test">Try it on Testnet instead</button>` : `<button class="btn xl" data-act="net-mode" data-v="test">Try the Safe on Testnet</button>`}</div>`;
 }
 /** The mainnets where the early-access Safe is live, by name ("Base, Ethereum … and Avalanche"). */
-const earlyList = () => { const n = Object.values(NETS).filter((N) => N.real && N.contract && N.fam === "evm").map((N) => N.name); return n.length > 1 ? `${n.slice(0, -1).join(", ")} ${S.lang === "fr" ? "et" : "and"} ${n[n.length - 1]}` : n[0] || "Base"; };
+const earlyList = () => { const n = Object.values(NETS).filter((N) => N.real && N.contract).map((N) => N.name); return n.length > 1 ? `${n.slice(0, -1).join(", ")} ${S.lang === "fr" ? "et" : "and"} ${n[n.length - 1]}` : n[0] || "Base"; };
 const noSafeHere = () => !netKeys().some(canSafe);
 function moveView() {
   if (noSafeHere()) return safeSoonView(S.panel.p === "protect" ? "Protect" : "Withdraw");
