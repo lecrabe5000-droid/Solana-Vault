@@ -50,6 +50,12 @@ jobs:
         env:
           MAINNET_DEPLOYER_KEY: ${{ secrets.MAINNET_DEPLOYER_KEY }}
         run: '[ -n "$MAINNET_DEPLOYER_KEY" ] || { echo "::error::Add the MAINNET_DEPLOYER_KEY secret first (Settings → Secrets and variables → Actions)."; exit 1; }'
+      # Hyperliquid only lets an address that exists on HyperCore switch to big blocks: open it from the deployer's own HYPE.
+      - name: HyperCore account for the deployer
+        if: inputs.network == 'hyperevm'
+        env:
+          DEPLOYER_KEY: ${{ secrets.MAINNET_DEPLOYER_KEY }}
+        run: node scripts/hyper-core-activate.js
       # HyperEVM's normal blocks are too small for this contract: switch the deployer to big blocks first.
       - name: HyperEVM big blocks on
         if: inputs.network == 'hyperevm'
