@@ -27,6 +27,11 @@ const VERSION = chrome.runtime.getManifest().version;
 // framed in the middle of a lit page. Everything inside works exactly as in the popup.
 const IS_EXT = !globalThis.ECRIN_WEB && !globalThis.ECRIN_DEMO && !!globalThis.chrome?.tabs;
 const FULL = IS_EXT && new URLSearchParams(location.search).has("full");
+// Chrome's side panel: the same wallet, docked beside the website you're on (it stays open while you click around).
+const SIDE = IS_EXT && new URLSearchParams(location.search).has("side");
+if (SIDE) document.documentElement.dataset.side = "1";
+const sideOk = () => IS_EXT && !!chrome.sidePanel?.setPanelBehavior;
+async function sideOn() { try { return !!(await chrome.sidePanel.getPanelBehavior())?.openPanelOnActionClick; } catch (_) { return false; } }
 const openFull = () => { chrome.tabs.create({ url: chrome.runtime.getURL("popup.html?full=1") }); if (!FULL) window.close(); };
 if (FULL) addEventListener("resize", () => { const d = S.screen === "home" && innerWidth >= 1100 ? "1" : ""; if (document.documentElement.dataset.fpDash !== d) { document.documentElement.dataset.fpDash = d; } });
 if (FULL) {
@@ -63,6 +68,7 @@ function applyNums() { const r = document.documentElement; r.dataset.numFace = S
 // ------------------------------------------------------------------ icons and coins
 
 const I = {
+  side: '<svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M14.5 4.5v15"/></svg>',
   bell: '<svg viewBox="0 0 24 24"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>',
   pen: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>',
   plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
@@ -1213,7 +1219,17 @@ function dashSide(w, loading) {
     </section>
   </aside>`;
 }
+/** Each account's total, as last seen on its home screen (per Mainnet / Testnet), for the "All wallets" line. */
+const totKey = () => `tot:${S.mode || DEFAULT_MODE}`;
+async function loadTots() { const k = totKey(); if (S.totsK === k) return S.tots; S.tots = (await local.get(k))[k] || {}; S.totsK = k; return S.tots; }
+async function recordTotal() {
+  const w = worth(), id = curAcct()?.id; if (!w.ready || !w.all || !id || !Object.keys(S.prices || {}).length) return;
+  await loadTots(); const prev = S.tots[id];
+  if (prev && Math.abs(prev.usd - w.total) < 0.005 && Date.now() - prev.at < 600_000) return;
+  S.tots[id] = { usd: w.total, at: Date.now() }; local.set({ [totKey()]: S.tots });
+}
 function homeView() {
+  queueMicrotask(() => recordTotal().catch(() => {}));
   const N = NETS[S.net], e = ENG, w = worth(), loading = !w.ready;
   const pct = w.total ? Math.round((w.sav / w.total) * 100) : 0;
   const addr = e?.address || "";
@@ -2404,11 +2420,16 @@ const acctAddr = (a) => a.kind === "key" ? a.pub : a.kind === "phrase" ? a.solPu
 /** Every account in this wallet. Tap one to switch; add another from the phrase, or import a private key. */
 function acctsView() {
   const P = S.panel, list = S.accts || DEF_ACCTS;
+  if (S.totsK !== totKey()) { loadTots().then(() => { if (S.panel?.p === "accts") patchPanel(); }); }
+  const tots = S.totsK === totKey() ? S.tots || {} : {}, known = list.filter((a) => tots[a.id]), sum = known.reduce((t, a) => t + tots[a.id].usd, 0);
+  const valOf = (a) => (tots[a.id] ? ` · ${mask(money(tots[a.id].usd))}` : "");
   return `${phead("Accounts")}
+    ${known.length > 1 ? `<div class="acc-sum"><span>All wallets</span><b>${mask(money(sum))}</b><small>${known.length < list.length ? `${known.length} of ${list.length} accounts · ` : ""}as last seen on each account</small></div>` : ""}
     <section class="list accts-l">${list.map((a) => `<div class="arow acc-row${a.id === S.sel ? " on" : ""}">
-      <button class="acc-main" data-act="acct-switch" data-id="${a.id}">${acctIc(a)}<span class="ar-t"><b>${esc(a.name)}</b><small class="mono">${short(acctAddr(a))}${a.kind === "key" ? ` · <span class="tagk">${a.fam === "sol" ? "Solana key" : "Ethereum key"}</span>` : a.kind === "phrase" ? ` · <span class="tagk">Other phrase</span>` : ""}</small></span>${a.id === S.sel ? `<span class="acc-ok">${I.check}</span>` : ""}</button>
+      <button class="acc-main" data-act="acct-switch" data-id="${a.id}">${acctIc(a)}<span class="ar-t"><b>${esc(a.name)}</b><small class="mono">${short(acctAddr(a))}${valOf(a)}${a.kind === "key" ? ` · <span class="tagk">${a.fam === "sol" ? "Solana key" : "Ethereum key"}</span>` : a.kind === "phrase" ? ` · <span class="tagk">Other phrase</span>` : ""}</small></span>${a.id === S.sel ? `<span class="acc-ok">${I.check}</span>` : ""}</button>
       <button class="ib sm" data-act="acct-edit" data-id="${a.id}" aria-label="Rename ${esc(a.name)}">${I.pen}</button></div>
-      ${P.edit === a.id ? `<div class="acc-edit"><input data-acct-name value="${esc(a.name)}" maxlength="24" aria-label="Account name"/><button class="btn sm primary" data-act="acct-save" data-id="${a.id}">Save</button>${logoPick(a)}
+      ${P.edit === a.id ? `<div class="acc-edit"><input data-acct-name value="${esc(a.name)}" maxlength="24" aria-label="Account name"/><button class="btn sm primary" data-act="acct-save" data-id="${a.id}">Save</button>
+        <span class="acc-move"><button class="ib sm" data-act="acct-move" data-id="${a.id}" data-d="-1" aria-label="Move up" ${list.indexOf(a) === 0 ? "disabled" : ""}>${I.arrow}</button><button class="ib sm dn" data-act="acct-move" data-id="${a.id}" data-d="1" aria-label="Move down" ${list.indexOf(a) === list.length - 1 ? "disabled" : ""}>${I.arrow}</button></span>${logoPick(a)}
         ${a.id !== "hd0" ? `<button class="btn sm ghost danger" data-act="acct-remove" data-id="${a.id}">${a.kind === "key" || a.kind === "phrase" ? "Remove" : "Hide"}</button>` : ""}</div>` : ""}`).join("")}</section>
     <div class="acc-acts">
       <button class="btn" data-act="acct-add">${I.plus}Add account</button>
@@ -2755,6 +2776,7 @@ function assetsView() {
 }
 
 function settingsView() {
+  if (sideOk() && S.sideOn === undefined) { S.sideOn = false; sideOn().then((v) => { S.sideOn = v; if (S.panel?.p === "settings") renderPanel(); }); }
   const row = (act, ic, label, val = I.arrow, extra = "") => `<button class="srow" data-act="${act}" ${extra}><span>${ic}${label}</span><span class="sv">${val}</span></button>`;
   const onOff = (v) => `<span class="tsw${v ? " on" : ""}" aria-hidden="true"><i></i></span><span class="vh">${v ? "On" : "Off"}</span>`;
   const sec = (title, body) => `<div class="set-h">${title}</div><div class="sets">${body}</div>`;
@@ -2788,6 +2810,7 @@ function settingsView() {
       ${globalThis.ECRIN_WEB && pushPossible() ? row("push-toggle", I.bell, "Safe alerts on this phone", S.pushBusy ? `<i class="spin"></i>` : onOff(S.pushOn)) : ""}
       ${row("tog", I.recv, "Notify when I receive coins", onOff(S.recvNotify !== false && !(globalThis.ECRIN_WEB && window.Notification && Notification.permission === "denied")), 'data-k="recvNotify"')}
       ${row("tog", I.spark, "Sounds", onOff(S.sounds), 'data-k="sounds"')}
+      ${sideOk() ? row("side-toggle", I.side, "Open in the side panel", onOff(S.sideOn), 'data-hint="side"') : ""}
       ${row("tog", I.img, "Show collectibles (NFTs)", onOff(S.showNfts), 'data-k="showNfts"')}
       ${row("tog", I.eyeOff, "Hide balances of $1 or less", onOff(S.hideSmall), 'data-k="hideSmall"')}
       ${row("tog", I.arrow, "Order coins by", S.order === "name" ? "Name" : "Value", 'data-k="order"')}`)}
@@ -3161,6 +3184,22 @@ const actions = {
     const n = (S.accts || DEF_ACCTS).length;
     S.accts = [...(S.accts || DEF_ACCTS), { id: "hd" + i, kind: "hd", i, name: `Account ${i + 1}`, c: n % COLORS.length }];
     await saveAccts(); toast(`Account ${i + 1} added`); switchAccount("hd" + i);
+  },
+  "acct-move": async (el) => {
+    const list = [...(S.accts || DEF_ACCTS)], i = list.findIndex((a) => a.id === el.dataset.id), j = i + Number(el.dataset.d);
+    if (i < 0 || j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]]; S.accts = list; await saveAccts(); haptic("light"); patchPanel();
+  },
+  "side-toggle": async (el) => {
+    await flipSwitch(el); const on = !S.sideOn;
+    try { await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: on }); S.sideOn = on; }
+    catch (_) { renderPanel(); return toast("Your version of Chrome doesn't have the side panel yet. Update Chrome to use it.", "err"); }
+    if (on && !SIDE) {
+      // open it now (Chrome allows it right after a click); if it can't, the Ecrin button opens it from now on
+      try { const w = await chrome.windows.getCurrent(); await chrome.sidePanel.open({ windowId: w.id }); window.close(); return; }
+      catch (_) { toast("Done. Click the Ecrin button in Chrome's toolbar to open it in the side panel."); }
+    } else toast(on ? "Ecrin now opens in the side panel." : SIDE ? "The Ecrin button opens the popup again. You can close this panel." : "Ecrin opens as a popup again.");
+    renderPanel();
   },
   "peek-small": () => { S.peekSmall = !S.peekSmall; haptic("light"); render(); },
   "imp-mode": (el) => { S.panel.mode = el.dataset.v; renderPanel(); },

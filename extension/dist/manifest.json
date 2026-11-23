@@ -29,7 +29,8 @@
     "alarms",
     "clipboardWrite",
     "unlimitedStorage",
-    "notifications"
+    "notifications",
+    "sidePanel"
   ],
   "host_permissions": [
     "https://api.devnet.solana.com/*",
@@ -69,5 +70,8 @@
       ],
       "run_at": "document_start"
     }
-  ]
+  ],
+  "side_panel": {
+    "default_path": "popup.html?side=1"
+  }
 }
