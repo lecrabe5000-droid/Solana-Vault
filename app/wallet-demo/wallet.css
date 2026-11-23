@@ -4394,3 +4394,7 @@ html:root[data-theme] .lk2.run .lk-run { animation-duration: 2.8s !important; st
 html:root[data-theme] .lk2.run .lk-run2 { animation-duration: 4.2s !important; stroke-dasharray: 16 84; opacity: .85; }
 html:root[data-theme] .lk-ic .lk-l { transition: opacity .3s ease, transform .4s cubic-bezier(.3, .7, .2, 1) !important; }
 @media (prefers-reduced-motion: reduce) { html:root[data-theme] .lk-run, html:root[data-theme] .lk-run2 { animation: none !important; } }
+
+/* Activity: a coin's logo keeps its own colours (the line-icon style of .act-ico must not outline it) */
+html:root[data-theme] .act-ico.act-coin > .coin svg { fill: initial !important; stroke: none !important; stroke-width: 0 !important; }
+html:root[data-theme] .act-ico.act-coin > .coin { box-shadow: none !important; }

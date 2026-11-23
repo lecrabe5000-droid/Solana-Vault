@@ -4395,6 +4395,10 @@ html:root[data-theme] .lk2.run .lk-run2 { animation-duration: 4.2s !important; s
 html:root[data-theme] .lk-ic .lk-l { transition: opacity .3s ease, transform .4s cubic-bezier(.3, .7, .2, 1) !important; }
 @media (prefers-reduced-motion: reduce) { html:root[data-theme] .lk-run, html:root[data-theme] .lk-run2 { animation: none !important; } }
 
+/* Activity: a coin's logo keeps its own colours (the line-icon style of .act-ico must not outline it) */
+html:root[data-theme] .act-ico.act-coin > .coin svg { fill: initial !important; stroke: none !important; stroke-width: 0 !important; }
+html:root[data-theme] .act-ico.act-coin > .coin { box-shadow: none !important; }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Down to the very bottom of the screen: as a home-screen app, an iPhone can report a viewport shorter than the screen,
    which left a strip of bare page under every screen. The app is as tall as the tallest viewport the phone reports,
