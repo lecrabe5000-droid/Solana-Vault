@@ -4361,6 +4361,40 @@ html:root[data-theme] .lz.draw .lz-safe { animation: lz-unroll-s 1.3s cubic-bezi
 html:root[data-theme] .spin { border: 2px solid color-mix(in srgb, currentColor 22%, transparent) !important; border-top-color: currentColor !important; animation: spin-ease .9s cubic-bezier(.55, .15, .45, .85) infinite !important; }
 @keyframes spin-ease { to { transform: rotate(360deg); } }
 
+/* Coin colours, calmer: each coin keeps its hue, blended toward the look's own tone so the diamond stays elegant */
+html:root[data-theme] .lz .lz-seg.lz-seg[data-u], html:root[data-skin][data-theme] .lz .lz-seg.lz-seg[data-u] { stroke: color-mix(in srgb, var(--cc) 70%, #c9cfdf) !important; filter: drop-shadow(0 0 3px color-mix(in srgb, var(--cc) 22%, transparent)) !important; }
+html:root[data-skin="ecrin"][data-theme] .lz .lz-seg.lz-seg[data-u] { stroke: color-mix(in srgb, var(--cc) 68%, #efe4cf) !important; }
+html:root[data-theme="light"] .lz .lz-seg.lz-seg[data-u] { stroke: color-mix(in srgb, var(--cc) 72%, #4a5068) !important; filter: none !important; }
+@keyframes lz-unroll {
+  0% { stroke-dasharray: 0 100; stroke-dashoffset: calc(var(--o, 0) + 6); opacity: 0; }
+  18% { opacity: 1; }
+  100% { stroke-dasharray: var(--dl) var(--dg); stroke-dashoffset: var(--o, 0); opacity: 1; }
+}
+
+/* The light around the cards as a screen opens: a soft glint moving at an even pace, on the first few cards only */
+.pane.trace :is(.list, .tk-info, .ad-card, .sets, .tk-bal, .sscore, .note, .cool, .freeze-btn, .rev-l, .set-acct, .rev-card, .txd-card, .rq-card, .ob)::after {
+  background: conic-gradient(from var(--ta), transparent 0deg 230deg, rgba(150, 170, 255, .14) 300deg, rgba(215, 224, 255, .42) 350deg, transparent 360deg) !important;
+  animation: trace-glint 1.5s cubic-bezier(.4, .1, .3, 1) calc(var(--tt, 0ms) + 80ms + var(--ti, 0) * 90ms) both !important; }
+:root[data-theme="light"] .pane.trace :is(.list, .tk-info, .ad-card, .sets, .tk-bal, .sscore, .note, .cool, .freeze-btn, .rev-l, .set-acct, .rev-card, .txd-card, .rq-card, .ob)::after {
+  background: conic-gradient(from var(--ta), transparent 0deg 230deg, rgba(47, 91, 255, .1) 300deg, rgba(47, 91, 255, .32) 350deg, transparent 360deg) !important; }
+@keyframes trace-glint { 0% { --ta: -30deg; opacity: 0; } 20% { opacity: 1; } 75% { opacity: .8; } 100% { --ta: 330deg; opacity: 0; } }
+.pane.trace > :nth-child(n + 6) :is(.list, .tk-info, .ad-card, .sets, .tk-bal, .sscore, .note, .cool, .freeze-btn, .rev-l, .set-acct, .rev-card, .txd-card, .rq-card, .ob)::after,
+.pane.trace > :nth-child(n + 6):is(.list, .tk-info, .ad-card, .sets, .tk-bal, .sscore, .note, .cool, .freeze-btn, .rev-l, .set-acct, .rev-card, .txd-card, .rq-card, .ob)::after { display: none !important; }
+
+/* Face ID / unlock tile: one slow, continuous turn with soft ease in and out (no whip-and-stop), with depth */
+.spin-tile { animation: ecrin-turn 3.2s cubic-bezier(.62, 0, .38, 1) infinite !important; }
+@keyframes ecrin-turn { 0% { transform: perspective(420px) rotateY(0) scale(1); } 50% { transform: perspective(420px) rotateY(180deg) scale(.96); } 100% { transform: perspective(420px) rotateY(360deg) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .spin-tile { animation: none !important; } }
+
+/* Unlock (Face ID) and progress rings: one steady orbit speed, never changed mid-spin (that made them jump);
+   while working, the comet grows longer and brighter with a smooth transition instead of switching speed */
+html:root[data-theme] .lk-run { animation: lk-orbit 2.8s linear infinite !important; transition: stroke-dasharray .6s cubic-bezier(.3, .7, .2, 1), opacity .3s, filter .4s; }
+html:root[data-theme] .lk-run2 { animation: lk-orbit-r 4.2s linear infinite !important; transition: stroke-dasharray .6s cubic-bezier(.3, .7, .2, 1), opacity .3s; }
+html:root[data-theme] .lk2.run .lk-run { animation-duration: 2.8s !important; stroke-dasharray: 30 70; }
+html:root[data-theme] .lk2.run .lk-run2 { animation-duration: 4.2s !important; stroke-dasharray: 16 84; opacity: .85; }
+html:root[data-theme] .lk-ic .lk-l { transition: opacity .3s ease, transform .4s cubic-bezier(.3, .7, .2, 1) !important; }
+@media (prefers-reduced-motion: reduce) { html:root[data-theme] .lk-run, html:root[data-theme] .lk-run2 { animation: none !important; } }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Down to the very bottom of the screen: as a home-screen app, an iPhone can report a viewport shorter than the screen,
    which left a strip of bare page under every screen. The app is as tall as the tallest viewport the phone reports,
