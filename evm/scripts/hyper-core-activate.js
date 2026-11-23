@@ -4,7 +4,7 @@
 //   node scripts/hyper-core-activate.js          (DEPLOYER_KEY; HyperEVM mainnet)
 const { ethers } = require("ethers");
 const RPC = "https://rpc.hyperliquid.xyz/evm", INFO = "https://api.hyperliquid.xyz/info";
-const SYSTEM = "0x2222222222222222222222222222222222222222", AMOUNT = ethers.parseEther("0.003");
+const SYSTEM = "0x2222222222222222222222222222222222222222", KEEP = ethers.parseEther("0.0032"); // kept on HyperEVM for the deploy (~0.0008 needed)
 
 const role = async (user) => {
   const r = await fetch(INFO, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "userRole", user }) });
@@ -17,9 +17,12 @@ const role = async (user) => {
   console.log("HyperCore role of", wallet.address, ":", before);
   if (before !== "missing") return console.log("Already on HyperCore, nothing to do.");
   const bal = await provider.getBalance(wallet.address);
-  if (bal < AMOUNT * 2n) throw new Error(`The deployer holds ${ethers.formatEther(bal)} HYPE; it needs at least 0.006 (0.003 to open HyperCore, the rest to deploy).`);
-  const tx = await wallet.sendTransaction({ to: SYSTEM, value: AMOUNT });
-  console.log("Sent 0.003 HYPE to HyperCore:", tx.hash); await tx.wait();
+  // Opening a HyperCore account takes a minimum first deposit (a tiny one is credited but doesn't open it), so
+  // everything above what the deploy needs goes across.
+  const amount = bal - KEEP;
+  if (amount < ethers.parseEther("0.01")) throw new Error(`The deployer holds ${ethers.formatEther(bal)} HYPE; it needs about 0.014 (0.01+ to open HyperCore, the rest to deploy).`);
+  const tx = await wallet.sendTransaction({ to: SYSTEM, value: amount });
+  console.log(`Sent ${ethers.formatEther(amount)} HYPE to HyperCore:`, tx.hash); await tx.wait();
   for (let i = 0; i < 12; i++) {
     await new Promise((r) => setTimeout(r, 5000));
     const now = await role(wallet.address); console.log("HyperCore role:", now);
