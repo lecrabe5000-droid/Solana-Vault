@@ -4332,3 +4332,9 @@ html[data-side], html[data-side] body { width: 100%; height: 100vh; min-width: 3
 .pa-list { display: grid; gap: 6px; }
 .pa-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 12px; background: rgba(127, 127, 127, .08); }
 .pa-form .fine { margin: 0; }
+
+/* Settings rows: a long label (French, small phones) wraps on its own line; the switch or value stays on the right */
+html:root[data-theme] .srow:not(:has(.seg)) { flex-wrap: nowrap !important; }
+html:root[data-theme] .srow:not(:has(.seg)) > span:first-child { flex: 1 1 auto; min-width: 0; white-space: normal; overflow-wrap: break-word; line-height: 1.25; min-width: min(46%, max-content); }
+html:root[data-theme] .srow:not(:has(.seg)) > .sv { flex: 0 0 auto; margin-left: 10px; text-align: right; }
+html:root[data-theme] .srow:not(:has(.seg)) > .sv:not(:has(.tsw)) { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
