@@ -2330,13 +2330,16 @@ function keptView() {
 /** o: { kind, N, title: [while, done], amount, usd, line, rows: [[label, value]], note, extra } */
 function motionView(P, o) {
   const m = P.mo || { steps: STEPS(o.N), at: P.step === "done" ? 9 : 1, t0: 0, t1: 0 }, done = P.step === "done";
+  if (done && !P.okAt) P.okAt = Date.now(); // the finish ring keeps its place across redraws instead of restarting (or vanishing)
+  const okd = done ? Math.min(5000, Date.now() - P.okAt) : 0;
   const link = P.sig && !/^demo/.test(P.sig) ? o.N.explorer("tx", P.sig) : null, took = done && m.t1 && m.t0 ? ((m.t1 - m.t0) / 1000).toFixed(1) : null;
   const R = (c, x, r) => `<rect class="${c}" x="${x}" y="${x}" width="${220 - 2 * x}" height="${220 - 2 * x}" rx="${r}" pathLength="100"/>`;
   const steps = m.steps.map((x, i) => { const st = done || i < m.at ? "ok" : i === m.at ? "now" : "";
     return `<li class="${st}"><i class="mo-dot">${st === "ok" ? `<svg viewBox="0 0 24 24"><path d="M6 12.5l4 4L18 8"/></svg>` : st === "now" ? `<i class="spin"></i>` : ""}</i><span>${st === "ok" ? x.ok : x.run}${x.k === "sent" && link && st === "ok" ? ` <a class="mo-ln" href="${link}" target="_blank">View ${I.ext}</a>` : ""}</span>${x.k === "conf" && took ? `<small>in ${took} s</small>` : ""}</li>`; }).join("");
   const when = new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   const rows = done ? [...(o.rows || []), ["Network", `${o.N.name} ${o.N.net}`], ["Time", when], ...(P.sig && !/^demo/.test(P.sig) ? [["Transaction", `<span class="mono">${esc(short(P.sig))}</span> <button class="ib sm" data-act="copy" data-v="${esc(P.sig)}" aria-label="Copy transaction id">${I.copy}</button>`]] : [])] : [];
-  return `<div class="mo lk2 ${done ? "ok" : "run"} mo-${o.kind}">
+  const ccU = o.pair ? o.pair[o.pair.length - 1].sym : (String(o.amount || "").match(/[A-Z]{3,5}\b/) || [o.N?.unit])[0];
+  return `<div class="mo lk2 ${done ? "ok" : "run"} mo-${o.kind}" style="--okd:-${okd}ms;--cc:${COIN_COL[String(ccU || "").replace(/<[^>]*>/g, "").trim()] || "#5b84ff"}">
     ${done ? "" : `<button class="ib mo-x" data-act="close" aria-label="Close (it keeps going)">${I.x}</button>`}
     <div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
     <div class="lk-hero mo-hero" aria-hidden="true"><svg class="lk-lz" viewBox="0 0 220 220"><defs><linearGradient id="lkg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b6c4ff"/><stop offset=".5" stop-color="#4b74ff"/><stop offset="1" stop-color="#00c8ff"/></linearGradient></defs>
@@ -3822,7 +3825,7 @@ async function confirmSend() {
     S.lastTx = Date.now(); const e = await eng(); const sig = await e.send(a, to, units, { speed: P.speed, tag: P.tag || null }); S.lastTx = Date.now();
     await rememberDest(to); await countSpend(usd); await logActivity({ t: "send", a, n: units, to, sig: typeof sig === "string" ? sig : null });
     if (S.bal && S.net === net) { const k = a === "usdc" ? "usdc" : "native"; S.bal = { ...S.bal, [k]: Math.max(0, Number(S.bal[k] || 0) - units) }; render(); }
-    haptic("success"); txPill("ok", `Sent ${what}`, `to ${who}`, typeof sig === "string" && NETS[net].explorer ? NETS[net].explorer("tx", sig) : null);
+    haptic("success"); txPill("ok", `Sent ${what}`, `to ${who}`, typeof sig === "string" && NETS[net].explorer ? NETS[net].explorer("tx", sig) : null, A(a).unit);
     refresh().then(() => { loadActivity(); loadAll(); });
   } catch (err) { console.warn(err); txPill(null); toast(errText(err), "err"); }
 }
@@ -3856,14 +3859,14 @@ function openMoLast() {
   if (P && S.screen === "home") { if (S.panel) S.pstack = []; pushPanel(P.p); S.panel = P; P.anim = false; return renderPanel(true); }
   document.querySelector('.home .tabs button:nth-child(2)')?.click();
 }
-function txPill(state, title, sub, link) {
+function txPill(state, title, sub, link, unit) {
   let el = document.getElementById("txpill");
   if (!state) { el?.classList.remove("in"); return; }
   if (!el) { el = document.createElement("div"); el.id = "txpill"; el.className = "txpill"; el.setAttribute("role", "status"); (document.querySelector(".device") || document.body).append(el);
     // Tap the pill: back to the transaction's own screen (still following it live), or to Activity if it's gone.
     el.addEventListener("click", (e) => { if (e.target.closest(".tp-l")) return; openMoLast(); }); }
   clearTimeout(el._t);
-  el.className = `txpill ${state}`;
+  el.className = `txpill ${state}`; el.style.setProperty("--cc", COIN_COL[unit] || "#5b84ff");
   el.innerHTML = `<span class="tp-ic">${state === "ok" ? dcheck("sm") : `<svg class="tp-spin" viewBox="0 0 40 40" aria-hidden="true"><rect x="11" y="11" width="18" height="18" rx="5" transform="rotate(45 20 20)"/></svg>`}</span>
     <span class="tp-t"><b>${esc(trText(title, S.lang))}</b><small>${esc(trText(sub, S.lang))}</small></span>${link ? `<a class="tp-l" href="${esc(link)}" target="_blank" rel="noopener">${esc(trText("View", S.lang))}</a>` : ""}`;
   requestAnimationFrame(() => el.classList.add("in"));
@@ -5244,7 +5247,7 @@ async function bridgeNow() {
     refresh().then(() => { loadActivity(); loadAll(); });
     const finish = (got, link) => {
       if (got != null) P.got = fromRaw(got, brDec(ta)); P.link = link || null; motionEnd(P); P.step = "done"; haptic("success");
-      if (here()) renderPanel(); else txPill("ok", cross ? `${tunit} arrived on ${NETS[to].name}` : `Swapped to ${tunit}`, `${amount} ${unit} swapped`, link || null);
+      if (here()) renderPanel(); else txPill("ok", cross ? `${tunit} arrived on ${NETS[to].name}` : `Swapped to ${tunit}`, `${amount} ${unit} swapped`, link || null, tunit);
       loadAll(); refresh();
     };
     if (globalThis.ECRIN_DEMO) { await new Promise((r) => setTimeout(r, 2500)); return finish(d.toAmount, null); }

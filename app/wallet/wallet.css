@@ -4432,6 +4432,19 @@ html:root .tk-chart .tk-tip { display: block !important; position: absolute; top
 .qr svg { shape-rendering: geometricPrecision; }
 @media (prefers-reduced-motion: reduce) { .rc .rc-addr.flash, .rc .rc-addr.flash b { animation: none; } }
 
+/* Success moments: when money lands, one soft pop and a ring in the coin's own color (no confetti, nothing loud) */
+html:root[data-theme] .txpill.ok .tp-ic { position: relative; background: color-mix(in srgb, var(--cc, #5b84ff) 22%, transparent); animation: tp-pop .5s cubic-bezier(.3, 1.5, .5, 1); }
+html:root[data-theme] .txpill.ok .tp-ic::after { content: ""; position: absolute; inset: 0; border-radius: 12px; box-shadow: 0 0 0 2px var(--cc, #5b84ff); opacity: 0; animation: tp-ring .85s .08s ease-out; pointer-events: none; }
+html:root[data-theme] .txpill.ok { box-shadow: 0 0 0 1px color-mix(in srgb, var(--cc, #5b84ff) 50%, transparent), 0 18px 40px -16px rgba(0, 0, 0, .6); }
+@keyframes tp-pop { 0% { transform: scale(.72); } 60% { transform: scale(1.08); } 100% { transform: scale(1); } }
+@keyframes tp-ring { 0% { opacity: .95; transform: scale(1); } 100% { opacity: 0; transform: scale(1.75); } }
+html:root[data-theme] #panel .mo.ok > .mo-hero { position: relative; }
+html:root[data-theme] #panel .mo.ok > .mo-hero::after { content: ""; position: absolute; left: 50%; top: 50%; width: 104px; height: 104px; margin: -52px 0 0 -52px; border-radius: 26px; pointer-events: none;
+  box-shadow: 0 0 0 2px var(--cc, #5b84ff), 0 0 28px color-mix(in srgb, var(--cc, #5b84ff) 55%, transparent); opacity: 0; animation: mo-ring 1.1s cubic-bezier(.2, .7, .3, 1) both; animation-delay: calc(.3s + var(--okd, 0ms)); }
+@keyframes mo-ring { 0% { opacity: .9; transform: rotate(45deg) scale(.95); } 100% { opacity: 0; transform: rotate(45deg) scale(1.7); } }
+html:root[data-theme] #panel .mo.ok .lk-ok path { stroke: var(--cc, currentColor); }
+@media (prefers-reduced-motion: reduce) { html:root[data-theme] .txpill.ok .tp-ic, html:root[data-theme] .txpill.ok .tp-ic::after, html:root[data-theme] #panel .mo.ok > .mo-hero::after { animation: none; } }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Down to the very bottom of the screen: as a home-screen app, an iPhone can report a viewport shorter than the screen,
    which left a strip of bare page under every screen. The app is as tall as the tallest viewport the phone reports,
