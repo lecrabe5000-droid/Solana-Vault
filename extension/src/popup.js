@@ -830,6 +830,28 @@ const TABBAR = `<nav id="tabbar" class="tabbar" aria-label="Main">
       <button data-tab="swap" data-act="tb-go" data-p="swap" aria-label="Swap"><span>${I.swap}</span><b>Swap</b></button>
       <button data-tab="vault" data-act="tb-go" data-p="vault" aria-label="Safe"><span>${I.lock}</span><b>Safe</b></button>
     </nav>`;
+/** Phone launch: the Ecrin mark from the opening screen turns a quarter-turn and grows into the unlock diamond,
+ *  so opening the app is one continuous motion instead of a cut. Elsewhere (home after Face ID…) it simply fades up. */
+function bootMorph(svg, r, root) {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const fly = svg.cloneNode(true); fly.removeAttribute("class");
+  Object.assign(fly.style, { position: "fixed", left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, zIndex: 90, pointerEvents: "none", overflow: "visible", filter: "drop-shadow(0 0 18px rgba(47, 91, 255, .55))" });
+  document.body.append(fly);
+  const hero = root.querySelector(".lk-lz, .bs-lz"); // the password screen's diamond, or the Face ID one
+  let end = "scale(1.35)";
+  if (hero) {
+    const h = hero.getBoundingClientRect();
+    // the words and the password field glide in as the mark lands, so nothing crowds its flight
+    for (const el of root.querySelectorAll(".lk-top > :not(.lk-hero), .lk-form, .lk-foot, .bs-t")) el.animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }], { duration: 460, delay: 400, easing: "cubic-bezier(.2, .8, .2, 1)", fill: "backwards" });
+    // the diamond's square is 144/220 of the hero; the mark's square is 26/32 of the mark
+    const k = ((144 / 220) * h.width) / ((26 / 32) * r.width);
+    end = `translate(${h.left + h.width / 2 - (r.left + r.width / 2)}px, ${h.top + h.height / 2 - (r.top + r.height / 2)}px) rotate(45deg) scale(${k})`;
+    (hero.closest(".lk-hero, .bs-stage") || hero).animate([{ opacity: 0, transform: "scale(.92)" }, { opacity: 1, transform: "none" }], { duration: 480, delay: 260, easing: "cubic-bezier(.2, .8, .2, 1)", fill: "backwards" });
+  }
+  fly.querySelector("path")?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, fill: "forwards" });
+  const a = fly.animate([{ transform: "none", opacity: 1 }, { opacity: 1, offset: 0.6 }, { transform: end, opacity: 0 }], { duration: 640, easing: "cubic-bezier(.55, 0, .2, 1)", fill: "forwards" });
+  a.onfinish = a.oncancel = () => fly.remove(); setTimeout(() => fly.remove(), 4000); // (safety net if the tab sleeps mid-way)
+}
 function render() {
   const root = $("#root");
   root.dataset.screen = S.screen;
@@ -839,7 +861,9 @@ function render() {
   if (FULL) document.documentElement.dataset.fpSetup = ["welcome", "createPw", "createPhrase", "createVerify", "importPhrase", "ready"].includes(S.screen) ? "1" : "";
   const html = ({ ready: readyView, loading: () => `<div class="splash boot"><div class="boot-mark">${WORDMARK("lg")}</div><div class="aura" aria-hidden="true" style="${auraT()}"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div></div>`, welcome, createPw, createPhrase, createVerify, importPhrase, unlock, home: homeView, approve: approveView })[S.screen]();
   S.homeSig = S.screen === "home" ? viewSig(html) : null;
+  const bootM = !IS_EXT && S.screen !== "loading" ? root.querySelector(".boot-mark .wm-mark") : null, bootR = bootM?.getBoundingClientRect();
   root.innerHTML = html;
+  if (bootR?.width) bootMorph(bootM, bootR, root);
   translate(root, S.lang);
   if (FULL) for (const el of document.querySelectorAll(".fp-side, .fp-h")) if (el.dataset.lang !== S.lang) { translate(el, S.lang); el.dataset.lang = S.lang; }
   stageHome(root); fitLz(root); maybeNews(); tourLive(root); const tr = root.querySelector(".tour2"); if (tr && S.tourDir) { tr.dataset.dir = S.tourDir; S.tourDir = null; }
