@@ -361,3 +361,12 @@
   if (liveBox && "MutationObserver" in window) new MutationObserver(() => { if (!liveBox.hidden && !liveBox.dataset.counted) { liveBox.dataset.counted = "1"; liveBox.querySelectorAll("b").forEach(countUp); } }).observe(liveBox, { attributes: true });
 
 })();
+
+// The product section: the phone shows the screen of the step you're reading.
+(() => {
+  const steps = [...document.querySelectorAll(".pstep")], imgs = [...document.querySelectorAll(".ph-screen img")];
+  if (!steps.length || !("IntersectionObserver" in window)) return;
+  const show = (el) => { steps.forEach((s) => s.classList.toggle("on", s === el)); imgs.forEach((i) => i.classList.toggle("on", i.dataset.shot === el.dataset.shot)); };
+  const io = new IntersectionObserver((es) => { for (const e of es) if (e.isIntersecting) show(e.target); }, { rootMargin: "-45% 0px -45% 0px" });
+  steps.forEach((s) => io.observe(s)); show(steps[0]);
+})();

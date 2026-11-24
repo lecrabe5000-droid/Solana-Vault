@@ -10,6 +10,6 @@
   };
   let t = null;
   try { t = localStorage.getItem("ecrin-theme"); } catch (_) {}
-  apply(t);
+  apply(t || root.dataset.defaultTheme); // a page can start dark (the landing does); the visitor's own choice wins
   addEventListener("storage", (e) => { if (e.key === "ecrin-theme") { apply(e.newValue); dispatchEvent(new Event("ecrin-theme")); } });
 })();
