@@ -4398,3 +4398,7 @@ html:root[data-theme] .lk-ic .lk-l { transition: opacity .3s ease, transform .4s
 /* Activity: a coin's logo keeps its own colours (the line-icon style of .act-ico must not outline it) */
 html:root[data-theme] .act-ico.act-coin > .coin svg { fill: initial !important; stroke: none !important; stroke-width: 0 !important; }
 html:root[data-theme] .act-ico.act-coin > .coin { box-shadow: none !important; }
+
+/* A row with its value on a second line (e.g. Email + the address): nothing gets cut off */
+.srow.sr-2 .sr-t { display: grid; gap: 1px; min-width: 0; }
+.srow.sr-2 .sr-t small { color: var(--muted); font-weight: 500; font-size: 13.5px; overflow-wrap: anywhere; }

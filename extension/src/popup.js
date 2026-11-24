@@ -68,6 +68,18 @@ function applyNums() { const r = document.documentElement; r.dataset.numFace = S
 // ------------------------------------------------------------------ icons and coins
 
 const I = {
+  nodes: '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M10.7 7.2 6.3 15.8M13.3 7.2l4.4 8.6M7.5 18h9"/></svg>',
+  users: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.5a6.5 6.5 0 0 1 3 5.5"/></svg>',
+  bars: '<svg viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M7.5 16v-4M12 16V7M16.5 16v-6"/></svg>',
+  sound: '<svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>',
+  sort: '<svg viewBox="0 0 24 24"><path d="M4 7h16M7 12h10M10 17h4"/></svg>',
+  sparkle: '<svg viewBox="0 0 24 24"><path d="M12 3.5l1.7 5L19 10.2l-5.3 1.7L12 17l-1.7-5.1L5 10.2l5.3-1.7z"/><path d="M18.5 16.5l.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6z"/></svg>',
+  help: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 0 1 4.8 1c0 1.7-2.4 2.1-2.4 3.6"/><path d="M12 17.2h.01"/></svg>',
+  msg: '<svg viewBox="0 0 24 24"><path d="M4 5h16v11H9.5L5 19.5V16H4z"/><path d="M8 9h8M8 12.5h5"/></svg>',
+  inbox: '<svg viewBox="0 0 24 24"><path d="M4 13l2.5-7h11L20 13v6H4z"/><path d="M4 13h4.5l1 2h5l1-2H20"/></svg>',
+  words: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h3M13 9h3M8 12.5h3M13 12.5h3M8 16h3M13 16h3"/></svg>',
+  coinD: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M14.7 9.3c-.5-.9-1.5-1.4-2.7-1.4-1.6 0-2.7.8-2.7 2s1.1 1.6 2.7 1.9c1.6.3 2.7.9 2.7 2.1s-1.1 2.1-2.7 2.1c-1.3 0-2.3-.5-2.8-1.4M12 6v1.9M12 16.1V18"/></svg>',
+  mail: '<svg viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="M4.5 7.5l7.5 5.5 7.5-5.5"/></svg>',
   side: '<svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M14.5 4.5v15"/></svg>',
   bell: '<svg viewBox="0 0 24 24"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>',
   pen: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>',
@@ -2806,7 +2818,7 @@ function settingsView() {
     <button class="set-acct" data-act="panel" data-p="accts">${acctIc(curAcct(), "lg")}<span><b>${esc(curAcct().name)}</b><small class="mono">${short(ENG?.address || "")}</small></span>${I.arrow}</button>
     ${sec("Security", `
       ${row("panel", I.shield, "Safety", `Limits, freeze ${I.arrow}`, 'data-p="safety"')}
-      ${row("panel", I.key, "Recovery phrase", I.arrow, 'data-p="reveal"')}
+      ${row("panel", I.words, "Recovery phrase", I.arrow, 'data-p="reveal"')}
       ${row("panel", I.key, "Export private key", I.arrow, 'data-p="pkey"')}
       ${globalThis.ECRIN_WEB && bioPossible() ? row("bio-toggle", I.face, bioName() === "Face ID" ? "Face ID" : "Biometric unlock", onOff(S.bio)) : ""}
       <div class="srow"><span>${I.clock}Auto-lock</span><span class="seg">${[0, 1, 5, 15, 60].map((m) => `<button data-act="autolock" data-v="${m}" aria-pressed="${S.autolock === m}">${m === 0 ? "Off" : m < 60 ? m + "m" : "1h"}</button>`).join("")}</span></div>
@@ -2816,33 +2828,33 @@ function settingsView() {
       ${row("lock", I.lock, "Lock now", "")}
       ${IS_EXT && !FULL ? row("open-full", I.ext, "Open in a tab", I.arrow) : ""}${FULL ? row("open-popup", I.ext, "Open as popup", I.arrow) : ""}`)}
     ${sec("Preferences", `
-      ${row("panel", I.card, "Currency", `${S.cur || "USD"} ${I.arrow}`, 'data-p="currency"')}
+      ${row("panel", I.coinD, "Currency", `${S.cur || "USD"} ${I.arrow}`, 'data-p="currency"')}
       ${row("panel", I.spark, "Price alerts", `${Object.values(S.palerts || {}).filter(Boolean).length || "Off"} ${I.arrow}`, 'data-p="alerts"')}
       <div class="srow"><span>${I.globe}Language</span><span class="seg">${LANGS.map(([k, l]) => `<button data-act="lang" data-v="${k}" aria-pressed="${S.lang === k}">${l}</button>`).join("")}</span></div>
       <div class="srow"><span>${S.theme === "light" ? I.sun : I.moon}Appearance</span><span class="seg">${["light", "dark", "ecrin"].map((t) => `<button data-act="theme" data-v="${t}" aria-pressed="${S.theme === t}">${{ light: "Light", dark: "Dark", ecrin: "Ecrin" }[t]}</button>`).join("")}</span></div>
       ${row("panel", '<b class="nf-ico">1.2</b>', "Numbers", `${NUM_FACES.find(([k]) => k === S.nums.face)[1]} ${I.arrow}`, 'data-p="numbers"')}`)}
     ${sec("Networks", `
-      <div class="srow"><span>${I.globe}Networks</span><span class="seg">${[["main", "Mainnet"], ["test", "Testnet"]].map(([m, l]) => `<button data-act="net-mode" data-v="${m}" aria-pressed="${(S.mode || DEFAULT_MODE) === m}">${l}</button>`).join("")}</span></div>
+      <div class="srow"><span>${I.nodes}Networks</span><span class="seg">${[["main", "Mainnet"], ["test", "Testnet"]].map(([m, l]) => `<button data-act="net-mode" data-v="${m}" aria-pressed="${(S.mode || DEFAULT_MODE) === m}">${l}</button>`).join("")}</span></div>
       ${isMain() && Object.values(NETS).some((N) => N.real && N.contract) ? row("tog", I.lock, "Safe on mainnet · early access", onOff(S.earlySafe), 'data-k="earlySafe"') : ""}
       <p class="set-note">${isMain() ? (S.earlySafe ? `Early access: the Safe works on ${earlyList()}. It has not been audited yet, so keep amounts small.` : "The Safe comes to mainnet after its security audit; until then it runs on Testnet.") : "Test coins with no value: try everything, the Safe included, for free."}</p>`)}
     ${sec("Wallet", `
-      ${row("panel", I.recv, "Contacts", `${Object.values(S.book || {}).reduce((t, m) => t + Object.keys(m || {}).length, 0) || ""} ${I.arrow}`, 'data-p="contacts"')}
-      ${row("report", I.spark, "Monthly report")}`)}
+      ${row("panel", I.users, "Contacts", `${Object.values(S.book || {}).reduce((t, m) => t + Object.keys(m || {}).length, 0) || ""} ${I.arrow}`, 'data-p="contacts"')}
+      ${row("report", I.bars, "Monthly report")}`)}
     ${sec("Home screen", `
       ${globalThis.ECRIN_WEB && pushPossible() ? row("push-toggle", I.bell, "Safe alerts on this phone", S.pushBusy ? `<i class="spin"></i>` : onOff(S.pushOn)) : ""}
-      ${row("tog", I.recv, "Notify when I receive coins", onOff(S.recvNotify !== false && !(globalThis.ECRIN_WEB && window.Notification && Notification.permission === "denied")), 'data-k="recvNotify"')}
-      ${row("tog", I.spark, "Sounds", onOff(S.sounds), 'data-k="sounds"')}
+      ${row("tog", I.inbox, "Notify when I receive coins", onOff(S.recvNotify !== false && !(globalThis.ECRIN_WEB && window.Notification && Notification.permission === "denied")), 'data-k="recvNotify"')}
+      ${row("tog", I.sound, "Sounds", onOff(S.sounds), 'data-k="sounds"')}
       ${sideOk() ? row("side-toggle", I.side, "Open in the side panel", onOff(S.sideOn), 'data-hint="side"') : ""}
       ${row("tog", I.img, "Show collectibles (NFTs)", onOff(S.showNfts), 'data-k="showNfts"')}
       ${row("tog", I.eyeOff, "Hide balances of $1 or less", onOff(S.hideSmall), 'data-k="hideSmall"')}
-      ${row("tog", I.arrow, "Order coins by", S.order === "name" ? "Name" : "Value", 'data-k="order"')}`)}
+      ${row("tog", I.sort, "Order coins by", S.order === "name" ? "Name" : "Value", 'data-k="order"')}`)}
     ${sec("About", `
-      ${row("panel", I.spark, "What's new", `${VERSION}${typeof __ECRIN_BUILD__ !== "undefined" ? ` · ${__ECRIN_BUILD__}` : ""} ${I.arrow}`, 'data-p="news"')}
+      ${row("panel", I.sparkle, "What's new", `${VERSION}${typeof __ECRIN_BUILD__ !== "undefined" ? ` · ${__ECRIN_BUILD__}` : ""} ${I.arrow}`, 'data-p="news"')}
       <a class="srow" href="https://ecrinprotocol.app/" target="_blank"><span>${I.globe}Website</span><span class="sv">${I.ext}</span></a>
       <a class="srow" href="https://ecrinprotocol.app/how-it-works/" target="_blank"><span>${I.shield}How the Safe works</span><span class="sv">${I.ext}</span></a>
       <a class="srow" href="https://ecrinprotocol.app/security/" target="_blank"><span>${I.check}Security and audits</span><span class="sv">${I.ext}</span></a>
-      ${row("panel", I.shield, "Help & support", I.arrow, 'data-p="help"')}
-      ${row("panel", I.link, "Report a problem or an idea", I.arrow, 'data-p="bug"')}
+      ${row("panel", I.help, "Help & support", I.arrow, 'data-p="help"')}
+      ${row("panel", I.msg, "Report a problem or an idea", I.arrow, 'data-p="bug"')}
       <a class="srow" href="https://ecrinprotocol.app/privacy/" target="_blank"><span>${I.lock}Privacy</span><span class="sv">${I.ext}</span></a>
       <a class="srow" href="https://ecrinprotocol.app/terms/" target="_blank"><span>${I.card}Terms</span><span class="sv">${I.ext}</span></a>`)}
     <div class="sets danger-z"><button class="srow danger" data-act="forget"><span>Remove wallet from this browser</span><span></span></button></div>
@@ -2874,8 +2886,8 @@ function helpView() {
   <div class="help">
     <div class="help-qa">${HELP_QA.map(([q, a]) => `<details class="hq"><summary>${q}</summary><p>${a}</p></details>`).join("")}</div>
     <div class="help-ways">
-      <button class="srow" data-act="panel" data-p="bug" data-k="support"><span>${I.send || I.link}Message support</span><span class="sv">${I.arrow}</span></button>
-      ${L.email ? `<a class="srow" href="mailto:${esc(L.email)}"><span>${I.recv}Email</span><span class="sv">${esc(L.email)}</span></a>` : ""}
+      <button class="srow" data-act="panel" data-p="bug" data-k="support"><span>${I.msg}Message support</span><span class="sv">${I.arrow}</span></button>
+      ${L.email ? `<a class="srow sr-2" href="mailto:${esc(L.email)}"><span>${I.mail}<span class="sr-t">Email<small>${esc(L.email)}</small></span></span><span class="sv">${I.ext}</span></a>` : ""}
       ${L.telegram ? `<a class="srow" href="${esc(L.telegram)}" target="_blank" rel="noopener"><span>${I.link}Telegram community</span><span class="sv">${I.ext}</span></a>` : ""}
       <a class="srow" href="${SITE_URL}/${S.lang === "fr" ? "fr/assistance" : "support"}/" target="_blank" rel="noopener"><span>${I.globe}All answers</span><span class="sv">${I.ext}</span></a>
     </div>
