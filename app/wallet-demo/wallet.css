@@ -4402,3 +4402,15 @@ html:root[data-theme] .act-ico.act-coin > .coin { box-shadow: none !important; }
 /* A row with its value on a second line (e.g. Email + the address): nothing gets cut off */
 .srow.sr-2 .sr-t { display: grid; gap: 1px; min-width: 0; }
 .srow.sr-2 .sr-t small { color: var(--muted); font-weight: 500; font-size: 13.5px; overflow-wrap: anywhere; }
+
+/* Skeleton rows: the shape of what's coming (logo, two lines, a value), shimmering softly while it loads */
+.sk-list { display: grid; gap: 2px; margin: 14px 0 0; padding: 6px; border-radius: 20px; background: var(--card-bg, rgba(255, 255, 255, .04)); box-shadow: var(--card-sh, inset 0 0 0 1px rgba(255, 255, 255, .06)); }
+.sk-row { display: flex; align-items: center; gap: 12px; padding: 12px 10px; }
+.sk-row .sk-c { width: 36px; height: 36px; border-radius: 50%; flex: none; }
+.sk-row .sk-t { flex: 1; display: grid; gap: 7px; } .sk-row .sk-t i:first-child { width: 46%; height: 12px; } .sk-row .sk-t i:last-child { width: 28%; height: 10px; }
+.sk-row .sk-v i { width: 64px; height: 12px; }
+.sk-row :is(.sk-c, i) { display: block; border-radius: 6px; background: linear-gradient(90deg, color-mix(in srgb, var(--ink, #fff) 6%, transparent) 20%, color-mix(in srgb, var(--ink, #fff) 13%, transparent) 50%, color-mix(in srgb, var(--ink, #fff) 6%, transparent) 80%); background-size: 220% 100%; animation: sk-wave 1.4s ease-in-out infinite; }
+.sk-row .sk-c { border-radius: 50%; }
+.sk-row:nth-child(2) :is(.sk-c, i) { animation-delay: .12s; } .sk-row:nth-child(3) :is(.sk-c, i) { animation-delay: .24s; }
+@keyframes sk-wave { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+@media (prefers-reduced-motion: reduce) { .sk-row :is(.sk-c, i) { animation: none; } }

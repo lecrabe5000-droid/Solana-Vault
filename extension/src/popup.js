@@ -1948,6 +1948,8 @@ function pkeyView() {
 }
 
 function activityList() {
+  // not loaded yet: shimmering rows, never "Nothing here yet" for someone who has history
+  if (S.activity == null) return `<div class="sk-list">${[0, 1, 2, 3].map(() => `<div class="sk-row"><span class="sk-c"></span><span class="sk-t"><i></i><i></i></span><span class="sk-v"><i></i></span></div>`).join("")}</div>`;
   const list = S.activity || [];
   if (!list.length) return `<section class="list"><div class="empty art">${emptyArt("act")}<b>Nothing here yet</b><span>Sends, receives, Safe moves and website approvals show up here.</span><button class="btn sm primary" data-act="panel" data-p="receive">Receive your first coins</button></div></section>`;
   return `<button class="rp-open" data-act="report">${I.spark || I.clock}<span><b>Monthly report</b><small>${new Date().toLocaleDateString(S.lang === "fr" ? "fr-CA" : "en-US", { month: "long" })} so far</small></span>${I.arrow}</button><label class="act-q">${I.search}<input data-actq placeholder="Search names, addresses, sites" value="${esc(S.actQ || "")}" autocomplete="off" spellcheck="false"/></label><section class="list" id="actl">${actRows()}</section>`;
@@ -2694,7 +2696,9 @@ function createVaultView(title) {
 function vaultView() {
   if (noSafeHere()) return safeSoonView("Safe");
   const rows = S.all;
-  if (!rows) return `${phead("Safe")}<div class="vcase safe-all"><div class="mv-top"><span class="mv-mark">${LOGO}<b>ECRIN</b></span><span class="mv-lvl">Every network</span></div><div class="sa-tot"><span class="lbl">Protected</span><b class="sk">&nbsp;</b></div></div>`;
+  // Still loading (or only last visit's saved copy): the Safe's shape, shimmering, until the live numbers arrive.
+  if (!rows || rows.some((r) => r.snap)) return `${phead("Safe")}<div class="vcase safe-all"><div class="mv-top"><span class="mv-mark">${LOGO}<b>ECRIN</b></span><span class="mv-lvl">Every network</span></div><div class="sa-tot"><span class="lbl">Protected</span><b class="sk">&nbsp;</b></div></div>
+    <div class="sk-list">${[0, 1, 2].map(() => `<div class="sk-row"><span class="sk-c"></span><span class="sk-t"><i></i><i></i></span><span class="sk-v"><i></i></span></div>`).join("")}</div>`;
   const mine = [ACCT?.sol?.publicKey?.toBase58?.(), ACCT?.evm?.address?.toLowerCase?.()].filter(Boolean);
   const isMine = (d) => mine.includes(String(d)) || mine.includes(String(d).toLowerCase());
   const t = now() + (S.clockOff || 0), px = (k) => S.prices[NETS[k].cg]?.usd;
@@ -3558,7 +3562,7 @@ const actions = {
     // Right after unlocking, balances can still be last visit's: Safe screens wait for the live Safe (never act on old data).
     // Not loaded yet at all (just opened) counts too: otherwise a network looks like it has no Safe and asks to open one.
     const notLive = () => !S.all || S.all.some((r) => r.snap) || (S.vault === undefined && canSafe(S.net));
-    if (["protect", "withdraw", "vault", "earn", "rules"].includes(p) && notLive()) {
+    if (["protect", "withdraw", "earn", "rules"].includes(p) && notLive()) { // the Safe page itself opens at once and shimmers while it loads
       toast("One moment: loading your Safe");
       for (let i = 0; i < 60 && notLive(); i++) await new Promise((r) => setTimeout(r, 250));
     }
