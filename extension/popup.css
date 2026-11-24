@@ -4414,3 +4414,9 @@ html:root[data-theme] .act-ico.act-coin > .coin { box-shadow: none !important; }
 .sk-row:nth-child(2) :is(.sk-c, i) { animation-delay: .12s; } .sk-row:nth-child(3) :is(.sk-c, i) { animation-delay: .24s; }
 @keyframes sk-wave { from { background-position: 120% 0; } to { background-position: -120% 0; } }
 @media (prefers-reduced-motion: reduce) { .sk-row :is(.sk-c, i) { animation: none; } }
+
+/* Coin chart: while dragging, a small time bubble rides above the line at your finger */
+html:root .tk-chart .tk-tip { display: block !important; position: absolute; top: -6px; transform: translateX(-50%); padding: 4px 9px; border-radius: 999px; font: 600 11.5px var(--font); white-space: nowrap; pointer-events: none;
+  color: var(--ink); background: color-mix(in srgb, var(--bg, #0b0d1c) 70%, currentColor 12%); box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 30%, transparent), 0 6px 16px -8px rgba(0, 0, 0, .6); transition: opacity .15s; }
+:root[data-theme="light"] .tk-chart .tk-tip { background: #fff; color: #10121a; }
+.tk-chart.scrub .tk-tip { opacity: 1; }
