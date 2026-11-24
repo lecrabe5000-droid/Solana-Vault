@@ -2522,6 +2522,19 @@ function acctNewView() {
     </div>`;
 }
 
+/** A QR drawn like the big wallets do: soft rounded squares (round dots scanned less reliably in tests), rounded corner eyes, and a clean round space in the
+ *  middle for the coin (the code uses high error correction, so the middle is safe to leave empty). */
+function qrDots(q) {
+  const n = q.getModuleCount(), c0 = n / 2, hole = n * 0.17;
+  const eye = (r, c) => (r < 7 && c < 7) || (r < 7 && c >= n - 7) || (r >= n - 7 && c < 7);
+  let d = "";
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    if (!q.isDark(r, c) || eye(r, c) || Math.hypot(r + 0.5 - c0, c + 0.5 - c0) < hole) continue;
+    d += `<rect x="${c}" y="${r}" width="1" height="1" rx=".3"/>`;
+  }
+  const eyes = [[0, 0], [n - 7, 0], [0, n - 7]].map(([x, y]) => `<rect x="${x + 0.5}" y="${y + 0.5}" width="6" height="6" rx="2" fill="none" stroke="#10121a" stroke-width="1"/><rect x="${x + 2}" y="${y + 2}" width="3" height="3" rx="1" fill="#10121a"/>`).join("");
+  return `<svg viewBox="0 0 ${n} ${n}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="QR code"><g fill="#10121a">${d}</g>${eyes}</svg>`;
+}
 function receiveView() {
   const e = ENG, N = NETS[S.net], ad = String(e.address);
   const q = qrcode(0, "H"); q.addData(ad); q.make(); // high error correction: the logo in the middle can't break it
@@ -2532,8 +2545,8 @@ function receiveView() {
   return `${phead("Receive")}${fromRow()}
     <div class="rc">
       <div class="rc-who">${acctIc(curAcct(), "sm")}<b>${esc(curAcct().name)}</b><span class="rc-net">${coin(S.net)}${esc(nname(N))}</span></div>
-      <div class="qr rc-qr">${q.createSvgTag({ cellSize: 5, margin: 0, scalable: true })}<span class="qr-c">${coin(m) + (m !== S.net ? `<span class="qr-b">${coin(S.net)}</span>` : "")}</span></div>
-      <p class="rc-addr mono" data-notr>${addrHTML}</p>
+      <div class="qr rc-qr">${qrDots(q)}<span class="qr-c">${coin(m) + (m !== S.net ? `<span class="qr-b">${coin(S.net)}</span>` : "")}</span></div>
+      <button class="rc-addr mono" data-act="copy-addr-tap" data-notr aria-label="Copy address">${addrHTML}</button>
       <div class="rc-acts"><button class="btn primary rc-copy" data-act="copy-addr">${I.copy}<span data-cl>Copy address</span></button>${navigator.share ? `<button class="btn rc-share" data-act="share-addr">${I.send}<span>Share</span></button>` : ""}</div>
     </div>
     <p class="rc-fine">Only send ${N.name} ${N.net} coins${N.usdc ? " or USDC" : ""} to this address. ${N.fam === "tron" ? (N.real ? "Tron addresses start with T. USDT shows with your tokens." : "Tron addresses start with T. Test USDT on Nile shows with your tokens.") : ""}${N.fam === "sui" ? "Sui addresses are 0x and 64 characters, different from your Ethereum one. " : ""}${N.fam === "btc" ? "This is a native SegWit address: every exchange and wallet can send to it. " : ""}${N.fam === "xrp" ? "A new XRP address becomes active once it receives at least 1 XRP; that 1 XRP stays as its reserve. " : ""}${N.fam === "evm" ? "The same address works on every Ethereum-style network." : ""}</p>
@@ -3555,6 +3568,10 @@ const actions = {
     else toast("Address copied", "win");
   },
   "qr-for": async (el) => { if (el.dataset.n !== S.net) { S.net = el.dataset.n; await local.set({ net: S.net }); S.bal = null; S.vault = undefined; ENG = null; await eng(); refresh(); } S.panel = { p: "receive", step: "form", asset: "native", amount: "", to: "" }; renderPanel(); },
+  "copy-addr-tap": async (el) => {
+    await navigator.clipboard.writeText(ENG.address); el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
+    const b = document.querySelector("#panel .rc-copy"); if (!copied(b)) { haptic("light"); toast("Address copied", "win"); }
+  },
   "copy-addr": async (el) => { await navigator.clipboard.writeText(ENG.address); if (!copied(el)) toast("Address copied", "win"); },
   hide: async () => { S.hide = !S.hide; await local.set({ hide: S.hide }); render(); if (S.panel) renderPanel(); },
   panel: async (el) => {
@@ -4188,7 +4205,7 @@ function payreqView() {
         <small>${fiat ? `≈ ${fiat}` : "Leave empty to let them choose"}</small></div>
       <label class="rq-note">${I.pen}<input data-reqlabel placeholder="Add a note (optional)" value="${esc(P.label || "")}" maxlength="40"/></label>
       <div class="rq-card">
-        <div class="qr">${q.createSvgTag({ cellSize: 5, margin: 0, scalable: true })}<span class="qr-c">${mid}</span></div>
+        <div class="qr">${qrDots(q)}<span class="qr-c">${mid}</span></div>
         <b class="rq-what">${n ? `Requesting ${esc(amt0)} ${unit}` : `Any amount of ${unit}`}</b>
         ${note ? `<span class="rq-for">“${esc(note)}”</span>` : ""}
         <span class="rq-to">to <span class="mono">${short(addr)}</span> · ${N.name}</span>

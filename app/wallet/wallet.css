@@ -4421,6 +4421,17 @@ html:root .tk-chart .tk-tip { display: block !important; position: absolute; top
 :root[data-theme="light"] .tk-chart .tk-tip { background: #fff; color: #10121a; }
 .tk-chart.scrub .tk-tip { opacity: 1; }
 
+/* Receive: the address is a button too, tap it to copy; it glows once to say so */
+.rc .rc-addr { display: block; border: 0; background: none; padding: 8px 12px; border-radius: 14px; cursor: pointer; font: inherit; font-family: var(--mono, ui-monospace, monospace); font-size: 15px; text-align: center; color: var(--muted); transition: background .2s; -webkit-tap-highlight-color: transparent; }
+.rc .rc-addr:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.rc .rc-addr:active { transform: scale(.985); }
+.rc .rc-addr.flash { animation: rc-flash .9s ease-out; }
+.rc .rc-addr.flash b { animation: rc-flash-b .9s ease-out; }
+@keyframes rc-flash { 0% { background: color-mix(in srgb, var(--acc, #6c7bff) 26%, transparent); } 100% { background: transparent; } }
+@keyframes rc-flash-b { 0% { color: var(--acc, #6c7bff); } 100% { color: var(--ink); } }
+.qr svg { shape-rendering: geometricPrecision; }
+@media (prefers-reduced-motion: reduce) { .rc .rc-addr.flash, .rc .rc-addr.flash b { animation: none; } }
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Down to the very bottom of the screen: as a home-screen app, an iPhone can report a viewport shorter than the screen,
    which left a strip of bare page under every screen. The app is as tall as the tallest viewport the phone reports,
