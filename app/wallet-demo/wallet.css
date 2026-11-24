@@ -4480,3 +4480,55 @@ html:root[data-theme="light"] #panel .sx.br .sx-card.to { background: #f6f5f2 !i
 .sw-cv .sw-demo i { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; color: var(--muted); background: color-mix(in srgb, var(--ink) 7%, transparent); }
 .sw-cv .sw-demo i svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .pfoot .sw-fine { margin: 10px 6px 0; text-align: center; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+
+/* Full-tab welcome, 0.30.12: a current left column whose tiles follow the slides, a network strip, a swap slide */
+.fp-eyebrow { display: inline-flex; align-items: center; gap: 9px; }
+.fp-live { width: 7px; height: 7px; border-radius: 50%; background: #45d483; box-shadow: 0 0 0 0 rgba(69, 212, 131, .55); animation: fp-live 2.2s ease-out infinite; }
+@keyframes fp-live { 70% { box-shadow: 0 0 0 7px rgba(69, 212, 131, 0); } 100% { box-shadow: 0 0 0 0 rgba(69, 212, 131, 0); } }
+.fp-feat { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
+.fp-ft { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border: 0; border-radius: 16px; text-align: left; cursor: pointer; font: inherit; color: var(--muted);
+  background: rgba(255, 255, 255, .035); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); transition: background .3s, box-shadow .3s, transform .2s; }
+.fp-ft:hover { background: rgba(255, 255, 255, .06); }
+.fp-ft:active { transform: scale(.985); }
+.fp-ft i { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 11px; background: rgba(47, 91, 255, .12); color: #8ea4ff; transition: background .3s, color .3s; }
+.fp-ft i svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.fp-ft span { display: grid; gap: 3px; font-size: 14px; line-height: 1.45; } .fp-ft b { font: 600 15.5px var(--font); color: var(--ink); }
+.fp-ft.on { background: linear-gradient(180deg, rgba(91, 124, 255, .16), rgba(91, 124, 255, .07)); box-shadow: inset 0 0 0 1px rgba(125, 151, 255, .45), 0 18px 40px -24px rgba(47, 91, 255, .8); }
+.fp-ft.on i { background: #2f5bff; color: #fff; }
+.fp-nets { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
+.fp-logos { display: flex; flex: none; } .fp-logos .coin { width: 26px; height: 26px; margin-left: -7px; border-radius: 50%; box-shadow: 0 0 0 2px var(--bg-deep, #0b0d12); }
+.fp-logos .coin:first-child { margin-left: 0; }
+.fp-nets > span:last-child { display: grid; gap: 1px; font-size: 14px; color: var(--muted); } .fp-nets b { font: 600 15px var(--font); color: var(--ink); }
+html[data-full][data-theme="light"] .fp-ft { background: #fff; box-shadow: 0 0 0 1px rgba(20, 22, 40, .07), 0 8px 20px -16px rgba(20, 22, 40, .25); }
+html[data-full][data-theme="light"] .fp-ft.on { background: #fff; box-shadow: 0 0 0 1.5px #2f5bff, 0 16px 36px -20px rgba(47, 91, 255, .5); }
+html[data-full][data-theme="light"] .fp-ft i { color: #2f5bff; background: rgba(47, 91, 255, .08); } html[data-full][data-theme="light"] .fp-ft.on i { background: #2f5bff; color: #fff; }
+/* the swap slide */
+.tv-sw { position: relative; display: grid; gap: 6px; }
+.tv-sw-r { display: grid; gap: 6px; padding: 14px 16px; border-radius: 20px; background: linear-gradient(180deg, rgba(255, 255, 255, .085), rgba(255, 255, 255, .04)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 24px 44px -26px rgba(0, 0, 0, .9);
+  animation: tv-sw-in .6s cubic-bezier(.2, .8, .2, 1) both; }
+.tv-sw-r.get { animation-delay: .18s; background: linear-gradient(180deg, rgba(255, 255, 255, .055), rgba(255, 255, 255, .025)); }
+.tv-sw-k { font: 600 11px var(--font); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.tv-sw-a { display: flex; align-items: center; gap: 10px; } .tv-sw-a .coin { width: 32px; height: 32px; }
+.tv-sw-a b { font: 600 26px var(--font); letter-spacing: -.02em; color: var(--ink); font-variant-numeric: tabular-nums; } .tv-sw-a em { font-style: normal; font-size: 16.5px; color: var(--muted); }
+.tv-sw-r small { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); } .tv-sw-r small .coin { width: 14px; height: 14px; }
+.tv-sw-x { position: absolute; left: 50%; top: 92px; z-index: 2; display: grid; place-items: center; width: 36px; height: 36px; margin-left: -18px; border-radius: 11px; transform: rotate(45deg);
+  background: var(--ivory, #f3f2ee); color: #141416; box-shadow: 0 0 0 5px var(--bg, #0c0d0f); animation: tv-sw-spin .7s .45s cubic-bezier(.3, 1.3, .5, 1) both; }
+.tv-sw-x svg { width: 17px; height: 17px; transform: rotate(-45deg); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.tv-sw-route { display: grid; gap: 7px; margin-top: 6px; padding: 0 4px; font-size: 13px; color: var(--muted); text-align: center; }
+.tv-sw-line { position: relative; height: 3px; border-radius: 3px; overflow: hidden; background: rgba(255, 255, 255, .08); }
+.tv-sw-line i { position: absolute; inset: 0; border-radius: 3px; background: linear-gradient(90deg, #2f5bff, #8ea4ff, #c46bff); transform-origin: left; animation: tv-sw-route 1.6s .7s cubic-bezier(.4, 0, .2, 1) both; }
+.tv-sw-nets { display: flex; justify-content: center; gap: 8px; margin-top: 18px; }
+.tv-sw-nets span { animation: tv-sw-dot .45s calc(.9s + var(--d)) cubic-bezier(.2, .8, .2, 1) both; } .tv-sw-nets .coin { width: 22px; height: 22px; }
+@keyframes tv-sw-in { from { opacity: 0; transform: translateY(12px); } }
+@keyframes tv-sw-spin { from { opacity: 0; transform: rotate(-45deg) scale(.6); } }
+@keyframes tv-sw-route { from { transform: scaleX(0); } }
+@keyframes tv-sw-dot { from { opacity: 0; transform: translateY(6px) scale(.8); } }
+/* the scam slide plays out: the danger shows, then Ecrin's flag drops in and Approve is struck */
+.tv-shield .tv-out { animation: tv-sw-in .5s .1s cubic-bezier(.2, .8, .2, 1) both; }
+.tv-shield .tv-flag { animation: tv-flag .55s .9s cubic-bezier(.3, 1.3, .5, 1) both; }
+.tv-shield .tv-btn.off { animation: tv-off .4s 1.3s ease both; }
+@keyframes tv-flag { from { opacity: 0; transform: translateY(-8px) scale(.96); } }
+@keyframes tv-off { from { opacity: 1; text-decoration-color: transparent; } }
+@media (prefers-reduced-motion: reduce) { .fp-live, .tv-sw-r, .tv-sw-x, .tv-sw-line i, .tv-sw-nets span, .tv-shield .tv-out, .tv-shield .tv-flag, .tv-shield .tv-btn.off { animation: none !important; } }
+/* network strip: a little air between the logos and the words */
+.fp-nets { gap: 16px; } .fp-logos .coin { width: 24px; height: 24px; margin-left: -6px; }

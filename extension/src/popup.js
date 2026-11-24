@@ -40,14 +40,18 @@ if (FULL) {
   for (const id of ["root", "panel", "toast"]) { const el = document.getElementById(id); if (el) box.append(el); }
   document.body.prepend(box);
   queueMicrotask(() => { // after the rest of the module has loaded (the logo is defined below)
-  document.body.insertAdjacentHTML("afterbegin", `<aside class="fp-side"><p class="fp-eyebrow">Ecrin Wallet · testnet beta</p><h2>A wallet with a Safe nobody can rush.</h2>
-    <p class="fp-lead">Spend from your Wallet like any other. Keep the rest in your Safe: anything leaving it waits for a delay you set, enforced on-chain, and you can cancel it.</p>
-    <ul class="fp-pts"><li><i>${'<svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg>'}</i><span><b>A Safe with a delay</b>Drainers, casino deposits and 100x leverage meet a wait they can\'t skip.</span></li>
-      <li><i>${'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>'}</i><span><b>Cancel any time</b>Something wrong? Stop it before it lands. Alerts by Telegram or email.</span></li>
-      <li><i>${'<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>'}</i><span><b>A pause when it matters</b>Late at night it offers to sleep on it, and it can warn you before a betting site connects.</span></li>
-      <li><i>${'<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>'}</i><span><b>Every network, one wallet</b>Solana, Ethereum, Base, Arbitrum and more, with free test coins in one tap.</span></li></ul>
-    <p class="fp-fine">Not audited yet. Never use real funds in the beta.</p></aside>`);
-  document.body.insertAdjacentHTML("afterbegin", `<header class="fp-h">${WORDMARK("md")}<b class="fp-sub">Wallet</b><span class="fp-tag">Testnet beta</span><nav><a href="https://ecrinprotocol.app/how-it-works/" target="_blank">How it works</a><a href="https://ecrinprotocol.app/security/" target="_blank">Security</a><a href="https://ecrinprotocol.app/" target="_blank">ecrinprotocol.app</a></nav></header>`);
+  const mainNets = Object.keys(NETS).filter((k) => !NETS[k].test), safeNets = mainNets.filter((k) => NETS[k].contract);
+  const FI = { shield: '<svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg>', clock: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>',
+    swap: '<svg viewBox="0 0 24 24"><path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3"/></svg>', scan: '<svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg>' };
+  // One tile per welcome slide: the tile for the slide on screen lights up, and a tile jumps to its slide.
+  const tiles = [["shield", "Two places for your money", "Spend from your Wallet. Keep the rest in a Safe."], ["clock", "Every withdrawal waits", "A delay you set, on-chain. Cancel it any time."],
+    ["swap", "Swap anything, anywhere", "Any coin you hold, even across networks, in one step."], ["scan", "Scams caught before you sign", "Scam sites blocked, look-alike addresses flagged."]];
+  document.body.insertAdjacentHTML("afterbegin", `<aside class="fp-side"><p class="fp-eyebrow"><span class="fp-live"></span>Now on the Chrome Web Store</p><h2>A wallet with a Safe nobody can rush.</h2>
+    <p class="fp-lead">Spend from your Wallet like any other. Keep the rest in your Safe, where every withdrawal waits for a delay you choose, and you can stop it.</p>
+    <div class="fp-feat">${tiles.map(([ic, h, t], i) => `<button class="fp-ft" data-act="tour-go" data-v="${i}" data-ti="${i}"><i>${FI[ic]}</i><span><b>${h}</b>${t}</span></button>`).join("")}</div>
+    <div class="fp-nets"><span class="fp-logos">${mainNets.map((k) => coin(k)).join("")}</span><span><b>${mainNets.length} networks</b>Bitcoin, Ethereum, Solana, Sui, XRP and more</span></div>
+    <p class="fp-fine">The Safe is in early access on ${safeNets.length} networks and not audited yet. Start with small amounts.</p></aside>`);
+  document.body.insertAdjacentHTML("afterbegin", `<header class="fp-h">${WORDMARK("md")}<b class="fp-sub">Wallet</b><span class="fp-tag">Beta</span><nav><a href="https://ecrinprotocol.app/how-it-works/" target="_blank">How it works</a><a href="https://ecrinprotocol.app/security/" target="_blank">Security</a><a href="https://ecrinprotocol.app/" target="_blank">ecrinprotocol.app</a></nav></header>`);
   });
 }
 const $ = (s, r = document) => r.querySelector(s);
@@ -866,6 +870,7 @@ function render() {
   if (bootR?.width) bootMorph(bootM, bootR, root);
   translate(root, S.lang);
   if (FULL) for (const el of document.querySelectorAll(".fp-side, .fp-h")) if (el.dataset.lang !== S.lang) { translate(el, S.lang); el.dataset.lang = S.lang; }
+  if (FULL) { const on = S.tour != null && S.tour < TOUR.length ? S.tour : -1; for (const e of document.querySelectorAll(".fp-ft")) e.classList.toggle("on", Number(e.dataset.ti) === on); }
   stageHome(root); fitLz(root); maybeNews(); tourLive(root); const tr = root.querySelector(".tour2"); if (tr && S.tourDir) { tr.dataset.dir = S.tourDir; S.tourDir = null; }
   // The three floating buttons live outside #root, made once, so re-renders and panels never make them blink.
   let tb = document.getElementById("tabbar");
@@ -1032,7 +1037,8 @@ function depth(scope) {
 const TOUR = [
   { k: "01", h: "Two places for <em>your money</em>", p: "Your <b>Wallet</b> spends instantly, like any wallet. Your <b>Safe</b> keeps the rest, and nothing leaves it in a hurry.", art: "split" },
   { k: "02", h: "Every withdrawal <em>waits</em>", p: "A delay you choose, with a countdown you can stop. A thief, a scam or a 2 a.m. decision all hit the same wall: time.", art: "clock" },
-  { k: "03", h: "Scams caught <em>before you sign</em>", p: "Ecrin blocks known scam sites, flags look-alikes, and shows exactly what would leave your wallet before you approve.", art: "shield" },
+  { k: "03", h: "Swap anything, <em>anywhere</em>", p: "Trade any coin you hold, even from one network to another, in a single step. Ecrin checks every swap before you sign.", art: "swap" },
+  { k: "04", h: "Scams caught <em>before you sign</em>", p: "Ecrin blocks known scam sites, flags look-alikes, and shows exactly what would leave your wallet before you approve.", art: "shield" },
 ];
 /** Each slide shows a real Ecrin moment, drawn with the wallet's own pieces, instead of an icon. */
 function tourArt(k) {
@@ -1047,6 +1053,12 @@ function tourArt(k) {
     <div class="tv-bar"><i></i></div>
     <button class="tv-keep" tabindex="-1">${I.shield}Cancel and keep it</button>
     <div class="tv-kept">${I.check}<b>Kept in your Safe</b><small>It never left.</small></div></div></div>`;
+  if (k === "swap") return `<div class="tv tv-swap"><div class="tv-sw">
+    <div class="tv-sw-r"><span class="tv-sw-k">You pay</span><div class="tv-sw-a">${coin("eth")}<b>0.50 <em>ETH</em></b></div><small>${coin("basem")}Base · $1,660</small></div>
+    <i class="tv-sw-x">${I.swap}</i>
+    <div class="tv-sw-r get"><span class="tv-sw-k">You get</span><div class="tv-sw-a">${coin("sol")}<b>22.9 <em>SOL</em></b></div><small>${coin("solm")}Solana · $1,648</small></div>
+    <div class="tv-sw-route"><span class="tv-sw-line"><i></i></span><span>Base → Solana · one step · about 40 s</span></div></div>
+    <div class="tv-sw-nets">${["btcm", "ethm", "solm", "basem", "arbm", "suim", "xrpm", "tronm", "bnbm", "avaxm"].filter((x) => NETS[x]).map((x, j) => `<span style="--d:${j * 70}ms">${coin(x)}</span>`).join("")}</div></div>`;
   return `<div class="tv tv-shield"><div class="tv-ap">
     <div class="tv-site"><span class="tv-fav">!</span><span><b>claim-sol-airdrop.app</b><small>wants you to sign a transaction</small></span></div>
     <div class="tv-out"><span>Would leave your wallet</span><b>24.5 SOL · 1,250 USDC</b><small>everything you hold</small></div>
@@ -1059,7 +1071,7 @@ function tourView() {
     <div class="tour-bars">${TOUR.map((_, j) => `<i class="${j < i ? "done" : j === i ? "on" : ""}"><b></b></i>`).join("")}</div>
     <div class="tour-top"><span class="mv-mark">${LOGO}<b>ECRIN</b></span><button class="link" data-act="tour-skip">Skip</button></div>
     <div class="onb-art" data-i="${i}">${tourArt(t.art)}</div>
-    <div class="onb-copy"><span class="tour-k">${t.k} / 03</span><h1>${t.h}</h1><p>${t.p}</p></div>
+    <div class="onb-copy"><span class="tour-k">${String(i + 1).padStart(2, "0")} / ${String(TOUR.length).padStart(2, "0")}</span><h1>${t.h}</h1><p>${t.p}</p></div>
     <div class="onb-acts">${i ? `<button class="btn tour-back" data-act="tour-prev" aria-label="Back">${I.back}</button>` : ""}<button class="btn primary xl" data-act="tour-next">${last ? "Get started" : "Next"}</button></div>
   </div>`;
 }
@@ -3173,6 +3185,7 @@ const actions = {
   "reveal-bio": async () => { try { const words = await bioUnlock(S.bio); S.panel.words = await phraseOfOpenWallet(normalize(words)); renderPanel(); } catch (e) { toast(`${bioName()} didn't work. Use your password.`, "err"); } },
   cur: async (el) => { S.cur = el.dataset.v; await local.set({ cur: S.cur }); await loadFx(); toast(S.cur === "USD" || S.fx?.[S.cur] ? `Showing ${S.cur}` : `Couldn't get today's ${S.cur} rate. Showing USD until it loads.`, S.cur === "USD" || S.fx?.[S.cur] ? "win" : ""); renderPanel(); render(); },
   lang: async (el) => { S.lang = el.dataset.v; document.documentElement.lang = S.lang; await local.set({ lang: S.lang }); render(); renderPanel(); },
+  "tour-go": (el) => { const i = Number(el.dataset.v), now = S.tour || 0; if (S.tour == null || S.tour >= TOUR.length || i === now) return; S.tourDir = i > now ? "fwd" : "back"; S.tour = i; render(); },
   "tour-prev": () => { if (S.tour > 0) { S.tour--; S.tourDir = "back"; render(); } },
   "tour-next": () => { S.tourDir = "fwd"; S.tour = (S.tour || 0) + 1; if (S.tour >= TOUR.length) { local.set({ toured: true }); S.askGoal = true; } render(); },
   "tour-skip": () => { S.tour = TOUR.length; S.askGoal = true; local.set({ toured: true }); render(); },
