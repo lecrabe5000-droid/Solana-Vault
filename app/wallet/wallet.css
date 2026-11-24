@@ -2995,7 +2995,7 @@ html:root[data-skin="ecrin"] .ranges.ranges.ranges.ranges button[aria-pressed="t
 .tour2 { --ink2: #f3f3ef; --mut2: #9aa3bd; position: relative; display: flex; flex-direction: column; min-height: 100%; padding: 14px 20px calc(18px + env(safe-area-inset-bottom, 0px)); color: var(--ink2);
   background: radial-gradient(90% 55% at 50% 30%, rgba(47, 91, 255, .30), transparent 70%), radial-gradient(60% 40% at 90% 95%, rgba(47, 91, 255, .12), transparent 70%), #07090f !important; }
 .tour2 .tour-top { margin-top: 12px; } .tour2 .tour-top .mv-mark { color: #fff; } .tour2 .tour-top .link { color: var(--mut2); }
-.tour-bars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.tour-bars { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
 .tour-bars i { height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .14); overflow: hidden; }
 .tour-bars i b { display: block; height: 100%; width: 0; border-radius: inherit; background: #fff; }
 .tour-bars i.done b { width: 100%; } .tour-bars i.on b { animation: tb-fill .9s cubic-bezier(.3, .7, .2, 1) forwards; }
