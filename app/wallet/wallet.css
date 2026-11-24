@@ -4533,6 +4533,27 @@ html[data-full][data-theme="light"] .fp-ft i { color: #2f5bff; background: rgba(
 /* network strip: a little air between the logos and the words */
 .fp-nets { gap: 16px; } .fp-logos .coin { width: 24px; height: 24px; margin-left: -6px; }
 
+/* Full-tab dashboard, 0.30.12: a real desktop layout instead of the phone screen stretched.
+   Left: the net-worth diamond. Middle: Wallet/Safe, actions, next step, then tokens (visible without scrolling).
+   Right: Safe and recent activity. The phone's tab bar isn't needed here: everything it offers is on screen. */
+html[data-fp-dash="1"] .fp-frame { width: min(1320px, calc(100vw - 48px)); }
+html[data-fp-dash="1"] .home { position: relative; grid-template-columns: 250px minmax(0, 1fr) 360px !important; column-gap: 28px !important; row-gap: 0; justify-content: stretch !important; padding-left: 32px !important; padding-right: 32px !important; }
+html[data-fp-dash="1"] .home > *:not(.aura):not(.dk-side) { grid-column: 1 / 3 !important; }
+html[data-fp-dash="1"] .home > header.top:not(.aura):not(.dk-side):not(.aura):not(.dk-side) { grid-column: 1 / -1 !important; grid-row: 1; }
+html[data-fp-dash="1"] .home > .brand-sig:not(.aura):not(.dk-side):not(.aura):not(.dk-side) { position: absolute; top: 20px; right: 132px; left: auto; transform: none; margin: 0 !important; z-index: 3; }
+html[data-fp-dash="1"] .home > section.hero:not(.aura):not(.dk-side):not(.aura):not(.dk-side) { grid-column: 1 !important; grid-row: 2 / span 3; align-self: center; margin: 0 !important; zoom: .74; }
+html[data-fp-dash="1"] .home > section.wsplit:not(.aura):not(.dk-side):not(.aura):not(.dk-side) { grid-column: 2 !important; grid-row: 2; margin: 18px 0 0 !important; }
+html[data-fp-dash="1"] .home > nav.acts:not(.aura):not(.dk-side):not(.aura):not(.dk-side) { grid-column: 2 !important; grid-row: 3; justify-content: flex-start !important; justify-self: start; margin: 18px 0 0 !important; }
+html[data-fp-dash="1"] .home > section.ob:not(.aura):not(.dk-side):not(.aura):not(.dk-side) { grid-column: 2 !important; grid-row: 4; margin: 16px 0 0 !important; }
+html[data-fp-dash="1"] .home > .tabs:not(.aura):not(.dk-side):not(.aura):not(.dk-side) { margin-top: 26px !important; }
+html[data-fp-dash="1"] .home > .dk-side.dk-side { grid-column: 3 !important; grid-row: 2 / span 40 !important; padding-top: 18px !important; }
+html[data-fp-dash="1"] body #tabbar#tabbar { display: none !important; }
+html[data-fp-dash="1"] .home > footer.home-end:not(.aura):not(.dk-side):not(.aura):not(.dk-side) { padding-bottom: 28px; }
+@media (max-width: 1279px) {
+  html[data-fp-dash="1"] .home { grid-template-columns: 196px minmax(0, 1fr) 320px !important; column-gap: 22px !important; padding-left: 24px !important; padding-right: 24px !important; }
+  html[data-fp-dash="1"] .home > section.hero:not(.aura):not(.dk-side):not(.aura):not(.dk-side) { zoom: .58; }
+}
+
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Down to the very bottom of the screen: as a home-screen app, an iPhone can report a viewport shorter than the screen,
    which left a strip of bare page under every screen. The app is as tall as the tallest viewport the phone reports,
