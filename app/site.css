@@ -970,3 +970,7 @@ a.get-card:hover { transform: translateY(-4px); }
 @media (prefers-reduced-motion: reduce) { .ph-screen img, .pstep { transition: none; } }
 @media (min-width: 1000px) { .sec .rail-track > * { min-width: 0; } .sec .rail-track .stage :is(h3, li) { white-space: normal; overflow-wrap: break-word; } }
 .get-card.live .gc-i { color: #fff; background: #2f5bff; box-shadow: 0 10px 24px -10px rgba(47, 91, 255, .8); }
+/* The Ecrin mark in the headlines: the brand's own blue in dark mode too, not the pale tint */
+[data-theme="dark"] .mk { background: linear-gradient(160deg, #4a72ff, #2f5bff 55%, #2147e6); box-shadow: 0 .14em .4em -.1em rgba(47, 91, 255, .75), inset 0 1px 0 rgba(255, 255, 255, .25); }
+[data-theme="dark"] .big-head h2 .mk { animation-name: mk-glint-d; }
+@keyframes mk-glint-d { 0%, 80%, 100% { filter: none; } 88% { filter: brightness(1.18) drop-shadow(0 0 12px rgba(47, 91, 255, .7)); } }
