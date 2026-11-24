@@ -4498,7 +4498,8 @@ async function swapNow() {
 
 function swapView() {
   // Jupiter has markets on mainnet only.
-  if (!isMain()) return `${phead("Swap")}<div class="cv"><div class="cv-art">${I.swap}</div><h2>Swaps run on Mainnet</h2><p class="sub">Swaps go through Jupiter on Solana mainnet, which has no test version. Switch Settings → Networks to Mainnet to swap.</p></div>`;
+  if (!isMain()) return `${phead("Swap")}<div class="cv sw-cv"><div class="sw-demo" aria-hidden="true"><span>${coin("solm")}<b>SOL</b></span><i>${I.arrow}</i><span>${coin("usdc")}<b>USDC</b></span></div><h2>Swaps run on Mainnet</h2><p class="sub">Swaps go through Jupiter on Solana mainnet, which has no test version.</p></div>
+    <div class="pfoot"><button class="btn primary xl" data-act="net-mode" data-v="main">Switch to Mainnet</button><p class="sw-fine">Testnet coins have no value, so there is nothing to swap them for. You can switch back in Settings → Networks.</p></div>`;
   const P = S.panel, N = NETS[SWAP_NET], coins = swapCoins();
   swapStatus();
   P.from ||= coins[0]; P.to ||= coins[1];
@@ -5032,7 +5033,8 @@ function bridgeQuoteSoon(ms = 450, quiet = false) {
 }
 const brSecs = (s) => (!s ? "" : s < 90 ? `about ${Math.max(5, Math.round(s / 5) * 5)} seconds` : `about ${Math.round(s / 60)} minutes`);
 function bridgeView() {
-  if (!isMain()) return `${phead("Swap")}<div class="cv"><div class="cv-art">${I.swap}</div><h2>Swaps run on Mainnet</h2><p class="sub">Swaps and bridges move real coins, and have no test version. Switch Settings → Networks to Mainnet to swap.</p></div>`;
+  if (!isMain()) return `${phead("Swap")}<div class="cv sw-cv"><div class="sw-demo" aria-hidden="true"><span>${coin("solm")}<b>SOL</b></span><i>${I.arrow}</i><span>${coin("usdc")}<b>USDC</b></span></div><h2>Swaps run on Mainnet</h2><p class="sub">Swap any coin you hold, even across networks, in one step. Swaps move real coins, so they only run on Mainnet.</p></div>
+    <div class="pfoot"><button class="btn primary xl" data-act="net-mode" data-v="main">Switch to Mainnet</button><p class="sw-fine">Testnet coins have no value, so there is nothing to swap them for. You can switch back in Settings → Networks.</p></div>`;
   const P = S.panel; bridgeStatus();
   const all = brAssets(), usdOf = (id) => brHeld(id) * (brPx(id) || 0);
   if (!all.includes(P.fa)) P.fa = [...all].sort((a, b) => usdOf(b) - usdOf(a) || all.indexOf(a) - all.indexOf(b))[0];
@@ -5101,14 +5103,14 @@ function bridgeView() {
         <div class="sx-top"><span class="sx-k">You pay</span><button class="sx-bal link" data-act="br-pct" data-v="100">Balance ${nf(brHeld(fa), fa)} ${sym}</button></div>
         <div class="sx-row">${assetBtn("from", fa)}${usePad() ? `<button class="sx-in sx-pad${P.kf === "in" ? " on" : ""}${P.amount ? "" : " zero"}" data-act="br-kf" data-v="in" aria-label="Amount you pay">${esc(P.amount || "0")}</button>` : `<input class="sx-in" data-bramt inputmode="decimal" placeholder="0" value="${esc(P.amount || "")}" autocomplete="off"/>`}</div>
         ${bxNets("from", fa, all)}
-        <div class="sx-foot"><span class="sx-pcts">${[25, 50, 100].map((v) => `<button data-act="br-pct" data-v="${v}" class="${P.pct === v ? "on" : ""}">${v === 100 ? "Max" : v + "%"}</button>`).join("")}</span><span class="sx-usd">${over ? `<span class="bad">More than you have</span>` : inUsd ? money(inUsd) : ""}</span></div>
+        <div class="sx-foot"><span class="sx-pcts">${[25, 50, 100].map((v) => `<button data-act="br-pct" data-v="${v}" class="${P.pct === v ? "on" : ""}">${v === 100 ? "Max" : v + "%"}</button>`).join("")}</span><span class="sx-usd${inUsd ? "" : " zero"}">${over ? `<span class="bad">More than you have</span>` : money(inUsd || 0)}</span></div>
       </div>
       <button class="sx-flip br-flip" data-act="br-flip" aria-label="Switch"><svg viewBox="0 0 24 24"><path d="M8 4v15M8 19l-4-4M8 19l4-4M16 20V5M16 5l-4 4M16 5l4 4"/></svg></button>
       <div class="sx-card to br-card">
         <div class="sx-top"><span class="sx-k">You get</span><span class="sx-bal">${cross ? "Across networks" : ""}</span></div>
         <div class="sx-row">${assetBtn("to", ta)}${(() => { const ov = P.dir === "out" ? P.want || "" : shown && raw ? bxPlain(outN, ta) : ""; return usePad() ? `<button class="sx-in sx-get sx-pad${P.kf === "out" ? " on" : ""}${ov ? "" : " zero"}${quoting && P.dir !== "out" ? " ld" : ""}" data-act="br-kf" data-v="out" aria-label="Amount you get">${esc(ov || "0")}</button>` : `<input class="sx-in sx-get${quoting && P.dir !== "out" ? " ld" : ""}" data-brout inputmode="decimal" placeholder="0" aria-label="Amount you get" value="${esc(ov)}" autocomplete="off"/>`; })()}</div>
         ${bxNets("to", ta, all)}
-        <div class="sx-foot"><span></span><span class="sx-usd">${outUsd && raw ? money(outUsd) : ""}</span></div>
+        <div class="sx-foot"><span></span><span class="sx-usd${outUsd && raw ? "" : " zero"}">${money(outUsd && raw ? outUsd : 0)}</span></div>
       </div>
       ${raw && !over ? (q ? `<div class="bx-q in">
           <div><span>Rate</span><b>${rateTxt}</b></div>

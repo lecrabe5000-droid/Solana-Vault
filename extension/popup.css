@@ -4451,3 +4451,32 @@ html:root[data-theme="light"] {
   --muted: #5d616b; --dim: #8b8f98;
 }
 html:root[data-theme="light"] :is(.shortcuts .sc):active { box-shadow: 0 0 0 1px rgba(20, 22, 40, .09), 0 1px 2px rgba(20, 22, 40, .08) !important; }
+
+/* Swap, stronger: the two cards sit close with the switch button bridging them, the amount reads as the main thing,
+   the network chips are a compact single row, and "You get" is a slightly deeper card so pay and get read apart. */
+html:root[data-theme] #panel .sx.br { gap: 6px; }
+html:root[data-theme] #panel .sx.br .sx-card { padding: 16px 16px 16px !important; }
+html:root[data-theme] #panel .sx.br .sx-card:not(.to) { padding-bottom: 30px !important; } /* room for the switch button on the seam */
+html:root[data-theme] #panel .sx.br .sx-card.to { padding-top: 22px !important; }
+html:root[data-theme] #panel .sx.br .sx-flip.br-flip { margin: -26px auto !important; }
+html:root[data-theme] #panel .sx.br .sx-in { font-size: 38px !important; font-weight: 500; letter-spacing: -.025em; color: var(--ink); }
+html:root[data-theme] #panel .sx.br .sx-in.zero { color: color-mix(in srgb, var(--ink) 30%, transparent) !important; }
+html:root[data-theme] #panel .sx.br .sx-row { min-height: 52px; align-items: center; }
+html:root[data-theme] #panel .sx.br .sx-usd { font-size: 13.5px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+html:root[data-theme] #panel .sx.br .sx-usd.zero { color: color-mix(in srgb, var(--muted) 60%, transparent); }
+html:root[data-theme] #panel .sx.br .sx-k { font-size: 12px; letter-spacing: .08em; }
+html:root[data-theme] #panel .sx.br .bx-nets { flex-wrap: nowrap; overflow-x: auto; margin: 10px -16px 0; padding: 0 16px 2px; scrollbar-width: none; mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 22px), transparent); -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 22px), transparent); }
+html:root[data-theme] #panel .sx.br .bx-nets.all { flex-wrap: wrap; overflow: visible; mask-image: none; -webkit-mask-image: none; margin: 10px 0 0; padding: 0; }
+html:root[data-theme] #panel .sx.br .bx-nets .chip { height: 28px; padding: 0 10px 0 6px; font-size: 12.5px; gap: 5px; }
+html:root[data-theme] #panel .sx.br .bx-nets .chip .coin { width: 16px; height: 16px; }
+html:root[data-theme] #panel .sx.br .bx-nets .chip:not(.on) em { opacity: .55; }
+html:root[data-theme] #panel .sx.br .sx-foot { margin-top: 10px; }
+html:root[data-theme] #panel .sx.br .sx-card.to { background: linear-gradient(180deg, color-mix(in srgb, var(--ink) 4%, transparent), color-mix(in srgb, var(--ink) 2%, transparent)) !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 8%, transparent) !important; }
+html:root[data-theme="light"] #panel .sx.br .sx-card.to { background: #f6f5f2 !important; box-shadow: inset 0 0 0 1px rgba(20, 22, 40, .07) !important; }
+/* Testnet: a small preview of a swap and a way forward */
+.sw-cv .sw-demo { display: inline-flex; align-items: center; gap: 10px; padding: 10px 14px; margin-bottom: 18px; border-radius: 20px; background: var(--card-bg, rgba(255, 255, 255, .06)); box-shadow: var(--card-sh, none); }
+.sw-cv .sw-demo span { display: inline-flex; align-items: center; gap: 8px; font: 600 15px var(--font); color: var(--ink); }
+.sw-cv .sw-demo .coin { width: 30px; height: 30px; }
+.sw-cv .sw-demo i { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; color: var(--muted); background: color-mix(in srgb, var(--ink) 7%, transparent); }
+.sw-cv .sw-demo i svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pfoot .sw-fine { margin: 10px 6px 0; text-align: center; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
