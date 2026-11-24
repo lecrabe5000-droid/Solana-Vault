@@ -3544,9 +3544,11 @@ const actions = {
   panel: async (el) => {
     const p = el.dataset.p;
     // Right after unlocking, balances can still be last visit's: Safe screens wait for the live Safe (never act on old data).
-    if (["protect", "withdraw", "vault", "earn", "rules"].includes(p) && S.all?.some((r) => r.snap)) {
+    // Not loaded yet at all (just opened) counts too: otherwise a network looks like it has no Safe and asks to open one.
+    const notLive = () => !S.all || S.all.some((r) => r.snap) || (S.vault === undefined && canSafe(S.net));
+    if (["protect", "withdraw", "vault", "earn", "rules"].includes(p) && notLive()) {
       toast("One moment: loading your Safe");
-      for (let i = 0; i < 40 && S.all?.some((r) => r.snap); i++) await new Promise((r) => setTimeout(r, 250));
+      for (let i = 0; i < 60 && notLive(); i++) await new Promise((r) => setTimeout(r, 250));
     }
     if (["send", "protect", "withdraw"].includes(p) && !S.panel) {
       // Protect and Withdraw only make sense where a Safe can live (on mainnet: Base, in early access).
