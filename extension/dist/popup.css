@@ -4444,3 +4444,10 @@ html:root[data-theme] #panel .mo.ok > .mo-hero::after { content: ""; position: a
 @keyframes mo-ring { 0% { opacity: .9; transform: rotate(45deg) scale(.95); } 100% { opacity: 0; transform: rotate(45deg) scale(1.7); } }
 html:root[data-theme] #panel .mo.ok .lk-ok path { stroke: var(--cc, currentColor); }
 @media (prefers-reduced-motion: reduce) { html:root[data-theme] .txpill.ok .tp-ic, html:root[data-theme] .txpill.ok .tp-ic::after, html:root[data-theme] #panel .mo.ok > .mo-hero::after { animation: none; } }
+
+/* Light theme pass: cards sit on the page (crisper edge, tight contact shadow, soft lift), and the greys read more easily */
+html:root[data-theme="light"] {
+  --card-sh: inset 0 1px 0 rgba(255, 255, 255, .9), 0 0 0 1px rgba(20, 22, 40, .075), 0 1px 2px rgba(20, 22, 40, .06), 0 3px 8px -3px rgba(20, 22, 40, .07), 0 18px 36px -22px rgba(30, 40, 90, .32);
+  --muted: #5d616b; --dim: #8b8f98;
+}
+html:root[data-theme="light"] :is(.shortcuts .sc):active { box-shadow: 0 0 0 1px rgba(20, 22, 40, .09), 0 1px 2px rgba(20, 22, 40, .08) !important; }
