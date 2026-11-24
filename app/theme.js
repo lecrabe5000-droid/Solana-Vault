@@ -17,6 +17,6 @@
       localStorage.setItem("ecrin-dark-default", "1");
     }
   } catch (_) {}
-  apply(t || root.dataset.defaultTheme); // a page can start dark (the landing does); the visitor's own choice wins
+  apply(root.dataset.forceTheme || t || root.dataset.defaultTheme); // the landing always wears the hero's colours // a page can start dark (the landing does); the visitor's own choice wins
   addEventListener("storage", (e) => { if (e.key === "ecrin-theme") { apply(e.newValue); dispatchEvent(new Event("ecrin-theme")); } });
 })();
