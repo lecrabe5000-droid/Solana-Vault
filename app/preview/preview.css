@@ -129,7 +129,7 @@ img { display: block; max-width: 100%; height: auto; }
 .v-scene .a72 { } .v-scene .vis .cdown { stroke-dasharray: 72 100; } .v-scene .vis .full { stroke-dasharray: 100 100; }
 .v-scene .night { transition: opacity 1.2s; } .v-scene[data-step="1"] .night, .v-scene[data-step="2"] .night { opacity: .25; }
 .v-scene .sun { transform-box: fill-box; transform-origin: center; transform: translateY(60px); opacity: 0; transition: all 1.4s cubic-bezier(.2, .8, .2, 1); } .v-scene .vis .sun { transform: none; opacity: .9; }
-.v-scene .mk { filter: drop-shadow(0 0 18px rgba(61, 99, 255, .55)); }
+.v-scene .emk { filter: drop-shadow(0 0 18px rgba(61, 99, 255, .55)); }
 .scn-pm { width: 100%; height: 100%; }
 
 /* phones */

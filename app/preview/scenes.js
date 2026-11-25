@@ -2,7 +2,7 @@
 // (blocks, transactions, rings, paths, hashes) and has steps; the viewer sets data-step as you scroll the chapters.
 // Elements carry data-in="n": visible from step n on. data-out="n": hidden from step n on.
 (() => {
-  const MARK = (x, y, s, cls = "") => `<g class="mk ${cls}" transform="translate(${x} ${y}) scale(${s})"><rect x="-50" y="-50" width="100" height="100" rx="30" fill="none" stroke="url(#gB)" stroke-width="6"/><path d="M0 -26 L19 0 L0 26 L-19 0Z" fill="url(#gB)"/></g>`;
+  const MARK = (x, y, s, cls = "") => `<g class="emk ${cls}" transform="translate(${x} ${y}) scale(${s})"><rect x="-50" y="-50" width="100" height="100" rx="30" fill="none" stroke="url(#gB)" stroke-width="6"/><path d="M0 -26 L19 0 L0 26 L-19 0Z" fill="url(#gB)"/></g>`;
   const DEFS = `<defs>
     <linearGradient id="gB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9fb3ff"/><stop offset="1" stop-color="#2f5bff"/></linearGradient>
     <linearGradient id="gA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd38a"/><stop offset="1" stop-color="#ff8a3d"/></linearGradient>
