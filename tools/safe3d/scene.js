@@ -108,4 +108,23 @@ window.ecrinObj = (name, rx = 0, ry = 0) => {
   for (const [k, g] of Object.entries({ gem: bigGem, coin, dial })) { g.visible = k === name; g.rotation.set(rx, ry, 0); }
   renderer.render(scene, camera); return renderer.domElement.toDataURL("image/png");
 };
+// the Ecrin mark, in 3D: a slim rounded frame and a faceted diamond floating inside it
+const mark = new THREE.Group(); mark.visible = false; scene.add(mark);
+{
+  const rr = (s, r) => { const sh = new THREE.Shape(); sh.moveTo(-s + r, -s); sh.lineTo(s - r, -s); sh.quadraticCurveTo(s, -s, s, -s + r); sh.lineTo(s, s - r); sh.quadraticCurveTo(s, s, s - r, s); sh.lineTo(-s + r, s); sh.quadraticCurveTo(-s, s, -s, s - r); sh.lineTo(-s, -s + r); sh.quadraticCurveTo(-s, -s, -s + r, -s); return sh; };
+  const outer = rr(1.55, 0.5), hole = rr(1.36, 0.36); outer.holes.push(hole);
+  const frameMat = new THREE.MeshPhysicalMaterial({ color: 0x3d63ff, metalness: 0.75, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.05, iridescence: 0.25 });
+  const frame = new THREE.Mesh(new THREE.ExtrudeGeometry(outer, { depth: 0.16, bevelEnabled: true, bevelThickness: 0.06, bevelSize: 0.05, bevelSegments: 8, curveSegments: 48 }), frameMat);
+  frame.geometry.center(); frame.castShadow = true; mark.add(frame);
+  const gemMat = new THREE.MeshPhysicalMaterial({ color: 0x8fa6ff, metalness: 0.5, roughness: 0.03, flatShading: true, clearcoat: 1, emissive: 0x2f5bff, emissiveIntensity: 0.35, iridescence: 0.8, iridescenceIOR: 1.5, envMapIntensity: 2.6 });
+  const g = new THREE.Mesh(new THREE.OctahedronGeometry(0.62, 0), gemMat); g.scale.set(1.3, 1.55, 0.62); g.rotation.y = Math.PI / 4; g.castShadow = true;
+  const gemWrap = new THREE.Group(); gemWrap.add(g); mark.add(gemWrap); mark.userData.gem = gemWrap;
+  mark.position.y = 0.1;
+}
+window.ecrinMark = (spin = 0) => {
+  safe.visible = false; objs.visible = false; floor.visible = false; mark.visible = true;
+  mark.rotation.set(0.08, spin * Math.PI * 2, 0);
+  mark.userData.gem.rotation.y = spin * Math.PI * 2; // the diamond turns twice as fast within the frame
+  renderer.render(scene, camera); return renderer.domElement.toDataURL("image/png");
+};
 window.ecrinReady = true;

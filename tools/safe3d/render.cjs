@@ -22,6 +22,11 @@ fs.mkdirSync(out, { recursive: true }); fs.mkdirSync(tmp, { recursive: true });
     const url = await p.evaluate(([s, o]) => window.ecrinSafe.frame(s, o), [spin, open]);
     fs.writeFileSync(path.join(tmp, name + '.png'), Buffer.from(url.split(',')[1], 'base64'));
   };
+  if (process.env.MARK) {
+    const n = process.env.MARK === 'test' ? 1 : 60;
+    for (let i = 0; i < n; i++) { const url = await p.evaluate((k) => window.ecrinMark(k), process.env.MARK === 'test' ? Number(process.env.SPIN || 0.08) : i / 60); fs.writeFileSync(path.join(tmp, `mark-${String(i).padStart(2, '0')}.png`), Buffer.from(url.split(',')[1], 'base64')); }
+    console.log('mark rendered'); await b.close(); return;
+  }
   if (process.env.OBJS) {
     for (const [n, rx, ry] of [['gem', 0.35, 0.5], ['coin', -0.35, 0.55], ['dial', 0.4, -0.6]]) { const url = await p.evaluate(([n, a, b]) => window.ecrinObj(n, a, b), [n, rx, ry]); fs.writeFileSync(path.join(tmp, 'obj-' + n + '.png'), Buffer.from(url.split(',')[1], 'base64')); }
     console.log('objects rendered'); await b.close(); return;
