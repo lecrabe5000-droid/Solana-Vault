@@ -148,3 +148,7 @@ img { display: block; max-width: 100%; height: auto; }
 .title { font-size: clamp(52px, 7.6vw, 132px); }
 .hero-copy { padding-bottom: 7vh; }
 @media (max-width: 860px) { .title { font-size: clamp(46px, 13.5vw, 76px); } .hero-copy { padding-bottom: 6vh; } .lede { font-size: 15.5px; } }
+.ex-pin { grid-template-rows: auto auto 1fr auto auto; }
+.ex-prog { justify-self: center; width: min(320px, 60vw); height: 2px; margin-bottom: 16px; border-radius: 2px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.ex-prog i { display: block; height: 100%; background: linear-gradient(90deg, #2f5bff, #8ea4ff); transform-origin: left; transform: scaleX(0); }
+.v-stage { overflow: hidden; }

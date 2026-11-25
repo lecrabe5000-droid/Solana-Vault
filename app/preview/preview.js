@@ -59,8 +59,8 @@
   const ex = document.querySelector("[data-explore]"), ring = document.querySelector("[data-ring]"), all = [...document.querySelectorAll(".subj")];
   const D = { num: document.querySelector("[data-dnum]"), tot: document.querySelector("[data-dtot]"), tag: document.querySelector("[data-dtag]"), title: document.querySelector("[data-dtitle]"), line: document.querySelector("[data-dline]"), box: document.querySelector(".ex-desc") };
   const TAG = { protect: "Protection", wallet: "Wallet", trust: "Trust" };
-  let list = all.slice(), offset = 0, shownDesc = null, hoverEl = null;
-  const PER = () => (innerWidth < 860 ? 0.55 : 0.6) * innerHeight;
+  let list = all.slice(), offset = 0, shownDesc = null, hoverEl = null; const progressEl = document.querySelector("[data-exprog]");
+  const PER = () => (innerWidth < 860 ? 1.05 : 1.1) * innerHeight;
   const sizeEx = () => { ex.style.height = `${innerHeight + (list.length - 1) * PER()}px`; };
   const desc = (el) => { if (!el || el === shownDesc) return; shownDesc = el; const i = list.indexOf(el);
     D.num.textContent = pad(i + 1); D.tot.textContent = pad(list.length); D.tag.textContent = TAG[el.dataset.tag]; D.title.textContent = el.querySelector("h3").textContent; D.line.textContent = el.dataset.line;
@@ -71,8 +71,12 @@
     list.forEach((el, i) => { const x = (i - offset) * w, a = x / R, z = (1 - Math.cos(a)) * R * 0.9;
       el.style.transform = `translate3d(${Math.sin(a) * R}px, 0, ${z}px) rotateY(${-a * 57.3}deg)`; el.style.zIndex = String(1000 - Math.round(Math.abs(x))); el.classList.toggle("cur", Math.abs(x) < w / 2); });
     if (!hoverEl) desc(list[clamp(Math.round(offset), 0, n - 1)]);
+    if (progressEl) progressEl.style.transform = `scaleX(${n > 1 ? offset / (n - 1) : 1})`;
   };
-  const exFrame = () => { const r = ex.getBoundingClientRect(); const p = clamp(-r.top / Math.max(1, r.height - innerHeight)); offset = p * (list.length - 1); layoutRow(); };
+  let exTarget = 0, exAnim = 0;
+  const hold = (raw) => { const i = Math.floor(raw), f = raw - i; const g = f < 0.3 ? 0 : f > 0.7 ? 1 : ease((f - 0.3) / 0.4); return i + g; }; // each subject rests, then glides on
+  const exStep = () => { exAnim = 0; offset += (exTarget - offset) * (still ? 1 : 0.1); if (Math.abs(exTarget - offset) < 0.0008) offset = exTarget; else exAnim = requestAnimationFrame(exStep); layoutRow(); };
+  const exFrame = () => { const r = ex.getBoundingClientRect(); const p = clamp(-r.top / Math.max(1, r.height - innerHeight)); exTarget = hold(p * (list.length - 1)); if (!exAnim) exAnim = requestAnimationFrame(exStep); };
   all.forEach((el) => { el.addEventListener("pointerenter", () => { if (!fine) return; hoverEl = el; desc(el); }); el.addEventListener("pointerleave", () => { hoverEl = null; layoutRow(); }); });
   document.querySelectorAll(".tabs [data-f]").forEach((b) => b.addEventListener("click", () => {
     document.querySelectorAll(".tabs [data-f]").forEach((x) => x.setAttribute("aria-selected", String(x === b)));

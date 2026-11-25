@@ -56,11 +56,17 @@
       <circle class="sun" cx="690" cy="330" r="34" fill="url(#gA)" opacity=".9"/><text x="400" y="400" text-anchor="middle" class="s" font-size="14" fill="#c7cde8">By morning, the urge has passed.</text></g>
     <g data-in="2" class="pop">${card(470, 470, 290, 90, `<text x="20" y="32" class="s" font-size="12" fill="#9aa3c7">Daily limit</text><rect x="20" y="48" width="250" height="8" rx="4" fill="rgba(255,255,255,.08)"/><rect x="20" y="48" width="96" height="8" rx="4" fill="#8ea4ff"/><text x="20" y="78" class="s" font-size="12" fill="#c7cde8">Raising it waits 24 h</text>`)}</g>`);
 
-  const phone = (x, y, h, src, cls = "") => `<foreignObject x="${x}" y="${y}" width="${(h * 390) / 664 + 16}" height="${h + 16}" class="${cls}"><div xmlns="http://www.w3.org/1999/xhtml" class="pm scn-pm"><img src="${src}" alt=""/></div></foreignObject>`;
+  // a real screenshot in a phone frame, drawn natively in SVG (no foreignObject: Safari misplaces those)
+  let pid = 0;
+  const phone = (x, y, h, src) => { const w = (h * 390) / 664, b = h * 0.024, r = h * 0.075, id = `pc${pid++}`;
+    return `<g transform="translate(${x} ${y})"><defs><clipPath id="${id}"><rect x="${b}" y="${b}" width="${w}" height="${h}" rx="${r * 0.86}"/></clipPath></defs>
+      <rect width="${w + 2 * b}" height="${h + 2 * b}" rx="${r}" fill="#16171c" stroke="rgba(255,255,255,.16)"/>
+      <image href="${src}" x="${b}" y="${b}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${id})"/>
+      <rect x="${b + w * 0.36}" y="${b + h * 0.022}" width="${w * 0.28}" height="${h * 0.032}" rx="${h * 0.016}" fill="#000"/></g>`; };
   S.wallet = () => svg(`
-    <g data-in="0" class="lift">${phone(306, 40, 500, "/img/app-home.webp")}</g>
-    <g data-in="1" class="lift">${phone(60, 90, 430, "/img/app-receive.webp")}</g>
-    <g data-in="2" class="lift">${phone(560, 90, 430, "/img/app-coin.webp")}</g>`);
+    <g data-in="1" class="lift">${phone(70, 100, 420, "/img/app-receive.webp")}</g>
+    <g data-in="2" class="lift">${phone(484, 100, 420, "/img/app-coin.webp")}</g>
+    <g data-in="0" class="lift">${phone(246, 44, 500, "/img/app-home.webp")}</g>`);
 
   const logo = (k, x, y, s = 44) => `<g data-logo="${k}" transform="translate(${x - s / 2} ${y - s / 2})"><svg width="${s}" height="${s}" viewBox="0 0 64 64" class="lg"></svg></g>`;
   S.swap = () => svg(`
