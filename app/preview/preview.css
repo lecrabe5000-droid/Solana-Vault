@@ -179,3 +179,5 @@ img { display: block; max-width: 100%; height: auto; }
 .hero-copy { gap: 16px; padding-bottom: 8vh; }
 @media (max-width: 860px) { .hero { height: 260vh; } }
 .title .mk, .title span .mk { background: linear-gradient(150deg, #5a7dff, #2f5bff 55%, #1f43e0) !important; -webkit-background-clip: border-box !important; background-clip: border-box !important; }
+/* no blur on the rising words: Safari leaves stray lines when blurring text */
+[data-h] { filter: none !important; will-change: opacity, transform; }
