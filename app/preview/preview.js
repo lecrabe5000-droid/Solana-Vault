@@ -68,7 +68,7 @@
     if (m > 0) { const half = s / 2, rad = s * 0.32, lw = Math.max(2, s * 0.055);
       const gr = ctx.createLinearGradient(cx - half, cy - half, cx + half, cy + half); gr.addColorStop(0, "#a9bbff"); gr.addColorStop(1, "#2f5bff");
       ctx.save(); if (!LITE) { ctx.shadowColor = "rgba(61,99,255,.85)"; ctx.shadowBlur = 30 * m; } ctx.strokeStyle = gr; ctx.lineWidth = lw; ctx.lineCap = "round";
-      rrect(cx - half, cy - half, s, s, rad); const per = 4 * (s - 2 * rad) + 2 * Math.PI * rad; ctx.setLineDash([per * m, per]); ctx.stroke(); ctx.setLineDash([]);
+      rrect(cx - half, cy - half, s, s, rad); const per = (4 * (s - 2 * rad) + 2 * Math.PI * rad) * 1.04; if (m < 0.99) ctx.setLineDash([per * m, per * 2]); ctx.stroke(); ctx.setLineDash([]);
       const dm = ease(clamp((m - 0.55) / 0.45)); if (dm > 0) { const dw = s * 0.21 * dm, dh = s * 0.29 * dm; ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(cx, cy - dh); ctx.lineTo(cx + dw, cy); ctx.lineTo(cx, cy + dh); ctx.lineTo(cx - dw, cy); ctx.closePath(); ctx.fill(); }
       ctx.restore(); }
     // on-chain labels drift away as the mark forms
@@ -109,12 +109,14 @@
     sizeEx(); scrollToY(ex.getBoundingClientRect().top + scrollY); setTimeout(exFrame, 50);
   }));
   if (LITE) all.forEach((el) => el.insertAdjacentHTML("beforeend", `<div class="cap"><span class="cap-k mono">${TAG[el.dataset.tag]}</span><b>${el.querySelector("h3").textContent}</b><span>${el.dataset.line}</span></div>`));
+  let LOGOS = [];
+  const thumbs = () => { if (!globalThis.EcrinScenes) return; all.forEach((el) => { const art = el.querySelector(".art"); if (art.dataset.thumb) return; art.dataset.thumb = 1; art.className = "art a-scene"; art.innerHTML = `<div class="v-scene thumb">${EcrinScenes.build(el.dataset.scene)}</div>`; art.querySelectorAll("[data-in]").forEach((g) => g.classList.add("vis")); art.querySelectorAll("[data-out]").forEach((g) => g.classList.add("gone")); art.querySelector(".v-scene").dataset.step = 9; if (LOGOS.length) EcrinScenes.fillLogos(art, LOGOS); }); };
+  thumbs();
   // card visuals are sized from the card's own width
   const sizeArt = (a) => a.style.setProperty("--u", `${a.offsetWidth / 100}px`);
   const ro = "ResizeObserver" in window ? new ResizeObserver((es) => es.forEach((e) => sizeArt(e.target))) : null;
   document.querySelectorAll(".art").forEach((a) => { sizeArt(a); ro?.observe(a); });
-  let LOGOS = [];
-  fetch("/preview/logos.json").then((r) => r.json()).then((l) => { LOGOS = l; document.querySelectorAll("[data-logos]").forEach((el) => { el.innerHTML = l.slice(0, 10).map(([, svg]) => `<i>${svg}</i>`).join(""); }); }).catch(() => {});
+  fetch("/preview/logos.json").then((r) => r.json()).then((l) => { LOGOS = l; document.querySelectorAll(".a-scene").forEach((a) => EcrinScenes.fillLogos(a, l)); document.querySelectorAll("[data-logos]").forEach((el) => { el.innerHTML = l.slice(0, 10).map(([, svg]) => `<i>${svg}</i>`).join(""); }); }).catch(() => {});
 
   // ---- blocks below rise with the scroll ----
   const rise = [...document.querySelectorAll("[data-s]")];
