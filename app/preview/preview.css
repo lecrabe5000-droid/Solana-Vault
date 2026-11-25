@@ -167,3 +167,15 @@ img { display: block; max-width: 100%; height: auto; }
 .v-scene .h { font-family: var(--head); font-weight: 400; letter-spacing: -.03em; }
 .lede, .ex-line, .v-head p { font-weight: 300; }
 @media (max-width: 860px) { .title { font-size: clamp(46px, 13vw, 72px); } .stats b { font-size: 56px; } .ex-title { font-size: 34px; } }
+
+/* the Ecrin mark inside headlines, like the original site: a blue rounded square with a white diamond */
+.mk { display: inline-block; position: relative; width: .74em; height: .74em; margin: 0 .03em; vertical-align: -.04em; border-radius: .23em; transform: rotate(-6deg);
+  background: linear-gradient(150deg, #5a7dff, #2f5bff 55%, #1f43e0); box-shadow: 0 .1em .35em -.08em rgba(47, 91, 255, .75), inset 0 1px 0 rgba(255, 255, 255, .28); }
+.mk::after { content: ""; position: absolute; inset: 26%; background: #fff; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.title .mk { width: .66em; height: .66em; vertical-align: .02em; }
+.ex-title .mk, .v-head h2 .mk { width: .62em; height: .62em; }
+/* hero: more room for the mark, the copy sits lower and calmer */
+.hero { height: 300vh; }
+.hero-copy { gap: 16px; padding-bottom: 8vh; }
+@media (max-width: 860px) { .hero { height: 260vh; } }
+.title .mk, .title span .mk { background: linear-gradient(150deg, #5a7dff, #2f5bff 55%, #1f43e0) !important; -webkit-background-clip: border-box !important; background-clip: border-box !important; }

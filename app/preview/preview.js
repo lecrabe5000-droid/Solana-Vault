@@ -27,31 +27,52 @@
     for (let i = out.length; i < n; i++) { let x, y; do { x = (Math.random() - 0.5) * 2; y = (Math.random() - 0.5) * 2; } while (Math.abs(x) / 0.36 + Math.abs(y) / 0.5 > 1); out.push([cx + x * s * 0.2, cy + y * s * 0.27]); }
     return out;
   };
+  let M = { cx: 0, cy: 0, s: 0 };
   const build = () => {
     if (!cv) return; DPR = Math.min(2, devicePixelRatio || 1); W = cv.clientWidth; H = cv.clientHeight; cv.width = W * DPR; cv.height = H * DPR;
-    const n = W < 700 ? 420 : 820, s = W < 700 ? Math.min(W * 0.52, H * 0.27) : Math.min(W * 0.26, H * 0.3), cx = W / 2, cy = H * (W < 700 ? 0.27 : 0.25);
+    const n = W < 700 ? 380 : 760, s = W < 700 ? Math.min(W * 0.42, H * 0.22) : Math.min(W * 0.2, H * 0.25), cx = W / 2, cy = H * (W < 700 ? 0.27 : 0.27);
+    M = { cx, cy, s };
     const targets = markPoints(n, cx, cy, s);
     let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    P = targets.map(([tx, ty], i) => ({ x0: rnd() * W, y0: rnd() * H, tx, ty, r: 0.6 + rnd() * 1.4, d: rnd(), red: i % 37 === 0 }));
-    drawHero();
+    P = targets.map(([tx, ty], i) => ({ x0: rnd() * W, y0: rnd() * H, tx, ty, r: 0.5 + rnd() * 0.9, d: rnd(), red: i % 41 === 0 }));
+    heroP = -1; drawHero();
   };
+  const rrect = (x, y, w, h, r) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r); ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h); ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r); ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath(); };
   const labels = ["block #21,404,118", "tx 0x9c4e…a1f2 · queued", "withdraw 24.00 SOL · 71:59:48", "block #21,404,119", "approve(0x7d1b…) · blocked", "tx 0x41f2…9be0 · confirmed"];
   let heroP = -1;
   function drawHero() {
     if (!ctx) return; const r = hero.getBoundingClientRect(), span = r.height - innerHeight; const p = still ? 1 : clamp(-r.top / span);
     if (Math.abs(p - heroP) < 0.0005 && heroP >= 0) return; heroP = p;
-    const k = ease(clamp(p / 0.62));
+    const k = ease(clamp(p / 0.42));                 // the network gathers
+    const m = ease(clamp((p - 0.3) / 0.22));         // the mark is drawn, crisp
+    const t = ease(clamp((p - 0.42) / 0.25));        // the instrument ring around it
+    const { cx, cy, s } = M;
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
+    // a slow light behind everything
+    const g0 = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.6); g0.addColorStop(0, `rgba(40,70,220,${0.1 + m * 0.18})`); g0.addColorStop(1, "rgba(40,70,220,0)"); ctx.fillStyle = g0; ctx.fillRect(0, 0, W, H);
     // links between nearby nodes while the network is loose
-    if (k < 0.85) { ctx.lineWidth = 1; ctx.strokeStyle = `rgba(130,150,255,${0.12 * (1 - k)})`; ctx.beginPath(); for (let i = 0; i < P.length; i += 2) { const a = P[i], b = P[(i * 7 + 13) % P.length]; const ax = a.x0 + (a.tx - a.x0) * k, ay = a.y0 + (a.ty - a.y0) * k, bx = b.x0 + (b.tx - b.x0) * k, by = b.y0 + (b.ty - b.y0) * k; if (Math.abs(ax - bx) + Math.abs(ay - by) < 160) { ctx.moveTo(ax, ay); ctx.lineTo(bx, by); } } ctx.stroke(); }
+    if (k < 0.9) { ctx.lineWidth = 0.6; ctx.strokeStyle = `rgba(140,160,255,${0.1 * (1 - k)})`; ctx.beginPath(); for (let i = 0; i < P.length; i += 2) { const a = P[i], b = P[(i * 7 + 13) % P.length]; const ax = a.x0 + (a.tx - a.x0) * k, ay = a.y0 + (a.ty - a.y0) * k, bx = b.x0 + (b.tx - b.x0) * k, by = b.y0 + (b.ty - b.y0) * k; if (Math.abs(ax - bx) + Math.abs(ay - by) < 150) { ctx.moveTo(ax, ay); ctx.lineTo(bx, by); } } ctx.stroke(); }
+    // the nodes: they gather, then dissolve into the drawn mark
+    const fade = 1 - m * 0.92;
     for (const q of P) { const kk = ease(clamp((k - q.d * 0.18) / 0.82)); const x = q.x0 + (q.tx - q.x0) * kk, y = q.y0 + (q.ty - q.y0) * kk;
-      ctx.fillStyle = q.red && k < 0.5 ? `rgba(255,120,110,${0.75 - k})` : `rgba(${150 + kk * 40},${170 + kk * 30},255,${0.35 + kk * 0.6})`; ctx.beginPath(); ctx.arc(x, y, q.r * (1 + kk * 0.35), 0, Math.PI * 2); ctx.fill(); }
-    // a soft glow as the mark completes
-    if (k > 0.6) { const g = ctx.createRadialGradient(W / 2, H * 0.25, 0, W / 2, H * 0.25, Math.min(W, H) * 0.45); g.addColorStop(0, `rgba(61,99,255,${0.22 * (k - 0.6) / 0.4})`); g.addColorStop(1, "rgba(61,99,255,0)"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
+      ctx.fillStyle = q.red && k < 0.5 ? `rgba(255,120,110,${(0.7 - k) * fade})` : `rgba(${170 + kk * 40},${185 + kk * 30},255,${(0.3 + kk * 0.5) * fade})`; ctx.beginPath(); ctx.arc(x, y, q.r, 0, Math.PI * 2); ctx.fill(); }
+    // the instrument: a fine tick ring that draws itself around the mark
+    if (t > 0) { const R = s * 1.02, n = 120; ctx.save(); ctx.translate(cx, cy); ctx.rotate(p * 0.6);
+      for (let i = 0; i < n * t; i++) { const a = (i / n) * Math.PI * 2 - Math.PI / 2, big = i % 10 === 0, r1 = R, r2 = R + (big ? s * 0.07 : s * 0.035);
+        ctx.strokeStyle = `rgba(160,178,255,${big ? 0.55 : 0.25})`; ctx.lineWidth = big ? 1.2 : 0.8; ctx.beginPath(); ctx.moveTo(Math.cos(a) * r1, Math.sin(a) * r1); ctx.lineTo(Math.cos(a) * r2, Math.sin(a) * r2); ctx.stroke(); }
+      ctx.restore();
+      ctx.strokeStyle = `rgba(150,170,255,${0.18 * t})`; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.arc(cx, cy, s * 1.22, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * t); ctx.stroke(); }
+    // the Ecrin mark, drawn crisp: the frame traces itself, then the diamond appears
+    if (m > 0) { const half = s / 2, rad = s * 0.32, lw = Math.max(2, s * 0.055);
+      const gr = ctx.createLinearGradient(cx - half, cy - half, cx + half, cy + half); gr.addColorStop(0, "#a9bbff"); gr.addColorStop(1, "#2f5bff");
+      ctx.save(); ctx.shadowColor = "rgba(61,99,255,.85)"; ctx.shadowBlur = 30 * m; ctx.strokeStyle = gr; ctx.lineWidth = lw; ctx.lineCap = "round";
+      rrect(cx - half, cy - half, s, s, rad); const per = 4 * (s - 2 * rad) + 2 * Math.PI * rad; ctx.setLineDash([per * m, per]); ctx.stroke(); ctx.setLineDash([]);
+      const dm = ease(clamp((m - 0.55) / 0.45)); if (dm > 0) { const dw = s * 0.21 * dm, dh = s * 0.29 * dm; ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(cx, cy - dh); ctx.lineTo(cx + dw, cy); ctx.lineTo(cx, cy + dh); ctx.lineTo(cx - dw, cy); ctx.closePath(); ctx.fill(); }
+      ctx.restore(); }
     // on-chain labels drift away as the mark forms
-    ctx.font = `500 ${W < 700 ? 10 : 11}px "JetBrains Mono", monospace`; labels.forEach((t, i) => { const a = clamp(0.55 - k * 1.1); if (a <= 0) return; ctx.fillStyle = `rgba(150,165,220,${a})`; const lx = ((i * 0.27 + 0.08) % 0.9) * W, ly = H * (0.12 + ((i * 0.31) % 0.6)) - p * 120; ctx.fillText(t, lx, ly); });
+    ctx.font = `400 ${W < 700 ? 10 : 11}px "JetBrains Mono", monospace`; labels.forEach((tx, i) => { const a = clamp(0.5 - k * 1.1); if (a <= 0) return; ctx.fillStyle = `rgba(150,165,220,${a})`; const lx = ((i * 0.27 + 0.08) % 0.9) * W, ly = H * (0.12 + ((i * 0.31) % 0.6)) - p * 120; ctx.fillText(tx, lx, ly); });
     // the words arrive in order with the scroll
-    document.querySelectorAll("[data-h]").forEach((el) => { const i = Number(el.dataset.h); el.style.setProperty("--o", String(still ? 1 : clamp((p - 0.02 - i * 0.12) / 0.16))); });
+    document.querySelectorAll("[data-h]").forEach((el) => { const i = Number(el.dataset.h); el.style.setProperty("--o", String(still ? 1 : clamp((p - 0.4 - i * 0.08) / 0.14))); });
     document.querySelector("[data-cue]")?.style.setProperty("--c", String(clamp(1 - p * 6)));
   }
 
