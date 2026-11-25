@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Ecrin · The wallet with a Safe</title>
+  <meta name="description" content="Ecrin is a self-custody wallet with a Safe on 13 networks. Nothing leaves your Safe without a delay you choose, so a drainer, a phishing link, a stolen key or a bad night all hit the same wall: time." />
+  <meta name="theme-color" content="#1230e6" />
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ffffff'/%3E%3Crect x='5' y='5' width='22' height='22' rx='7' fill='none' stroke='%232F5BFF' stroke-width='2.2'/%3E%3Cpath d='M16 10.5l4.8 5.5L16 21.5 11.2 16z' fill='%232F5BFF'/%3E%3C/svg%3E" />
+  <link rel="preload" href="/fonts/anton-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/inter-tight-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/preview/safe/spin-00.webp" as="image" />
+  <link rel="stylesheet" href="/preview/preview.css" />
+  <script src="/preview/preview.js" defer></script>
+</head>
+<body>
+  <!-- the floating dock (Freshmilk-style), always at hand -->
+  <nav class="dock" aria-label="Sections">
+    <a class="dk-logo" href="#top" aria-label="Ecrin, top"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M16 9.5l5.5 6.5L16 22.5 10.5 16z" fill="currentColor"/></svg></a>
+    <a href="#safe">The Safe</a><a href="#wallet">Wallet</a><a href="#threats">Protection</a><a href="#networks">Networks</a><a href="#details">Details</a>
+    <a class="dk-go" href="https://chromewebstore.google.com/detail/ecrin-wallet/nmehcocofmbhkjgjhbhbnfmhcbjpcpbd" target="_blank" rel="noopener">Add to Chrome</a>
+  </nav>
+
+  <main>
+    <!-- 1. The hero: a real little Safe you can turn in your hands -->
+    <section class="hero" id="top">
+      <header class="top"><a class="logo" href="/">Ecrin</a><span class="top-r"><a class="lang" href="/fr/">FR</a><a class="pill" href="/app">Open the app <i>→</i></a></span></header>
+      <div class="hero-bgword" aria-hidden="true"><span>ECRIN ECRIN ECRIN ECRIN</span></div>
+      <h1 class="hero-h"><span>Guarded</span><span>by time.</span></h1>
+      <div class="spin" data-spin aria-label="The Ecrin Safe. Drag to turn it." role="img">
+        <img class="spin-img" src="/preview/safe/spin-00.webp" alt="" width="720" height="720" draggable="false" />
+      </div>
+      <i class="blob b1" aria-hidden="true"></i><i class="blob b2" aria-hidden="true"></i><i class="blob b3" aria-hidden="true"></i>
+      <div class="hero-foot">
+        <p>The wallet with a Safe. Nothing leaves without a delay you choose, and you can cancel the whole time.</p>
+        <div class="hero-cta"><a class="btn white" href="https://chromewebstore.google.com/detail/ecrin-wallet/nmehcocofmbhkjgjhbhbnfmhcbjpcpbd" target="_blank" rel="noopener">Add to Chrome</a><a class="btn ghost" href="/wallet-demo/">Try the demo</a></div>
+      </div>
+      <span class="hint"><i></i>Drag to turn the Safe</span>
+      <svg class="wave" viewBox="0 0 1440 120" preserveAspectRatio="none" aria-hidden="true"><path d="M0 60 C 240 120 480 0 720 50 S 1200 110 1440 40 V120 H0z"/></svg>
+    </section>
+
+    <!-- 2. One sentence, and real pieces of the wallet drifting in around it (Becomes-style) -->
+    <section class="say" id="safe" data-scene>
+      <p class="say-k">Ecrin</p>
+      <h2 class="say-h">Protect your crypto from others, <em>and from yourself.</em></h2>
+      <div class="frags" aria-hidden="true">
+        <div class="frag f1" data-speed="-0.35"><span class="fk"><i class="dot amber"></i>Withdrawal requested</span><b>24.00 SOL</b><small>leaves in 71:59:48</small></div>
+        <div class="frag f2" data-speed="0.25"><img src="/img/app-safe.webp" alt="" width="390" height="664" loading="lazy" /></div>
+        <div class="frag f3 ok" data-speed="-0.18"><i class="dot green"></i>Cancelled. It never left.</div>
+        <div class="frag f4" data-speed="0.4"><small>3:02 a.m.</small><b>Sleep on it?</b><span>It can leave at 9:00 tomorrow.</span></div>
+        <div class="frag f5 bad" data-speed="-0.3"><b>claim-sol-airdrop.app</b><small>Known scam site · blocked</small></div>
+        <div class="frag f6" data-speed="0.15"><span class="fk">Safe</span><b>$7,381</b><small>72 h to leave</small></div>
+      </div>
+    </section>
+
+    <!-- 3. The door: as you scroll, the Safe opens (black page, huge condensed type) -->
+    <section class="door" id="how" data-scene data-pin>
+      <div class="door-pin">
+        <h2 class="door-h" aria-label="Every withdrawal waits."><span>Every</span><span>withdrawal</span><span>waits.</span></h2>
+        <img class="door-img" src="/preview/safe/open-00.webp" alt="The Ecrin Safe opening" width="720" height="720" data-door />
+        <ol class="door-steps">
+          <li><b>0:00</b>A thief gets your key and signs everything away.</li>
+          <li><b>0:01</b>The Safe queues it, with a countdown you can see.</li>
+          <li><b>0:20</b>You get an alert, and press Cancel.</li>
+          <li><b>72:00</b>Nothing was taken. It never left.</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- 4. The wallet, inside the letters -->
+    <section class="inletters" id="wallet" data-scene>
+      <h2 class="il-h" aria-label="Ecrin Wallet"><span>ECRIN</span><span>WALLET</span></h2>
+      <p class="il-p">A real wallet for every day: send, receive and swap on 13 networks. What you keep in the Safe waits before it leaves.</p>
+    </section>
+
+    <!-- 5. The real screens, sliding by -->
+    <section class="phones" data-scene data-pin>
+      <div class="ph-pin">
+        <div class="ph-head"><p class="say-k">The real app</p><h2>Everything in its place.</h2></div>
+        <div class="ph-track" data-track>
+          <figure class="phn"><img src="/img/app-home.webp" alt="Ecrin home: net worth split into Wallet and Safe" width="390" height="664" loading="lazy" /><figcaption><b>At a glance</b>Wallet and Safe, side by side.</figcaption></figure>
+          <figure class="phn"><img src="/img/app-safe.webp" alt="The Safe with a withdrawal counting down" width="390" height="664" loading="lazy" /><figcaption><b>The Safe</b>Every withdrawal counts down. Cancel any time.</figcaption></figure>
+          <figure class="phn"><img src="/img/app-swap.webp" alt="Swap ETH to USDC" width="390" height="664" loading="lazy" /><figcaption><b>Swap</b>Any coin, even across networks, in one step.</figcaption></figure>
+          <figure class="phn"><img src="/img/app-receive.webp" alt="Receive with a QR code" width="390" height="664" loading="lazy" /><figcaption><b>Receive</b>Tap the address to copy it.</figcaption></figure>
+          <figure class="phn"><img src="/img/app-coin.webp" alt="A coin's price chart" width="390" height="664" loading="lazy" /><figcaption><b>Markets</b>Slide along the chart.</figcaption></figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. What it protects you from (bright cards, Freshmilk-style) -->
+    <section class="threats" id="threats" data-scene>
+      <div class="th-head"><h2>What could take your money?</h2><p>Thieves, and your own worst nights. They all want it now. Ecrin makes them wait.</p></div>
+      <div class="cards">
+        <article class="card c1"><h3>A drainer gets your signature.</h3><p>It still has to wait your delay. You see it coming and cancel.</p></article>
+        <article class="card c2"><h3>Phishing tricks you once.</h3><p>You have days to notice, and scam sites are blocked before you sign.</p></article>
+        <article class="card c3"><h3>Your key leaks.</h3><p>A stolen key can only make the rules stricter, never looser.</p></article>
+        <article class="card c4"><h3>A 3 a.m. urge.</h3><p>Gambling, revenge trades, panic sells: the urge fades before the money can leave.</p></article>
+        <article class="card c5"><h3>Someone forces you.</h3><p>They get the same answer you would: days away. No one can make it faster.</p></article>
+        <article class="card c6"><h3>Paying your own accounts?</h3><p>Instant. Your trusted addresses never wait.</p></article>
+      </div>
+      <p class="help">Ecrin is a tool, not treatment. If gambling is hurting you, talk to someone you trust or a local helpline.</p>
+    </section>
+
+    <!-- 7. Networks, like a client wall -->
+    <section class="nets" id="networks" data-scene>
+      <h2>Works where your crypto lives.</h2>
+      <div class="logos" data-logos></div>
+      <p class="nets-p"><b>13 networks</b> to send, receive and swap. <b>The Safe on 8</b> of them, in early access.</p>
+    </section>
+
+    <!-- 8. Every detail, folded away but one tap from you -->
+    <section class="details" id="details" data-scene>
+      <div class="dt-head"><p class="say-k">Built to be trusted</p><h2>Controlled by you. Guarded&nbsp;by&nbsp;time.</h2><p>The rules live on the network, not in an app. Here is exactly how it works.</p></div>
+      <div class="acc">
+        <details open><summary>How it works</summary><div class="acc-b">
+          <ol class="ol"><li><b>Create a Safe.</b> An account on the network that only your wallet controls. Ecrin never touches your keys.</li><li><b>Pick your protection.</b> Gentle, Strong or Locked; add trusted addresses and, if you like, a guardian.</li><li><b>Live normally.</b> Pay your own trusted addresses instantly. Everything else waits, and you can always change your mind.</li></ol>
+          <p>Loosening a rule (a shorter delay, a higher limit, a new trusted address, a new guardian) waits days. Tightening one is instant.</p></div></details>
+        <details><summary>Protection levels</summary><div class="acc-b tiers">
+          <div><b>Gentle</b><span>Everyday savings with a safety net.</span><ul><li>Withdrawals wait 24 hours</li><li>Looser rules wait 3 days</li><li>Guardian optional</li></ul></div>
+          <div class="hot"><b>Strong · recommended</b><span>For the money you really can't lose.</span><ul><li>Withdrawals wait 72 hours</li><li>Looser rules wait 7 days</li><li>Guardian for emergencies</li></ul></div>
+          <div><b>Locked</b><span>For savings that must not move.</span><ul><li>Nothing leaves before your date</li><li>Emergency exit with your guardian</li><li>Looser rules wait until the date</li></ul></div></div></details>
+        <details><summary>Tools for staying in control</summary><div class="acc-b grid2">
+          <p><b>Daily spending limit.</b> Sends stop at your limit. Lowering it is instant; raising it waits 24 hours.</p><p><b>Cooling-off pause.</b> A countdown before any big send: time to ask if it's really what you want.</p>
+          <p><b>Protect automatically.</b> Part of every payment goes straight into your Safe.</p><p><b>Lock until a date.</b> Nothing leaves your Safe before the date you pick. Not even for you.</p>
+          <p><b>A trusted person.</b> A guardian can help in a real emergency, never on a whim.</p><p><b>Monthly report.</b> What you protected, and every time Ecrin stopped you in a hurry.</p></div></details>
+        <details><summary>Security</summary><div class="acc-b">
+          <p><b>Non-custodial.</b> Ecrin never holds your keys or your money. Only your wallet can ask for a withdrawal.</p>
+          <p><b>Alerts within a minute</b>, on Telegram or by email, so you can cancel anything you didn't ask for.</p>
+          <p><b>Every shortcut we know of fails:</b> importing your key elsewhere still waits; turning the rules off waits days; adding an attacker's address or guardian waits days; there is no receipt token to sell.</p>
+          <p><b>Open source and tested</b> on every change. <a href="https://github.com/lecrabe5000-droid/Solana-Vault" target="_blank" rel="noopener">Read the code</a> · <a href="/security/">Full security page</a></p>
+          <p class="warn"><b>Not audited yet.</b> The Safe is in early access on 8 mainnets. Keep amounts small until the independent audit is done and published.</p></div></details>
+        <details><summary>Compared with other wallets</summary><div class="acc-b"><div class="tbl"><table>
+          <thead><tr><th></th><th>Hot wallet</th><th>Hardware wallet</th><th>Ecrin Safe</th></tr></thead>
+          <tbody><tr><td>You sign a drainer by mistake</td><td>Lost</td><td>Lost</td><td class="us">Cancel it</td></tr><tr><td>Your seed phrase leaks</td><td>Lost</td><td>Lost</td><td class="us">Time to react</td></tr><tr><td>Someone forces a transfer</td><td>Instant</td><td>Instant</td><td class="us">Days away</td></tr><tr><td>A 3 a.m. impulse</td><td>Instant</td><td>Instant</td><td class="us">Sleep on it</td></tr><tr><td>Paying your own accounts</td><td>Instant</td><td>Instant</td><td class="us">Instant to trusted</td></tr><tr><td>Undo a mistake</td><td>Never</td><td>Never</td><td class="us">Any time before it runs</td></tr></tbody></table></div>
+          <p>They work best together: sign for your Safe with a hardware wallet, and both have to fail before you lose anything.</p></div></details>
+        <details><summary>Roadmap</summary><div class="acc-b grid2">
+          <p><b>Now · live, in early access.</b> Ecrin Wallet on the Chrome Web Store and on your phone from the browser. 13 networks. The Safe on Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche and Sui.</p>
+          <p><b>Next · audit and apps.</b> An independent security audit with a public report, iPhone and Android apps, the Safe on Solana mainnet, a paid bug bounty.</p>
+          <p><b>Later · yield.</b> Staking inside the Safe, keeping every delay. Opt-in lending only after its own audit.</p>
+          <p><b>Who it's for.</b> Long-term holders, people stepping back from gambling (where Ecrin started), families and small teams.</p></div></details>
+        <details><summary>Questions</summary><div class="acc-b">
+          <p><b>Who holds my money?</b> You do. It sits in a Safe on the network, tied to your wallet: a contract on Ethereum-style networks, a program on Sui.</p>
+          <p><b>What if someone steals my key?</b> They can only ask to withdraw, and that waits your full delay. Cancel it. A stolen key can't add its own trusted address or guardian without waiting days.</p>
+          <p><b>What if I have a real emergency?</b> Your guardian can release a withdrawal you asked for, at once. They can't start one or choose where it goes.</p>
+          <p><b>Does it cost anything?</b> The wallet is free. You pay normal network fees, and swaps include a 0.875% Ecrin fee, shown before you confirm.</p>
+          <p><b>Why "Ecrin"?</b> An écrin is the case that keeps something precious safe. That's the whole idea.</p></div></details>
+      </div>
+    </section>
+
+    <!-- 9. The end -->
+    <section class="end" id="get">
+      <h2 class="end-h"><span>Get</span><span>Ecrin.</span></h2>
+      <div class="get">
+        <a class="g live" href="https://chromewebstore.google.com/detail/ecrin-wallet/nmehcocofmbhkjgjhbhbnfmhcbjpcpbd" target="_blank" rel="noopener"><small><i></i>Live</small><b>Chrome Web Store</b><span>Add to Chrome →</span></a>
+        <a class="g" href="/wallet/"><small><i></i>Live</small><b>On your phone</b><span>Open ecrinprotocol.app/wallet →</span></a>
+        <div class="g soon"><small>Coming soon</small><b>App Store &amp; Google Play</b><span>Native iPhone and Android apps.</span></div>
+      </div>
+      <footer class="foot"><span>© Technologies Ecrin inc.</span><nav><a href="/security/">Security</a><a href="/how-it-works/">How it works on-chain</a><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/support/">Support</a><a href="https://github.com/lecrabe5000-droid/Solana-Vault" target="_blank" rel="noopener">GitHub</a></nav><span>Beta · the Safe is in early access and not audited yet: start with small amounts.</span></footer>
+    </section>
+  </main>
+</body>
+</html>

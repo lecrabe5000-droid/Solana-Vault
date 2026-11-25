@@ -3,3 +3,4 @@ node_modules/
 .anchor/
 test-ledger/
 .DS_Store
+tools/safe3d/.build/
