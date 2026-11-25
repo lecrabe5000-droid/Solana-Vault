@@ -2,6 +2,7 @@
 (() => {
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const fine = matchMedia("(pointer: fine)").matches;
+  const LITE = !fine || innerWidth < 860; // phones: same look, much less work per frame
   const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
   const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
   const pad = (n) => String(n).padStart(2, "0");
@@ -29,8 +30,8 @@
   };
   let M = { cx: 0, cy: 0, s: 0 };
   const build = () => {
-    if (!cv) return; DPR = Math.min(2, devicePixelRatio || 1); W = cv.clientWidth; H = cv.clientHeight; cv.width = W * DPR; cv.height = H * DPR;
-    const n = W < 700 ? 380 : 760, s = W < 700 ? Math.min(W * 0.42, H * 0.22) : Math.min(W * 0.2, H * 0.25), cx = W / 2, cy = H * (W < 700 ? 0.27 : 0.27);
+    if (!cv) return; DPR = LITE ? Math.min(1.5, devicePixelRatio || 1) : Math.min(2, devicePixelRatio || 1); W = cv.clientWidth; H = cv.clientHeight; cv.width = W * DPR; cv.height = H * DPR;
+    const n = LITE ? 170 : 760, s = W < 700 ? Math.min(W * 0.42, H * 0.22) : Math.min(W * 0.2, H * 0.25), cx = W / 2, cy = H * (W < 700 ? 0.27 : 0.27);
     M = { cx, cy, s };
     const targets = markPoints(n, cx, cy, s);
     let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
@@ -51,13 +52,13 @@
     // a slow light behind everything
     const g0 = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.6); g0.addColorStop(0, `rgba(40,70,220,${0.1 + m * 0.18})`); g0.addColorStop(1, "rgba(40,70,220,0)"); ctx.fillStyle = g0; ctx.fillRect(0, 0, W, H);
     // links between nearby nodes while the network is loose
-    if (k < 0.9) { ctx.lineWidth = 0.6; ctx.strokeStyle = `rgba(140,160,255,${0.1 * (1 - k)})`; ctx.beginPath(); for (let i = 0; i < P.length; i += 2) { const a = P[i], b = P[(i * 7 + 13) % P.length]; const ax = a.x0 + (a.tx - a.x0) * k, ay = a.y0 + (a.ty - a.y0) * k, bx = b.x0 + (b.tx - b.x0) * k, by = b.y0 + (b.ty - b.y0) * k; if (Math.abs(ax - bx) + Math.abs(ay - by) < 150) { ctx.moveTo(ax, ay); ctx.lineTo(bx, by); } } ctx.stroke(); }
+    if (!LITE && k < 0.9) { ctx.lineWidth = 0.6; ctx.strokeStyle = `rgba(140,160,255,${0.1 * (1 - k)})`; ctx.beginPath(); for (let i = 0; i < P.length; i += 2) { const a = P[i], b = P[(i * 7 + 13) % P.length]; const ax = a.x0 + (a.tx - a.x0) * k, ay = a.y0 + (a.ty - a.y0) * k, bx = b.x0 + (b.tx - b.x0) * k, by = b.y0 + (b.ty - b.y0) * k; if (Math.abs(ax - bx) + Math.abs(ay - by) < 150) { ctx.moveTo(ax, ay); ctx.lineTo(bx, by); } } ctx.stroke(); }
     // the nodes: they gather, then dissolve into the drawn mark
     const fade = 1 - m * 0.92;
     for (const q of P) { const kk = ease(clamp((k - q.d * 0.18) / 0.82)); const x = q.x0 + (q.tx - q.x0) * kk, y = q.y0 + (q.ty - q.y0) * kk;
       ctx.fillStyle = q.red && k < 0.5 ? `rgba(255,120,110,${(0.7 - k) * fade})` : `rgba(${170 + kk * 40},${185 + kk * 30},255,${(0.3 + kk * 0.5) * fade})`; ctx.beginPath(); ctx.arc(x, y, q.r, 0, Math.PI * 2); ctx.fill(); }
     // the instrument: a fine tick ring that draws itself around the mark
-    if (t > 0) { const R = s * 1.02, n = 120; ctx.save(); ctx.translate(cx, cy); ctx.rotate(p * 0.6);
+    if (t > 0) { const R = s * 1.02, n = LITE ? 60 : 120; ctx.save(); ctx.translate(cx, cy); ctx.rotate(p * 0.6);
       for (let i = 0; i < n * t; i++) { const a = (i / n) * Math.PI * 2 - Math.PI / 2, big = i % 10 === 0, r1 = R, r2 = R + (big ? s * 0.07 : s * 0.035);
         ctx.strokeStyle = `rgba(160,178,255,${big ? 0.55 : 0.25})`; ctx.lineWidth = big ? 1.2 : 0.8; ctx.beginPath(); ctx.moveTo(Math.cos(a) * r1, Math.sin(a) * r1); ctx.lineTo(Math.cos(a) * r2, Math.sin(a) * r2); ctx.stroke(); }
       ctx.restore();
@@ -65,7 +66,7 @@
     // the Ecrin mark, drawn crisp: the frame traces itself, then the diamond appears
     if (m > 0) { const half = s / 2, rad = s * 0.32, lw = Math.max(2, s * 0.055);
       const gr = ctx.createLinearGradient(cx - half, cy - half, cx + half, cy + half); gr.addColorStop(0, "#a9bbff"); gr.addColorStop(1, "#2f5bff");
-      ctx.save(); ctx.shadowColor = "rgba(61,99,255,.85)"; ctx.shadowBlur = 30 * m; ctx.strokeStyle = gr; ctx.lineWidth = lw; ctx.lineCap = "round";
+      ctx.save(); if (!LITE) { ctx.shadowColor = "rgba(61,99,255,.85)"; ctx.shadowBlur = 30 * m; } ctx.strokeStyle = gr; ctx.lineWidth = lw; ctx.lineCap = "round";
       rrect(cx - half, cy - half, s, s, rad); const per = 4 * (s - 2 * rad) + 2 * Math.PI * rad; ctx.setLineDash([per * m, per]); ctx.stroke(); ctx.setLineDash([]);
       const dm = ease(clamp((m - 0.55) / 0.45)); if (dm > 0) { const dw = s * 0.21 * dm, dh = s * 0.29 * dm; ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(cx, cy - dh); ctx.lineTo(cx + dw, cy); ctx.lineTo(cx, cy + dh); ctx.lineTo(cx - dw, cy); ctx.closePath(); ctx.fill(); }
       ctx.restore(); }
@@ -82,7 +83,8 @@
   const TAG = { protect: "Protection", wallet: "Wallet", trust: "Trust" };
   let list = all.slice(), offset = 0, shownDesc = null, hoverEl = null; const progressEl = document.querySelector("[data-exprog]");
   const PER = () => (innerWidth < 860 ? 1.05 : 1.1) * innerHeight;
-  const sizeEx = () => { ex.style.height = `${innerHeight + (list.length - 1) * PER()}px`; };
+  const VH = () => (LITE ? (sizeEx.vh ||= innerHeight) : innerHeight);
+  const sizeEx = () => { ex.style.height = `${VH() + (list.length - 1) * (LITE ? 1.05 * VH() : PER())}px`; };
   const desc = (el) => { if (!el || el === shownDesc) return; shownDesc = el; const i = list.indexOf(el);
     D.num.textContent = pad(i + 1); D.tot.textContent = pad(list.length); D.tag.textContent = TAG[el.dataset.tag]; D.title.textContent = el.querySelector("h3").textContent; D.line.textContent = el.dataset.line;
     D.box.classList.remove("swap"); void D.box.offsetWidth; D.box.classList.add("swap"); };
@@ -90,13 +92,13 @@
     const w = all[0].offsetWidth + Math.max(14, innerWidth * 0.012), R = Math.max(innerWidth * 0.95, 900), n = list.length;
     all.forEach((el) => el.classList.toggle("hide", !list.includes(el)));
     list.forEach((el, i) => { const x = (i - offset) * w, a = x / R, z = (1 - Math.cos(a)) * R * 0.9;
-      el.style.transform = `translate3d(${Math.sin(a) * R}px, 0, ${z}px) rotateY(${-a * 57.3}deg)`; el.style.zIndex = String(1000 - Math.round(Math.abs(x))); el.classList.toggle("cur", Math.abs(x) < w / 2); });
+      el.style.transform = LITE ? `translate3d(${x}px, 0, 0) scale(${1 - Math.min(0.12, Math.abs(x) / w * 0.12)})` : `translate3d(${Math.sin(a) * R}px, 0, ${z}px) rotateY(${-a * 57.3}deg)`; el.style.zIndex = String(1000 - Math.round(Math.abs(x))); el.classList.toggle("cur", Math.abs(x) < w / 2); });
     if (!hoverEl) desc(list[clamp(Math.round(offset), 0, n - 1)]);
     if (progressEl) progressEl.style.transform = `scaleX(${n > 1 ? offset / (n - 1) : 1})`;
   };
   let exTarget = 0, exAnim = 0;
   const hold = (raw) => { const i = Math.floor(raw), f = raw - i; const g = f < 0.3 ? 0 : f > 0.7 ? 1 : ease((f - 0.3) / 0.4); return i + g; }; // each subject rests, then glides on
-  const exStep = () => { exAnim = 0; offset += (exTarget - offset) * (still ? 1 : 0.1); if (Math.abs(exTarget - offset) < 0.0008) offset = exTarget; else exAnim = requestAnimationFrame(exStep); layoutRow(); };
+  const exStep = () => { exAnim = 0; offset += (exTarget - offset) * (still ? 1 : LITE ? 0.18 : 0.1); if (Math.abs(exTarget - offset) < 0.0008) offset = exTarget; else exAnim = requestAnimationFrame(exStep); layoutRow(); };
   const exFrame = () => { const r = ex.getBoundingClientRect(); const p = clamp(-r.top / Math.max(1, r.height - innerHeight)); exTarget = hold(p * (list.length - 1)); if (!exAnim) exAnim = requestAnimationFrame(exStep); };
   all.forEach((el) => { el.addEventListener("pointerenter", () => { if (!fine) return; hoverEl = el; desc(el); }); el.addEventListener("pointerleave", () => { hoverEl = null; layoutRow(); }); });
   document.querySelectorAll(".tabs [data-f]").forEach((b) => b.addEventListener("click", () => {
@@ -120,7 +122,7 @@
   const frame = () => { ticking = false; drawHero(); exFrame(); riseFrame(); };
   const ask = () => { if (!ticking) { ticking = true; requestAnimationFrame(frame); } };
   addEventListener("scroll", ask, { passive: true });
-  addEventListener("resize", () => { build(); sizeEx(); heroP = -1; ask(); });
+  let lastW = innerWidth; addEventListener("resize", () => { if (LITE && innerWidth === lastW) { heroP = -1; ask(); return; } lastW = innerWidth; build(); sizeEx(); heroP = -1; ask(); });
   build(); sizeEx(); frame();
 
   // ---- a subject, opened: the scene plays out as you read its chapters ----

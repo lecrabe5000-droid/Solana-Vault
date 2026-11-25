@@ -181,3 +181,15 @@ img { display: block; max-width: 100%; height: auto; }
 .title .mk, .title span .mk { background: linear-gradient(150deg, #5a7dff, #2f5bff 55%, #1f43e0) !important; -webkit-background-clip: border-box !important; background-clip: border-box !important; }
 /* no blur on the rising words: Safari leaves stray lines when blurring text */
 [data-h] { filter: none !important; will-change: opacity, transform; }
+/* phones: lighter compositing for smooth scrolling */
+@media (max-width: 860px), (pointer: coarse) {
+  .grain { display: none; }
+  .ring { perspective: none; } .row { transform-style: flat; } .subj { transform-style: flat; will-change: transform; }
+  .ring::before, .ring::after { width: 8vw; }
+  .ex-desc.swap > * { animation: dsw-m .35s ease-out; }
+  .art { box-shadow: inset 0 0 0 1px rgba(170, 185, 255, .16); }
+  .subj.cur .art { box-shadow: inset 0 0 0 1px rgba(170, 185, 255, .45); }
+  .btn { box-shadow: none; }
+  .hero-pin, .ex-pin { height: 100vh; height: 100lvh; }
+}
+@keyframes dsw-m { from { opacity: 0; transform: translateY(6px); } }
