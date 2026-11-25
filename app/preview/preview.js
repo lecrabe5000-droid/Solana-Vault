@@ -2,7 +2,8 @@
 (() => {
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const fine = matchMedia("(pointer: fine)").matches;
-  const LITE = !fine || innerWidth < 860; // phones: same look, much less work per frame
+  const LITE = !fine || innerWidth < 860; // phones: a calm, native-scrolling version
+  document.documentElement.classList.toggle("lite", LITE);
   const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
   const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
   const pad = (n) => String(n).padStart(2, "0");
@@ -40,9 +41,9 @@
   };
   const rrect = (x, y, w, h, r) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r); ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h); ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r); ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath(); };
   const labels = ["block #21,404,118", "tx 0x9c4e…a1f2 · queued", "withdraw 24.00 SOL · 71:59:48", "block #21,404,119", "approve(0x7d1b…) · blocked", "tx 0x41f2…9be0 · confirmed"];
-  let heroP = -1;
+  let heroP = -1, introP = 0;
   function drawHero() {
-    if (!ctx) return; const r = hero.getBoundingClientRect(), span = r.height - innerHeight; const p = still ? 1 : clamp(-r.top / span);
+    if (!ctx) return; const r = hero.getBoundingClientRect(), span = r.height - innerHeight; const p = still ? 1 : LITE ? introP : clamp(-r.top / span);
     if (Math.abs(p - heroP) < 0.0005 && heroP >= 0) return; heroP = p;
     const k = ease(clamp(p / 0.42));                 // the network gathers
     const m = ease(clamp((p - 0.3) / 0.22));         // the mark is drawn, crisp
@@ -103,9 +104,11 @@
   all.forEach((el) => { el.addEventListener("pointerenter", () => { if (!fine) return; hoverEl = el; desc(el); }); el.addEventListener("pointerleave", () => { hoverEl = null; layoutRow(); }); });
   document.querySelectorAll(".tabs [data-f]").forEach((b) => b.addEventListener("click", () => {
     document.querySelectorAll(".tabs [data-f]").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
-    list = b.dataset.f === "all" ? all.slice() : all.filter((el) => el.dataset.tag === b.dataset.f); shownDesc = null; sizeEx();
-    scrollToY(ex.getBoundingClientRect().top + scrollY); setTimeout(exFrame, 50);
+    list = b.dataset.f === "all" ? all.slice() : all.filter((el) => el.dataset.tag === b.dataset.f); shownDesc = null;
+    if (LITE) { all.forEach((el) => el.classList.toggle("hide", !list.includes(el))); return; }
+    sizeEx(); scrollToY(ex.getBoundingClientRect().top + scrollY); setTimeout(exFrame, 50);
   }));
+  if (LITE) all.forEach((el) => el.insertAdjacentHTML("beforeend", `<div class="cap"><span class="cap-k mono">${TAG[el.dataset.tag]}</span><b>${el.querySelector("h3").textContent}</b><span>${el.dataset.line}</span></div>`));
   // card visuals are sized from the card's own width
   const sizeArt = (a) => a.style.setProperty("--u", `${a.offsetWidth / 100}px`);
   const ro = "ResizeObserver" in window ? new ResizeObserver((es) => es.forEach((e) => sizeArt(e.target))) : null;
@@ -119,11 +122,16 @@
 
   // ---- one loop for everything scroll-driven ----
   let ticking = false;
-  const frame = () => { ticking = false; drawHero(); exFrame(); riseFrame(); };
+  const frame = () => { ticking = false; if (LITE) return; drawHero(); exFrame(); riseFrame(); };
+  if (LITE) { // phones: the logo draws itself once; blocks fade in as they arrive; nothing recalculates while you scroll
+    const t0 = performance.now(), D0 = 1700; const intro = (t) => { introP = still ? 1 : Math.min(1, (t - t0) / D0); heroP = -1; drawHero(); if (introP < 1) requestAnimationFrame(intro); }; requestAnimationFrame(intro);
+    const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.style.setProperty("--o", "1"); io.unobserve(e.target); } }), { rootMargin: "0px 0px -6% 0px" });
+    rise.forEach((el) => io.observe(el));
+  }
   const ask = () => { if (!ticking) { ticking = true; requestAnimationFrame(frame); } };
   addEventListener("scroll", ask, { passive: true });
   let lastW = innerWidth; addEventListener("resize", () => { if (LITE && innerWidth === lastW) { heroP = -1; ask(); return; } lastW = innerWidth; build(); sizeEx(); heroP = -1; ask(); });
-  build(); sizeEx(); frame();
+  build(); if (!LITE) sizeEx(); frame();
 
   // ---- a subject, opened: the scene plays out as you read its chapters ----
   const viewer = document.querySelector("[data-viewer]"), vscene = document.querySelector("[data-vscene]"), vtext = document.querySelector("[data-vtext]"), vsteps = document.querySelector("[data-vsteps]"), vcount = document.querySelector("[data-vcount]");
