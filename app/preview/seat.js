@@ -68,7 +68,8 @@
     if (!phone) { const side = innerWidth * (p < 0.08 ? 0.21 : p < 0.16 ? 0.21 - (p - 0.08) / 0.08 * 0.04 : p < 0.78 ? 0.17 : p < 0.84 ? 0.17 - (p - 0.78) / 0.06 * 0.05 : 0.12);
       const k = p < 0.28 ? 1 : p < 0.33 ? 1 - (p - 0.28) / 0.05 : p < 0.45 ? 0 : p < 0.5 ? (p - 0.45) / 0.05 : 1;
       const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; stage.style.setProperty("--cx", (side * e).toFixed(1) + "px"); }
-    giant.style.setProperty("--gy", (-(p * 1600) % 400 * 0.15).toFixed(1));
+    // the giant word drifts slowly within its scene; the drift restarts only when the word changes (it is faded out then)
+    const wStart = [...WORDS].reverse().find(([a]) => p >= a)[0]; giant.style.setProperty("--gy", (-(p - wStart) * 520).toFixed(1));
     if (prog) prog.style.scale = `1 ${p.toFixed(4)}`;
     // the scenes snap one by one; the reading section below scrolls freely
     if (snaps.length) root.classList.toggle("snap-on", scrollY < learnTop() - 4);
