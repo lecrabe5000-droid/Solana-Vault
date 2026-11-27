@@ -89,28 +89,32 @@ jobs:
           bal=$(curl -sS https://graphql.$NET.sui.io/graphql -H 'content-type: application/json' --data "{\"query\":\"{address(address:\\\"$addr\\\"){balance(coinType:\\\"0x2::sui::SUI\\\"){totalBalance coinBalance}}}\"}")
           echo "Balance: $bal"
           total=$(echo "$bal" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).data?.address?.balance?.totalBalance||0))')
-          if [ "$total" -lt 650000000 ]; then echo "::error::The deployer $addr holds $total MIST; it needs about 0.65 SUI on $NET."; exit 1; fi
-          # The CLI pays gas with coin objects. When the SUI sits in the address balance, the wallet's own code sends
-          # 0.6 SUI from it to this same address, which arrives as a coin.
+          # Testnet gas costs ten times mainnet's (reference price 1000 vs 100), so a publish there needs more SUI.
+          need=$([ "$NET" = mainnet ] && echo 650000000 || echo 1500000000)
+          if [ "$total" -lt "$need" ]; then echo "::error::The deployer $addr holds $total MIST; it needs at least $need MIST on $NET."; exit 1; fi
+          # The CLI pays gas with coin objects. When SUI sits in the address balance, the wallet's own code sends that
+          # part (less a little for the send's own fee) to this same address, where it arrives as one coin.
           coins=$(echo "$bal" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).data?.address?.balance?.coinBalance||0))')
-          if [ "$coins" -lt 550000000 ]; then
-            (cd ../extension && node --input-type=module -e '
+          free=$((total - coins - 20000000))
+          if [ "$free" -gt 300000000 ]; then
+            (cd ../extension && FREE=$free node --input-type=module -e '
               import { bech32 } from "@scure/base"; import { suiEngine, SUI, SUI_MAIN } from "./src/sui.js";
               const { bytes } = bech32.decodeToBytes(process.env.KEY.trim()), net = process.env.NET;
               const N = net === "mainnet" ? SUI_MAIN : SUI, api = `https://graphql.${net}.sui.io/graphql`;
               const e = suiEngine({ acct: { sui: bytes.slice(1, 33) }, dev: { suiApi: api }, N });
-              console.log("Gas coin:", await e.send("native", e.address, 600_000_000));')
+              console.log("Gas coin:", await e.send("native", e.address, Number(process.env.FREE)));')
           fi
           # Pay with the largest coin, named explicitly: left to choose, the CLI can pick a small leftover coin and
           # run out of gas. Wait until the new coin is visible to it (up to a minute).
-          gas=""
+          gas=""; MIN=$(( need * 8 / 10 )); export MIN
           for i in $(seq 1 20); do
-            gas=$(curl -sS https://graphql.$NET.sui.io/graphql -H 'content-type: application/json' --data "{\"query\":\"{address(address:\\\"$addr\\\"){objects(filter:{type:\\\"0x2::coin::Coin<0x2::sui::SUI>\\\"}){nodes{address contents{json}}}}}\"}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{let c=null;try{c=(JSON.parse(s).data?.address?.objects?.nodes||[]).map((x)=>({id:x.address,v:BigInt(x.contents?.json?.balance||0)})).sort((a,b)=>(b.v>a.v?1:-1))[0]}catch(e){}console.log(c&&c.v>=550000000n?c.id:"")})')
+            gas=$(curl -sS https://graphql.$NET.sui.io/graphql -H 'content-type: application/json' --data "{\"query\":\"{address(address:\\\"$addr\\\"){objects(filter:{type:\\\"0x2::coin::Coin<0x2::sui::SUI>\\\"}){nodes{address contents{json}}}}}\"}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{let c=null;try{c=(JSON.parse(s).data?.address?.objects?.nodes||[]).map((x)=>({id:x.address,v:BigInt(x.contents?.json?.balance||0)})).sort((a,b)=>(b.v>a.v?1:-1))[0]}catch(e){}console.log(c&&c.v>=BigInt(process.env.MIN)?c.id+" "+c.v:"")})')
             [ -n "$gas" ] && break; sleep 3
           done
-          if [ -z "$gas" ]; then echo "::error::No coin of 0.55 SUI or more appeared to pay the publish."; sui client gas; exit 1; fi
-          echo "Paying with $gas"
-          if ! sui client publish --gas "$gas" --gas-budget 500000000 --json > /tmp/pub.json; then cat /tmp/pub.json; exit 1; fi
+          if [ -z "$gas" ]; then echo "::error::No coin of $MIN MIST or more appeared to pay the publish."; sui client gas; exit 1; fi
+          # the whole coin is the most the publish may spend; what it doesn't use comes back
+          set -- $gas; echo "Paying with $1 (up to $2 MIST)"
+          if ! sui client publish --gas "$1" --gas-budget "$2" --json > /tmp/pub.json; then cat /tmp/pub.json; exit 1; fi
           node - <<'JS'
           const fs = require("fs"), r = JSON.parse(fs.readFileSync("/tmp/pub.json", "utf8")), net = process.env.NET;
           if (r.effects?.status?.status !== "success") { console.error(JSON.stringify(r.effects?.status)); process.exit(1); }
