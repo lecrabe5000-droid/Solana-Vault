@@ -111,7 +111,7 @@ async function ensureChain(p, E = C.evm) {
 
 function evmNet(E) {
   const c = E.address && window.ethers
-    ? createEvmClient({ ethers: window.ethers, EVM: E, getSigner: async () => { await ensureChain(S.provider, E); return new window.ethers.BrowserProvider(S.provider, new window.ethers.Network(`ecrin-${E.chainId}`, E.chainId)).getSigner(); } // plain network: Polygon fees from the wallet/node, not the "gas station" site })
+    ? createEvmClient({ ethers: window.ethers, EVM: E, getSigner: async () => { await ensureChain(S.provider, E); return new window.ethers.BrowserProvider(S.provider, new window.ethers.Network(`ecrin-${E.chainId}`, E.chainId)).getSigner(); } }) // plain network: Polygon fees from the wallet/node, not the "gas station" site
     : null;
   return {
     name: E.name, net: E.net, unit: E.unit, cg: E.cg, x: c && { ...c, explain: (e) => explainEvmError(e, c.iface) }, contract: E.address, contractWord: "contract", evm: E,
