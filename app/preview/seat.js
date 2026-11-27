@@ -66,4 +66,15 @@
     document.querySelectorAll('a[href^="#"]').forEach((a) => a.addEventListener("click", (e) => { const t = document.querySelector(a.getAttribute("href")); if (!t) return; e.preventDefault();
       const r = beats.find((x) => x.el === t)?.r; lenis.scrollTo(r ? film.offsetTop + (film.offsetHeight - innerHeight) * (r[0] + 0.06) : t, { duration: 1.6 }); })); }
   addEventListener("resize", resize); resize(); requestAnimationFrame(frame);
+
+  // ---- read everything: the subjects and their chapters, taken from the home page so both always say the same
+  const list = document.querySelector("[data-read]");
+  if (list) fetch("/", { credentials: "omit" }).then((r) => r.text()).then((html) => {
+    const doc = new DOMParser().parseFromString(html, "text/html"), arts = [...doc.querySelectorAll("article.subj")];
+    if (!arts.length) return;
+    list.innerHTML = arts.map((a, i) => {
+      const title = a.querySelector("h3")?.textContent || "", line = a.dataset.line || "", body = a.querySelector(".chapters")?.innerHTML || "";
+      return `<details class="r" id="learn-${a.id}"><summary><span class="n mono">${String(i + 1).padStart(2, "0")}</span><b>${title}</b><span class="line">${line}</span><i class="pm" aria-hidden="true"></i></summary><div class="body">${body}</div></details>`;
+    }).join("");
+  }).catch(() => {});
 })();

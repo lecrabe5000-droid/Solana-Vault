@@ -6,7 +6,7 @@
 const { chromium } = require('playwright');
 const esbuild = require('esbuild');
 const fs = require('fs'), path = require('path'), { execFileSync } = require('child_process');
-const root = path.join(__dirname, '..', '..'), tmp = path.join(__dirname, '.build'), N = Number(process.env.N || 150), S = Number(process.env.S || 1080);
+const root = path.join(__dirname, '..', '..'), tmp = path.join(__dirname, '.build'), N = Number(process.env.N || 150), S = Number(process.env.S || 2400), OUT = Number(process.env.OUT || 1600); // rendered large, shrunk: crisper edges
 fs.mkdirSync(tmp, { recursive: true });
 (async () => {
   await esbuild.build({ entryPoints: [path.join(__dirname, 'scene.js')], bundle: true, format: 'esm', outfile: path.join(tmp, 'scene.js'), absWorkingDir: path.join(root, 'extension'), nodePaths: [path.join(root, 'extension/node_modules')], logLevel: 'warning' });
@@ -34,9 +34,9 @@ fs.mkdirSync(tmp, { recursive: true });
   const t0 = Date.now();
   for (let i = 0; i < N; i++) { await shot(i / (N - 1), path.join(pngs, `f-${String(i).padStart(3, '0')}.png`)); if (i % 25 === 0) console.log(`frame ${i}/${N} · ${Math.round((Date.now() - t0) / 1000)} s`); }
   await b.close();
-  for (const [dir, size, q] of [['hi', S, 78], ['lo', Math.round(S / 2), 70]]) {
+  for (const [dir, size, q] of [['hi', OUT, 80], ['lo', Math.round(OUT / 2), 72]]) {
     const outDir = path.join(root, 'app/preview/seat', dir); fs.rmSync(outDir, { recursive: true, force: true }); fs.mkdirSync(outDir, { recursive: true });
-    execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', path.join(pngs, 'f-%03d.png'), '-vf', `scale=${size}:${size}`, '-c:v', 'libwebp', '-quality', String(q), '-pix_fmt', 'yuva420p', '-start_number', '0', path.join(outDir, 'f-%03d.webp')]);
+    execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', path.join(pngs, 'f-%03d.png'), '-vf', `scale=${size}:${size}:flags=lanczos`, '-c:v', 'libwebp', '-quality', String(q), '-pix_fmt', 'yuva420p', '-start_number', '0', path.join(outDir, 'f-%03d.webp')]);
   }
   const kb = (d) => Math.round(fs.readdirSync(d).reduce((s, f) => s + fs.statSync(path.join(d, f)).size, 0) / 1024);
   console.log(`rendered ${N} frames · hi ${kb(path.join(root, 'app/preview/seat/hi'))} KB · lo ${kb(path.join(root, 'app/preview/seat/lo'))} KB`);

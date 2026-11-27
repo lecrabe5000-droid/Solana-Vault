@@ -80,3 +80,33 @@ html, body, .nav { transition: background-color .25s linear, color .25s linear; 
   .foot { flex-direction: column; }
 }
 @media (prefers-reduced-motion: reduce) { html, body, .nav, .giant span { transition: none; } }
+
+/* ---- read everything: the ten subjects as a quiet list that opens ---- */
+.read { padding: clamp(80px, 12vh, 140px) clamp(20px, 5vw, 72px) clamp(60px, 9vh, 110px); max-width: 1180px; margin: 0 auto; }
+.read-head .k { color: var(--soft); margin-bottom: 16px; }
+.read-head h2 { font-weight: 600; font-size: clamp(34px, 4.4vw, 64px); letter-spacing: -.035em; line-height: 1; }
+.read-list { margin-top: clamp(34px, 5vh, 56px); border-top: 1px solid var(--line); }
+.read-wait { padding: 24px 0; color: var(--soft); } .read-wait a { text-decoration: underline; }
+.r { border-bottom: 1px solid var(--line); }
+.r summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 52px minmax(0, 1fr) minmax(0, 1.25fr) 28px; align-items: center; gap: 18px; padding: 24px 0; }
+.r summary::-webkit-details-marker { display: none; }
+.r .n { color: var(--soft); font-size: 12px; }
+.r summary b { font-weight: 600; font-size: clamp(20px, 1.9vw, 28px); letter-spacing: -.02em; }
+.r .line { color: var(--soft); font-size: 15.5px; line-height: 1.45; }
+.r .pm { position: relative; width: 18px; height: 18px; justify-self: end; }
+.r .pm::before, .r .pm::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1.5px; margin-top: -.75px; background: currentColor; transition: rotate .3s ease; }
+.r .pm::after { rotate: 90deg; } .r[open] .pm::after { rotate: 0deg; }
+.r summary:hover b { color: #8fa6ff; }
+.r .body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px 48px; padding: 4px 0 34px 70px; }
+.r .body section h4 { font-weight: 600; font-size: 17px; letter-spacing: -.01em; margin-bottom: 8px; }
+.r .body section p { color: var(--soft); font-size: 15.5px; line-height: 1.6; }
+.r .body b { color: var(--ink); font-weight: 600; }
+.r .body a { text-decoration: underline; text-underline-offset: 3px; }
+.r[open] .body { animation: open .45s cubic-bezier(.2, .7, .2, 1); }
+@keyframes open { from { opacity: 0; translate: 0 -6px; } }
+@media (max-width: 860px) {
+  .r summary { grid-template-columns: 34px minmax(0, 1fr) 22px; gap: 12px; padding: 20px 0; }
+  .r .line { grid-column: 2; grid-row: 2; font-size: 14.5px; margin-top: -6px; }
+  .r .pm { grid-column: 3; grid-row: 1; }
+  .r .body { grid-template-columns: 1fr; gap: 20px; padding: 0 0 26px 46px; }
+}
