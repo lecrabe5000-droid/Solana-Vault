@@ -51,7 +51,7 @@
     const p = scroll(); target = p * (N - 1);
     cur += (target - cur) * (still ? 1 : 0.22); if (Math.abs(target - cur) < 0.01) cur = target;
     draw(false); paint(p);
-    for (const { el, r } of beats) { const o = r[0] <= 0 && p < r[1] ? clamp((r[1] - p) / 0.035) : fade(p, r); el.style.opacity = o.toFixed(3); el.style.setProperty("--y", ((1 - o) * 18).toFixed(1)); el.classList.toggle("on", o > 0.5); }
+    for (const { el, r } of beats) { const o = r[0] <= 0 && p < r[1] ? clamp((r[1] - p) / 0.035) : r[1] > 1 ? clamp((p - r[0]) / 0.035) : fade(p, r); el.style.opacity = o.toFixed(3); el.style.setProperty("--y", ((1 - o) * 18).toFixed(1)); el.classList.toggle("on", o > 0.5); }
     for (const { el, r } of counts) { const [from, to, a, b] = r; el.textContent = Math.round(from + (to - from) * clamp((p - a) / (b - a))); }
     // desktop: the object steps aside (right) while words sit on the left, and takes the centre for the blue scene
     if (!phone) { const side = innerWidth * (p < 0.18 ? 0.21 : p < 0.6 ? 0.21 - (Math.min(p, 0.3) - 0.18) / 0.12 * 0.04 : 0.12), k = p < 0.44 ? 1 : p < 0.5 ? 1 - (p - 0.44) / 0.06 : p < 0.72 ? 0 : p < 0.78 ? (p - 0.72) / 0.06 : 1;
