@@ -72,4 +72,37 @@ assert.notEqual(v.main.withdrawDelay, 3600, "a looser rule must not apply at onc
 say(`queued until ${new Date(c.readyAt * 1000).toISOString()}, not applied ✓`);
 say("cancel the change:", await e.cancelChange(c.id));
 await settle((x) => !x.main.changes.some((y) => y.id === c.id), "the cancelled change");
+
+// Strict options: only on a Safe opened on the newest package. The deployer's own Safe may be on an older package
+// (then it reads as strict: null and refuses them), so a fresh wallet, funded by the deployer, opens one here.
+if (SUI.safe.strict) {
+  if (!v.main.strict) {
+    await assert.rejects(e.propose({ kind: "SetNoExit", value: true }), /before strict options existed/);
+    say("an older Safe refuses strict options, in plain words ✓");
+  }
+  const priv2 = ed25519.utils.randomPrivateKey(), me2 = suiAddress(ed25519.getPublicKey(priv2));
+  say("fund a fresh wallet with 0.06 SUI:", await e.send("native", me2, 60_000_000));
+  const f = suiEngine({ acct: { sui: priv2 }, dev, N: SUI });
+  for (let i = 0; i < 20 && (await f.balances()).native < 60_000_000; i++) await wait(1500);
+  say("open its Safe on the newest package:", await f.createVault("gentle"));
+  const fv = async (check, what) => { for (let i = 0; i < 20; i++) { const x = await f.vault(); if (x && check(x)) return x; await wait(1500); } throw new Error("never saw: " + what); };
+  let s = await fv((x) => !!x.main.strict, "the strict-capable Safe");
+  assert.deepEqual(s.main.strict, { trustedWaits: false, noExit: false });
+  say("turn on trusted sends also wait:", await f.propose({ kind: "SetTrustedWaits", value: true }));
+  s = await fv((x) => x.main.strict.trustedWaits, "trusted waits on");
+  say("applied at once ✓");
+  say("turn on no emergency exit:", await f.propose({ kind: "SetNoExit", value: true }));
+  s = await fv((x) => x.main.strict.noExit, "no exit on");
+  say("applied at once ✓");
+  say("turn trusted waits off again:", await f.propose({ kind: "SetTrustedWaits", value: false }));
+  s = await fv((x) => x.main.changes.some((c) => c.change.kind === "SetTrustedWaits"), "the queued strict change");
+  const sc = s.main.changes.find((c) => c.change.kind === "SetTrustedWaits");
+  assert.equal(sc.change.value, false); assert.equal(s.main.strict.trustedWaits, true, "turning it off must wait");
+  await assert.rejects(f.applyChange(sc.id), /isn't time yet/); say("queued, and applying it early is refused ✓");
+  // a fresh connection must route it to the strict queue too
+  const f2 = suiEngine({ acct: { sui: priv2 }, dev, N: SUI });
+  say("cancel it from a fresh connection:", await f2.cancelChange(sc.id));
+  await fv((x) => !x.main.changes.some((c) => c.id === sc.id), "the cancelled strict change");
+  say("cancelled ✓");
+}
 console.log("sui-safe live: every step passed on Sui Testnet");

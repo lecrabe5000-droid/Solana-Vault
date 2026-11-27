@@ -3378,6 +3378,7 @@ const actions = {
       if (k === "guardian") { for (const f of ["sol", "evm"]) { const t = val(`[data-g="${f}"]`); if (!t) continue; if (!validFor(f, t)) throw new Error(`That isn't a${f === "sol" ? " Solana" : "n Ethereum"} address.`); jobs.push([f, { kind: "SetGuardian", value: t }]); } }
       if (k === "trust") { const t = val("[data-trust]"), f = /^0x[0-9a-fA-F]{40}$/.test(t) ? "evm" : "sol"; if (!validFor(f, t)) throw new Error("That isn't a Solana or Ethereum address."); jobs.push([f, { kind: "AddTrusted", value: t }]); }
       if (k === "untrust") jobs.push([el.dataset.f, { kind: "RemoveTrusted", value: el.dataset.a }]);
+      if (k === "strict") jobs.push(["strict", { kind: el.dataset.w === "tw" ? "SetTrustedWaits" : "SetNoExit", value: el.dataset.v === "1" }]);
       if (!jobs.length) throw new Error("Nothing to change.");
     } catch (e) { return toast(e.message, "err"); }
     await applyEverywhere(jobs);
@@ -5491,7 +5492,7 @@ async function applyEverywhere(jobs) {
   // and count the Safe of the network you're on even if the list hasn't caught up with it.
   await loadAll();
   const targets = [...openVaults()]; if (S.vault && !targets.some((r) => r.k === S.net)) targets.push({ k: S.net, ok: true, v: S.vault });
-  for (const [f, change] of jobs) for (const r of targets.filter((r) => f === "all" || famOf(r.k) === f)) {
+  for (const [f, change] of jobs) for (const r of targets.filter((r) => f === "all" || (f === "strict" ? !!r.v?.main?.strict : famOf(r.k) === f))) {
     // each network through its own connection: never by switching the wallet's network, so leaving this screen (or
     // anything else switching networks meanwhile) can't send a change to the wrong network or stop it halfway
     try { const e = r.k === S.net && ENG ? ENG : engine({ web3, ethers, acct: ACCT, net: r.k, dev: dev || {} }); await e.propose(change); done++; } catch (e) { fails.push(`${NETS[r.k].name}: ${errText(e)}`); }
@@ -5523,7 +5524,9 @@ function rulesView() {
   const guard = (f) => { const r = vs.find((x) => famOf(x.k) === f); return r?.v.main.guardian ? short(String(r.v.main.guardian)) : "None"; };
   const trusted = vs.flatMap((r) => (r.v.main.trusted || []).map((a) => [famOf(r.k), String(a)])).filter((x, i, a) => a.findIndex((y) => y[1] === x[1]) === i);
   const pending = vs.flatMap((r) => (r.v.main.changes || []).map((c) => ({ ...c, k: r.k })));
-  const label = (c) => ({ SetWithdrawDelay: `Delay → ${delay(c.value)}`, SetRuleDelay: `Rule delay → ${delay(c.value)}`, SetDailyLimit: `Daily limit → ${c.value ? amt(Number(c.value), "native") : "none"}`, SetLockedUntil: "Lock date", SetGuardian: `Guardian → ${c.value ? short(String(c.value)) : "none"}`, AddTrusted: `Trust ${short(String(c.value))}`, RemoveTrusted: `Remove ${short(String(c.value))}` }[c.kind] || c.kind);
+  const label = (c) => ({ SetWithdrawDelay: `Delay → ${delay(c.value)}`, SetRuleDelay: `Rule delay → ${delay(c.value)}`, SetDailyLimit: `Daily limit → ${c.value ? amt(Number(c.value), "native") : "none"}`, SetLockedUntil: "Lock date", SetGuardian: `Guardian → ${c.value ? short(String(c.value)) : "none"}`, AddTrusted: `Trust ${short(String(c.value))}`, RemoveTrusted: `Remove ${short(String(c.value))}`, SetTrustedWaits: c.value ? "Trusted sends wait: on" : "Trusted sends wait: off", SetNoExit: c.value ? "No emergency exit: on" : "No emergency exit: off" }[c.kind] || c.kind);
+  // Strict options exist only on Safes opened on contracts that have them (for now: the newest Sui Safe).
+  const sv = vs.filter((r) => r.v.main.strict), stOn = (key) => sv.length > 0 && sv.every((r) => r.v.main.strict[key]);
   if (P.edit) {
     const E = {
       delay: ["Withdrawal delay", `<p class="sub">How long anything leaving your Safe waits. Longer applies now; shorter waits ${delay(m.ruleDelay)}.</p><div class="presets">${[[86400, "24 h"], [3 * 86400, "3 days"], [7 * 86400, "7 days"]].map(([v2, l]) => `<button class="preset ${m.withdrawDelay === v2 ? "on" : ""}" data-act="rule-set" data-k="delay" data-v="${v2}"><b>${l}</b></button>`).join("")}</div>`],
@@ -5537,6 +5540,12 @@ function rulesView() {
         <section class="list">${trusted.length ? trusted.map(([f, a]) => `<div class="arow"><span class="ar-t"><b class="mono">${short(a)}</b><small>${f === "sol" ? "Solana" : "Ethereum-style networks"}</small></span><button class="btn sm" data-act="rule-set" data-k="untrust" data-f="${f}" data-a="${esc(a)}">Remove</button></div>`).join("") : `<div class="hid-note">None yet</div>`}</section>
         <label class="fld"><span>Add an address</span><input data-trust spellcheck="false" autocomplete="off" placeholder="Solana or 0x… address"/></label>
         <div class="pfoot"><button class="btn primary xl" data-act="rule-set" data-k="trust">Add address</button></div>`],
+      strict: ["Strict options", `<p class="sub">For when you want no shortcut at all. Turning one on applies now. Turning it off waits ${delay(m.ruleDelay)}, and never before a freeze ends.</p>
+        ${[["tw", "trustedWaits", "Trusted sends also wait", "Your trusted addresses lose their instant send. Everything leaving waits for your withdrawal delay."],
+           ["nx", "noExit", "No emergency exit", "Your guardian can't release anything early. During a freeze, nothing leaves before its date, whoever asks."]].map(([w, key, t, d]) => {
+          const on = stOn(key);
+          return `<div class="ap-card st-opt"><b>${t}</b><p class="sub">${d}</p><button class="btn ${on ? "" : "primary"}" data-act="rule-set" data-k="strict" data-w="${w}" data-v="${on ? "0" : "1"}">${on ? "Turn off (waits)" : "Turn on"}</button></div>`; }).join("")}
+        <p class="fine">On ${sv.map((r) => NETS[r.k].name).join(", ")}. Safes opened before these options existed keep their current rules.</p>`],
       freeze: ["Freeze your Safe", `<p class="sub">For when something feels wrong: until the date you pick, <b>nothing leaves</b> your Safe on any network, including withdrawals already waiting. You can still cancel, and your guardian can still release an emergency. A freeze can't be ended early.</p>
         <div class="presets">${[[1, "24 hours"], [7, "7 days"], [30, "30 days"]].map(([d, l]) => `<button class="preset" data-act="rule-set" data-k="freeze" data-v="${d}"><b>${l}</b><small>until ${new Date((now() + d * 86400) * 1000).toLocaleDateString()}</small></button>`).join("")}</div>`],
     }[P.edit];
@@ -5551,6 +5560,7 @@ function rulesView() {
       ${row("guardian", I.shield, "Guardian", (() => { const g = [vs.some((r) => r.k === "sol") && ["Solana", guard("sol")], vs.some((r) => famOf(r.k) === "evm") && ["Ethereum", guard("evm")]].filter(Boolean); return g.length === 1 ? g[0][1] : g.map(([n, v]) => `${n}: ${v}`).join(" · "); })())}
       ${row("trust", I.check, "Trusted addresses", trusted.length ? `${trusted.length}` : "None")}
       ${row("freeze", I.lock, "Freeze", lockTxt)}
+      ${sv.length ? row("strict", I.shield, "Strict options", [stOn("trustedWaits") && "Trusted wait", stOn("noExit") && "No exit"].filter(Boolean).join(" · ") || "Off") : ""}
     </div>
     ${pending.length ? `<div class="list-h"><b>Waiting changes</b><span>cancel any time</span></div><section class="list">${(() => {
       // The same change made on several networks is one row: one Apply, one Cancel for all of them.

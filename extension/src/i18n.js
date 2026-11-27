@@ -300,6 +300,15 @@ const FR = {
   "Switch to Mainnet": "Passer au Mainnet",
   "Testnet coins have no value, so there is nothing to swap them for. You can switch back in Settings → Networks.": "Les cryptos de test n'ont aucune valeur : il n'y a rien contre quoi les échanger. Vous pouvez revenir en arrière dans Réglages → Réseaux.",
   "Address copied": "Adresse copiée",
+  "Strict options": "Options strictes", "Trusted sends also wait": "Les envois de confiance attendent aussi", "No emergency exit": "Aucune sortie d'urgence",
+  "Your trusted addresses lose their instant send. Everything leaving waits for your withdrawal delay.": "Vos adresses de confiance perdent l'envoi instantané. Tout ce qui sort attend votre délai de retrait.",
+  "Your guardian can't release anything early. During a freeze, nothing leaves before its date, whoever asks.": "Votre gardien ne peut rien libérer plus tôt. Pendant un gel, rien ne sort avant la date, peu importe qui le demande.",
+  "Turn off (waits)": "Désactiver (avec délai)", "Trusted wait": "Confiance avec délai", "No exit": "Sans sortie",
+  "Trusted sends wait: on": "Envois de confiance avec délai : activé", "Trusted sends wait: off": "Envois de confiance avec délai : désactivé",
+  "No emergency exit: on": "Aucune sortie d'urgence : activé", "No emergency exit: off": "Aucune sortie d'urgence : désactivé",
+  "Trusted sends wait too in this Safe: request a withdrawal instead.": "Dans ce Safe, les envois de confiance attendent aussi : demandez plutôt un retrait.",
+  "This Safe has no emergency exit: the guardian can't release early.": "Ce Safe n'a aucune sortie d'urgence : le gardien ne peut rien libérer plus tôt.",
+  "Your Sui Safe was opened before strict options existed, so it can't use them.": "Votre Safe Sui a été ouvert avant les options strictes, il ne peut donc pas les utiliser.",
 };
 // Phrases with numbers or names: [pattern, replacement].
 const FR_RE = [

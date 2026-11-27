@@ -92,7 +92,10 @@ jobs:
           // keep the other network's entry: testnet and mainnet live side by side
           const out = "../app/deployments-sui.js", src = fs.readFileSync(out, "utf8");
           const prev = JSON.parse(src.slice(src.indexOf("{"), src.lastIndexOf("}") + 1));
-          prev[net] = { package: pkg, registry, digest: r.digest, ...(cap ? { upgradeCap: cap } : {}) };
+          // The package this replaces keeps its Safes: the wallet still finds and runs them there (Sui keeps every
+          // package callable, and each has its own registry). strict: this package has the strict options.
+          const old = prev[net] ? [{ ...prev[net], older: undefined }, ...(prev[net].older || [])].filter((x) => x.package && x.package !== pkg).map(({ older, ...x }) => x) : [];
+          prev[net] = { package: pkg, registry, digest: r.digest, ...(cap ? { upgradeCap: cap } : {}), strict: true, ...(old.length ? { older: old } : {}) };
           fs.writeFileSync(out, `// Written by the sui-safe workflow after each publish (sui/): Sui Testnet and Sui mainnet.\nexport const SUI_SAFE = ${JSON.stringify(prev, null, 2)};\n`);
           console.log("Published", net, pkg, "registry", registry, "upgrade cap", cap);
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Ecrin Safe on Sui ${net}\n\nPackage \`${pkg}\`, registry \`${registry}\`${cap ? `, upgrade cap \`${cap}\` (held by the deployer)` : ""} ([tx](https://suiscan.xyz/${net}/tx/${r.digest}))\n`);

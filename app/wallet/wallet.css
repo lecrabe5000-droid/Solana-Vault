@@ -4553,6 +4553,11 @@ html[data-fp-dash="1"] .home > footer.home-end:not(.aura):not(.dk-side):not(.aur
   html[data-fp-dash="1"] .home { grid-template-columns: 196px minmax(0, 1fr) 320px !important; column-gap: 22px !important; padding-left: 24px !important; padding-right: 24px !important; }
   html[data-fp-dash="1"] .home > section.hero:not(.aura):not(.dk-side):not(.aura):not(.dk-side) { zoom: .58; }
 }
+/* Strict options: one card per option */
+.st-opt { padding: 14px; margin: 0 0 10px; display: grid; gap: 8px; }
+.st-opt > b { font-size: 15.5px; }
+.st-opt .sub { margin: 0; text-align: left; }
+.st-opt .btn { justify-self: start; }
 
 .device { padding: 0 !important; position: fixed !important; inset: 0; height: auto !important; max-width: none !important; }
 /* Down to the very bottom of the screen: as a home-screen app, an iPhone can report a viewport shorter than the screen,

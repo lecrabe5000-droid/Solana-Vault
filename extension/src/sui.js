@@ -129,7 +129,8 @@ export const SUI_PRESETS = { gentle: [24 * 3600, 3 * 86400], strong: [72 * 3600,
 const SAFE_ERRORS = ["Only the Safe's owner can do that.", "Only the guardian can do that.", "This Safe has no guardian.", "Enter an amount above zero.",
   "Not enough in the Safe (some may already be waiting to leave).", "That address isn't trusted yet.", "The Safe is locked until its unlock date.",
   "It isn't time yet.", "That's over the Safe's daily limit.", "That request isn't there anymore.", "Too many requests waiting: cancel or finish one first.",
-  "You can trust at most 8 addresses.", "That value isn't allowed.", "That number is too large.", "This wallet already has a Safe on Sui."];
+  "You can trust at most 8 addresses.", "That value isn't allowed.", "That number is too large.", "This wallet already has a Safe on Sui.",
+  "Trusted sends wait too in this Safe: request a withdrawal instead.", "This Safe has no emergency exit: the guardian can't release early."];
 /** Turns "MoveAbort(... safe ..., 7)" into words. */
 export function explainSuiSafe(text) {
   // Sui words it two ways: "MoveAbort(... name: Identifier("safe") ..., 7)" and "from '0x…::safe::create' (instruction 64), abort code: 14"
@@ -247,8 +248,11 @@ export function suiEngine({ acct, dev = {}, N = SUI }) {
     return build(budget);
   }
   // ---- The Safe on Sui
+  // The newest package opens new Safes. Older ones (SAFE.older) still hold Safes opened before it: a Safe is always
+  // run by the package it was opened on, since Sui keeps every package callable and they don't share a registry.
   const SAFE = N.safe, pkg = SAFE?.package;
-  let safeId = null;
+  const PKGS = SAFE ? [{ ...SAFE, older: undefined }, ...(SAFE.older || [])].filter((x) => x?.package) : [];
+  let safeId = null, safePkg = null, safeStrict = false, strictIds = new Set();
   const isvCache = {};
   async function sharedRef(id) {
     if (isvCache[id]) return isvCache[id];
@@ -259,9 +263,19 @@ export function suiEngine({ acct, dev = {}, N = SUI }) {
   /** This wallet's Safe: found from the SafeCreated event it emitted (one Safe per owner and coin). */
   async function findSafe() {
     if (safeId || !pkg) return safeId;
-    const d = await gql(`query($t:String!,$s:SuiAddress!){events(last:20,filter:{type:$t,sender:$s}){nodes{contents{json}}}}`, { t: `${pkg}::safe::SafeCreated`, s: me });
-    const hit = (d.events?.nodes || []).map((n) => n.contents?.json).find((j) => j && normAddr(j.owner) === normAddr(me) && /::sui::SUI$/.test(String(j.coin?.name || j.coin || "")));
-    return (safeId = hit ? normAddr(hit.safe) : null);
+    for (const P of PKGS) {
+      const d = await gql(`query($t:String!,$s:SuiAddress!){events(last:20,filter:{type:$t,sender:$s}){nodes{contents{json}}}}`, { t: `${P.package}::safe::SafeCreated`, s: me });
+      const hit = (d.events?.nodes || []).map((n) => n.contents?.json).find((j) => j && normAddr(j.owner) === normAddr(me) && /::sui::SUI$/.test(String(j.coin?.name || j.coin || "")));
+      if (hit) { safePkg = P.package; safeStrict = !!P.strict; return (safeId = normAddr(hit.safe)); }
+    }
+    return null;
+  }
+  /** The strict options, kept in a dynamic field of the Safe (none yet = both off). */
+  async function readStrict(id) {
+    const d = await gql(`query($a:SuiAddress!,$n:DynamicFieldName!){object(address:$a){dynamicField(name:$n){value{... on MoveValue{json}}}}}`,
+      { a: id, n: { type: `${safePkg}::safe::StrictKey`, bcs: "AA==" } }); // an empty Move struct is one dummy bool
+    const j = d.object?.dynamicField?.value?.json;
+    return { trustedWaits: !!j?.trusted_waits, noExit: !!j?.no_exit, pending: (j?.pending || []).map((c) => ({ id: Number(c.id), change: { kind: Number(c.which) === 0 ? "SetTrustedWaits" : "SetNoExit", value: !!c.on }, readyAt: Number(c.ready_at) })) };
   }
   const num = (x) => (x == null ? 0 : Number(typeof x === "object" ? x.value ?? 0 : x));
   async function readSafe() {
@@ -271,6 +285,8 @@ export function suiEngine({ acct, dev = {}, N = SUI }) {
     const p = j.policy || {}, A = (a) => ({ a: normAddr(a), toBase58() { return this.a; }, toString() { return this.a; }, equals(o) { return !!o && normAddr(String(o)) === this.a; } });
     const withdrawals = (j.withdrawals || []).map((w) => ({ id: Number(w.id), amount: Number(w.amount), dest: A(w.dest), readyAt: Number(w.ready_at) }));
     const balance = num(j.balance);
+    const strict = safeStrict ? await readStrict(id) : null;
+    strictIds = new Set((strict?.pending || []).map((c) => c.id));
     const change = (c) => {
       const { kind, value } = variantOf(c);
       const v = kind === "SetDailyLimit" ? (opt(value) == null ? null : Number(opt(value)))
@@ -285,7 +301,9 @@ export function suiEngine({ acct, dev = {}, N = SUI }) {
       dailyLimit: opt(p.daily_limit) == null ? null : Number(opt(p.daily_limit)), lockedUntil: opt(p.locked_until) == null ? null : Number(opt(p.locked_until)),
       guardian: opt(p.guardian) ? A(opt(p.guardian)) : null,
       trusted: (j.trusted || []).map(A), withdrawals,
-      changes: (j.changes || []).map((c) => ({ id: Number(c.id), change: change(c.change), readyAt: Number(c.ready_at) })),
+      changes: [...(j.changes || []).map((c) => ({ id: Number(c.id), change: change(c.change), readyAt: Number(c.ready_at) })), ...(strict?.pending || [])],
+      // null: this Safe's package predates the strict options
+      strict: strict && { trustedWaits: strict.trustedWaits, noExit: strict.noExit },
       spentDay: Number(j.spent_day || 0), spentToday: Number(j.spent_today || 0),
     };
   }
@@ -303,10 +321,13 @@ export function suiEngine({ acct, dev = {}, N = SUI }) {
       if (held < dep + 2_000_000n) throw new Error(dep ? "Not enough SUI for this amount and the network fee." : "You need a little SUI to pay the network fee.");
       const room = held - dep; cap = room < CAP ? room : CAP; gas = { payment, price };
     }
-    const build = (budget) => safeTx({ sender: me, pkg, fn, args: typeof args === "function" ? args() : args, gas: { ...gas, budget } });
+    const target = fn === "create" ? pkg : safePkg || pkg; // a Safe is run by the package it was opened on
+    const build = (budget) => safeTx({ sender: me, pkg: target, fn, args: typeof args === "function" ? args() : args, gas: { ...gas, budget } });
     try { return await execute(await finish(build, cap)); }
     catch (e) { const w = explainSuiSafe(e?.message); if (w) throw new Error(w); throw e; }
   }
+  /** Whether a waiting change is a strict-option one (read fresh: this connection may not have read the Safe yet). */
+  const isStrictId = async (id) => { await findSafe(); if (safeStrict) await readSafe(); return strictIds.has(Number(id)); };
   const safeObj = async () => { const id = await findSafe(); if (!id) throw new Error("Open your Safe on Sui first."); return { obj: await sharedRef(id) }; };
   const toSecs = (v) => BigInt(Math.round(Number(v)));
   async function propose(c) {
@@ -315,9 +336,11 @@ export function suiEngine({ acct, dev = {}, N = SUI }) {
       SetWithdrawDelay: () => ["set_withdraw_delay", u64(toSecs(v))], SetRuleDelay: () => ["set_rule_delay", u64(toSecs(v))],
       SetDailyLimit: () => ["set_daily_limit", optU64(v == null ? null : BigInt(Math.round(Number(v))))], SetLockedUntil: () => ["set_locked_until", optU64(v == null ? null : toSecs(v))],
       SetGuardian: () => ["set_guardian", optAddr(v == null ? null : String(v))], AddTrusted: () => ["add_trusted", addr(String(v))], RemoveTrusted: () => ["remove_trusted", addr(String(v))],
+      SetTrustedWaits: () => ["set_trusted_waits", Uint8Array.of(v ? 1 : 0)], SetNoExit: () => ["set_no_exit", Uint8Array.of(v ? 1 : 0)],
     }[c.kind];
     if (!make) throw new Error("Unknown rule change " + c.kind);
-    const [fn, arg] = make(), s = await safeObj();
+    const s = await safeObj(), [fn, arg] = make();
+    if (/^Set(TrustedWaits|NoExit)$/.test(c.kind) && !safeStrict) throw new Error("Your Sui Safe was opened before strict options existed, so it can't use them.");
     return safeRun(fn, [s, { pure: arg }, { clock: true }]);
   }
 
@@ -342,6 +365,8 @@ export function suiEngine({ acct, dev = {}, N = SUI }) {
     async vault() { const v = pkg ? await readSafe() : null; return v ? { main: v, usdc: null } : null; },
     vaultAddress: () => safeId,
     async createVault(kind = "strong", { guardian = null, until = null } = {}) {
+      // one Safe per wallet: an older package's Safe counts too (each package has its own registry)
+      safeId = null; if (await findSafe()) throw new Error(SAFE_ERRORS[14]);
       const [wd, rd] = SUI_PRESETS[kind] || SUI_PRESETS.strong;
       const r = await safeRun("create", [{ obj: await sharedRef(normAddr(SAFE.registry)) }, { pure: u64(wd) }, { pure: u64(rd) }, { pure: optU64(null) }, { pure: optU64(until) }, { pure: optAddr(guardian) }, { clock: true }]);
       safeId = null; await findSafe().catch(() => {}); return r;
@@ -352,8 +377,9 @@ export function suiEngine({ acct, dev = {}, N = SUI }) {
     async cancel(asset, id) { return safeRun("cancel_withdrawal", [await safeObj(), { pure: u64(id) }]); },
     async execute(asset, id) { return safeRun("execute_withdrawal", [await safeObj(), { pure: u64(id) }, { clock: true }]); },
     propose,
-    async cancelChange(id) { return safeRun("cancel_change", [await safeObj(), { pure: u64(id) }]); },
-    async applyChange(id) { return safeRun("apply_change", [await safeObj(), { pure: u64(id) }, { clock: true }]); },
+    // strict-option changes have their own queue in the Safe
+    async cancelChange(id) { const s = await safeObj(); return safeRun((await isStrictId(id)) ? "cancel_strict_change" : "cancel_change", [s, { pure: u64(id) }]); },
+    async applyChange(id) { const s = await safeObj(); return safeRun((await isStrictId(id)) ? "apply_strict_change" : "apply_change", [s, { pure: u64(id) }, { clock: true }]); },
     async chainTime() { const d = await gql(`{checkpoint{timestamp}}`); return Math.floor(Date.parse(d.checkpoint.timestamp) / 1000); },
     reserve: (asset) => (asset === "native" ? 10_000_000 : 0), // keep 0.01 SUI for fees
     feeText: () => "≈ 0.002 SUI",
