@@ -181,7 +181,7 @@ describe("cooldown-vault", () => {
       assert.isTrue(v.noExit);
       assert.equal(v.changes.length, 1);
       assert.ok(v.changes[0].readyAt.toNumber() >= v.lockedUntil.toNumber());
-      await expectError(program.methods.applyChange(v.changes[0].id).accountsPartial({ caller: me.publicKey, vault: mine }).rpc(), "TooEarly");
+      await expectError(program.methods.applyChange(v.changes[0].id).accountsPartial({ caller: owner, vault: mine }).rpc(), "TooEarly");
     });
   });
 });
