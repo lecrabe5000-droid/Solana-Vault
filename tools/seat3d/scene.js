@@ -99,6 +99,9 @@ function placeCoins() {
     c.userData.orbit = (i / n) * Math.PI * 2;
     c.userData.row = [(i - (n - 1) / 2) * 0.57, -1.62, 0.9];
     c.userData.spin = [((i * 53) % 7) / 7 - 0.5, ((i * 31) % 5) / 5 - 0.5];
+    // its slot in the blue scene (the middle one rests behind the tile)
+    const xs = [-2.6, -2.1, -1.62, -1.3, 0, 1.3, 1.62, 2.1, 2.6], k = i % xs.length, front = [1, 0, 1, 0, 0, 0, 1, 0, 1][k] === 1;
+    c.userData.slot = [xs[k], front ? -0.12 : 0.62, front ? 0.75 : -1.0];
   });
 }
 
@@ -132,7 +135,10 @@ window.seat = {
     coins.forEach((c) => {
       const u = c.userData, oa = u.orbit + (1 - freeze) * (1 - pull) * 1.2 + t * 0.6 * (1 - freeze); // slows to a stop as it freezes
       const wide = ease(seg(t, 0.44, 0.54)) * (1 - ease(seg(t, 0.68, 0.76))); // the blue scene: a wide, flat ring with room to breathe
-      const orbit = [Math.cos(oa) * mix(2.02, 2.78, wide), Math.sin(oa) * mix(0.8, 0.42, wide) + mix(0.3, 0.1, wide), Math.sin(oa) * mix(1.0, 1.25, wide)];
+      // in the blue scene each coin moves to its own slot: evenly spread across the width, alternating front/back and
+      // high/low, so no two overlap and none sits on the tile's face
+      const ring = [Math.cos(oa) * 2.02, Math.sin(oa) * 0.8 + 0.3, Math.sin(oa) * 1.0], sl = u.slot;
+      const orbit = ring.map((v, k) => mix(v, sl[k], wide));
       const drift = [Math.sin(t * 6 + u.orbit) * 0.12, Math.cos(t * 5 + u.orbit) * 0.1, 0];
       let p = u.loose.map((v, k) => mix(v + drift[k], orbit[k], pull)); p = p.map((v, k) => mix(v, u.row[k], toRow));
       c.position.set(...p);
@@ -140,7 +146,7 @@ window.seat = {
       c.rotation.set(Math.PI / 2 * mix(0.55, 1, toRow) + u.spin[0] * spinning * 2 + t * 9 * spinning, u.spin[1] * 1.4 * (1 - toRow) + t * 5 * spinning, 0);
       const ice = freeze * (1 - seg(t, 0.7, 0.78));
       c.userData.frost.material.opacity = 0.7 * ice; c.userData.frost.scale.setScalar(mix(0.6, 1, ice));
-      c.scale.setScalar(mix(0.95, 0.9, pull) * mix(1, 0.64, toRow) * mix(1, 0.86, ease(seg(t, 0.44, 0.54)) * (1 - ease(seg(t, 0.72, 0.8)))));
+      c.scale.setScalar(mix(0.95, 0.9, pull) * mix(1, 0.64, toRow) * mix(1, 0.8, ease(seg(t, 0.44, 0.54)) * (1 - ease(seg(t, 0.72, 0.8)))));
     });
 
     // --- the band: appears around the tile once the coins are held, turns, then leaves
