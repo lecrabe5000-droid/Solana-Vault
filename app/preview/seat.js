@@ -30,6 +30,8 @@
       root.style.setProperty("--line", dark ? "rgba(244,241,234,.22)" : "rgba(11,13,20,.12)"); root.style.setProperty("--giant", dark ? "rgba(255,255,255,.07)" : "rgba(11,13,20,.055)");
       root.style.color = dark ? "#f4f1ea" : "#0b0d14"; document.querySelector('meta[name="theme-color"]').content = bg; }
     const w = [...WORDS].reverse().find(([a]) => p >= a)[1]; if (w !== lastWord) { lastWord = w; giant.textContent = w; }
+    // the giant word fades out just before it changes and back in after, never a cut
+    const near = Math.min(...WORDS.slice(1).map(([a]) => Math.abs(p - a))); giant.style.opacity = Math.min(1, near / 0.03).toFixed(3);
   };
 
   // ---- drawing: between two frames, blended, so slow scrolling stays smooth
