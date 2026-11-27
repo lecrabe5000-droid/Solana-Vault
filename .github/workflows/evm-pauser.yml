@@ -1,0 +1,66 @@
+name: evm-pauser
+# Run by hand: Actions → evm-pauser → Run workflow.
+# - status: shows who holds the deposit brake (pauser) on every mainnet with an Ecrin Safe. Read only, no key used.
+# - propose: offers the brake on ONE network to your Safe multisig (step 1 of 2). Type the network's name in capitals
+#   to confirm. Then accept it from the multisig: in the Safe app on that network, New transaction → Transaction
+#   builder → contract address (the Ecrin contract) → method acceptPauser → sign with 2 of 3.
+# The brake can only stop NEW deposits; it can never move, hold or withdraw anyone's money.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: status (read only) or propose (offer the brake to a multisig)
+        required: true
+        type: choice
+        options: [status, propose]
+        default: status
+      network:
+        description: Which mainnet (propose only; status checks them all)
+        required: true
+        type: choice
+        options: [ethereum, arbitrum, optimism, polygon, bsc, avalanche, base]
+      multisig:
+        description: The Safe multisig's address on that network (propose only)
+        required: false
+      confirm:
+        description: Type the network's name in capitals to confirm (propose only)
+        required: false
+
+permissions:
+  contents: read
+
+concurrency: evm-pauser
+
+jobs:
+  pauser:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: evm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: evm/package-lock.json
+      - run: npm ci && npx hardhat compile
+      - name: Who holds the brake on each network
+        run: |
+          echo "| Network | Pauser | Offered to | Deposits |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          for n in ethereum arbitrum optimism polygon bsc avalanche base; do
+            PAUSER_ACTION=status npx hardhat run scripts/pauser.js --network "$n" || echo "$n: couldn't read (RPC)"
+          done
+      - name: Offer the brake to the multisig
+        if: inputs.action == 'propose'
+        env:
+          NET: ${{ inputs.network }}
+          CONFIRM: ${{ inputs.confirm }}
+          PAUSER_NEXT: ${{ inputs.multisig }}
+          MAINNET_DEPLOYER_KEY: ${{ secrets.MAINNET_DEPLOYER_KEY }}
+        run: |
+          want=$(echo "$NET" | tr '[:lower:]' '[:upper:]')
+          [ "$CONFIRM" = "$want" ] || { echo "::error::To act on $NET, type $want in the confirm box. Nothing was sent."; exit 1; }
+          [ -n "$MAINNET_DEPLOYER_KEY" ] || { echo "::error::The MAINNET_DEPLOYER_KEY secret is missing."; exit 1; }
+          PAUSER_ACTION=propose npx hardhat run scripts/pauser.js --network "$NET"

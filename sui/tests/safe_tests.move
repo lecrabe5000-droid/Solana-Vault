@@ -589,3 +589,128 @@ fun a_stranger_cant_turn_a_strict_option_off() {
     ts::return_shared(s);
     done(sc, c);
 }
+
+// ---- Adversarial: a guardian gone bad, a stolen key, a stranger
+
+#[test, expected_failure(abort_code = 0, location = ecrin_safe::safe)]
+fun a_guardian_cant_cancel_the_owners_withdrawal() {
+    let (mut sc, c) = start(option::some(GUARD), option::none());
+    sc.next_tx(OWNER);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    s.request_withdrawal(FRIEND, 100, &c, sc.ctx());
+    ts::return_shared(s);
+    sc.next_tx(GUARD);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    s.cancel_withdrawal(1, sc.ctx());
+    ts::return_shared(s);
+    done(sc, c);
+}
+
+#[test, expected_failure(abort_code = 0, location = ecrin_safe::safe)]
+fun a_guardian_cant_start_a_withdrawal() {
+    let (mut sc, c) = start(option::some(GUARD), option::none());
+    sc.next_tx(GUARD);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    s.request_withdrawal(GUARD, 100, &c, sc.ctx());
+    ts::return_shared(s);
+    done(sc, c);
+}
+
+#[test]
+fun a_release_pays_exactly_what_and_where_the_owner_asked_once() {
+    let (mut sc, c) = start(option::some(GUARD), option::none());
+    sc.next_tx(OWNER);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    s.request_withdrawal(FRIEND, 250, &c, sc.ctx());
+    ts::return_shared(s);
+    sc.next_tx(GUARD);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    s.guardian_release(1, &c, sc.ctx());
+    assert!(s.value() == 750);
+    ts::return_shared(s);
+    assert!(received(&mut sc, FRIEND) == 250);
+    assert!(received(&mut sc, GUARD) == 0);
+    done(sc, c);
+}
+
+#[test, expected_failure(abort_code = 7, location = ecrin_safe::safe)]
+fun a_cancelled_and_redirected_withdrawal_starts_a_new_delay() {
+    let (mut sc, mut c) = start(option::none(), option::none());
+    sc.next_tx(OWNER);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    s.request_withdrawal(FRIEND, 400, &c, sc.ctx()); // id 1
+    later(&mut c, 24 * HOUR);
+    s.cancel_withdrawal(1, sc.ctx());
+    s.request_withdrawal(STRANGER, 400, &c, sc.ctx()); // id 2: waits again
+    s.execute_withdrawal(2, &c, sc.ctx());
+    ts::return_shared(s);
+    done(sc, c);
+}
+
+#[test, expected_failure(abort_code = 7, location = ecrin_safe::safe)]
+fun not_one_second_early() {
+    let (mut sc, mut c) = start(option::none(), option::none());
+    sc.next_tx(OWNER);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    s.request_withdrawal(FRIEND, 100, &c, sc.ctx());
+    later(&mut c, 24 * HOUR - 1);
+    s.execute_withdrawal(1, &c, sc.ctx());
+    ts::return_shared(s);
+    done(sc, c);
+}
+
+#[test, expected_failure(abort_code = 8, location = ecrin_safe::safe)]
+fun splitting_a_withdrawal_doesnt_beat_the_daily_limit() {
+    let (mut sc, mut c) = start(option::none(), option::some(100));
+    sc.next_tx(OWNER);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    s.request_withdrawal(FRIEND, 100, &c, sc.ctx()); // id 1
+    s.request_withdrawal(FRIEND, 100, &c, sc.ctx()); // id 2
+    later(&mut c, 24 * HOUR);
+    s.execute_withdrawal(1, &c, sc.ctx());
+    s.execute_withdrawal(2, &c, sc.ctx()); // same day: over the limit
+    ts::return_shared(s);
+    done(sc, c);
+}
+
+#[test, expected_failure(abort_code = 1, location = ecrin_safe::safe)]
+fun a_replaced_guardian_loses_the_release_at_once() {
+    let (mut sc, mut c) = start(option::some(GUARD), option::none());
+    sc.next_tx(OWNER);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    s.set_guardian(option::some(STRANGER), &c, sc.ctx()); // id 1, waits 3 days
+    s.request_withdrawal(FRIEND, 100, &c, sc.ctx()); // id 2
+    later(&mut c, 3 * DAY);
+    s.apply_change(1, &c);
+    ts::return_shared(s);
+    sc.next_tx(GUARD);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    s.guardian_release(2, &c, sc.ctx());
+    ts::return_shared(s);
+    done(sc, c);
+}
+
+#[test, expected_failure(abort_code = 0, location = ecrin_safe::safe)]
+fun a_stranger_cant_trust_their_own_address() {
+    let (mut sc, c) = start(option::none(), option::none());
+    sc.next_tx(STRANGER);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    s.add_trusted(STRANGER, &c, sc.ctx());
+    ts::return_shared(s);
+    done(sc, c);
+}
+
+#[test, expected_failure(abort_code = 0, location = ecrin_safe::safe)]
+fun a_stranger_cant_cancel_a_strict_change() {
+    let (mut sc, c) = start(option::none(), option::none());
+    sc.next_tx(OWNER);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    s.set_no_exit(true, &c, sc.ctx());
+    s.set_no_exit(false, &c, sc.ctx()); // id 1, queued
+    ts::return_shared(s);
+    sc.next_tx(STRANGER);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    s.cancel_strict_change(1, sc.ctx());
+    ts::return_shared(s);
+    done(sc, c);
+}

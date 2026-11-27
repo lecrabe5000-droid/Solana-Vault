@@ -31,6 +31,36 @@ Handover is two steps on both chains (the new holder must accept), so a typo can
 - Solana: `propose_config_authority(next)` by the current holder, then `accept_config_authority` signed by `next`.
 - EVM: `proposePauser(next)`, then `acceptPauser()` from `next`.
 
+## Mainnet today (early access)
+
+| Network | Contract / package | Power | Held by |
+|---|---|---|---|
+| Ethereum, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, Base | `0x27D22cEAe73eb0c70E0157849C22F3E98f538bA2` (same address on each) | Deposit brake (`pauser`) | The mainnet deployer (`MAINNET_DEPLOYER_KEY`), one key |
+| Sui | package `0xd22a40381899f83fdac18f34f1364815de3e9ee72841f921b0847ad488a94154` | UpgradeCap `0xd3f123e3e4718445a58e180fc26d916e97cf1963c489b2ba1a9e6121e602d9d2` | The Sui mainnet deployer (`SUI_MAINNET_DEPLOYER_KEY`), one key |
+| Solana | not on mainnet | n/a | n/a |
+
+Live state at any time: run the **evm-pauser** and **sui-cap** workflows with `status` (read only, no key used).
+
+### Handover steps, as they will be run
+
+**EVM brake → Safe multisig (once per network)**
+1. In the Safe app (app.safe.global), create a Safe on that network: 2 of 3 owners, each owner a hardware wallet
+   (or at least separate wallets kept in separate places). The same owners on every network.
+2. Actions → **evm-pauser** → `propose`, pick the network, paste the Safe's address, type the network's name in
+   capitals. The script refuses a plain key (no code at the address) and checks the deployer still holds the brake.
+3. In the Safe app on that network: New transaction → Transaction builder → contract
+   `0x27D22cEAe73eb0c70E0157849C22F3E98f538bA2` → method `acceptPauser` → two owners sign → execute.
+4. Run evm-pauser `status`: that network's pauser now reads "a contract (multisig)".
+
+**Sui UpgradeCap → destroyed (recommended)**
+- On Sui an upgrade can't safely fix anything (every published version stays callable on the same Safes), while it
+  could add code that reaches into them. So the cap is a risk with no benefit: new features ship as new packages.
+- Actions → **sui-cap** → network `mainnet` → `make-immutable` → type `IMMUTABLE`. It destroys the cap of every Ecrin
+  package listed for that network (the current one and older ones). Irreversible by design.
+- Alternative: `transfer` to a Sui multisig address (`sui keytool multi-sig-address`, 2 of 3) and type `TRANSFER`.
+- Each new package (for example the one with the strict options) publishes with a new cap held by the deployer:
+  run make-immutable again after each publish.
+
 ## Moving to multisigs (mainnet checklist)
 
 1. **Create the multisigs**: Squads (Solana) and Safe (each EVM network), same signers, threshold 2 of 3.

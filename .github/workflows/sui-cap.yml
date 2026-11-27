@@ -1,0 +1,116 @@
+name: sui-cap
+# Run by hand: Actions → sui-cap → Run workflow.
+# The Sui package's UpgradeCap is the only admin power on Sui: an upgrade could add code that reaches into existing
+# Safes. Upgrades can't safely fix anything either (Sui keeps every old version callable), so new features ship as
+# new packages and the cap is best destroyed.
+# - status: who holds each package's UpgradeCap on the network (read only).
+# - make-immutable: destroys the cap of every Ecrin package on the network, for good. Nobody, Ecrin included, can
+#   ever change that code again. Type IMMUTABLE to confirm.
+# - transfer: hands the caps to a multisig address instead (a Sui multisig address). Type TRANSFER to confirm.
+# Uses SUI_MAINNET_DEPLOYER_KEY on mainnet (the account that published), SUI_DEPLOYER_KEY on testnet.
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        type: choice
+        options: [testnet, mainnet]
+        default: testnet
+      action:
+        type: choice
+        options: [status, make-immutable, transfer]
+        default: status
+      to:
+        description: Multisig address (transfer only)
+        required: false
+      confirm:
+        description: IMMUTABLE or TRANSFER (not needed for status)
+        required: false
+
+permissions:
+  contents: read
+
+concurrency: sui-cap
+
+jobs:
+  cap:
+    runs-on: ubuntu-latest
+    env:
+      NET: ${{ inputs.network }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Caps on this network, and who holds them
+        run: |
+          node --input-type=module -e '
+            import { SUI_SAFE } from "./app/deployments-sui.js";
+            const net = process.env.NET, e = SUI_SAFE[net] || {}, all = [e, ...(e.older || [])].filter((x) => x.upgradeCap);
+            const fs = await import("fs"); let caps = [];
+            for (const p of all) {
+              const r = await fetch(`https://graphql.${net}.sui.io/graphql`, { method: "POST", headers: { "content-type": "application/json" },
+                body: JSON.stringify({ query: `{object(address:"${p.upgradeCap}"){owner{__typename ... on AddressOwner{address{address}}}}}` }) }).then((r) => r.json());
+              const o = r.data?.object, who = !o ? "gone: package is immutable" : o.owner?.address?.address || o.owner?.__typename;
+              console.log(`package ${p.package}: cap ${p.upgradeCap} held by ${who}`);
+              fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `- package \`${p.package}\`: cap \`${p.upgradeCap}\`, ${who}\n`);
+              if (o) caps.push(p.upgradeCap);
+            }
+            if (!all.length) console.log("No package with an UpgradeCap on", net);
+            fs.writeFileSync("/tmp/caps", caps.join(" "));'
+      - name: Check the confirmation
+        if: inputs.action != 'status'
+        env:
+          ACTION: ${{ inputs.action }}
+          CONFIRM: ${{ inputs.confirm }}
+          TO: ${{ inputs.to }}
+        run: |
+          want=$([ "$ACTION" = make-immutable ] && echo IMMUTABLE || echo TRANSFER)
+          [ "$CONFIRM" = "$want" ] || { echo "::error::Type $want in the confirm box. Nothing was sent."; exit 1; }
+          if [ "$ACTION" = transfer ]; then echo "$TO" | grep -Eq '^0x[0-9a-fA-F]{64}$' || { echo "::error::The multisig address must be a full Sui address (0x + 64 characters)."; exit 1; }; fi
+          [ -s /tmp/caps ] || { echo "::error::No cap left to act on."; exit 1; }
+      - name: Install the Sui CLI
+        if: inputs.action != 'status'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release list -R MystenLabs/sui --limit 40 --json tagName -q '.[].tagName' | grep -m1 "^$NET-v")
+          gh release download "$tag" -R MystenLabs/sui -p "sui-$tag-ubuntu-x86_64.tgz" -D /tmp/sui
+          tar -xzf /tmp/sui/*.tgz -C /tmp/sui && mkdir -p "$HOME/.local/bin"
+          find /tmp/sui -type f -name sui -perm -u+x -exec cp {} "$HOME/.local/bin/sui" \;
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - uses: actions/setup-node@v4
+        if: inputs.action != 'status'
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: extension/package-lock.json
+      - name: Act on the caps
+        if: inputs.action != 'status'
+        env:
+          ACTION: ${{ inputs.action }}
+          TO: ${{ inputs.to }}
+          KEY: ${{ inputs.network == 'mainnet' && secrets.SUI_MAINNET_DEPLOYER_KEY || secrets.SUI_DEPLOYER_KEY }}
+        run: |
+          [ -n "$KEY" ] || { echo "::error::The deployer key secret is missing."; exit 1; }
+          mkdir -p ~/.sui/sui_config && echo '[]' > ~/.sui/sui_config/sui.keystore
+          printf 'keystore:\n  File: %s/.sui/sui_config/sui.keystore\nenvs:\n  - alias: %s\n    rpc: "https://fullnode.%s.sui.io:443"\n    ws: ~\nactive_env: %s\nactive_address: ~\n' "$HOME" "$NET" "$NET" "$NET" > ~/.sui/sui_config/client.yaml
+          sui keytool import "$KEY" ed25519 > /dev/null
+          addr=$(sui keytool list --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s)[0].suiAddress))')
+          sui client switch --address "$addr"
+          # gas comes from a coin: if the SUI sits in the address balance, the wallet's own code makes a 0.1 SUI coin
+          bal=$(curl -sS https://graphql.$NET.sui.io/graphql -H 'content-type: application/json' --data "{\"query\":\"{address(address:\\\"$addr\\\"){balance(coinType:\\\"0x2::sui::SUI\\\"){coinBalance}}}\"}")
+          coins=$(echo "$bal" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).data?.address?.balance?.coinBalance||0))')
+          if [ "$coins" -lt 60000000 ]; then
+            (cd extension && npm ci --no-audit --no-fund >/dev/null && node --input-type=module -e '
+              import { bech32 } from "@scure/base"; import { suiEngine, SUI, SUI_MAIN } from "./src/sui.js";
+              const { bytes } = bech32.decodeToBytes(process.env.KEY.trim()), net = process.env.NET;
+              const e = suiEngine({ acct: { sui: bytes.slice(1, 33) }, dev: { suiApi: `https://graphql.${net}.sui.io/graphql` }, N: net === "mainnet" ? SUI_MAIN : SUI });
+              console.log("Gas coin:", await e.send("native", e.address, 100_000_000));')
+            sleep 5
+          fi
+          for cap in $(cat /tmp/caps); do
+            if [ "$ACTION" = make-immutable ]; then
+              sui client call --package 0x2 --module package --function make_immutable --args "$cap" --gas-budget 50000000 --json > /tmp/out.json || { cat /tmp/out.json; exit 1; }
+            else
+              sui client transfer --to "$TO" --object-id "$cap" --gas-budget 50000000 --json > /tmp/out.json || { cat /tmp/out.json; exit 1; }
+            fi
+            node -e 'const r=JSON.parse(require("fs").readFileSync("/tmp/out.json","utf8"));if(r.effects?.status?.status!=="success"){console.error(JSON.stringify(r.effects?.status));process.exit(1)}console.log(process.env.ACTION,"done:",r.digest)'
+            echo "- $ACTION: cap \`$cap\`, tx \`$(node -e 'console.log(JSON.parse(require("fs").readFileSync("/tmp/out.json","utf8")).digest)')\`" >> "$GITHUB_STEP_SUMMARY"
+          done
