@@ -18,7 +18,7 @@ fs.mkdirSync(tmp, { recursive: true });
   const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--allow-file-access-from-files'] });
   const p = await b.newPage({ viewport: { width: S, height: S } });
   p.on('pageerror', (e) => console.log('pageerror', e.message)); p.on('console', (m) => m.type() === 'error' && console.log('console', m.text()));
-  await p.goto('file://' + path.join(tmp, 'index.html') + `?s=${S}${process.env.UP ? '&up=' + process.env.UP : ''}`); await p.waitForFunction(() => window.seatReady, null, { timeout: 90000 });
+  await p.goto('file://' + path.join(tmp, 'index.html') + `?s=${S}${process.env.UP ? '&up=' + process.env.UP : ''}${process.env.RD ? '&rd=' + process.env.RD : ''}`); await p.waitForFunction(() => window.seatReady, null, { timeout: 90000 });
   const shot = async (t, file) => { const url = await p.evaluate((x) => window.seat.frame(x), t); fs.writeFileSync(file, Buffer.from(url.split(',')[1], 'base64')); };
   // Nothing may touch the edge of the frame: every coin, the band and the tile keep a margin in all frames.
   const MIN = Number(process.env.MARGIN || 0.08); let worst = { worst: 1 }; const bad = [];
@@ -29,13 +29,27 @@ fs.mkdirSync(tmp, { recursive: true });
   if (worst.worst < MIN) { console.error(`refused: ${worst.who} comes within ${(worst.worst * 100).toFixed(1)}% of the edge (need ${MIN * 100}%)`); process.exitCode = 1; await b.close(); return; }
   if (process.env.TEST) {
     for (const t of process.env.TEST.split(',').map(Number)) await shot(t, path.join(tmp, `test-${t}.png`));
+    // REST="t:u,t:u": stills of a resting loop, to look at
+    for (const x of (process.env.REST || '').split(',').filter(Boolean)) { const [t, u] = x.split(':').map(Number); const url = await p.evaluate(([t, u]) => window.seat.restFrame(t, u), [t, u]); fs.writeFileSync(path.join(tmp, `rest-${t.toFixed(3)}-${u}.png`), Buffer.from(url.split(',')[1], 'base64')); }
     console.log('test frames in', tmp); await b.close(); return;
   }
-  const pngs = path.join(tmp, 'png'); fs.rmSync(pngs, { recursive: true, force: true }); fs.mkdirSync(pngs);
+  // resting loops (name:frame:count): the scene at that film frame, kept alive; frame 0 is the film frame itself
+  const LOOPS = (process.env.LOOPS ?? 'cancel:80:108').split(',').filter(Boolean).map((x) => { const [name, at, n] = x.split(':'); return { name, t: Number(at) / (N - 1), n: Number(n) }; });
+  for (const L of LOOPS) for (let i = 0; i < L.n; i++) { const m = await p.evaluate(([t, u]) => window.seat.restMargin(t, u), [L.t, i / L.n]); if (m.worst < MIN) { console.error(`refused: loop ${L.name} frame ${i}: ${m.who} within ${(m.worst * 100).toFixed(1)}% of the edge`); process.exitCode = 1; await b.close(); return; } }
   const t0 = Date.now();
-  for (let i = 0; i < N; i++) { await shot(i / (N - 1), path.join(pngs, `f-${String(i).padStart(3, '0')}.png`)); if (i % 25 === 0) console.log(`frame ${i}/${N} · ${Math.round((Date.now() - t0) / 1000)} s`); }
+  if (process.env.FILM !== '0') {
+    const pngs = path.join(tmp, 'png'); fs.rmSync(pngs, { recursive: true, force: true }); fs.mkdirSync(pngs);
+    for (let i = 0; i < N; i++) { await shot(i / (N - 1), path.join(pngs, `f-${String(i).padStart(3, '0')}.png`)); if (i % 25 === 0) console.log(`frame ${i}/${N} · ${Math.round((Date.now() - t0) / 1000)} s`); }
+    execFileSync('python3', [path.join(__dirname, 'encode.py'), pngs, path.join(root, 'app/preview/seat'), String(OUT)], { stdio: 'inherit' });
+  }
+  for (const L of LOOPS) {
+    const dir = path.join(tmp, 'loop-' + L.name); fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir);
+    for (let i = 0; i < L.n; i++) { const url = await p.evaluate(([t, u]) => window.seat.restFrame(t, u), [L.t, i / L.n]); fs.writeFileSync(path.join(dir, `f-${String(i).padStart(3, '0')}.png`), Buffer.from(url.split(',')[1], 'base64')); }
+    console.log(`loop ${L.name}: ${L.n} frames · ${Math.round((Date.now() - t0) / 1000)} s`);
+    execFileSync('python3', [path.join(__dirname, 'encode.py'), dir, path.join(root, 'app/preview/seat/loop-' + L.name), String(OUT)], { stdio: 'inherit' });
+  }
   await b.close();
-  execFileSync('python3', [path.join(__dirname, 'encode.py'), pngs, path.join(root, 'app/preview/seat'), String(OUT)], { stdio: 'inherit' });
+  if (process.env.FILM === '0') return;
   const kb = (d) => Math.round(fs.readdirSync(d).reduce((s, f) => s + fs.statSync(path.join(d, f)).size, 0) / 1024);
   console.log(`rendered ${N} frames · xl ${kb(path.join(root, 'app/preview/seat/xl'))} KB · hi ${kb(path.join(root, 'app/preview/seat/hi'))} KB · lo ${kb(path.join(root, 'app/preview/seat/lo'))} KB`);
 })();

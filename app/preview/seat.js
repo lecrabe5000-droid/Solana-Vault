@@ -11,7 +11,7 @@
 
   // ---- frames: the light set first (everything playable fast), then the sharp set, nearest the current frame first
   const lo = new Array(N), hi = new Array(N), xl = new Array(N);
-  const load = (set, dir, i) => new Promise((res) => { const im = new Image(); im.decoding = "async"; im.onload = () => { set[i] = im; res(); if (Math.abs(i - Math.round(cur)) < 2) draw(true); }; im.onerror = res; im.src = `/preview/seat/${dir}/f-${pad(i)}.webp?v=8`; });
+  const load = (set, dir, i) => new Promise((res) => { const im = new Image(); im.decoding = "async"; im.onload = () => { set[i] = im; res(); if (Math.abs(i - Math.round(cur)) < 2) draw(true); }; im.onerror = res; im.src = `/preview/seat/${dir}/f-${pad(i)}.webp?v=9`; });
   const queue = async (set, dir, order, par = 6) => { let k = 0; await Promise.all(Array.from({ length: par }, async () => { while (k < order.length) await load(set, dir, order[k++]); })); };
   const around = (c) => Array.from({ length: N }, (_, i) => i).sort((a, b) => Math.abs(a - c) - Math.abs(b - c));
   // desktop: every sharp frame, nearest first. Phones (sharp screens): only the sharp frames around where you are,
@@ -20,8 +20,12 @@
   const nearby = (set = hi, dir = "hi") => { const c = Math.round(cur); for (let i = Math.max(0, c - 10); i <= Math.min(N - 1, c + 14); i++) if (!set[i] && !near.has(dir + i)) { near.add(dir + i); load(set, dir, i); } };
   // big sharp desktop screens: the extra-sharp set too, around where you are (the whole set would be heavy)
   const wantXl = () => !phone && size * dpr > 1700;
-  (async () => { await load(lo, "lo", 0); await queue(lo, "lo", around(0).slice(1));
-    if (!phone) { queue(hi, "hi", around(Math.round(cur)), 4);
+  (async () => { await load(lo, "lo", 0);
+    // desktop: the sharp frames of the opening scene come before the rest of the light set, so the first
+    // thing anyone sees is sharp (the light set only covers fast scrubbing until the sharp one is in)
+    if (!phone) { const c = Math.round(cur); await queue(hi, "hi", around(c).slice(0, 24), 6); }
+    await queue(lo, "lo", around(0).slice(1));
+    if (!phone) { queue(hi, "hi", around(Math.round(cur)).filter((i) => !hi[i]), 4);
       // the frames where each scene rests come first, so every scene lands sharp
       if (wantXl()) for (const { r } of beats) { const c = Math.round(Math.min(1, r[1] > 1 ? 1 : r[0] <= 0 ? 0 : (r[0] + r[1]) / 2) * (N - 1)); for (let i = Math.max(0, c - 1); i <= Math.min(N - 1, c + 1); i++) if (!near.has("xl" + i)) { near.add("xl" + i); load(xl, "xl", i); } }
       setInterval(() => { if (wantXl()) nearby(xl, "xl"); }, 400); } else if ((devicePixelRatio || 1) > 1.5) { nearby(); setInterval(() => nearby(), 400); } })();
@@ -52,12 +56,39 @@
   let cur = 0, target = 0, size = 0, dpr = 1, drawn = -1;
   const resize = () => { dpr = Math.min(2, devicePixelRatio || 1); size = Math.round(phone ? Math.min(innerWidth * 1.04, innerHeight * 0.64) : Math.min(innerHeight * 1.08, innerWidth * 0.68)); cv.style.setProperty("--cv", size + "px"); cv.width = cv.height = Math.round(size * dpr); drawn = -1; draw(true); };
   function pick(i) { return (wantXl() && xl[i]) || hi[i] || lo[i]; }
+  // layers are mixed exactly ("lighter" adds the weighted images, weights summing to 1): no thickened edges or ghost
+  // halos where two frames overlap, as plain stacking would give
+  function mixDraw(layers) {
+    g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high"; g.clearRect(0, 0, cv.width, cv.height);
+    let first = true;
+    for (const [img, w] of layers) { if (!img || w < 0.004) continue; g.globalAlpha = Math.min(1, w); g.globalCompositeOperation = first ? "source-over" : "lighter"; g.drawImage(img, 0, 0, cv.width, cv.height); first = false; }
+    g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
+  }
   function draw(force) {
-    const f = clamp(cur, 0, N - 1), i = Math.floor(f), k = f - i, key = Math.round(f * 20);
-    if (!force && key === drawn) return; drawn = key;
+    const f = clamp(cur, 0, N - 1), i = Math.floor(f), k = f - i, key = Math.round(f * 40);
+    if (!force && !live && key === drawn) return; drawn = key;
     const a = pick(i), b = pick(Math.min(N - 1, i + 1)); if (!a) return;
-    g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high"; g.clearRect(0, 0, cv.width, cv.height); g.globalAlpha = 1; g.drawImage(a, 0, 0, cv.width, cv.height);
-    if (b && k > 0.02) { g.globalAlpha = k; g.drawImage(b, 0, 0, cv.width, cv.height); g.globalAlpha = 1; }
+    const fw = 1 - liveA, layers = b && k > 0.01 ? [[a, (1 - k) * fw], [b, k * fw]] : [[a, fw]];
+    if (live && liveA > 0) { const t = ((performance.now() - liveStart) / 1000) * live.fps % live.n, j = Math.floor(t), kk = t - j;
+      layers.push([live.frames[j], (1 - kk) * liveA], [live.frames[(j + 1) % live.n], kk * liveA]); }
+    mixDraw(layers);
+  }
+
+  // ---- resting loops: where a scene comes to rest, it stays alive (rendered loops that start on the resting frame
+  // itself and repeat without a seam); fetched only as you come near, played only once complete
+  const LOOPS = [{ at: 80, dir: "loop-cancel", n: 108, fps: 24 }].map((L) => ({ ...L, frames: new Array(L.n), got: 0, asked: false }));
+  let live = null, liveA = 0, liveStart = 0, idleSince = 0, lastTarget = -1, lastT = 0;
+  const loopSet = () => (wantXl() ? "xl" : !phone || (devicePixelRatio || 1) > 1.5 ? "hi" : "lo");
+  function ask(L) { if (L.asked) return; L.asked = true; const set = loopSet();
+    for (let i = 0; i < L.n; i++) { const im = new Image(); im.decoding = "async"; im.onload = () => { L.frames[i] = im; L.got++; }; im.src = `/preview/seat/${L.dir}/${set}/f-${pad(i)}.webp?v=1`; } }
+  function loops(now) {
+    const dt = Math.min(100, now - (lastT || now)); lastT = now;
+    if (Math.abs(target - lastTarget) > 0.001) { lastTarget = target; idleSince = now; }
+    const L = still ? null : LOOPS.find((l) => Math.abs(cur - l.at) < 40); if (L) ask(L);
+    const rest = L && L.got === L.n && Math.abs(target - L.at) < 0.03 && Math.abs(cur - L.at) < 0.03 && now - idleSince > 140;
+    // it starts on the resting frame itself, so it can come in at once; leaving, it fades back into the film
+    if (rest && !live) { live = L; liveStart = now; liveA = 1; }
+    if (live && !(rest && live === L)) { liveA -= dt / 240; if (liveA <= 0) { live = null; liveA = 0; draw(true); } }
   }
 
   // ---- the words: each beat fades and rises in its own stretch of the film
@@ -67,7 +98,7 @@
     const p = scroll(); target = p * (N - 1);
     // desktop: the smooth scroller already eases, so the film follows it exactly (one motion, not two layered)
     cur += (target - cur) * (still || glider ? 1 : 0.22); if (Math.abs(target - cur) < 0.01) cur = target;
-    draw(false); paint(p);
+    loops(performance.now()); draw(false); paint(p);
     for (const { el, r } of beats) { const lin = r[0] <= 0 && p < r[1] ? clamp((r[1] - p) / 0.035) : r[1] > 1 ? clamp((p - r[0]) / 0.035) : fade(p, r), o = lin * lin * (3 - 2 * lin);
       el.style.opacity = o.toFixed(3); el.style.setProperty("--y", ((1 - o) * 26).toFixed(1)); el.classList.toggle("on", o > 0.5); }
     for (const { el, r } of counts) { const [from, to, a, b] = r; el.textContent = Math.round(from + (to - from) * clamp((p - a) / (b - a))); }
@@ -132,7 +163,7 @@
 
   // phones: one flick, one scene. Invisible resting points at the middle of each scene; the browser's own snapping
   // glides there (proximity, so it never fights a long scroll, and the reading section below scrolls freely)
-  const snaps = phone && !still ? [0, ...beats.slice(1).map(({ r }) => (r[0] + Math.min(1, r[1])) / 2 + (r[1] > 1 ? 0.08 : 0))].map((q) => { const d = document.createElement("i"); d.className = "snap"; d.dataset.q = Math.min(1, q); film.append(d); return d; }) : [];
+  const snaps = phone && !still ? [0, ...beats.slice(1).map(({ r }) => (r[0] + Math.min(1, r[1])) / 2 + (r[1] > 1 ? 0.08 : 0))].map((q) => Math.round(Math.min(1, q) * (N - 1)) / (N - 1)).map((q) => { const d = document.createElement("i"); d.className = "snap"; d.dataset.q = Math.min(1, q); film.append(d); return d; }) : [];
   const learn = document.querySelector(".read"), learnTop = () => (learn ? learn.offsetTop : Infinity);
   function placeSnaps() { const span = film.offsetHeight - innerHeight; for (const d of snaps) d.style.top = Math.round(Number(d.dataset.q) * span) + "px"; }
   if (snaps.length) { root.classList.add("snapping"); placeSnaps(); }

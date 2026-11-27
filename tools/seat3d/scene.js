@@ -74,8 +74,10 @@ async function makeBand() {
   g.fillStyle = "#f4f1ea"; g.textBaseline = "middle"; g.font = "800 250px serif"; const serifW = g.measureText("SELF-CUSTODY").width; g.font = '800 250px "ITB"';
   if (Math.abs(g.measureText("SELF-CUSTODY").width - serifW) < 1) throw new Error("band font not loaded");
   const phrase = "SELF-CUSTODY  ✦  WITH A SEATBELT  ✦  ";
-  let x = 0; const w = g.measureText(phrase).width; while (x < c.width) { g.fillText(phrase, x, 204); x += w; }
-  // the phrase repeats to fill; the band's circumference is tuned so it closes cleanly
+  // exactly two phrases around the band: it closes without a seam, and sliding it by one phrase looks the same
+  // (so the resting loop can keep the band turning and still repeat seamlessly)
+  const fs = 250 * (c.width / 2) / g.measureText(phrase).width; g.font = `800 ${fs.toFixed(2)}px "ITB"`; const w = c.width / 2;
+  g.fillText(phrase, 0, 204); g.fillText(phrase, w, 204);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 16; t.wrapS = THREE.RepeatWrapping; t.repeat.x = (w * Math.floor(c.width / w)) / c.width >= 0.9 ? 1 : 1;
   const mat = new THREE.MeshStandardMaterial({ map: t, transparent: true, side: THREE.DoubleSide, roughness: 0.6, metalness: 0, emissive: 0xf4f1ea, emissiveMap: t, emissiveIntensity: 0.55, depthWrite: false });
   band = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 2.3, 0.34, 200, 1, true), mat);
@@ -159,6 +161,8 @@ function margin() {
 
 // the coin's face texture sits a quarter-turn off on the cylinder cap: this turns every logo upright
 const LOGO_UP = Number(new URLSearchParams(location.search).get("up") ?? Math.PI / 2);
+// which way the band's text slides in the resting loop (matched to its turning in the film)
+const REST_DIR = Number(new URLSearchParams(location.search).get("rd") ?? -1);
 
 // keyframes: [[t, value], ...] eased between neighbours, held before the first and after the last
 const kf = (t, keys) => { if (t <= keys[0][0]) return keys[0][1]; for (let i = 1; i < keys.length; i++) if (t <= keys[i][0]) { const [a, va] = keys[i - 1], [b, vb] = keys[i]; return mix(va, vb, ease((t - a) / (b - a))); } return keys[keys.length - 1][1]; };
@@ -166,6 +170,17 @@ const kf = (t, keys) => { if (t <= keys[0][0]) return keys[0][1]; for (let i = 1
 window.seat = {
   margin(t) { this.pose(t); return margin(); },
   frame(t) { this.pose(t); renderer.render(scene, camera); return renderer.domElement.toDataURL("image/png"); },
+  // a resting scene that stays alive: the pose at t, plus motions that are all zero at u = 0 and repeat at u = 1,
+  // so the loop starts on exactly the film's resting frame and plays round without a seam
+  rest(t, u) {
+    this.pose(t); const P = Math.PI * 2, w = (ph) => Math.sin(P * (u + ph)) - Math.sin(P * ph);
+    tile.position.y += 0.03 * w(0); tile.rotation.y += 0.045 * w(0.3);
+    coins.forEach((c, i) => { const ph = i / coins.length; c.position.y += 0.1 * w(ph); c.rotation.y += 0.48 * w(ph + 0.25); c.rotation.x += 0.13 * w(ph + 0.5); });
+    // the band slides round by one phrase per loop, the way it was already turning
+    if (band?.visible) band.material.map.offset.x = REST_DIR * 0.5 * u;
+  },
+  restFrame(t, u) { this.rest(t, u); renderer.render(scene, camera); return renderer.domElement.toDataURL("image/png"); },
+  restMargin(t, u) { this.rest(t, u); return margin(); },
   // the film, in six scenes: Ecrin (loose coins) · Wait (they rush in and freeze) · Cancel (the band, coins in slots)
   // · Sleep on it (moon, coins at rest) · The lock (a dial closes, coins on it, iced) · Every coin (a row of networks)
   pose(t) {
@@ -201,6 +216,7 @@ window.seat = {
     });
 
     if (band) {
+      band.material.map.offset.x = 0;
       const inB = ease(seg(t, 0.28, 0.34)), outB = ease(seg(t, 0.43, 0.47)), v = inB * (1 - outB);
       band.visible = v > 0.01; band.material.opacity = v;
       band.scale.set(mix(1.25, 1, inB), 1, mix(1.25, 1, inB));
