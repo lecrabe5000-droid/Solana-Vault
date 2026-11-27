@@ -2,7 +2,7 @@
 
 *Where your crypto is kept.*
 
-Ecrin is a Solana wallet vault and on-chain protocol with a built-in **cooldown**: every way out of your savings takes time, so no impulse, scam or bad night can empty it. It's built first for people fighting gambling urges, and it protects anyone who wants their crypto to stay put.
+Ecrin is a self-custody wallet and on-chain protocol with a built-in **cooldown**: every way out of your savings takes time, so no impulse, scam or bad night can empty it. It's built first for people fighting gambling urges, and it protects anyone who wants their crypto to stay put.
 
 Crypto puts a casino one tap away. DNS blockers are switched off in a minute, staking unstakes in hours, and liquid staking tokens sell instantly. Ecrin moves the protection on-chain, where no app, wallet or setting can skip it.
 
@@ -93,14 +93,16 @@ USDC can be frozen by its issuer (Circle). Ecrin protects it from anyone holding
 
 ## Status
 
-Early prototype. SOL, ETH, POL and USDC on test networks. **Not audited: do not put real funds in it.** Mainnet only after an independent security audit, with deposit caps at first and the upgrade authority removed afterwards.
+**Early access on mainnet, not audited yet.** The Safe is live on 8 mainnets: Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche and Sui. The wallet sends, receives and swaps on 13 networks. Solana's Safe runs on devnet; mainnet follows the audit.
+
+Not audited: keep amounts small until an independent audit is done and its report is public. The Ethereum-style contract has no upgrade path; the Solana and Sui upgrade keys and every deposit brake move to multisigs (see `docs/security/admin-keys.md`), then the upgrade keys are removed.
 
 ## Roadmap
 
-1. Devnet program + integration tests (`anchor test`)
-2. Web app: connect wallet, pick a preset, deposit, countdown with cancel, guardian invite
-3. USDC on Solana and on Ethereum-style networks (done on testnets)
-4. Test with 10 to 20 people in recovery and their families
-5. Audit, then mainnet with caps
+1. Done: on-chain Safe on Solana (devnet), 7 EVM mainnets and Sui mainnet, with USDC
+2. Done: wallet on the Chrome Web Store and on phones, swaps across networks, alerts
+3. Next: independent security audit of each chain's code, public report, then a paid bug bounty
+4. Next: iPhone and Android apps, the Safe on Solana mainnet
+5. Later: staking inside the Safe on mainnet, keeping every delay
 
 If gambling is hurting you right now, talking to someone helps. Search for your country's gambling helpline; most are free and confidential.
