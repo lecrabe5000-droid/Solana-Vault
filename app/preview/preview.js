@@ -10,7 +10,7 @@
 
   // ---- smooth, weighted scrolling on desktop ----
   let lenis = null;
-  if (!still && fine && globalThis.Lenis) { lenis = new Lenis({ lerp: 0.085, wheelMultiplier: 0.9 }); const raf = (t) => { lenis.raf(t); requestAnimationFrame(raf); }; requestAnimationFrame(raf); }
+  if (!still && fine && globalThis.Lenis) { lenis = new Lenis({ lerp: 0.1, wheelMultiplier: 1, syncTouch: false }); const raf = (t) => { lenis.raf(t); requestAnimationFrame(raf); }; requestAnimationFrame(raf); }
   const scrollToY = (y) => (lenis ? lenis.scrollTo(y, { duration: 1.2 }) : scrollTo({ top: y, behavior: still ? "auto" : "smooth" }));
   document.querySelectorAll('a[href^="#"]').forEach((a) => a.addEventListener("click", (e) => { const t = document.querySelector(a.getAttribute("href")); if (t) { e.preventDefault(); scrollToY(t.getBoundingClientRect().top + scrollY); } }));
 
@@ -42,8 +42,8 @@
   const rrect = (x, y, w, h, r) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r); ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h); ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r); ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath(); };
   const labels = ["block #21,404,118", "tx 0x9c4e…a1f2 · queued", "withdraw 24.00 SOL · 71:59:48", "block #21,404,119", "approve(0x7d1b…) · blocked", "tx 0x41f2…9be0 · confirmed"];
   let heroP = -1, introP = 0;
-  function drawHero() {
-    if (!ctx) return; const r = hero.getBoundingClientRect(), span = r.height - innerHeight; const p = still ? 1 : LITE ? introP : clamp(-r.top / span);
+  function drawHero(hr) {
+    if (!ctx) return; const r = hr || hero.getBoundingClientRect(), span = r.height - innerHeight; const p = still ? 1 : LITE ? introP : clamp(-r.top / span);
     if (Math.abs(p - heroP) < 0.0005 && heroP >= 0) return; heroP = p;
     const k = ease(clamp(p / 0.42));                 // the network gathers
     const m = ease(clamp((p - 0.3) / 0.22));         // the mark is drawn, crisp
@@ -83,7 +83,7 @@
   const D = { num: document.querySelector("[data-dnum]"), tot: document.querySelector("[data-dtot]"), tag: document.querySelector("[data-dtag]"), title: document.querySelector("[data-dtitle]"), line: document.querySelector("[data-dline]"), box: document.querySelector(".ex-desc") };
   const TAG = { protect: "Protection", wallet: "Wallet", trust: "Trust" };
   let list = all.slice(), offset = 0, shownDesc = null, hoverEl = null; const progressEl = document.querySelector("[data-exprog]");
-  const PER = () => (innerWidth < 860 ? 1.05 : 1.1) * innerHeight;
+  const PER = () => (innerWidth < 860 ? 1.05 : 0.85) * innerHeight; // scroll per subject: each one rests, then glides on
   const VH = () => (LITE ? (sizeEx.vh ||= innerHeight) : innerHeight);
   const sizeEx = () => { ex.style.height = `${VH() + (list.length - 1) * (LITE ? 1.05 * VH() : PER())}px`; };
   const desc = (el) => { if (!el || el === shownDesc) return; shownDesc = el; const i = list.indexOf(el);
@@ -99,8 +99,8 @@
   };
   let exTarget = 0, exAnim = 0;
   const hold = (raw) => { const i = Math.floor(raw), f = raw - i; const g = f < 0.3 ? 0 : f > 0.7 ? 1 : ease((f - 0.3) / 0.4); return i + g; }; // each subject rests, then glides on
-  const exStep = () => { exAnim = 0; offset += (exTarget - offset) * (still ? 1 : LITE ? 0.18 : 0.1); if (Math.abs(exTarget - offset) < 0.0008) offset = exTarget; else exAnim = requestAnimationFrame(exStep); layoutRow(); };
-  const exFrame = () => { const r = ex.getBoundingClientRect(); const p = clamp(-r.top / Math.max(1, r.height - innerHeight)); exTarget = hold(p * (list.length - 1)); if (!exAnim) exAnim = requestAnimationFrame(exStep); };
+  const exStep = () => { exAnim = 0; offset += (exTarget - offset) * (still || lenis ? 1 : LITE ? 0.18 : 0.25); if (Math.abs(exTarget - offset) < 0.0008) offset = exTarget; else exAnim = requestAnimationFrame(exStep); layoutRow(); };
+  const exFrame = (er) => { const r = er || ex.getBoundingClientRect(); const p = clamp(-r.top / Math.max(1, r.height - innerHeight)); exTarget = hold(p * (list.length - 1)); if (!exAnim) exAnim = requestAnimationFrame(exStep); };
   all.forEach((el) => { el.addEventListener("pointerenter", () => { if (!fine) return; hoverEl = el; desc(el); }); el.addEventListener("pointerleave", () => { hoverEl = null; layoutRow(); }); });
   document.querySelectorAll(".tabs [data-f]").forEach((b) => b.addEventListener("click", () => {
     document.querySelectorAll(".tabs [data-f]").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
@@ -120,11 +120,28 @@
 
   // ---- blocks below rise with the scroll ----
   const rise = [...document.querySelectorAll("[data-s]")];
-  const riseFrame = () => rise.forEach((el) => { const r = el.getBoundingClientRect(); el.style.setProperty("--o", String(still ? 1 : clamp((innerHeight - r.top) / (innerHeight * 0.35)))); });
+  const riseFrame = (tops) => rise.forEach((el, i) => { const r = { top: tops ? tops[i] : el.getBoundingClientRect().top }; el.style.setProperty("--o", String(still ? 1 : clamp((innerHeight - r.top) / (innerHeight * 0.35)))); });
 
   // ---- one loop for everything scroll-driven ----
   let ticking = false;
-  const frame = () => { ticking = false; if (LITE) return; drawHero(); exFrame(); riseFrame(); };
+  const frame = () => { ticking = false; if (LITE) return;
+    const hr = hero.getBoundingClientRect(), er = ex.getBoundingClientRect(), tops = rise.map((el) => el.getBoundingClientRect().top);
+    drawHero(hr); exFrame(er); riseFrame(tops); settleSoon(); };
+  // ---- the row never stops between two subjects: when the scroll comes to rest mid-glide, it settles on the nearest one
+  const restY = (i) => { const r = ex.getBoundingClientRect(), span = Math.max(1, r.height - innerHeight); return r.top + scrollY + (list.length > 1 ? (i / (list.length - 1)) * span : 0); };
+  const pinned = () => { const r = ex.getBoundingClientRect(); return r.top <= 1 && r.bottom >= innerHeight - 1; };
+  const rawNow = () => { const r = ex.getBoundingClientRect(); return clamp(-r.top / Math.max(1, r.height - innerHeight)) * (list.length - 1); };
+  let settleT = 0;
+  const settle = () => { if (!lenis || !viewer.hidden || !pinned()) return; const raw = rawNow(), f = raw - Math.floor(raw);
+    if (f > 0.3 && f < 0.7) lenis.scrollTo(restY(Math.round(raw)), { duration: 0.8, easing: ease }); };
+  const settleSoon = () => { clearTimeout(settleT); settleT = setTimeout(settle, 160); };
+  // keyboard: arrows, Page Up/Down and space step one subject at a time while the row is on screen
+  addEventListener("keydown", (e) => {
+    if (LITE || !viewer.hidden || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || /input|textarea|select/i.test(e.target.tagName)) return;
+    const dir = { ArrowDown: 1, PageDown: 1, " ": e.shiftKey ? -1 : 1, ArrowUp: -1, PageUp: -1 }[e.key]; if (!dir || !pinned()) return;
+    const next = Math.round(rawNow()) + dir; if (next < 0 || next > list.length - 1) return; // past the ends: the page scrolls on as usual
+    e.preventDefault(); scrollToY(restY(next));
+  });
   if (LITE) { // phones: the logo draws itself once; blocks fade in as they arrive; nothing recalculates while you scroll
     const t0 = performance.now(), D0 = 1700; const intro = (t) => { introP = still ? 1 : Math.min(1, (t - t0) / D0); heroP = -1; drawHero(); if (introP < 1) requestAnimationFrame(intro); }; requestAnimationFrame(intro);
     const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.style.setProperty("--o", "1"); io.unobserve(e.target); } }), { rootMargin: "0px 0px -6% 0px" });
