@@ -34,7 +34,7 @@
 
   // ---- drawing: between two frames, blended, so slow scrolling stays smooth
   let cur = 0, target = 0, size = 0, dpr = 1, drawn = -1;
-  const resize = () => { dpr = Math.min(2, devicePixelRatio || 1); size = Math.round(phone ? Math.min(innerWidth * 1.16, innerHeight * 0.68) : Math.min(innerHeight * 1.08, innerWidth * 0.68)); cv.style.setProperty("--cv", size + "px"); cv.width = cv.height = Math.round(size * dpr); drawn = -1; draw(true); };
+  const resize = () => { dpr = Math.min(2, devicePixelRatio || 1); size = Math.round(phone ? Math.min(innerWidth * 1.04, innerHeight * 0.64) : Math.min(innerHeight * 1.08, innerWidth * 0.68)); cv.style.setProperty("--cv", size + "px"); cv.width = cv.height = Math.round(size * dpr); drawn = -1; draw(true); };
   function pick(i) { return hi[i] || lo[i]; }
   function draw(force) {
     const f = clamp(cur, 0, N - 1), i = Math.floor(f), k = f - i, key = Math.round(f * 20);
