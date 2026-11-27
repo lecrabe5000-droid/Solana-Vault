@@ -11,7 +11,7 @@
 
   // ---- frames: the light set first (everything playable fast), then the sharp set, nearest the current frame first
   const lo = new Array(N), hi = new Array(N);
-  const load = (set, dir, i) => new Promise((res) => { const im = new Image(); im.decoding = "async"; im.onload = () => { set[i] = im; res(); if (Math.abs(i - Math.round(cur)) < 2) draw(true); }; im.onerror = res; im.src = `/preview/seat/${dir}/f-${pad(i)}.webp`; });
+  const load = (set, dir, i) => new Promise((res) => { const im = new Image(); im.decoding = "async"; im.onload = () => { set[i] = im; res(); if (Math.abs(i - Math.round(cur)) < 2) draw(true); }; im.onerror = res; im.src = `/preview/seat/${dir}/f-${pad(i)}.webp?v=2`; });
   const queue = async (set, dir, order, par = 6) => { let k = 0; await Promise.all(Array.from({ length: par }, async () => { while (k < order.length) await load(set, dir, order[k++]); })); };
   const around = (c) => Array.from({ length: N }, (_, i) => i).sort((a, b) => Math.abs(a - c) - Math.abs(b - c));
   const wantHi = !phone || (devicePixelRatio || 1) > 1.5;
@@ -34,7 +34,7 @@
 
   // ---- drawing: between two frames, blended, so slow scrolling stays smooth
   let cur = 0, target = 0, size = 0, dpr = 1, drawn = -1;
-  const resize = () => { dpr = Math.min(2, devicePixelRatio || 1); size = Math.round(phone ? Math.min(innerWidth * 1.08, innerHeight * 0.62) : Math.min(innerHeight * 0.96, innerWidth * 0.6)); cv.style.setProperty("--cv", size + "px"); cv.width = cv.height = Math.round(size * dpr); drawn = -1; draw(true); };
+  const resize = () => { dpr = Math.min(2, devicePixelRatio || 1); size = Math.round(phone ? Math.min(innerWidth * 1.16, innerHeight * 0.68) : Math.min(innerHeight * 1.08, innerWidth * 0.68)); cv.style.setProperty("--cv", size + "px"); cv.width = cv.height = Math.round(size * dpr); drawn = -1; draw(true); };
   function pick(i) { return hi[i] || lo[i]; }
   function draw(force) {
     const f = clamp(cur, 0, N - 1), i = Math.floor(f), k = f - i, key = Math.round(f * 20);

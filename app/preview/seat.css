@@ -25,7 +25,10 @@ html, body, .nav { transition: background-color .25s linear, color .25s linear; 
 /* ---- the film ---- */
 .film { position: relative; height: 640vh; }
 .stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; display: grid; place-items: center; }
-.stage canvas { position: absolute; left: calc(50% + var(--cx, 0px)); top: 50%; translate: -50% -50%; width: var(--cv); height: var(--cv); pointer-events: none; }
+.stage canvas { position: absolute; left: calc(50% + var(--cx, 0px)); top: 50%; translate: -50% -50%; width: var(--cv); height: var(--cv); pointer-events: none;
+  /* the frame's edges fade out (shadows melt into the page); every object stays well inside this fade, checked at render */
+  -webkit-mask: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent), linear-gradient(transparent, #000 7%, #000 93%, transparent); -webkit-mask-composite: source-in;
+  mask: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent), linear-gradient(transparent, #000 7%, #000 93%, transparent); mask-composite: intersect; }
 .giant { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
 .giant span { font-weight: 800; font-size: clamp(120px, 27vw, 460px); line-height: .8; letter-spacing: -.055em; color: var(--giant); white-space: nowrap; translate: 0 calc(var(--gy, 0) * 1px); transition: color .25s linear; }
 

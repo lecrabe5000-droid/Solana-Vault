@@ -25,7 +25,7 @@ soft(8, 4, 0, 2, -9, 0, 0, 3, [0.45, 0.58, 1]);        // cool back light
 const pmrem = new THREE.PMREMGenerator(renderer);
 const scene = new THREE.Scene(); scene.environment = pmrem.fromScene(studio, 0.03).texture;
 
-const camera = new THREE.PerspectiveCamera(26, 1, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
 const key = new THREE.DirectionalLight(0xffffff, 1.5); key.position.set(3, 8, 6); key.castShadow = true;
 key.shadow.mapSize.set(2048, 2048); key.shadow.radius = 22; key.shadow.bias = -0.0005; Object.assign(key.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6 }); scene.add(key);
 const rimL = new THREE.DirectionalLight(0xa9bbff, 1.1); rimL.position.set(-5, 2, -4); scene.add(rimL);
@@ -90,16 +90,33 @@ function placeCoins() {
   const n = coins.length;
   coins.forEach((c, i) => {
     // loose: spread around the tile, inside the frame, at different depths (a few close to the lens)
-    const a = (i / n) * Math.PI * 2 + 0.5, r0 = 1.9 + ((i * 7) % 3) * 0.32;
-    c.userData.loose = [Math.cos(a) * r0 * 1.1, Math.sin(a) * r0 * 0.78 + 0.35, -1.6 + ((i * 37) % 5) * 0.9];
+    const a = (i / n) * Math.PI * 2 + 0.5, r0 = 1.85 + ((i * 7) % 3) * 0.22;
+    c.userData.loose = [Math.cos(a) * r0 * 1.12, Math.sin(a) * r0 * 0.8 + 0.35, -1.6 + ((i * 37) % 5) * 0.6];
     c.userData.orbit = (i / n) * Math.PI * 2;
     c.userData.row = [(i - (n - 1) / 2) * 0.57, -1.62, 0.9];
     c.userData.spin = [((i * 53) % 7) / 7 - 0.5, ((i * 31) % 5) / 5 - 0.5];
   });
 }
 
+// How close anything visible comes to the edge of the frame: 1 = at the centre, 0 = touching the edge, < 0 = cut off.
+// The render refuses to write frames until every one of them keeps a margin (see render.cjs).
+const box = new THREE.Box3(), v3 = new THREE.Vector3();
+function margin() {
+  camera.updateMatrixWorld(); let worst = 1, who = "";
+  const check = (obj, name) => { box.setFromObject(obj); if (box.isEmpty()) return;
+    for (let i = 0; i < 8; i++) { v3.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z).project(camera);
+      const m = 1 - Math.max(Math.abs(v3.x), Math.abs(v3.y)); if (m < worst) { worst = m; who = name; } } };
+  check(tile, "tile"); coins.forEach((c, i) => check(c, "coin " + i));
+  if (band?.visible && band.material.opacity > 0.05) { band.updateMatrixWorld(); // the ring itself, sampled (its box corners lie outside it)
+    for (let k = 0; k < 96; k++) for (const y of [-0.21, 0.21]) { const a = (k / 96) * Math.PI * 2; v3.set(Math.cos(a) * 2.05, y, Math.sin(a) * 2.05).applyMatrix4(band.matrixWorld).project(camera);
+      const m = 1 - Math.max(Math.abs(v3.x), Math.abs(v3.y)); if (m < worst) { worst = m; who = "band"; } } }
+  return { worst, who };
+}
+
 window.seat = {
-  frame(t) {
+  margin(t) { this.pose(t); return margin(); },
+  frame(t) { this.pose(t); renderer.render(scene, camera); return renderer.domElement.toDataURL("image/png"); },
+  pose(t) {
     // --- the tile: three-quarter view, turns to face us as the coins arrive, turns again for the band
     const turn = mix(-0.62, 0, ease(seg(t, 0.12, 0.42))) + mix(0, 0.42, ease(seg(t, 0.5, 0.72))) + mix(0, -0.42, ease(seg(t, 0.78, 0.97)));
     const lift = Math.sin(t * Math.PI * 3) * 0.04;
@@ -110,7 +127,7 @@ window.seat = {
     const pull = out(seg(t, 0.14, 0.4)), freeze = ease(seg(t, 0.36, 0.46)), toRow = ease(seg(t, 0.74, 0.96));
     coins.forEach((c) => {
       const u = c.userData, oa = u.orbit + (1 - freeze) * (1 - pull) * 1.2 + t * 0.6 * (1 - freeze); // slows to a stop as it freezes
-      const orbit = [Math.cos(oa) * 2.45, Math.sin(oa) * 0.95 + 0.3, Math.sin(oa) * 1.5];
+      const orbit = [Math.cos(oa) * 2.02, Math.sin(oa) * 0.8 + 0.3, Math.sin(oa) * 1.0];
       const drift = [Math.sin(t * 6 + u.orbit) * 0.12, Math.cos(t * 5 + u.orbit) * 0.1, 0];
       let p = u.loose.map((v, k) => mix(v + drift[k], orbit[k], pull)); p = p.map((v, k) => mix(v, u.row[k], toRow));
       c.position.set(...p);
@@ -132,8 +149,6 @@ window.seat = {
     // --- camera: a slow push in, a little rise at the end
     const z = mix(13.2, 11.4, ease(seg(t, 0, 0.5))) + mix(0, 1.6, ease(seg(t, 0.72, 1)));
     camera.position.set(mix(0.4, 0, seg(t, 0, 0.4)), mix(0.9, 1.4, seg(t, 0.6, 1)), z); camera.lookAt(0, mix(0.1, -0.15, seg(t, 0.72, 1)), 0);
-    renderer.render(scene, camera);
-    return renderer.domElement.toDataURL("image/png");
   },
 };
 

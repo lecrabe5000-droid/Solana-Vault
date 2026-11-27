@@ -19,6 +19,13 @@ fs.mkdirSync(tmp, { recursive: true });
   p.on('pageerror', (e) => console.log('pageerror', e.message)); p.on('console', (m) => m.type() === 'error' && console.log('console', m.text()));
   await p.goto('file://' + path.join(tmp, 'index.html') + `?s=${S}`); await p.waitForFunction(() => window.seatReady, null, { timeout: 90000 });
   const shot = async (t, file) => { const url = await p.evaluate((x) => window.seat.frame(x), t); fs.writeFileSync(file, Buffer.from(url.split(',')[1], 'base64')); };
+  // Nothing may touch the edge of the frame: every coin, the band and the tile keep a margin in all frames.
+  const MIN = Number(process.env.MARGIN || 0.08); let worst = { worst: 1 }; const bad = [];
+  for (let i = 0; i < N; i++) { const m = await p.evaluate((x) => window.seat.margin(x), i / (N - 1)); if (m.worst < worst.worst) worst = { ...m, i }; if (process.env.CHECK && m.worst < MIN) bad.push(`${i}:${m.who}:${(m.worst * 100).toFixed(0)}`); }
+  if (process.env.CHECK) console.log('under the margin:', bad.join(' ') || 'none');
+  console.log(`closest to the edge: ${worst.who} at frame ${worst.i} (margin ${(worst.worst * 100).toFixed(1)}%)`);
+  if (process.env.CHECK) { await b.close(); return; }
+  if (worst.worst < MIN) { console.error(`refused: ${worst.who} comes within ${(worst.worst * 100).toFixed(1)}% of the edge (need ${MIN * 100}%)`); process.exitCode = 1; await b.close(); return; }
   if (process.env.TEST) {
     for (const t of process.env.TEST.split(',').map(Number)) await shot(t, path.join(tmp, `test-${t}.png`));
     console.log('test frames in', tmp); await b.close(); return;
