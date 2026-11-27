@@ -47,6 +47,16 @@ jobs:
         working-directory: sui
         run: sui move test
 
+      - uses: actions/setup-node@v4
+        if: ${{ inputs.publish || inputs.live }}
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: extension/package-lock.json
+      - name: Wallet code (pays the publish gas from a coin, and runs the live test)
+        if: ${{ inputs.publish || inputs.live }}
+        working-directory: extension
+        run: npm ci --no-audit --no-fund
       - name: Publish to Sui ${{ inputs.network }}
         if: ${{ inputs.publish }}
         working-directory: sui
@@ -80,7 +90,19 @@ jobs:
           echo "Balance: $bal"
           total=$(echo "$bal" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).data?.address?.balance?.totalBalance||0))')
           if [ "$total" -lt 300000000 ]; then echo "::error::The deployer $addr holds $total MIST; it needs about 0.3 SUI on $NET."; exit 1; fi
-          sui client publish --gas-budget 300000000 --json > /tmp/pub.json
+          # The CLI pays gas with coin objects. When the SUI sits in the address balance, the wallet's own code sends
+          # 0.4 SUI from it to this same address, which arrives as a coin.
+          coins=$(echo "$bal" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).data?.address?.balance?.coinBalance||0))')
+          if [ "$coins" -lt 300000000 ]; then
+            (cd ../extension && node --input-type=module -e '
+              import { bech32 } from "@scure/base"; import { suiEngine, SUI, SUI_MAIN } from "./src/sui.js";
+              const { bytes } = bech32.decodeToBytes(process.env.KEY.trim()), net = process.env.NET;
+              const N = net === "mainnet" ? SUI_MAIN : SUI, api = `https://graphql.${net}.sui.io/graphql`;
+              const e = suiEngine({ acct: { sui: bytes.slice(1, 33) }, dev: { suiApi: api }, N });
+              console.log("Gas coin:", await e.send("native", e.address, 400_000_000));')
+            sleep 5
+          fi
+          if ! sui client publish --gas-budget 300000000 --json > /tmp/pub.json; then cat /tmp/pub.json; exit 1; fi
           node - <<'JS'
           const fs = require("fs"), r = JSON.parse(fs.readFileSync("/tmp/pub.json", "utf8")), net = process.env.NET;
           if (r.effects?.status?.status !== "success") { console.error(JSON.stringify(r.effects?.status)); process.exit(1); }
@@ -108,12 +130,6 @@ jobs:
           git add app/deployments-sui.js
           git diff --cached --quiet || { git commit -m "Sui Safe published on ${{ inputs.network }}"; git pull --rebase origin main && git push; }
 
-      - uses: actions/setup-node@v4
-        if: ${{ inputs.live }}
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: extension/package-lock.json
       - name: The wallet's Safe flow on Sui Testnet
         if: ${{ inputs.live }}
         working-directory: extension
@@ -121,5 +137,4 @@ jobs:
           SUI_TEST_KEY: ${{ secrets.SUI_DEPLOYER_KEY }}
         run: |
           git pull -q origin main || true
-          npm ci --no-audit --no-fund
           node test/sui-safe.live.mjs
