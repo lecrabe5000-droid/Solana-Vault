@@ -1,7 +1,7 @@
 name: sui-safe
 # Builds and tests the Sui Safe (sui/), and on request publishes it to Sui Testnet or Sui mainnet.
 # Testnet publishing uses the SUI_DEPLOYER_KEY secret (a TESTNET-ONLY key). Mainnet publishing uses its own secret,
-# SUI_MAINNET_DEPLOYER_KEY (suiprivkey..., the "Sui" line of Ecrin's Export private key), holding about 0.3 SUI or more.
+# SUI_MAINNET_DEPLOYER_KEY (suiprivkey..., the "Sui" line of Ecrin's Export private key), holding about 0.35 SUI or more (the publish costs about 0.18 SUI there).
 on:
   push:
     paths: ["sui/**", ".github/workflows/sui.yml"]
@@ -90,7 +90,7 @@ jobs:
           echo "Balance: $bal"
           total=$(echo "$bal" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).data?.address?.balance?.totalBalance||0))')
           # Testnet gas costs ten times mainnet's (reference price 1000 vs 100), so a publish there needs more SUI.
-          need=$([ "$NET" = mainnet ] && echo 650000000 || echo 1500000000)
+          need=$([ "$NET" = mainnet ] && echo 350000000 || echo 1500000000)
           if [ "$total" -lt "$need" ]; then echo "::error::The deployer $addr holds $total MIST; it needs at least $need MIST on $NET."; exit 1; fi
           # The CLI pays gas with coin objects. When SUI sits in the address balance, the wallet's own code sends that
           # part (less a little for the send's own fee) to this same address, where it arrives as one coin.
