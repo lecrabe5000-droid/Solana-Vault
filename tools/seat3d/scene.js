@@ -82,6 +82,40 @@ async function makeBand() {
   band.renderOrder = 2; scene.add(band);
 }
 
+// ---- the night: a crescent moon (a glowing sprite) and faint stars ----
+const moon = (() => {
+  const c = document.createElement("canvas"); c.width = c.height = 1024; const g = c.getContext("2d");
+  const glow = g.createRadialGradient(512, 512, 120, 512, 512, 500); glow.addColorStop(0, "rgba(255,214,150,.55)"); glow.addColorStop(1, "rgba(255,190,110,0)");
+  g.fillStyle = glow; g.fillRect(0, 0, 1024, 1024);
+  // the crescent is cut on its own canvas, then laid over the glow (cutting it here would punch a hole in the glow)
+  const m2 = document.createElement("canvas"); m2.width = m2.height = 1024; const h = m2.getContext("2d");
+  h.fillStyle = "#fff1d6"; h.beginPath(); h.arc(512, 512, 200, 0, Math.PI * 2); h.fill();
+  h.globalCompositeOperation = "destination-out"; h.beginPath(); h.arc(598, 448, 178, 0, Math.PI * 2); h.fill();
+  g.drawImage(m2, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, toneMapped: false }));
+  m.visible = false; scene.add(m); return m;
+})();
+const stars = (() => {
+  const pts = []; let sd = 11; const r = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < 90; i++) pts.push((r() - 0.5) * 7, -0.3 + r() * 3.6, -4.5);
+  const gm = new THREE.BufferGeometry(); gm.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+  const p = new THREE.Points(gm, new THREE.PointsMaterial({ color: 0xfff3dc, size: 0.035, transparent: true, depthWrite: false, toneMapped: false }));
+  p.visible = false; scene.add(p); return p;
+})();
+// ---- the lock: a graphite dial ring with fine ticks and an Ecrin-blue index ----
+const dialG = (() => {
+  const g = new THREE.Group(), metal = { metalness: 1, roughness: 0.24, transparent: true };
+  g.add(new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.045, 24, 220), new THREE.MeshPhysicalMaterial({ color: 0xb9c0cf, ...metal, clearcoat: 1 })));
+  g.add(new THREE.Mesh(new THREE.TorusGeometry(1.7, 0.018, 16, 220), new THREE.MeshPhysicalMaterial({ color: 0x8d95a6, ...metal })));
+  const tickM = new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.4, transparent: true });
+  for (let i = 0; i < 72; i++) { const a = (i / 72) * Math.PI * 2, big = i % 6 === 0; const m = new THREE.Mesh(new THREE.BoxGeometry(0.018, big ? 0.13 : 0.065, 0.02), tickM);
+    m.position.set(Math.cos(a) * (big ? 1.79 : 1.76), Math.sin(a) * (big ? 1.79 : 1.76), 0); m.rotation.z = a - Math.PI / 2; g.add(m); }
+  const idx = new THREE.Mesh(new THREE.OctahedronGeometry(0.07, 0), new THREE.MeshPhysicalMaterial({ color: 0x2f5bff, metalness: 0.4, roughness: 0.2, transparent: true, emissive: 0x2f5bff, emissiveIntensity: 0.5 }));
+  idx.position.set(0, 1.92, 0); g.add(idx);
+  g.visible = false; scene.add(g); return g;
+})();
+
 // ---- timeline helpers ----
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
 const seg = (t, a, b) => clamp((t - a) / (b - a));
@@ -113,7 +147,7 @@ function margin() {
   const check = (obj, name) => { box.setFromObject(obj); if (box.isEmpty()) return;
     for (let i = 0; i < 8; i++) { v3.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z).project(camera);
       const m = 1 - Math.max(Math.abs(v3.x), Math.abs(v3.y)); if (m < worst) { worst = m; who = name; } } };
-  check(tile, "tile"); coins.forEach((c, i) => check(c, "coin " + i));
+  check(tile, "tile"); coins.forEach((c, i) => check(c, "coin " + i)); if (moon.visible) check(moon, "moon"); if (dialG.visible) check(dialG, "dial");
   if (band?.visible && band.material.opacity > 0.05) { band.updateMatrixWorld(); // the ring itself, sampled (its box corners lie outside it)
     for (let k = 0; k < 96; k++) for (const y of [-0.17, 0.17]) { const a = (k / 96) * Math.PI * 2; v3.set(Math.cos(a) * 2.3, y, Math.sin(a) * 2.3).applyMatrix4(band.matrixWorld).project(camera);
       const m = 1 - Math.max(Math.abs(v3.x), Math.abs(v3.y)); if (m < worst) { worst = m; who = "band"; } } }
@@ -123,47 +157,67 @@ function margin() {
 // the coin's face texture sits a quarter-turn off on the cylinder cap: this turns every logo upright
 const LOGO_UP = Number(new URLSearchParams(location.search).get("up") ?? Math.PI / 2);
 
+// keyframes: [[t, value], ...] eased between neighbours, held before the first and after the last
+const kf = (t, keys) => { if (t <= keys[0][0]) return keys[0][1]; for (let i = 1; i < keys.length; i++) if (t <= keys[i][0]) { const [a, va] = keys[i - 1], [b, vb] = keys[i]; return mix(va, vb, ease((t - a) / (b - a))); } return keys[keys.length - 1][1]; };
+
 window.seat = {
   margin(t) { this.pose(t); return margin(); },
   frame(t) { this.pose(t); renderer.render(scene, camera); return renderer.domElement.toDataURL("image/png"); },
+  // the film, in six scenes: Ecrin (loose coins) · Wait (they rush in and freeze) · Cancel (the band, coins in slots)
+  // · Sleep on it (moon, coins at rest) · The lock (a dial closes, coins on it, iced) · Every coin (a row of networks)
   pose(t) {
-    // --- the tile: three-quarter view, turns to face us as the coins arrive, turns again for the band
-    const turn = mix(-0.62, 0, ease(seg(t, 0.12, 0.42))) + mix(0, 0.42, ease(seg(t, 0.5, 0.72))) + mix(0, -0.42, ease(seg(t, 0.78, 0.97)));
-    const lift = Math.sin(t * Math.PI * 3) * 0.04;
-    tile.rotation.set(0.06 - 0.06 * seg(t, 0.75, 1), turn, 0); tile.position.set(0, 0.28 + lift + 0.32 * ease(seg(t, 0.72, 0.95)), 0);
-    tile.userData.diamond.rotation.y = t * Math.PI * 1.5;
+    const lift = Math.sin(t * Math.PI * 5) * 0.035;
+    const turn = kf(t, [[0, -0.62], [0.07, -0.62], [0.26, 0], [0.31, 0], [0.45, 0.42], [0.5, 0], [0.58, -0.2], [0.64, 0], [0.8, 0], [0.97, -0.32]]);
+    tile.rotation.set(kf(t, [[0, 0.06], [0.8, 0.06], [1, 0]]), turn, 0);
+    tile.position.set(0, 0.28 + lift + kf(t, [[0, 0], [0.8, 0], [0.94, 0.32]]), 0);
+    tile.userData.diamond.rotation.y = t * Math.PI * 2.4;
 
-    // --- coins: loose and drifting → pulled in and frozen in an orbit → lined up as a row of networks
-    const pull = out(seg(t, 0.14, 0.4)), freeze = ease(seg(t, 0.36, 0.46)), toRow = ease(seg(t, 0.74, 0.96));
-    coins.forEach((c) => {
-      const u = c.userData, oa = u.orbit + (1 - freeze) * (1 - pull) * 1.2 + t * 0.6 * (1 - freeze); // slows to a stop as it freezes
-      const wide = ease(seg(t, 0.44, 0.54)) * (1 - ease(seg(t, 0.68, 0.76))); // the blue scene: a wide, flat ring with room to breathe
-      // in the blue scene each coin moves to its own slot: evenly spread across the width, alternating front/back and
-      // high/low, so no two overlap and none sits on the tile's face
-      const ring = [Math.cos(oa) * 2.02, Math.sin(oa) * 0.8 + 0.3, Math.sin(oa) * 1.0], sl = u.slot;
-      const orbit = ring.map((v, k) => mix(v, sl[k], wide));
-      const drift = [Math.sin(t * 6 + u.orbit) * 0.12, Math.cos(t * 5 + u.orbit) * 0.1, 0];
-      let p = u.loose.map((v, k) => mix(v + drift[k], orbit[k], pull)); p = p.map((v, k) => mix(v, u.row[k], toRow));
+    const pull = out(seg(t, 0.07, 0.24)), freeze = ease(seg(t, 0.21, 0.27));
+    const wide = ease(seg(t, 0.28, 0.34)) * (1 - ease(seg(t, 0.43, 0.48)));
+    const sleepW = ease(seg(t, 0.47, 0.55)), lockW = ease(seg(t, 0.62, 0.69)), toRow = ease(seg(t, 0.79, 0.93));
+    const dialRot = kf(t, [[0.62, -1.1], [0.71, 0.06], [0.735, 0], [1, 0]]); // turns, overshoots a hair, clicks home
+    const ice = Math.max(freeze * (1 - ease(seg(t, 0.43, 0.48))), ease(seg(t, 0.7, 0.75)) * (1 - ease(seg(t, 0.78, 0.82))));
+    const n = coins.length;
+    coins.forEach((c, i) => {
+      const u = c.userData, oa = u.orbit + (1 - freeze) * (1 - pull) * 1.2 + t * 1.1 * (1 - freeze);
+      const ring = [Math.cos(oa) * 2.02, Math.sin(oa) * 0.8 + 0.3, Math.sin(oa) * 1.0];
+      const drift = [Math.sin(t * 11 + u.orbit) * 0.12, Math.cos(t * 9 + u.orbit) * 0.1, 0];
+      // resting for the night: a low, gently sagging line under the tile, breathing slowly
+      const q = (i - (n - 1) / 2) / ((n - 1) / 2), rest = [q * 2.4, -1.5 - 0.2 * (1 - q * q) + Math.sin(t * 40 + i) * 0.025, 0.5];
+      // on the dial: like the numbers of a safe's dial, turning with it
+      const da = (i / n) * Math.PI * 2 + Math.PI / 2 + dialRot, dial = [Math.cos(da) * 1.98, Math.sin(da) * 1.98 + 0.28, -0.05];
+      let p = u.loose.map((v, k) => mix(v + drift[k], ring[k], pull));
+      p = p.map((v, k) => mix(v, u.slot[k], wide)); p = p.map((v, k) => mix(v, rest[k], sleepW));
+      p = p.map((v, k) => mix(v, dial[k], lockW)); p = p.map((v, k) => mix(v, u.row[k], toRow));
       c.position.set(...p);
       const spinning = (1 - freeze) * (1 - toRow);
-      c.rotation.set(Math.PI / 2 * mix(0.55, 1, toRow) + u.spin[0] * spinning * 2 + t * 9 * spinning, LOGO_UP + u.spin[1] * 1.4 * (1 - toRow) + t * 5 * spinning, 0);
-      const ice = freeze * (1 - seg(t, 0.7, 0.78));
+      const tilt = kf(t, [[0, 0.55], [0.47, 0.55], [0.55, 0.8], [0.62, 0.8], [0.69, 1], [1, 1]]);
+      c.rotation.set(Math.PI / 2 * tilt + u.spin[0] * spinning * 2 + t * 15 * spinning, LOGO_UP + u.spin[1] * 1.4 * (1 - Math.max(toRow, lockW, sleepW)) + t * 8 * spinning, 0);
       c.userData.frost.material.opacity = 0.7 * ice; c.userData.frost.scale.setScalar(mix(0.6, 1, ice));
-      c.scale.setScalar(mix(0.95, 0.9, pull) * mix(1, 0.64, toRow) * mix(1, 0.8, ease(seg(t, 0.44, 0.54)) * (1 - ease(seg(t, 0.72, 0.8)))));
+      c.scale.setScalar(mix(0.95, 0.9, pull) * mix(1, 0.8, wide) * mix(1, 0.72, sleepW * (1 - lockW)) * mix(1, 0.88, lockW * (1 - toRow)) * mix(1, 0.72, toRow));
     });
 
-    // --- the band: appears around the tile once the coins are held, turns, then leaves
     if (band) {
-      const inB = ease(seg(t, 0.44, 0.54)), outB = ease(seg(t, 0.72, 0.8)), v = inB * (1 - outB);
+      const inB = ease(seg(t, 0.28, 0.34)), outB = ease(seg(t, 0.43, 0.47)), v = inB * (1 - outB);
       band.visible = v > 0.01; band.material.opacity = v;
       band.scale.set(mix(1.25, 1, inB), 1, mix(1.25, 1, inB));
-      band.position.set(0, 0.28 + lift, 0); band.rotation.set(0.2, -t * Math.PI * 2.2, -0.14);
+      band.position.set(0, 0.28 + lift, 0); band.rotation.set(0.2, -(t - 0.28) * Math.PI * 4, -0.14);
     }
 
-    // --- camera: a slow push in, a little rise at the end
-    const back = ease(seg(t, 0.42, 0.52)) * (1 - ease(seg(t, 0.72, 0.84))); // the camera comes back in only after the ring has closed
-    const z = mix(13.2, 11.4, ease(seg(t, 0, 0.5))) + mix(0, 1.6, ease(seg(t, 0.72, 1))) + back * 2.3;
-    camera.position.set(mix(0.4, 0, seg(t, 0, 0.4)), mix(0.9, 1.4, seg(t, 0.6, 1)), z); camera.lookAt(0, mix(0.1, -0.15, seg(t, 0.72, 1)), 0);
+    // the night: a warm crescent rising behind the tile, faint stars
+    const night = ease(seg(t, 0.47, 0.53)) * (1 - ease(seg(t, 0.6, 0.65)));
+    moon.visible = stars.visible = night > 0.01; moon.material.opacity = night; stars.material.opacity = night * 0.9;
+    moon.position.set(1.75, kf(t, [[0.47, -0.4], [0.58, 1.6]]), -3.2);
+    stars.rotation.z = t * 0.4;
+
+    // the lock: a precision dial ring closes around the tile, turns with the coins and clicks home
+    const lockV = ease(seg(t, 0.62, 0.68)) * (1 - ease(seg(t, 0.77, 0.81)));
+    dialG.visible = lockV > 0.01; dialG.children.forEach((m) => (m.material.opacity = lockV));
+    dialG.scale.setScalar(mix(1.16, 1, ease(seg(t, 0.62, 0.69)))); dialG.rotation.z = dialRot; dialG.position.set(0, 0.28 + lift, -0.34);
+
+    const z = kf(t, [[0, 13.2], [0.25, 11.6], [0.3, 13.9], [0.46, 13.9], [0.5, 11.9], [0.61, 11.9], [0.66, 12.8], [0.78, 12.8], [0.86, 13.0], [1, 13.0]]);
+    camera.position.set(kf(t, [[0, 0.4], [0.25, 0]]), kf(t, [[0, 0.9], [0.5, 1.1], [1, 1.4]]), z);
+    camera.lookAt(0, kf(t, [[0, 0.1], [0.8, 0.1], [1, -0.15]]), 0);
   },
 };
 

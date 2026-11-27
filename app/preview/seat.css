@@ -23,7 +23,7 @@ html, body, .nav { transition: background-color .25s linear, color .25s linear; 
 .pill { padding: 10px 18px; border-radius: 999px; background: var(--ink); color: var(--bg); font-weight: 600; }
 
 /* ---- the film ---- */
-.film { position: relative; height: 640vh; }
+.film { position: relative; height: 1000vh; }
 .stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; display: grid; place-items: center; }
 .stage canvas { position: absolute; left: calc(50% + var(--cx, 0px)); top: 50%; translate: -50% -50%; width: var(--cv); height: var(--cv); pointer-events: none;
   /* the frame's edges fade out (shadows melt into the page); every object stays well inside this fade, checked at render */
@@ -53,6 +53,10 @@ html, body, .nav { transition: background-color .25s linear, color .25s linear; 
 .num span { margin-top: 14px; color: var(--soft); font-size: 15px; line-height: 1.3; }
 .b3 { left: 50%; bottom: clamp(18px, 4vh, 44px); translate: -50% calc(var(--y, 0) * 1px); text-align: center; }
 .b3 .sub { margin-inline: auto; } .b3 h2 { font-size: clamp(32px, 3.6vw, 58px); } .b3 .k { margin-bottom: 10px; } .b3 .sub { margin-top: 10px; }
+.b5.left, .b6.left { left: clamp(20px, 5vw, 72px); top: 50%; translate: 0 calc(-50% + var(--y, 0) * 1px); max-width: 450px; }
+.chip { display: inline-flex; align-items: center; gap: 10px; margin-top: 24px; padding: 10px 16px; border-radius: 999px; background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1px var(--line); color: var(--ink); text-transform: none; letter-spacing: .04em; font-size: 12.5px; }
+.chip i { width: 7px; height: 7px; border-radius: 50%; background: #ffb35c; box-shadow: 0 0 0 4px rgba(255, 179, 92, .18); }
+.b6 .chip i { background: #8fa6ff; box-shadow: 0 0 0 4px rgba(143, 166, 255, .2); }
 .b4 { left: clamp(20px, 5vw, 72px); top: clamp(96px, 14vh, 150px); max-width: 620px; }
 .stats { display: flex; gap: clamp(22px, 4vw, 56px); margin-top: 26px; }
 .stats div { display: grid; gap: 8px; } .stats b { font-size: clamp(44px, 5vw, 76px); } .stats span { color: var(--soft); font-size: 14px; }
@@ -66,11 +70,11 @@ html, body, .nav { transition: background-color .25s linear, color .25s linear; 
 /* ---- phones: the object sits high, the words below it ---- */
 @media (max-width: 860px) {
   .nav { padding: 16px 18px; } .nav nav a:not(.pill) { display: none; } .pill { padding: 9px 15px; font-size: 14px; }
-  .film { height: 560vh; }
+  .film { height: 880vh; }
   .stage canvas { top: 40%; }
   .giant { place-items: start center; padding-top: 22vh; } .giant span { font-size: 31vw; }
   .beat h1 { font-size: clamp(40px, 11.5vw, 56px); } .beat h2 { font-size: clamp(32px, 9.4vw, 46px); }
-  .b1, .b2.left, .b3, .b4 { left: 20px; right: 20px; max-width: none; top: auto; bottom: max(22px, env(safe-area-inset-bottom)); margin-top: 0; text-align: left; translate: 0 calc(var(--y, 0) * 1px); }
+  .b1, .b2.left, .b3, .b4, .b5.left, .b6.left { left: 20px; right: 20px; max-width: none; top: auto; bottom: max(22px, env(safe-area-inset-bottom)); margin-top: 0; text-align: left; translate: 0 calc(var(--y, 0) * 1px); }
   .b3 .sub { margin-inline: 0; }
   .num { margin-top: 14px; } .num b { font-size: 64px; } .num span { font-size: 13px; margin-top: 4px; }
   .b2.left { translate: 0 calc(var(--y, 0) * 1px); }
@@ -117,3 +121,11 @@ html, body, .nav { transition: background-color .25s linear, color .25s linear; 
   html.snap-on { scroll-snap-type: y mandatory; }
   html.snapping .read { scroll-snap-align: start; }
 }
+
+/* ---- the studio: a spotlight behind the tile in each scene's colour, a soft floor glow, fine film grain ---- */
+.studio { position: absolute; inset: 0; pointer-events: none; }
+.studio .spot { position: absolute; inset: -10%; background: radial-gradient(ellipse 34% 40% at calc(50% + var(--cx, 0px)) 47%, rgba(var(--spot, 255,255,255), var(--spotA, .8)) 0%, rgba(var(--spot, 255,255,255), calc(var(--spotA, .8) * .35)) 38%, transparent 72%); }
+.studio .floor { position: absolute; left: 0; right: 0; bottom: 0; height: 38%; background: radial-gradient(ellipse 55% 80% at calc(50% + var(--cx, 0px)) 100%, rgba(var(--spot, 255,255,255), calc(var(--spotA, .8) * .28)), transparent 70%); }
+.studio .grain { position: absolute; inset: 0; opacity: .07; mix-blend-mode: overlay; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+html:not(.dark) .studio .grain { opacity: .05; mix-blend-mode: multiply; }
+@media (max-width: 860px) { .studio .spot { background: radial-gradient(ellipse 60% 34% at 50% 38%, rgba(var(--spot, 255,255,255), var(--spotA, .8)) 0%, rgba(var(--spot, 255,255,255), calc(var(--spotA, .8) * .35)) 40%, transparent 75%); } .b5.left, .b6.left { top: auto; translate: 0 calc(var(--y, 0) * 1px); } .chip { margin-top: 14px; } }

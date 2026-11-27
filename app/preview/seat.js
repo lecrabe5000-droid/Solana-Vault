@@ -1,30 +1,39 @@
 // Preview landing: a film of the Ecrin Safe that plays with the scroll (frames rendered by tools/seat3d),
 // the page colour that changes behind it, and the words that come and go. Nothing plays by itself.
 (() => {
-  const N = 150, still = matchMedia("(prefers-reduced-motion: reduce)").matches, phone = matchMedia("(max-width: 860px)").matches;
+  const N = 210, still = matchMedia("(prefers-reduced-motion: reduce)").matches, phone = matchMedia("(max-width: 860px)").matches;
   const pad = (i) => String(i).padStart(3, "0");
   const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
   const film = document.querySelector("[data-film]"), cv = document.querySelector("[data-canvas]"), g = cv.getContext("2d");
   const beats = [...document.querySelectorAll("[data-beat]")].map((el) => ({ el, r: el.dataset.beat.split(",").map(Number) }));
   const counts = [...document.querySelectorAll("[data-count]")].map((el) => ({ el, r: el.dataset.count.split(",").map(Number) }));
-  const giant = document.querySelector("[data-giant]"), prog = document.querySelector("[data-prog]"), root = document.documentElement;
+  const stage = document.querySelector(".stage"), giant = document.querySelector("[data-giant]"), prog = document.querySelector("[data-prog]"), root = document.documentElement;
 
   // ---- frames: the light set first (everything playable fast), then the sharp set, nearest the current frame first
   const lo = new Array(N), hi = new Array(N);
-  const load = (set, dir, i) => new Promise((res) => { const im = new Image(); im.decoding = "async"; im.onload = () => { set[i] = im; res(); if (Math.abs(i - Math.round(cur)) < 2) draw(true); }; im.onerror = res; im.src = `/preview/seat/${dir}/f-${pad(i)}.webp?v=5`; });
+  const load = (set, dir, i) => new Promise((res) => { const im = new Image(); im.decoding = "async"; im.onload = () => { set[i] = im; res(); if (Math.abs(i - Math.round(cur)) < 2) draw(true); }; im.onerror = res; im.src = `/preview/seat/${dir}/f-${pad(i)}.webp?v=6`; });
   const queue = async (set, dir, order, par = 6) => { let k = 0; await Promise.all(Array.from({ length: par }, async () => { while (k < order.length) await load(set, dir, order[k++]); })); };
   const around = (c) => Array.from({ length: N }, (_, i) => i).sort((a, b) => Math.abs(a - c) - Math.abs(b - c));
-  const wantHi = !phone || (devicePixelRatio || 1) > 1.5;
-  (async () => { await load(lo, "lo", 0); await queue(lo, "lo", around(0).slice(1)); if (wantHi) queue(hi, "hi", around(Math.round(cur)), 4); })();
+  // desktop: every sharp frame, nearest first. Phones (sharp screens): only the sharp frames around where you are,
+  // fetched as you move, so the whole film never has to come down over mobile data
+  const near = new Set();
+  const nearby = () => { const c = Math.round(cur); for (let i = Math.max(0, c - 10); i <= Math.min(N - 1, c + 14); i++) if (!hi[i] && !near.has(i)) { near.add(i); load(hi, "hi", i); } };
+  (async () => { await load(lo, "lo", 0); await queue(lo, "lo", around(0).slice(1));
+    if (!phone) queue(hi, "hi", around(Math.round(cur)), 4); else if ((devicePixelRatio || 1) > 1.5) { nearby(); setInterval(nearby, 400); } })();
 
   // ---- the page colour through the film (light → ice → Ecrin blue → night)
-  const STOPS = [[0, [238, 240, 245]], [0.18, [228, 234, 251]], [0.44, [228, 234, 251]], [0.5, [47, 91, 255]], [0.7, [47, 91, 255]], [0.77, [11, 13, 20]], [1, [11, 13, 20]]];
-  const colourAt = (p) => { for (let i = 1; i < STOPS.length; i++) if (p <= STOPS[i][0]) { const [a, ca] = STOPS[i - 1], [b, cb] = STOPS[i], k = (p - a) / Math.max(1e-6, b - a); return ca.map((v, j) => Math.round(v + (cb[j] - v) * k)); } return STOPS[STOPS.length - 1][1]; };
-  const WORDS = [[0, "ECRIN"], [0.18, "WAIT"], [0.46, "CANCEL"], [0.75, "EVERY"]];
+  // light → ice → Ecrin blue → warm amber night → graphite → night
+  const STOPS = [[0, [238, 240, 245]], [0.1, [228, 234, 251]], [0.27, [228, 234, 251]], [0.31, [47, 91, 255]], [0.45, [47, 91, 255]], [0.5, [44, 26, 12]], [0.61, [44, 26, 12]], [0.65, [30, 33, 40]], [0.78, [30, 33, 40]], [0.82, [11, 13, 20]], [1, [11, 13, 20]]];
+  // the studio light behind the tile, in each scene's own colour: [colour, strength]
+  const SPOTS = [[0, [255, 255, 255, 0.95]], [0.1, [255, 255, 255, 0.85]], [0.27, [255, 255, 255, 0.85]], [0.31, [150, 178, 255, 0.55]], [0.45, [150, 178, 255, 0.55]], [0.5, [255, 168, 80, 0.32]], [0.61, [255, 168, 80, 0.32]], [0.65, [170, 182, 210, 0.22]], [0.78, [170, 182, 210, 0.22]], [0.82, [80, 110, 255, 0.22]], [1, [80, 110, 255, 0.22]]];
+  const lerpStops = (L, p) => { for (let i = 1; i < L.length; i++) if (p <= L[i][0]) { const [a, ca] = L[i - 1], [b, cb] = L[i], k = (p - a) / Math.max(1e-6, b - a); return ca.map((v, j) => v + (cb[j] - v) * k); } return L[L.length - 1][1]; };
+  const colourAt = (p) => lerpStops(STOPS, p).map(Math.round);
+  const WORDS = [[0, "ECRIN"], [0.11, "WAIT"], [0.29, "CANCEL"], [0.48, "SLEEP"], [0.63, "LOCKED"], [0.8, "EVERY"]];
   let lastDark = null, lastWord = "";
   const paint = (p) => {
     const [r, gg, b] = colourAt(p), L = (0.2126 * r + 0.7152 * gg + 0.0722 * b) / 255, dark = L < 0.45;
     const bg = `rgb(${r},${gg},${b})`; root.style.setProperty("--bg", bg); root.style.background = bg; document.body.style.background = bg;
+    const [sr, sg, sb, sa] = lerpStops(SPOTS, p); stage.style.setProperty("--spot", `${Math.round(sr)},${Math.round(sg)},${Math.round(sb)}`); stage.style.setProperty("--spotA", sa.toFixed(3));
     if (dark !== lastDark) { lastDark = dark; root.classList.toggle("dark", dark);
       root.style.setProperty("--ink", dark ? "#f4f1ea" : "#0b0d14"); root.style.setProperty("--soft", dark ? "rgba(244,241,234,.7)" : "rgba(11,13,20,.62)");
       root.style.setProperty("--line", dark ? "rgba(244,241,234,.22)" : "rgba(11,13,20,.12)"); root.style.setProperty("--giant", dark ? "rgba(255,255,255,.07)" : "rgba(11,13,20,.055)");
@@ -56,8 +65,9 @@
     for (const { el, r } of beats) { const o = r[0] <= 0 && p < r[1] ? clamp((r[1] - p) / 0.035) : r[1] > 1 ? clamp((p - r[0]) / 0.035) : fade(p, r); el.style.opacity = o.toFixed(3); el.style.setProperty("--y", ((1 - o) * 18).toFixed(1)); el.classList.toggle("on", o > 0.5); }
     for (const { el, r } of counts) { const [from, to, a, b] = r; el.textContent = Math.round(from + (to - from) * clamp((p - a) / (b - a))); }
     // desktop: the object steps aside (right) while words sit on the left, and takes the centre for the blue scene
-    if (!phone) { const side = innerWidth * (p < 0.18 ? 0.21 : p < 0.6 ? 0.21 - (Math.min(p, 0.3) - 0.18) / 0.12 * 0.04 : 0.12), k = p < 0.44 ? 1 : p < 0.5 ? 1 - (p - 0.44) / 0.06 : p < 0.72 ? 0 : p < 0.78 ? (p - 0.72) / 0.06 : 1;
-      const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; cv.style.setProperty("--cx", (side * e).toFixed(1) + "px"); }
+    if (!phone) { const side = innerWidth * (p < 0.08 ? 0.21 : p < 0.16 ? 0.21 - (p - 0.08) / 0.08 * 0.04 : p < 0.78 ? 0.17 : p < 0.84 ? 0.17 - (p - 0.78) / 0.06 * 0.05 : 0.12);
+      const k = p < 0.28 ? 1 : p < 0.33 ? 1 - (p - 0.28) / 0.05 : p < 0.45 ? 0 : p < 0.5 ? (p - 0.45) / 0.05 : 1;
+      const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; stage.style.setProperty("--cx", (side * e).toFixed(1) + "px"); }
     giant.style.setProperty("--gy", (-(p * 1600) % 400 * 0.15).toFixed(1));
     if (prog) prog.style.scale = `1 ${p.toFixed(4)}`;
     // the scenes snap one by one; the reading section below scrolls freely
@@ -79,6 +89,8 @@
   const learn = document.querySelector(".read"), learnTop = () => (learn ? learn.offsetTop : Infinity);
   function placeSnaps() { const span = film.offsetHeight - innerHeight; for (const d of snaps) d.style.top = Math.round(Number(d.dataset.q) * span) + "px"; }
   if (snaps.length) { root.classList.add("snapping"); placeSnaps(); }
+  // the lock's date: a month from today, written the way people say it
+  const ld = document.querySelector("[data-lockdate]"); if (ld) ld.textContent = new Date(Date.now() + 30 * 864e5).toLocaleDateString("en-US", { month: "long", day: "numeric" });
   resize(); requestAnimationFrame(frame);
 
   // ---- read everything: the subjects and their chapters, taken from the home page so both always say the same

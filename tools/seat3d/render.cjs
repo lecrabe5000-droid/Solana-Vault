@@ -34,10 +34,7 @@ fs.mkdirSync(tmp, { recursive: true });
   const t0 = Date.now();
   for (let i = 0; i < N; i++) { await shot(i / (N - 1), path.join(pngs, `f-${String(i).padStart(3, '0')}.png`)); if (i % 25 === 0) console.log(`frame ${i}/${N} · ${Math.round((Date.now() - t0) / 1000)} s`); }
   await b.close();
-  for (const [dir, size, q] of [['hi', OUT, 80], ['lo', Math.round(OUT / 2), 72]]) {
-    const outDir = path.join(root, 'app/preview/seat', dir); fs.rmSync(outDir, { recursive: true, force: true }); fs.mkdirSync(outDir, { recursive: true });
-    execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', path.join(pngs, 'f-%03d.png'), '-vf', `scale=${size}:${size}:flags=lanczos`, '-c:v', 'libwebp', '-quality', String(q), '-pix_fmt', 'yuva420p', '-start_number', '0', path.join(outDir, 'f-%03d.webp')]);
-  }
+  execFileSync('python3', [path.join(__dirname, 'encode.py'), pngs, path.join(root, 'app/preview/seat'), String(OUT)], { stdio: 'inherit' });
   const kb = (d) => Math.round(fs.readdirSync(d).reduce((s, f) => s + fs.statSync(path.join(d, f)).size, 0) / 1024);
   console.log(`rendered ${N} frames · hi ${kb(path.join(root, 'app/preview/seat/hi'))} KB · lo ${kb(path.join(root, 'app/preview/seat/lo'))} KB`);
 })();
