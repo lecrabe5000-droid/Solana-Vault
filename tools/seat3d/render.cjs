@@ -1,12 +1,13 @@
 // Renders the preview landing's scroll film (tools/seat3d/scene.js) into transparent WebP frames:
-//   app/preview/seat/hi/f-000.webp …  (1080 px, desktop)
-//   app/preview/seat/lo/f-000.webp …  (540 px, phones and the first load)
+//   app/preview/seat/xl/f-000.webp …  (2400 px, sharp desktop screens)
+//   app/preview/seat/hi/f-000.webp …  (1600 px, desktop)
+//   app/preview/seat/lo/f-000.webp …  (800 px, phones and the first load)
 // Run from extension/:  NODE_PATH=$PWD/node_modules:/opt/node-tools/node_modules node ../tools/seat3d/render.cjs
 //   TEST="0,0.3,0.6,0.9"  renders just those moments as PNGs into tools/seat3d/.build, to look at.
 const { chromium } = require('playwright');
 const esbuild = require('esbuild');
 const fs = require('fs'), path = require('path'), { execFileSync } = require('child_process');
-const root = path.join(__dirname, '..', '..'), tmp = path.join(__dirname, '.build'), N = Number(process.env.N || 150), S = Number(process.env.S || 2400), OUT = Number(process.env.OUT || 1600); // rendered large, shrunk: crisper edges
+const root = path.join(__dirname, '..', '..'), tmp = path.join(__dirname, '.build'), N = Number(process.env.N || 150), S = Number(process.env.S || 3600), OUT = Number(process.env.OUT || 2400); // rendered large, shrunk: crisper edges
 fs.mkdirSync(tmp, { recursive: true });
 (async () => {
   await esbuild.build({ entryPoints: [path.join(__dirname, 'scene.js')], bundle: true, format: 'esm', outfile: path.join(tmp, 'scene.js'), absWorkingDir: path.join(root, 'extension'), nodePaths: [path.join(root, 'extension/node_modules')], logLevel: 'warning' });
@@ -36,5 +37,5 @@ fs.mkdirSync(tmp, { recursive: true });
   await b.close();
   execFileSync('python3', [path.join(__dirname, 'encode.py'), pngs, path.join(root, 'app/preview/seat'), String(OUT)], { stdio: 'inherit' });
   const kb = (d) => Math.round(fs.readdirSync(d).reduce((s, f) => s + fs.statSync(path.join(d, f)).size, 0) / 1024);
-  console.log(`rendered ${N} frames · hi ${kb(path.join(root, 'app/preview/seat/hi'))} KB · lo ${kb(path.join(root, 'app/preview/seat/lo'))} KB`);
+  console.log(`rendered ${N} frames · xl ${kb(path.join(root, 'app/preview/seat/xl'))} KB · hi ${kb(path.join(root, 'app/preview/seat/hi'))} KB · lo ${kb(path.join(root, 'app/preview/seat/lo'))} KB`);
 })();

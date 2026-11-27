@@ -1,11 +1,11 @@
 # Encodes the rendered PNG frames into the page's two WebP sets. Pillow is used rather than ffmpeg because it can
 # compress the transparency too (alpha_quality): the soft shadows and glows made losslessly-kept alpha the bulk of the size.
-#   python3 tools/seat3d/encode.py <png dir> <out root> <size>     → <out root>/hi (size) and <out root>/lo (size / 2)
+#   python3 tools/seat3d/encode.py <png dir> <out root> <size>     → <out root>/xl (size, sharp desktop screens), hi (2/3), lo (1/3)
 import sys, os, glob
 from multiprocessing import Pool
 from PIL import Image
 src, out, size = sys.argv[1], sys.argv[2], int(sys.argv[3])
-SETS = [("hi", size, 80), ("lo", size // 2, 74)]
+SETS = [("xl", size, 88), ("hi", size * 2 // 3, 84), ("lo", size // 3, 74)]
 def one(path):
     im = Image.open(path); name = os.path.basename(path).replace(".png", ".webp")
     for d, s, q in SETS: im.resize((s, s), Image.LANCZOS).save(os.path.join(out, d, name), "WEBP", quality=q, alpha_quality=76, method=6)

@@ -10,16 +10,21 @@
   const stage = document.querySelector(".stage"), giant = document.querySelector("[data-giant]"), prog = document.querySelector("[data-prog]"), root = document.documentElement;
 
   // ---- frames: the light set first (everything playable fast), then the sharp set, nearest the current frame first
-  const lo = new Array(N), hi = new Array(N);
-  const load = (set, dir, i) => new Promise((res) => { const im = new Image(); im.decoding = "async"; im.onload = () => { set[i] = im; res(); if (Math.abs(i - Math.round(cur)) < 2) draw(true); }; im.onerror = res; im.src = `/preview/seat/${dir}/f-${pad(i)}.webp?v=7`; });
+  const lo = new Array(N), hi = new Array(N), xl = new Array(N);
+  const load = (set, dir, i) => new Promise((res) => { const im = new Image(); im.decoding = "async"; im.onload = () => { set[i] = im; res(); if (Math.abs(i - Math.round(cur)) < 2) draw(true); }; im.onerror = res; im.src = `/preview/seat/${dir}/f-${pad(i)}.webp?v=8`; });
   const queue = async (set, dir, order, par = 6) => { let k = 0; await Promise.all(Array.from({ length: par }, async () => { while (k < order.length) await load(set, dir, order[k++]); })); };
   const around = (c) => Array.from({ length: N }, (_, i) => i).sort((a, b) => Math.abs(a - c) - Math.abs(b - c));
   // desktop: every sharp frame, nearest first. Phones (sharp screens): only the sharp frames around where you are,
   // fetched as you move, so the whole film never has to come down over mobile data
   const near = new Set();
-  const nearby = () => { const c = Math.round(cur); for (let i = Math.max(0, c - 10); i <= Math.min(N - 1, c + 14); i++) if (!hi[i] && !near.has(i)) { near.add(i); load(hi, "hi", i); } };
+  const nearby = (set = hi, dir = "hi") => { const c = Math.round(cur); for (let i = Math.max(0, c - 10); i <= Math.min(N - 1, c + 14); i++) if (!set[i] && !near.has(dir + i)) { near.add(dir + i); load(set, dir, i); } };
+  // big sharp desktop screens: the extra-sharp set too, around where you are (the whole set would be heavy)
+  const wantXl = () => !phone && size * dpr > 1700;
   (async () => { await load(lo, "lo", 0); await queue(lo, "lo", around(0).slice(1));
-    if (!phone) queue(hi, "hi", around(Math.round(cur)), 4); else if ((devicePixelRatio || 1) > 1.5) { nearby(); setInterval(nearby, 400); } })();
+    if (!phone) { queue(hi, "hi", around(Math.round(cur)), 4);
+      // the frames where each scene rests come first, so every scene lands sharp
+      if (wantXl()) for (const { r } of beats) { const c = Math.round(Math.min(1, r[1] > 1 ? 1 : r[0] <= 0 ? 0 : (r[0] + r[1]) / 2) * (N - 1)); for (let i = Math.max(0, c - 1); i <= Math.min(N - 1, c + 1); i++) if (!near.has("xl" + i)) { near.add("xl" + i); load(xl, "xl", i); } }
+      setInterval(() => { if (wantXl()) nearby(xl, "xl"); }, 400); } else if ((devicePixelRatio || 1) > 1.5) { nearby(); setInterval(() => nearby(), 400); } })();
 
   // ---- the page colour through the film (light → ice → Ecrin blue → night)
   // light → ice → Ecrin blue → warm amber night → graphite → night
@@ -46,12 +51,12 @@
   // ---- drawing: between two frames, blended, so slow scrolling stays smooth
   let cur = 0, target = 0, size = 0, dpr = 1, drawn = -1;
   const resize = () => { dpr = Math.min(2, devicePixelRatio || 1); size = Math.round(phone ? Math.min(innerWidth * 1.04, innerHeight * 0.64) : Math.min(innerHeight * 1.08, innerWidth * 0.68)); cv.style.setProperty("--cv", size + "px"); cv.width = cv.height = Math.round(size * dpr); drawn = -1; draw(true); };
-  function pick(i) { return hi[i] || lo[i]; }
+  function pick(i) { return (wantXl() && xl[i]) || hi[i] || lo[i]; }
   function draw(force) {
     const f = clamp(cur, 0, N - 1), i = Math.floor(f), k = f - i, key = Math.round(f * 20);
     if (!force && key === drawn) return; drawn = key;
     const a = pick(i), b = pick(Math.min(N - 1, i + 1)); if (!a) return;
-    g.clearRect(0, 0, cv.width, cv.height); g.globalAlpha = 1; g.drawImage(a, 0, 0, cv.width, cv.height);
+    g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high"; g.clearRect(0, 0, cv.width, cv.height); g.globalAlpha = 1; g.drawImage(a, 0, 0, cv.width, cv.height);
     if (b && k > 0.02) { g.globalAlpha = k; g.drawImage(b, 0, 0, cv.width, cv.height); g.globalAlpha = 1; }
   }
 
@@ -85,7 +90,7 @@
     // one flick, one scene: each wheel gesture (or arrow key) plays the change to the next scene as one eased glide
     // and rests there. The trackpad's leftover momentum is swallowed, so a swipe never skips a scene. Past the last
     // scene the page scrolls freely into the reading section.
-    const rests = [0, ...beats.slice(1).map(({ r }) => Math.min(1, r[1] > 1 ? 1 : (r[0] + r[1]) / 2))];
+    const rests = [0, ...beats.slice(1).map(({ r }) => Math.min(1, r[1] > 1 ? 1 : (r[0] + r[1]) / 2))].map((q) => Math.round(q * (N - 1)) / (N - 1));
     const span = () => Math.max(1, film.offsetHeight - innerHeight), restY = (q) => film.offsetTop + q * span();
     const pNow = () => clamp((lenis.scroll - film.offsetTop) / span());
     const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2) * 0.5 + (0.5 - 0.5 * Math.cos(Math.PI * t)) * 0.5;
