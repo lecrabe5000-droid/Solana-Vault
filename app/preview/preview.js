@@ -3,6 +3,8 @@
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const fine = matchMedia("(pointer: fine)").matches;
   const LITE = !fine || innerWidth < 860; // phones: a calm, native-scrolling version
+  // Phones get the classic page. The page's own head script does this first; this catches any copy that lacks it.
+  if (LITE && !/[?&]desktop/.test(location.search)) { location.replace("/classic.html" + location.hash); return; }
   document.documentElement.classList.toggle("lite", LITE);
   const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
   const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
