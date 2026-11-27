@@ -60,9 +60,11 @@
   const scroll = () => { const r = film.getBoundingClientRect(); return clamp(-r.top / Math.max(1, r.height - innerHeight)); };
   const frame = () => {
     const p = scroll(); target = p * (N - 1);
-    cur += (target - cur) * (still ? 1 : 0.22); if (Math.abs(target - cur) < 0.01) cur = target;
+    // desktop: the smooth scroller already eases, so the film follows it exactly (one motion, not two layered)
+    cur += (target - cur) * (still || glider ? 1 : 0.22); if (Math.abs(target - cur) < 0.01) cur = target;
     draw(false); paint(p);
-    for (const { el, r } of beats) { const o = r[0] <= 0 && p < r[1] ? clamp((r[1] - p) / 0.035) : r[1] > 1 ? clamp((p - r[0]) / 0.035) : fade(p, r); el.style.opacity = o.toFixed(3); el.style.setProperty("--y", ((1 - o) * 18).toFixed(1)); el.classList.toggle("on", o > 0.5); }
+    for (const { el, r } of beats) { const lin = r[0] <= 0 && p < r[1] ? clamp((r[1] - p) / 0.035) : r[1] > 1 ? clamp((p - r[0]) / 0.035) : fade(p, r), o = lin * lin * (3 - 2 * lin);
+      el.style.opacity = o.toFixed(3); el.style.setProperty("--y", ((1 - o) * 26).toFixed(1)); el.classList.toggle("on", o > 0.5); }
     for (const { el, r } of counts) { const [from, to, a, b] = r; el.textContent = Math.round(from + (to - from) * clamp((p - a) / (b - a))); }
     // desktop: the object steps aside (right) while words sit on the left, and takes the centre for the blue scene
     if (!phone) { const side = innerWidth * (p < 0.08 ? 0.21 : p < 0.16 ? 0.21 - (p - 0.08) / 0.08 * 0.04 : p < 0.78 ? 0.17 : p < 0.84 ? 0.17 - (p - 0.78) / 0.06 * 0.05 : 0.12);
@@ -73,13 +75,52 @@
     if (prog) prog.style.scale = `1 ${p.toFixed(4)}`;
     // the scenes snap one by one; the reading section below scrolls freely
     if (snaps.length) root.classList.toggle("snap-on", scrollY < learnTop() - 4);
+    if (glider) glider.tick();
     requestAnimationFrame(frame);
   };
 
   // ---- smooth wheel on desktop, native scroll on phones
-  if (!still && !phone && globalThis.Lenis) { const lenis = new Lenis({ lerp: 0.1 }); const raf = (t) => { lenis.raf(t); requestAnimationFrame(raf); }; requestAnimationFrame(raf);
+  let glider = null;
+  if (!still && !phone && globalThis.Lenis) { const lenis = new Lenis({ lerp: 0.12 }); const raf = (t) => { lenis.raf(t); requestAnimationFrame(raf); }; requestAnimationFrame(raf);
+    // one flick, one scene: each wheel gesture (or arrow key) plays the change to the next scene as one eased glide
+    // and rests there. The trackpad's leftover momentum is swallowed, so a swipe never skips a scene. Past the last
+    // scene the page scrolls freely into the reading section.
+    const rests = [0, ...beats.slice(1).map(({ r }) => Math.min(1, r[1] > 1 ? 1 : (r[0] + r[1]) / 2))];
+    const span = () => Math.max(1, film.offsetHeight - innerHeight), restY = (q) => film.offsetTop + q * span();
+    const pNow = () => clamp((lenis.scroll - film.offsetTop) / span());
+    const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2) * 0.5 + (0.5 - 0.5 * Math.cos(Math.PI * t)) * 0.5;
+    let gliding = false, glideEnd = 0, lastWheel = 0, lastAbs = 0, armed = true, lastY = -1, movedAt = 0, held = false;
+    const go = (q, dur = 1.1) => { gliding = true; lenis.scrollTo(restY(q), { duration: dur, easing: ease, lock: true, force: true, onComplete: () => { gliding = false; glideEnd = movedAt = performance.now(); } }); };
+    const step = (dir) => { const p = pNow(), q = dir > 0 ? rests.find((x) => x > p + 0.004) : [...rests].reverse().find((x) => x < p - 0.004); if (q !== undefined) go(q); };
+    const inFilm = (dir) => { const y = lenis.scroll, end = restY(1); return dir > 0 ? y < end - 2 : y <= end + 2; };
+    addEventListener("wheel", (e) => {
+      if (e.ctrlKey) return;
+      const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : 0; if (!d) return;
+      const now = performance.now(), a = Math.abs(d);
+      // a new gesture: a pause in the wheel, or a fresh swipe much stronger than the fading momentum
+      const fresh = now - lastWheel > 300 || (!gliding && a > 20 && a > lastAbs * 2);
+      lastWheel = now; lastAbs = a; if (fresh) armed = true;
+      // outside the film the page scrolls freely, except the leftover momentum of a swipe that just played a scene
+      if (!inFilm(Math.sign(d)) && (armed || !(gliding || now - glideEnd < 900))) return;
+      e.preventDefault(); e.stopPropagation();
+      if (gliding || !armed || !inFilm(Math.sign(d))) return; armed = false; step(Math.sign(d));
+    }, { capture: true, passive: false });
+    addEventListener("keydown", (e) => {
+      const t = e.target, typing = t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+      if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+      const k = e.key, dir = k === "ArrowDown" || k === "PageDown" || (k === " " && !e.shiftKey) ? 1 : k === "ArrowUp" || k === "PageUp" || (k === " " && e.shiftKey) ? -1 : 0;
+      if (!dir || (k === " " && t && /^(BUTTON|A|SUMMARY)$/.test(t.tagName)) || !inFilm(dir)) return;
+      e.preventDefault(); if (!gliding) step(dir);
+    });
+    addEventListener("mousedown", () => { held = true; }); addEventListener("mouseup", () => { held = false; movedAt = performance.now(); });
+    // wherever the page comes to rest inside the film (the scrollbar, a link), it settles on the nearest scene
+    glider = { tick() { const now = performance.now(), y = lenis.scroll;
+      if (Math.abs(y - lastY) > 0.5) { lastY = y; movedAt = now; return; }
+      if (gliding || held || now - movedAt < 280 || now - lastWheel < 280 || y >= restY(1) - 2) return;
+      const p = pNow(), q = rests.reduce((b, x) => (Math.abs(x - p) < Math.abs(b - p) ? x : b), 0);
+      if (Math.abs(q - p) * span() > 3) go(q, 0.8); } };
     document.querySelectorAll('a[href^="#"]').forEach((a) => a.addEventListener("click", (e) => { const t = document.querySelector(a.getAttribute("href")); if (!t) return; e.preventDefault();
-      const r = beats.find((x) => x.el === t)?.r; lenis.scrollTo(r ? film.offsetTop + (film.offsetHeight - innerHeight) * (r[0] + 0.06) : t, { duration: 1.6 }); })); }
+      const i = beats.findIndex((x) => x.el === t); if (i >= 0) go(rests[i], 1.4); else lenis.scrollTo(t, { duration: 1.6 }); })); }
   // phones: the address bar sliding in and out changes the height; only a real change of width resizes the film
   let lastW = innerWidth, lastH = innerHeight;
   addEventListener("resize", () => { if (phone && innerWidth === lastW && Math.abs(innerHeight - lastH) < 160) return; lastW = innerWidth; lastH = innerHeight; resize(); placeSnaps(); });
@@ -96,12 +137,15 @@
 
   // ---- read everything: the subjects and their chapters, taken from the home page so both always say the same
   const list = document.querySelector("[data-read]");
-  if (list) fetch("/", { credentials: "omit" }).then((r) => r.text()).then((html) => {
+  if (list) fetch("/tour.html", { credentials: "omit" }).then((r) => r.text()).then((html) => {
     const doc = new DOMParser().parseFromString(html, "text/html"), arts = [...doc.querySelectorAll("article.subj")];
     if (!arts.length) return;
     list.innerHTML = arts.map((a, i) => {
       const title = a.querySelector("h3")?.textContent || "", line = a.dataset.line || "", body = a.querySelector(".chapters")?.innerHTML || "";
       return `<details class="r" id="learn-${a.id}"><summary><span class="n mono">${String(i + 1).padStart(2, "0")}</span><b>${title}</b><span class="line">${line}</span><i class="pm" aria-hidden="true"></i></summary><div class="body">${body}</div></details>`;
     }).join("");
+    // an old link to a subject (/#subject) opens that subject here
+    const hit = location.hash && document.getElementById("learn-" + location.hash.slice(1));
+    if (hit) { hit.open = true; hit.scrollIntoView(); }
   }).catch(() => {});
 })();

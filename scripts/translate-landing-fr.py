@@ -1,4 +1,4 @@
-# Regenerates app/fr/index.html from app/index.html with the French strings below. Run after editing the English page:
+# Regenerates app/fr/index.html from app/tour.html (the full tour; the home page is the film) with the French strings below. Run after editing the English page:
 #   python3 scripts/translate-landing-fr.py
 # It prints any English string it couldn't find; add or fix those pairs. A few strings are patched after the run (see the end).
 import re, html, os
@@ -123,7 +123,7 @@ FR = {
 "Get started.": "Commencez.", "Open": "Ouvrez", "Ecrin.": "Ecrin.", "App": "App", "Demo": "Démo", "GitHub": "GitHub",
 "An écrin is the case that keeps something precious safe. Open source · testnet beta · not audited: don't use real funds.": "Un écrin, c'est l'étui qui garde une chose précieuse en sécurité. Code ouvert · bêta sur testnet · pas audité : n'utilisez pas de vrais fonds.",
 }
-s = open(__import__('os').path.join(ROOT, 'app/index.html')).read()
+s = open(__import__('os').path.join(ROOT, 'app/tour.html')).read()
 missing = []
 for en, fr in sorted(FR.items(), key=lambda kv: -len(kv[0])):
     e = html.escape(en, quote=False)
