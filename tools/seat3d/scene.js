@@ -120,6 +120,9 @@ function margin() {
   return { worst, who };
 }
 
+// the coin's face texture sits a quarter-turn off on the cylinder cap: this turns every logo upright
+const LOGO_UP = Number(new URLSearchParams(location.search).get("up") ?? Math.PI / 2);
+
 window.seat = {
   margin(t) { this.pose(t); return margin(); },
   frame(t) { this.pose(t); renderer.render(scene, camera); return renderer.domElement.toDataURL("image/png"); },
@@ -143,7 +146,7 @@ window.seat = {
       let p = u.loose.map((v, k) => mix(v + drift[k], orbit[k], pull)); p = p.map((v, k) => mix(v, u.row[k], toRow));
       c.position.set(...p);
       const spinning = (1 - freeze) * (1 - toRow);
-      c.rotation.set(Math.PI / 2 * mix(0.55, 1, toRow) + u.spin[0] * spinning * 2 + t * 9 * spinning, u.spin[1] * 1.4 * (1 - toRow) + t * 5 * spinning, 0);
+      c.rotation.set(Math.PI / 2 * mix(0.55, 1, toRow) + u.spin[0] * spinning * 2 + t * 9 * spinning, LOGO_UP + u.spin[1] * 1.4 * (1 - toRow) + t * 5 * spinning, 0);
       const ice = freeze * (1 - seg(t, 0.7, 0.78));
       c.userData.frost.material.opacity = 0.7 * ice; c.userData.frost.scale.setScalar(mix(0.6, 1, ice));
       c.scale.setScalar(mix(0.95, 0.9, pull) * mix(1, 0.64, toRow) * mix(1, 0.8, ease(seg(t, 0.44, 0.54)) * (1 - ease(seg(t, 0.72, 0.8)))));

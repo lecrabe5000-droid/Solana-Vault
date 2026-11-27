@@ -17,7 +17,7 @@ fs.mkdirSync(tmp, { recursive: true });
   const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--allow-file-access-from-files'] });
   const p = await b.newPage({ viewport: { width: S, height: S } });
   p.on('pageerror', (e) => console.log('pageerror', e.message)); p.on('console', (m) => m.type() === 'error' && console.log('console', m.text()));
-  await p.goto('file://' + path.join(tmp, 'index.html') + `?s=${S}`); await p.waitForFunction(() => window.seatReady, null, { timeout: 90000 });
+  await p.goto('file://' + path.join(tmp, 'index.html') + `?s=${S}${process.env.UP ? '&up=' + process.env.UP : ''}`); await p.waitForFunction(() => window.seatReady, null, { timeout: 90000 });
   const shot = async (t, file) => { const url = await p.evaluate((x) => window.seat.frame(x), t); fs.writeFileSync(file, Buffer.from(url.split(',')[1], 'base64')); };
   // Nothing may touch the edge of the frame: every coin, the band and the tile keep a margin in all frames.
   const MIN = Number(process.env.MARGIN || 0.08); let worst = { worst: 1 }; const bad = [];
