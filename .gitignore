@@ -4,3 +4,4 @@ node_modules/
 test-ledger/
 .DS_Store
 tools/safe3d/.build/
+tools/seat3d/.build/

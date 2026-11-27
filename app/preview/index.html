@@ -1,14 +1,68 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Ecrin</title>
-  <meta name="robots" content="noindex">
-  <!-- The landing lives at / now (phones are sent on to /classic.html from there). Old links to /preview/ land there. -->
-  <script>location.replace("/" + location.search + location.hash);</script>
-  <meta http-equiv="refresh" content="0; url=/">
-  <link rel="canonical" href="https://ecrinprotocol.app/">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Ecrin · Self-custody, with a seatbelt</title>
+  <meta name="robots" content="noindex" />
+  <meta name="description" content="Ecrin is a self-custody wallet with a Safe: nothing leaves without a delay you choose, and you can cancel anything." />
+  <meta name="theme-color" content="#eef0f5" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ffffff'/%3E%3Crect x='5' y='5' width='22' height='22' rx='7' fill='none' stroke='%232F5BFF' stroke-width='2.2'/%3E%3Cpath d='M16 10.5l4.8 5.5L16 21.5 11.2 16z' fill='%232F5BFF'/%3E%3C/svg%3E" />
+  <link rel="preload" href="/fonts/inter-tight-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/preview/seat/lo/f-000.webp" as="image" />
+  <link rel="stylesheet" href="/preview/seat.css?v=2" />
 </head>
-<body style="background:#0b0d12"></body>
+<body>
+  <header class="nav" data-nav>
+    <a class="brand" href="/" aria-label="Ecrin home"><svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M16 9.6l5.2 6.4L16 22.4 10.8 16z" fill="currentColor"/></svg><b>Ecrin</b></a>
+    <nav><a href="#how">How it works</a><a href="/security">Security</a><a class="pill" href="/app">Open the app</a></nav>
+  </header>
+
+  <main>
+    <!-- One long scene: the film plays with the scroll, the background changes colour behind it, the words come and go -->
+    <section class="film" data-film>
+      <div class="stage">
+        <div class="giant" aria-hidden="true"><span data-giant>ECRIN</span></div>
+        <canvas data-canvas aria-label="The Ecrin Safe: coins fly in and freeze around it"></canvas>
+
+        <div class="beat b1" data-beat="0,0.16">
+          <p class="k mono">Self-custody wallet · 13 networks</p>
+          <h1>Self-custody,<br />with a seatbelt.</h1>
+          <p class="sub">Your keys, your coins. Plus the one thing every other wallet is missing: time to change your mind.</p>
+          <div class="cta"><a class="btn solid" href="/app">Open the app</a><a class="btn ghost" href="/demo">Try the demo</a></div>
+        </div>
+
+        <div class="beat b2 left" data-beat="0.2,0.42" id="how">
+          <p class="k mono">01 · The delay</p>
+          <h2>Every way out waits.</h2>
+          <p class="sub">A drainer, a phishing signature, a stolen key, a bad night. Anything leaving your Safe waits for the delay you chose.</p>
+          <div class="num"><b data-count="0,72,0.22,0.38">0</b><span>hours,<br />at most</span></div>
+        </div>
+
+        <div class="beat b3" data-beat="0.48,0.7">
+          <p class="k mono">02 · The cancel</p>
+          <h2>Saw it coming?<br />Cancel it.</h2>
+          <p class="sub">Until the delay runs out, the money hasn't left. One tap and it stays.</p>
+        </div>
+
+        <div class="beat b4" data-beat="0.78,1.01">
+          <p class="k mono">03 · Every network</p>
+          <h2>One Safe. Every coin.</h2>
+          <div class="stats"><div><b data-count="0,13,0.78,0.9">0</b><span>networks</span></div><div><b>0</b><span>keys we hold</span></div><div><b data-count="0,72,0.8,0.92">0</b><span>hours max delay</span></div></div>
+          <div class="cta"><a class="btn solid" href="/app">Open the app</a><a class="btn ghost" href="https://chromewebstore.google.com/detail/ecrin-wallet/nmehcocofmbhkjgjhbhbnfmhcbjpcpbd">Add to Chrome</a></div>
+        </div>
+
+        <div class="prog" aria-hidden="true"><i data-prog></i></div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <p>Ecrin is in early access. The Safe is not audited yet: start with small amounts.</p>
+      <nav><a href="/security">Security</a><a href="/support">Support</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></nav>
+    </footer>
+  </main>
+
+  <script src="/preview/lenis.min.js?v=13"></script>
+  <script src="/preview/seat.js?v=4"></script>
+</body>
 </html>
