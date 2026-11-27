@@ -1,6 +1,6 @@
 // Ecrin service worker: makes the app installable and keeps its shell available on a bad connection.
 // Network first for everything; the cache is only a fallback. Never caches the API or other origins.
-const CACHE = "ecrin-v204";
+const CACHE = "ecrin-v205";
 const SHELL = ["/app", "/app.css", "/dapp.js", "/chain.js", "/evm.js", "/vault.js", "/config.js", "/config-evm.js", "/deployments-evm.js", "/config-tokens.js", "/config-wc.js", "/i18n.js", "/theme.js", "/vendor/solana-web3.min.js", "/vendor/ethers.umd.min.js", "/icon2-192.png",
   "/wallet/wallet.css", "/wallet/wallet.js", "/wallet/theme-boot.js", "/wallet/sw-reg.js"]; // the phone wallet always has a copy to fall back on
 

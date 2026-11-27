@@ -94,8 +94,9 @@
       const FROZEN = fr ? "gelé" : "frozen";
       // decor made once: glow, orbiting ring, the diamond's edge (flashes on impact), the counter
       stage.insertAdjacentHTML("afterbegin", `<i class="wm-glow" aria-hidden="true"></i><i class="wm-orbit" aria-hidden="true"></i>`);
-      stage.insertAdjacentHTML("beforeend", `<div class="wm-count" aria-hidden="true"><i></i><b data-wm-n>0</b> ${fr ? "attaques gelées" : "attacks frozen"}</div>`);
-      const glow = stage.querySelector(".wm-glow"), nEl = stage.querySelector("[data-wm-n]");
+      stage.insertAdjacentHTML("beforeend", `<div class="wm-count" aria-hidden="true"><i></i><b data-wm-n>0</b> <span data-wm-w>${fr ? "attaque gelée" : "attacks frozen"}</span></div>`);
+      const glow = stage.querySelector(".wm-glow"), nEl = stage.querySelector("[data-wm-n]"), wEl = stage.querySelector("[data-wm-w]");
+      const word = (c) => (fr ? (c > 1 ? "attaques gelées" : "attaque gelée") : c === 1 ? "attack frozen" : "attacks frozen");
       let k = 0, n = 0, on = false, timer = 0, side = 1; const busy = {};
       const fmt = (s) => [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map((x) => String(x).padStart(2, "0")).join(":");
       const shoot = (extra) => {
@@ -126,11 +127,11 @@
           if (slot) {
             busy[slot] = 1; l = document.createElement("div"); l.className = "wm-l"; let secs = 72 * 3600 - 1;
             l.innerHTML = `<b>${KINDS[k++ % KINDS.length]}</b><span>${FROZEN} · <i>${fmt(secs)}</i></span>`;
-            l.style.cssText = `${L === "l" ? "left" : "right"}:2%;top:${slot[1] === "t" ? 6 : 56}%`; stage.append(l);
+            l.style.cssText = `${L === "l" ? "left" : "right"}:-9%;top:${slot[1] === "t" ? 2 : 62}%`; stage.append(l); // out at the sides, clear of the diamond
             tick = setInterval(() => { secs -= 37; const i = l.querySelector("i"); if (i) i.textContent = fmt(secs); }, 60);
             l.animate([{ opacity: 0, translate: `0 ${slot[1] === "t" ? -8 : 8}px` }, { opacity: 1, translate: "0 0" }], { duration: 340, easing: "cubic-bezier(.2,1.2,.4,1)", fill: "forwards" });
           }
-          nEl.textContent = ++n; nEl.parentElement.animate([{ scale: 1 }, { scale: 1.08 }, { scale: 1 }], { duration: 300 });
+          nEl.textContent = ++n; wEl.textContent = word(n); nEl.parentElement.animate([{ scale: 1 }, { scale: 1.08 }, { scale: 1 }], { duration: 300 });
           setTimeout(() => { for (const el of [ice, l]) el?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 600, fill: "forwards" }); setTimeout(() => { clearInterval(tick); ice.remove(); l?.remove(); if (slot) busy[slot] = 0; }, 650); }, 2300);
         });
         if (!extra) { timer = setTimeout(() => shoot(), 1500 + Math.random() * 700); if (Math.random() < 0.3) setTimeout(() => shoot(true), 380); }
