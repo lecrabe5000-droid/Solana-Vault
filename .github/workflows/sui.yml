@@ -100,9 +100,17 @@ jobs:
               const N = net === "mainnet" ? SUI_MAIN : SUI, api = `https://graphql.${net}.sui.io/graphql`;
               const e = suiEngine({ acct: { sui: bytes.slice(1, 33) }, dev: { suiApi: api }, N });
               console.log("Gas coin:", await e.send("native", e.address, 600_000_000));')
-            sleep 5
           fi
-          if ! sui client publish --gas-budget 500000000 --json > /tmp/pub.json; then cat /tmp/pub.json; exit 1; fi
+          # Pay with the largest coin, named explicitly: left to choose, the CLI can pick a small leftover coin and
+          # run out of gas. Wait until the new coin is visible to it (up to a minute).
+          gas=""
+          for i in $(seq 1 20); do
+            gas=$(sui client gas --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const c=JSON.parse(s).map((x)=>({id:x.gasCoinId,v:BigInt(x.mistBalance)})).sort((a,b)=>(b.v>a.v?1:-1))[0];console.log(c&&c.v>=550000000n?c.id:"")})')
+            [ -n "$gas" ] && break; sleep 3
+          done
+          if [ -z "$gas" ]; then echo "::error::No coin of 0.55 SUI or more appeared to pay the publish."; sui client gas; exit 1; fi
+          echo "Paying with $gas"
+          if ! sui client publish --gas "$gas" --gas-budget 500000000 --json > /tmp/pub.json; then cat /tmp/pub.json; exit 1; fi
           node - <<'JS'
           const fs = require("fs"), r = JSON.parse(fs.readFileSync("/tmp/pub.json", "utf8")), net = process.env.NET;
           if (r.effects?.status?.status !== "success") { console.error(JSON.stringify(r.effects?.status)); process.exit(1); }
