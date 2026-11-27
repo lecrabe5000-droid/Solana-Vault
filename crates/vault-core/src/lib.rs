@@ -7,6 +7,7 @@
 //! - Making the policy stricter applies at once. Loosening it waits for the rule delay.
 //! - A guardian can never move funds on their own. They can only approve something the owner asked for.
 //! - "No emergency exit": the guardian can't release anything early, so a lock really means nothing leaves.
+//!
 //! Both strict options turn on at once and take the rule delay to turn off (never before the lock ends).
 //!
 //! The on-chain program (programs/cooldown-vault) stores this state and calls these functions;
