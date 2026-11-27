@@ -33,7 +33,7 @@ There is no receipt token, so there is nothing to sell to get around the delay. 
 | Locked | nothing leaves before your date | 7 days | required for an emergency exit |
 | Locked, no exit | nothing leaves before your date, no exception | 7 days | optional (can't release) |
 
-On Ethereum-style networks the strict options and the "Locked, no exit" preset come with the next contract deployment: the contract has no upgrade path, so Safes opened on the current one keep its rules. On Sui they arrive with a package upgrade and work for existing Safes too.
+The strict options and the "Locked, no exit" preset come with the next deployment on each network, and apply to Safes opened on it. Safes on the current contracts keep their rules. Ethereum-style contracts have no upgrade path. On Sui an upgrade can't retire the old code, which stays callable on the same Safes and ignores the options, so the options ship as a new package rather than an upgrade.
 
 ## Layout
 
