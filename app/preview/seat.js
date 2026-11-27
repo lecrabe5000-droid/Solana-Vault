@@ -58,6 +58,8 @@
       const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; cv.style.setProperty("--cx", (side * e).toFixed(1) + "px"); }
     giant.style.setProperty("--gy", (-(p * 1600) % 400 * 0.15).toFixed(1));
     if (prog) prog.style.scale = `1 ${p.toFixed(4)}`;
+    // the scenes snap one by one; the reading section below scrolls freely
+    if (snaps.length) root.classList.toggle("snap-on", scrollY < learnTop() - 4);
     requestAnimationFrame(frame);
   };
 
@@ -65,7 +67,17 @@
   if (!still && !phone && globalThis.Lenis) { const lenis = new Lenis({ lerp: 0.1 }); const raf = (t) => { lenis.raf(t); requestAnimationFrame(raf); }; requestAnimationFrame(raf);
     document.querySelectorAll('a[href^="#"]').forEach((a) => a.addEventListener("click", (e) => { const t = document.querySelector(a.getAttribute("href")); if (!t) return; e.preventDefault();
       const r = beats.find((x) => x.el === t)?.r; lenis.scrollTo(r ? film.offsetTop + (film.offsetHeight - innerHeight) * (r[0] + 0.06) : t, { duration: 1.6 }); })); }
-  addEventListener("resize", resize); resize(); requestAnimationFrame(frame);
+  // phones: the address bar sliding in and out changes the height; only a real change of width resizes the film
+  let lastW = innerWidth, lastH = innerHeight;
+  addEventListener("resize", () => { if (phone && innerWidth === lastW && Math.abs(innerHeight - lastH) < 160) return; lastW = innerWidth; lastH = innerHeight; resize(); placeSnaps(); });
+
+  // phones: one flick, one scene. Invisible resting points at the middle of each scene; the browser's own snapping
+  // glides there (proximity, so it never fights a long scroll, and the reading section below scrolls freely)
+  const snaps = phone && !still ? [0, ...beats.slice(1).map(({ r }) => (r[0] + Math.min(1, r[1])) / 2 + (r[1] > 1 ? 0.08 : 0))].map((q) => { const d = document.createElement("i"); d.className = "snap"; d.dataset.q = Math.min(1, q); film.append(d); return d; }) : [];
+  const learn = document.querySelector(".read"), learnTop = () => (learn ? learn.offsetTop : Infinity);
+  function placeSnaps() { const span = film.offsetHeight - innerHeight; for (const d of snaps) d.style.top = Math.round(Number(d.dataset.q) * span) + "px"; }
+  if (snaps.length) { root.classList.add("snapping"); placeSnaps(); }
+  resize(); requestAnimationFrame(frame);
 
   // ---- read everything: the subjects and their chapters, taken from the home page so both always say the same
   const list = document.querySelector("[data-read]");

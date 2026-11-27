@@ -110,3 +110,10 @@ html, body, .nav { transition: background-color .25s linear, color .25s linear; 
   .r .pm { grid-column: 3; grid-row: 1; }
   .r .body { grid-template-columns: 1fr; gap: 20px; padding: 0 0 26px 46px; }
 }
+
+/* phones: resting points, one per scene (see seat.js) */
+.snap { position: absolute; left: 0; width: 1px; height: 1px; pointer-events: none; scroll-snap-align: start; scroll-snap-stop: always; }
+@media (max-width: 860px) {
+  html.snap-on { scroll-snap-type: y mandatory; }
+  html.snapping .read { scroll-snap-align: start; }
+}
