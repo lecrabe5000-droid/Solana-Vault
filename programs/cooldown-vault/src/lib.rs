@@ -37,6 +37,7 @@ pub mod cooldown_vault {
             Preset::Gentle => rules::Policy::gentle(),
             Preset::Strong { guardian } => rules::Policy::strong(guardian.map(|g| g.to_bytes())),
             Preset::Locked { until, guardian } => rules::Policy::locked(until, guardian.to_bytes()),
+            Preset::LockedNoExit { until, guardian } => rules::Policy::locked_no_exit(until, guardian.map(|g| g.to_bytes())),
         };
         if let Some(until) = policy.locked_until {
             require!(until <= Clock::get()?.unix_timestamp.saturating_add(rules::MAX_LOCK), VaultErr::InvalidValue);
@@ -725,6 +726,8 @@ pub enum Preset {
     Gentle,
     Strong { guardian: Option<Pubkey> },
     Locked { until: i64, guardian: Pubkey },
+    /// Nothing leaves before `until`: the guardian (optional) can't release early either.
+    LockedNoExit { until: i64, guardian: Option<Pubkey> },
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, InitSpace, Default)]
@@ -739,6 +742,8 @@ pub enum ChangeArg {
     SetGuardian { guardian: Option<Pubkey> },
     AddTrusted { address: Pubkey },
     RemoveTrusted { address: Pubkey },
+    SetTrustedWaits { on: bool },
+    SetNoExit { on: bool },
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, InitSpace)]
@@ -764,6 +769,9 @@ pub struct VaultAccount {
     pub next_id: u32,
     pub spent_day: i64,
     pub spent_today: u64,
+    /// Strict options, last so that older accounts (zero padding after their queues) read them as off.
+    pub trusted_waits: bool,
+    pub no_exit: bool,
 }
 
 const _: () = assert!(rules::MAX_TRUSTED == 8 && rules::MAX_PENDING_WITHDRAWALS == 4 && rules::MAX_PENDING_CHANGES == 4);
@@ -779,6 +787,8 @@ impl VaultAccount {
                 daily_limit: self.daily_limit,
                 locked_until: self.locked_until,
                 guardian: self.guardian.map(|g| g.to_bytes()),
+                trusted_waits: self.trusted_waits,
+                no_exit: self.no_exit,
             },
             trusted: self.trusted.iter().map(|t| t.to_bytes()).collect(),
             withdrawals: self.withdrawals.iter().map(|w| rules::PendingWithdrawal { id: w.id, amount: w.amount, dest: w.dest.to_bytes(), ready_at: w.ready_at }).collect(),
@@ -798,6 +808,8 @@ impl VaultAccount {
         self.daily_limit = v.policy.daily_limit;
         self.locked_until = v.policy.locked_until;
         self.guardian = v.policy.guardian.map(Pubkey::new_from_array);
+        self.trusted_waits = v.policy.trusted_waits;
+        self.no_exit = v.policy.no_exit;
         self.trusted = v.trusted.iter().map(|t| Pubkey::new_from_array(*t)).collect();
         self.withdrawals = v.withdrawals.iter().map(|w| WithdrawalSlot { id: w.id, amount: w.amount, dest: Pubkey::new_from_array(w.dest), ready_at: w.ready_at }).collect();
         self.changes = v.changes.iter().map(|c| ChangeSlot { id: c.id, change: c.change.into(), ready_at: c.ready_at }).collect();
@@ -887,6 +899,8 @@ impl From<ChangeArg> for rules::Change {
             ChangeArg::SetGuardian { guardian } => rules::Change::SetGuardian(guardian.map(|g| g.to_bytes())),
             ChangeArg::AddTrusted { address } => rules::Change::AddTrusted(address.to_bytes()),
             ChangeArg::RemoveTrusted { address } => rules::Change::RemoveTrusted(address.to_bytes()),
+            ChangeArg::SetTrustedWaits { on } => rules::Change::SetTrustedWaits(on),
+            ChangeArg::SetNoExit { on } => rules::Change::SetNoExit(on),
         }
     }
 }
@@ -901,6 +915,8 @@ impl From<rules::Change> for ChangeArg {
             rules::Change::SetGuardian(g) => ChangeArg::SetGuardian { guardian: g.map(Pubkey::new_from_array) },
             rules::Change::AddTrusted(a) => ChangeArg::AddTrusted { address: Pubkey::new_from_array(a) },
             rules::Change::RemoveTrusted(a) => ChangeArg::RemoveTrusted { address: Pubkey::new_from_array(a) },
+            rules::Change::SetTrustedWaits(on) => ChangeArg::SetTrustedWaits { on },
+            rules::Change::SetNoExit(on) => ChangeArg::SetNoExit { on },
         }
     }
 }
@@ -938,6 +954,8 @@ pub enum VaultErr {
     #[msg("Arithmetic overflow")] Overflow,
     #[msg("Destination account doesn't match")] WrongDestination,
     #[msg("New deposits are paused for now. Withdrawals still work.")] DepositsPaused,
+    #[msg("Trusted sends wait too in this Safe: request a withdrawal")] TrustedWaits,
+    #[msg("This Safe has no emergency exit: the guardian can't release early")] NoExit,
 }
 
 fn err(e: rules::VaultError) -> anchor_lang::error::Error {
@@ -948,5 +966,6 @@ fn err(e: rules::VaultError) -> anchor_lang::error::Error {
         E::Locked => VaultErr::Locked, E::TooEarly => VaultErr::TooEarly, E::DailyLimit => VaultErr::DailyLimit,
         E::NotFound => VaultErr::NotFound, E::TooManyPending => VaultErr::TooManyPending, E::TooManyTrusted => VaultErr::TooManyTrusted,
         E::InvalidValue => VaultErr::InvalidValue, E::Overflow => VaultErr::Overflow,
+        E::TrustedWaits => VaultErr::TrustedWaits, E::NoExit => VaultErr::NoExit,
     }.into()
 }

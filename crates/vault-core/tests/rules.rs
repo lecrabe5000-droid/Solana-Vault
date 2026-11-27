@@ -205,3 +205,78 @@ fn staking_works_while_locked_and_the_lock_still_holds_the_money() {
     let Outcome::WithdrawalQueued { ready_at, .. } = v.request_withdrawal(&OWNER, BANK, 100, T0).unwrap() else { panic!() };
     assert!(ready_at >= T0 + 30 * DAY);
 }
+
+// ---------------------------------------------------------------- strict options
+
+#[test]
+fn trusted_waits_refuses_the_shortcut_and_turns_on_at_once() {
+    let mut v = vault(Policy::gentle());
+    v.trusted.push(BANK);
+    assert_eq!(v.propose_change(&OWNER, Change::SetTrustedWaits(true), T0), Ok(Outcome::ChangeApplied));
+    assert_eq!(v.send_to_trusted(&OWNER, BANK, 100, T0), Err(VaultError::TrustedWaits));
+    // the normal way still works, with the normal delay
+    let Outcome::WithdrawalQueued { ready_at, .. } = v.request_withdrawal(&OWNER, BANK, 100, T0).unwrap() else { panic!() };
+    assert_eq!(ready_at, T0 + 24 * HOUR);
+}
+
+#[test]
+fn turning_trusted_waits_off_waits_for_the_rule_delay() {
+    let mut v = vault(Policy { trusted_waits: true, ..Policy::gentle() });
+    v.trusted.push(BANK);
+    let Outcome::ChangeQueued { id, ready_at } = v.propose_change(&OWNER, Change::SetTrustedWaits(false), T0).unwrap() else { panic!() };
+    assert_eq!(ready_at, T0 + 3 * DAY);
+    assert_eq!(v.apply_change(id, ready_at - 1), Err(VaultError::TooEarly));
+    assert_eq!(v.send_to_trusted(&OWNER, BANK, 100, ready_at - 1), Err(VaultError::TrustedWaits));
+    v.apply_change(id, ready_at).unwrap();
+    assert_eq!(v.send_to_trusted(&OWNER, BANK, 100, ready_at), Ok(Outcome::Send { amount: 100, dest: BANK }));
+}
+
+#[test]
+fn the_guardian_cannot_skip_a_trusted_waits_off_change() {
+    let mut v = vault(Policy { trusted_waits: true, ..Policy::strong(Some(GUARDIAN)) });
+    let Outcome::ChangeQueued { id, .. } = v.propose_change(&OWNER, Change::SetTrustedWaits(false), T0).unwrap() else { panic!() };
+    assert_eq!(v.guardian_approve_change(&GUARDIAN, id), Err(VaultError::TooEarly));
+}
+
+#[test]
+fn no_exit_stops_the_guardian_release() {
+    let until = T0 + 30 * DAY;
+    let mut v = vault(Policy::locked(until, GUARDIAN));
+    let Outcome::WithdrawalQueued { id, .. } = v.request_withdrawal(&OWNER, CASINO, 300, T0).unwrap() else { panic!() };
+    assert_eq!(v.propose_change(&OWNER, Change::SetNoExit(true), T0), Ok(Outcome::ChangeApplied));
+    assert_eq!(v.guardian_release(&GUARDIAN, id, T0 + HOUR), Err(VaultError::NoExit));
+    assert_eq!(v.execute_withdrawal(id, until - 1), Err(VaultError::TooEarly));
+    assert_eq!(v.execute_withdrawal(id, until), Ok(Outcome::Send { amount: 300, dest: CASINO }));
+}
+
+#[test]
+fn a_lock_with_no_exit_needs_no_guardian() {
+    let until = T0 + 30 * DAY;
+    let mut v = vault(Policy::locked_no_exit(until, None));
+    v.trusted.push(BANK);
+    assert_eq!(v.send_to_trusted(&OWNER, BANK, 1, T0), Err(VaultError::Locked));
+    let Outcome::WithdrawalQueued { id, ready_at } = v.request_withdrawal(&OWNER, BANK, 500, T0).unwrap() else { panic!() };
+    assert_eq!(ready_at, until);
+    assert_eq!(v.execute_withdrawal(id, until), Ok(Outcome::Send { amount: 500, dest: BANK }));
+}
+
+#[test]
+fn no_exit_cannot_be_turned_off_before_the_lock_ends() {
+    let until = T0 + 30 * DAY;
+    let mut v = vault(Policy::locked_no_exit(until, Some(GUARDIAN)));
+    let Outcome::ChangeQueued { id, ready_at } = v.propose_change(&OWNER, Change::SetNoExit(false), T0).unwrap() else { panic!() };
+    assert_eq!(ready_at, until);
+    assert_eq!(v.apply_change(id, until - 1), Err(VaultError::TooEarly));
+    assert_eq!(v.guardian_approve_change(&GUARDIAN, id), Err(VaultError::TooEarly));
+    v.apply_change(id, until).unwrap();
+    assert!(!v.policy.no_exit);
+}
+
+#[test]
+fn strict_options_already_off_or_on_are_no_ops_that_apply_at_once() {
+    let mut v = vault(Policy::gentle());
+    assert_eq!(v.propose_change(&OWNER, Change::SetNoExit(false), T0), Ok(Outcome::ChangeApplied));
+    assert_eq!(v.propose_change(&OWNER, Change::SetTrustedWaits(false), T0), Ok(Outcome::ChangeApplied));
+    assert!(is_stricter(&Policy { no_exit: true, ..Policy::gentle() }, &Change::SetNoExit(true)));
+    assert!(!is_stricter(&Policy { no_exit: true, ..Policy::gentle() }, &Change::SetNoExit(false)));
+}

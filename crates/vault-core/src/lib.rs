@@ -1,10 +1,13 @@
 //! Cooldown Vault rules, kept free of any Solana dependency so they can be tested on any machine.
 //!
 //! The idea: every way out of the vault is slower than a gambling urge.
-//! - Sends to trusted addresses arrive at once (subject to the daily limit).
+//! - Sends to trusted addresses arrive at once (subject to the daily limit), unless the owner chose
+//!   "trusted sends also wait": then every way out waits, trusted or not.
 //! - Any other withdrawal waits for the policy's delay, and the owner can cancel it until it runs.
 //! - Making the policy stricter applies at once. Loosening it waits for the rule delay.
 //! - A guardian can never move funds on their own. They can only approve something the owner asked for.
+//! - "No emergency exit": the guardian can't release anything early, so a lock really means nothing leaves.
+//! Both strict options turn on at once and take the rule delay to turn off (never before the lock ends).
 //!
 //! The on-chain program (programs/cooldown-vault) stores this state and calls these functions;
 //! the clock and the signers come from the transaction.
@@ -32,20 +35,29 @@ pub struct Policy {
     /// Nothing leaves before this unix time, except an emergency withdrawal the guardian co-signs.
     pub locked_until: Option<i64>,
     pub guardian: Option<Address>,
+    /// Trusted sends get no shortcut: they are refused, and the owner requests a normal (delayed) withdrawal.
+    pub trusted_waits: bool,
+    /// The guardian can't release a withdrawal early. A lock then has no way around it.
+    pub no_exit: bool,
 }
 
 impl Policy {
     /// 24 h withdrawal delay, 3-day rule delay.
     pub fn gentle() -> Self {
-        Policy { withdraw_delay: 24 * HOUR, rule_delay: 3 * DAY, daily_limit: None, locked_until: None, guardian: None }
+        Policy { withdraw_delay: 24 * HOUR, rule_delay: 3 * DAY, daily_limit: None, locked_until: None, guardian: None, trusted_waits: false, no_exit: false }
     }
     /// 72 h withdrawal delay, 7-day rule delay, guardian notified.
     pub fn strong(guardian: Option<Address>) -> Self {
-        Policy { withdraw_delay: 72 * HOUR, rule_delay: 7 * DAY, daily_limit: None, locked_until: None, guardian }
+        Policy { withdraw_delay: 72 * HOUR, rule_delay: 7 * DAY, daily_limit: None, locked_until: None, guardian, trusted_waits: false, no_exit: false }
     }
     /// Nothing leaves before `until` except a guardian-approved emergency withdrawal.
     pub fn locked(until: i64, guardian: Address) -> Self {
-        Policy { withdraw_delay: 72 * HOUR, rule_delay: 7 * DAY, daily_limit: None, locked_until: Some(until), guardian: Some(guardian) }
+        Policy { withdraw_delay: 72 * HOUR, rule_delay: 7 * DAY, daily_limit: None, locked_until: Some(until), guardian: Some(guardian), trusted_waits: false, no_exit: false }
+    }
+    /// Nothing leaves before `until`, full stop: the guardian can't release early (trusted sends are already
+    /// blocked by any lock). A guardian is optional: they can still approve adding a trusted address.
+    pub fn locked_no_exit(until: i64, guardian: Option<Address>) -> Self {
+        Policy { withdraw_delay: 72 * HOUR, rule_delay: 7 * DAY, daily_limit: None, locked_until: Some(until), guardian, trusted_waits: false, no_exit: true }
     }
 }
 
@@ -58,6 +70,8 @@ pub enum Change {
     SetGuardian(Option<Address>),
     AddTrusted(Address),
     RemoveTrusted(Address),
+    SetTrustedWaits(bool),
+    SetNoExit(bool),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -91,6 +105,10 @@ pub enum VaultError {
     TooManyTrusted,
     InvalidValue,
     Overflow,
+    /// This Safe makes trusted sends wait too: request a withdrawal instead.
+    TrustedWaits,
+    /// This Safe has no emergency exit: the guardian can't release early.
+    NoExit,
 }
 
 /// What a call changed, so the program knows what to transfer or log.
@@ -195,11 +213,13 @@ impl Vault {
         Ok(())
     }
 
-    /// Instant send to an address the owner trusted earlier. Still blocked while locked.
+    /// Instant send to an address the owner trusted earlier. Still blocked while locked, and refused
+    /// when the owner chose "trusted sends also wait".
     pub fn send_to_trusted(&mut self, signer: &Address, dest: Address, amount: u64, now: i64) -> Result<Outcome, VaultError> {
         self.owner_only(signer)?;
         if amount == 0 { return Err(VaultError::ZeroAmount); }
         if !self.trusted.contains(&dest) { return Err(VaultError::NotTrusted); }
+        if self.policy.trusted_waits { return Err(VaultError::TrustedWaits); }
         if self.is_locked(now) { return Err(VaultError::Locked); }
         if amount > self.available() { return Err(VaultError::InsufficientFunds); }
         self.spend(amount, now)?;
@@ -244,8 +264,10 @@ impl Vault {
 
     /// Emergency exit: the guardian co-signs a withdrawal the owner already requested, and it runs now,
     /// lock and delay included. The guardian can't create one, change its amount or its destination.
+    /// Refused when the owner chose "no emergency exit".
     pub fn guardian_release(&mut self, signer: &Address, id: u32, now: i64) -> Result<Outcome, VaultError> {
         self.guardian_only(signer)?;
+        if self.policy.no_exit { return Err(VaultError::NoExit); }
         let i = self.withdrawals.iter().position(|w| w.id == id).ok_or(VaultError::NotFound)?;
         let w = self.withdrawals[i];
         self.spend(w.amount, now)?;
@@ -315,6 +337,8 @@ impl Vault {
                 if self.trusted.len() >= MAX_TRUSTED { return Err(VaultError::TooManyTrusted); }
             }
             Change::RemoveTrusted(a) => { if !self.trusted.contains(&a) { return Err(VaultError::NotFound); } }
+            Change::SetTrustedWaits(on) => p.trusted_waits = on,
+            Change::SetNoExit(on) => p.no_exit = on,
         }
         validate(&p)
     }
@@ -332,6 +356,8 @@ impl Vault {
                 self.trusted.push(a);
             }
             Change::RemoveTrusted(a) => self.trusted.retain(|t| *t != a),
+            Change::SetTrustedWaits(on) => self.policy.trusted_waits = on,
+            Change::SetNoExit(on) => self.policy.no_exit = on,
         }
         Ok(())
     }
@@ -365,5 +391,8 @@ pub fn is_stricter(p: &Policy, change: &Change) -> bool {
         Change::SetGuardian(_) => false,
         Change::AddTrusted(_) => false,
         Change::RemoveTrusted(_) => true,
+        // Turning a strict option on is stricter; turning it off loosens, unless it was already off.
+        Change::SetTrustedWaits(on) => on || !p.trusted_waits,
+        Change::SetNoExit(on) => on || !p.no_exit,
     }
 }

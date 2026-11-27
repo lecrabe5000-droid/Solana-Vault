@@ -50,7 +50,9 @@ fn delay(r: &mut Rng) -> i64 {
 }
 
 fn random_change(r: &mut Rng, v: &Vault, now: i64) -> Change {
-    match r.below(7) {
+    match r.below(9) {
+        7 => Change::SetTrustedWaits(r.chance(50)),
+        8 => Change::SetNoExit(r.chance(50)),
         0 => Change::SetWithdrawDelay(delay(r)),
         1 => Change::SetRuleDelay(delay(r)),
         2 => Change::SetDailyLimit(match r.below(4) { 0 => None, 1 => Some(0), _ => Some(1 + r.below(5_000)) }),
@@ -82,7 +84,7 @@ fn check(v: &Vault, s: &Shadow, seed: u64, step: usize) {
 fn run(seed: u64, steps: usize) -> [u64; 8] {
     let mut r = Rng(seed | 1);
     let guardian = if r.chance(60) { Some(GUARDIAN) } else { None };
-    let policy = match r.below(3) { 0 => Policy::gentle(), 1 => Policy::strong(guardian), _ => Policy::locked(T0 + r.below(30 * DAY as u64) as i64, GUARDIAN) };
+    let policy = match r.below(4) { 0 => Policy::gentle(), 1 => Policy::strong(guardian), 2 => Policy::locked_no_exit(T0 + r.below(30 * DAY as u64) as i64, guardian), _ => Policy::locked(T0 + r.below(30 * DAY as u64) as i64, GUARDIAN) };
     let mut v = Vault::new(OWNER, policy).unwrap();
     let mut s = Shadow { hits: [0; 8], deposited: 0, sent: 0, queued: Default::default(), changes: Default::default(), per_day: Default::default() };
     let mut now = T0;
@@ -106,6 +108,7 @@ fn run(seed: u64, steps: usize) -> [u64; 8] {
                     assert_eq!(who, OWNER, "a non-owner sent instantly (seed {seed}, step {step})");
                     assert!(before.trusted.contains(&d), "instant send to an untrusted address (seed {seed}, step {step})");
                     assert!(!locked, "instant send while locked (seed {seed}, step {step})");
+                    assert!(!before.policy.trusted_waits, "instant send while trusted sends wait (seed {seed}, step {step})");
                     assert!(amount <= before.available(), "instant send dipped into promised money (seed {seed}, step {step})");
                     record_send(&mut s, &before, amount, now, seed, step); s.hits[0] += 1;
                 }
@@ -146,6 +149,7 @@ fn run(seed: u64, steps: usize) -> [u64; 8] {
                         let (a, d, _, _) = s.queued.remove(&w).expect("released an unknown withdrawal");
                         // 6: only the guardian in force, only what the owner asked for
                         assert_eq!(Some(who), before.policy.guardian, "released by someone other than the guardian (seed {seed}, step {step})");
+                        assert!(!before.policy.no_exit, "guardian released with no emergency exit (seed {seed}, step {step})");
                         assert_eq!((amount, dest), (a, d), "guardian changed a withdrawal (seed {seed}, step {step})"); s.hits[3] += 1;
                         record_send(&mut s, &before, amount, now, seed, step);
                     }
@@ -211,6 +215,8 @@ fn may_apply_now(p: &Policy, c: &Change) -> bool {
         Change::SetLockedUntil(Some(t)) => p.locked_until.map_or(true, |old| t >= old),
         Change::SetGuardian(_) | Change::AddTrusted(_) => false,
         Change::RemoveTrusted(_) => true,
+        Change::SetTrustedWaits(on) => on || !p.trusted_waits,
+        Change::SetNoExit(on) => on || !p.no_exit,
     }
 }
 

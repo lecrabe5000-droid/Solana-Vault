@@ -14,7 +14,7 @@ const { ethers } = require("hardhat");
 const { time } = require("@nomicfoundation/hardhat-network-helpers");
 
 const HOUR = 3600n, DAY = 86400n;
-const K = { SetWithdrawDelay: 0, SetRuleDelay: 1, SetDailyLimit: 2, SetLockedUntil: 3, SetGuardian: 4, AddTrusted: 5, RemoveTrusted: 6 };
+const K = { SetWithdrawDelay: 0, SetRuleDelay: 1, SetDailyLimit: 2, SetLockedUntil: 3, SetGuardian: 4, AddTrusted: 5, RemoveTrusted: 6, SetTrustedWaits: 7, SetNoExit: 8 };
 const ZERO = ethers.ZeroAddress;
 // How often each action comes up (case numbers in run()): weighted toward rule changes, instant sends and payouts,
 // where the rare combinations (an instant send during a lock, a guardian change) live.
@@ -35,6 +35,8 @@ function mayApplyNow(v, c) {
     case K.SetDailyLimit: return val === 0n ? v.dailyLimit === 0n : v.dailyLimit === 0n || val <= v.dailyLimit;
     case K.SetLockedUntil: return val === 0n ? v.lockedUntil === 0n : v.lockedUntil === 0n || val >= v.lockedUntil;
     case K.RemoveTrusted: return true;
+    case K.SetTrustedWaits: return val === 1n || !v.trustedWaits;
+    case K.SetNoExit: return val === 1n || !v.noExit;
     default: return false; // SetGuardian, AddTrusted
   }
 }
@@ -69,15 +71,15 @@ async function run(seed, steps) {
     const o = r.pick(owners), t = asset();
     const who0 = r.pick([o, o, o, guardian, stranger]);
     let who = who0;
-    const before = await state(o, t), vBefore = before && (await vault.getVault(o.address));
+    const before = await state(o, t), vBefore = before && { ...(await vault.getVault(o.address)).toObject(), ...(await vault.getStrict(o.address)).toObject() };
     const paused = await vault.depositsPaused();
     const locked = vBefore && vBefore.lockedUntil > now;
     const amt = BigInt(1 + r.below(3000)) * 10n ** 12n;
 
     switch (r.pick(MIX)) {
       case 0: { // open a Safe, maybe with ETH
-        const preset = r.chance(20) ? 0 : 1 + r.below(2), g = preset === 0 ? ZERO : guardian.address; // mostly with a guardian, to exercise releases
-        const lock = preset === 2 ? now + BigInt(r.below(20)) * DAY + DAY : 0n;
+        const preset = r.chance(20) ? 0 : 1 + r.below(3), g = preset === 0 || (preset === 3 && r.chance(30)) ? ZERO : guardian.address; // mostly with a guardian, to exercise releases
+        const lock = preset >= 2 ? now + BigInt(r.below(20)) * DAY + DAY : 0n;
         const val = r.chance(50) ? amt : 0n;
         const rc = await ok(vault.connect(o).createVault(preset, g, lock, { value: val }));
         if (rc) { hit("open"); if (val > 0n) expect(paused, where(step, "a Safe opened with money while paused")).to.equal(false); }
@@ -96,6 +98,7 @@ async function run(seed, steps) {
           expect(who.address, where(step, "instant send by a non-owner")).to.equal(o.address);
           expect(vBefore.trusted, where(step, "instant send to an untrusted address")).to.include(d);
           expect(locked, where(step, "instant send while locked")).to.equal(false);
+          expect(vBefore.trustedWaits, where(step, "instant send while trusted sends wait")).to.equal(false);
         }
         break;
       }
@@ -130,7 +133,10 @@ async function run(seed, steps) {
           hit(release ? "release" : "execute");
           const sent = evs(rc).find((x) => x.name === "Sent" || x.name === "TokenSent");
           expect([sent.args.dest, sent.args.amount], where(step, "a withdrawal changed on the way")).to.deep.equal([w.dest, w.amount]);
-          if (release) expect(who.address, where(step, "released by someone other than the guardian")).to.equal(vBefore.guardian);
+          if (release) {
+            expect(who.address, where(step, "released by someone other than the guardian")).to.equal(vBefore.guardian);
+            expect(vBefore.noExit, where(step, "released with no emergency exit")).to.equal(false);
+          }
           else {
             expect(now >= w.readyAt, where(step, "a withdrawal ran early")).to.equal(true);
             expect(locked, where(step, "a withdrawal ran while locked")).to.equal(false);
@@ -150,10 +156,11 @@ async function run(seed, steps) {
           break;
         }
         // Trusted addresses and locks open the instant-send and locked paths; guardian changes must always wait.
-        const kind = r.pick([K.AddTrusted, K.AddTrusted, K.AddTrusted, K.SetLockedUntil, K.SetLockedUntil, K.SetGuardian, K.SetGuardian, K.SetWithdrawDelay, K.SetRuleDelay, K.SetDailyLimit, K.RemoveTrusted]);
+        const kind = r.pick([K.AddTrusted, K.AddTrusted, K.AddTrusted, K.SetLockedUntil, K.SetLockedUntil, K.SetGuardian, K.SetGuardian, K.SetWithdrawDelay, K.SetRuleDelay, K.SetDailyLimit, K.RemoveTrusted, K.SetTrustedWaits, K.SetNoExit]);
         const value = kind === K.SetWithdrawDelay || kind === K.SetRuleDelay ? r.pick([HOUR - 1n, HOUR, 365n * DAY + 1n, HOUR * BigInt(1 + r.below(24 * 20))])
           : kind === K.SetDailyLimit ? (r.chance(30) ? 0n : amt * BigInt(1 + r.below(5)))
-          : kind === K.SetLockedUntil ? (r.chance(30) ? 0n : now + BigInt(r.below(30)) * DAY) : 0n;
+          : kind === K.SetLockedUntil ? (r.chance(30) ? 0n : now + BigInt(r.below(30)) * DAY)
+          : kind === K.SetTrustedWaits || kind === K.SetNoExit ? BigInt(r.below(3)) : 0n; // 2 must be refused
         const addr = kind === K.SetGuardian ? r.pick([ZERO, guardian.address, o.address, stranger.address])
           : kind === K.AddTrusted || kind === K.RemoveTrusted ? r.pick(dests) : ZERO;
         const c = { kind, value, addr };

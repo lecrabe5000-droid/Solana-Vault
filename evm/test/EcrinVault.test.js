@@ -4,8 +4,8 @@ const { ethers } = require("hardhat");
 const { time, loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 
 const HOUR = 3600, DAY = 86400;
-const Gentle = 0, Strong = 1, Locked = 2;
-const K = { SetWithdrawDelay: 0, SetRuleDelay: 1, SetDailyLimit: 2, SetLockedUntil: 3, SetGuardian: 4, AddTrusted: 5, RemoveTrusted: 6 };
+const Gentle = 0, Strong = 1, Locked = 2, LockedNoExit = 3;
+const K = { SetWithdrawDelay: 0, SetRuleDelay: 1, SetDailyLimit: 2, SetLockedUntil: 3, SetGuardian: 4, AddTrusted: 5, RemoveTrusted: 6, SetTrustedWaits: 7, SetNoExit: 8 };
 const ZERO = ethers.ZeroAddress;
 const eth = (n) => ethers.parseEther(String(n));
 const ch = (kind, value = 0, addr = ZERO) => ({ kind, value, addr });
@@ -260,5 +260,72 @@ describe("EcrinVault", () => {
       expect(await vault.depositsPaused()).to.equal(true);
     });
   });
-});
 
+  describe("strict options", () => {
+    const trust = async (vault, owner, who) => {
+      const { id, readyAt } = await idOf(vault.proposeChange(ch(K.AddTrusted, 0, who)), vault, "ChangeQueued");
+      await time.increaseTo(readyAt); await vault.applyChange(owner.address, id);
+    };
+
+    it("trusted sends also wait: on at once, refused, the normal way still works", async () => {
+      const { vault, owner, bank } = await loadFixture(deploy);
+      await vault.createVault(Gentle, ZERO, 0, { value: eth(10) });
+      await trust(vault, owner, bank.address);
+      await expect(vault.proposeChange(ch(K.SetTrustedWaits, 1))).to.emit(vault, "ChangeApplied");
+      expect((await vault.getStrict(owner.address)).trustedWaits).to.equal(true);
+      await expect(vault.sendToTrusted(bank.address, eth(1))).to.be.revertedWithCustomError(vault, "TrustedWaits");
+      await expect(vault.sendTokenToTrusted(bank.address, bank.address, 1)).to.be.revertedWithCustomError(vault, "TrustedWaits");
+      const { readyAt } = await idOf(vault.requestWithdrawal(bank.address, eth(1)), vault, "WithdrawalQueued");
+      expect(readyAt - BigInt(await time.latest())).to.equal(24n * BigInt(HOUR));
+    });
+
+    it("turning trusted waits off takes the rule delay, and the guardian can't hurry it", async () => {
+      const { vault, owner, guardian, bank } = await loadFixture(deploy);
+      await vault.createVault(Strong, guardian.address, 0, { value: eth(10) });
+      await trust(vault, owner, bank.address);
+      await vault.proposeChange(ch(K.SetTrustedWaits, 1));
+      const { id, readyAt } = await idOf(vault.proposeChange(ch(K.SetTrustedWaits, 0)), vault, "ChangeQueued");
+      expect(readyAt - BigInt(await time.latest())).to.equal(7n * BigInt(DAY));
+      await expect(vault.connect(guardian).guardianApproveChange(owner.address, id)).to.be.revertedWithCustomError(vault, "TooEarly");
+      await expect(vault.applyChange(owner.address, id)).to.be.revertedWithCustomError(vault, "TooEarly");
+      await time.increaseTo(readyAt); await vault.applyChange(owner.address, id);
+      await expect(vault.sendToTrusted(bank.address, eth(1))).to.changeEtherBalance(bank, eth(1));
+    });
+
+    it("no emergency exit: the guardian can't release, money leaves only when the lock ends", async () => {
+      const { vault, owner, guardian, bank } = await loadFixture(deploy);
+      const until = (await time.latest()) + 30 * DAY;
+      await vault.createVault(LockedNoExit, guardian.address, until, { value: eth(10) });
+      expect((await vault.getStrict(owner.address)).noExit).to.equal(true);
+      const { id } = await idOf(vault.requestWithdrawal(bank.address, eth(3)), vault, "WithdrawalQueued");
+      await expect(vault.connect(guardian).guardianRelease(owner.address, id)).to.be.revertedWithCustomError(vault, "NoExit");
+      await expect(vault.connect(guardian).guardianReleaseToken(owner.address, bank.address, id)).to.be.revertedWithCustomError(vault, "NoExit");
+      await expect(vault.executeWithdrawal(owner.address, id)).to.be.revertedWithCustomError(vault, "TooEarly");
+      await time.increaseTo(until);
+      await expect(vault.executeWithdrawal(owner.address, id)).to.changeEtherBalance(bank, eth(3));
+    });
+
+    it("a lock with no exit needs no guardian; plain Locked still does", async () => {
+      const { vault, owner, guardian } = await loadFixture(deploy);
+      const until = (await time.latest()) + 30 * DAY;
+      await expect(vault.createVault(Locked, ZERO, until)).to.be.revertedWithCustomError(vault, "InvalidValue");
+      await expect(vault.createVault(LockedNoExit, ZERO, 0)).to.be.revertedWithCustomError(vault, "InvalidValue");
+      await vault.createVault(LockedNoExit, ZERO, until, { value: eth(1) });
+      const v = await vault.getVault(owner.address);
+      expect(v.guardian).to.equal(ZERO); expect(v.lockedUntil).to.equal(BigInt(until));
+    });
+
+    it("turning no exit off waits until the lock ends; bad values are refused", async () => {
+      const { vault, owner, guardian } = await loadFixture(deploy);
+      const until = (await time.latest()) + 30 * DAY;
+      await vault.createVault(Locked, guardian.address, until, { value: eth(10) });
+      await expect(vault.proposeChange(ch(K.SetNoExit, 2))).to.be.revertedWithCustomError(vault, "InvalidValue");
+      await expect(vault.proposeChange(ch(K.SetNoExit, 1))).to.emit(vault, "ChangeApplied");
+      const { id, readyAt } = await idOf(vault.proposeChange(ch(K.SetNoExit, 0)), vault, "ChangeQueued");
+      expect(readyAt).to.equal(BigInt(until));
+      await expect(vault.connect(guardian).guardianApproveChange(owner.address, id)).to.be.revertedWithCustomError(vault, "TooEarly");
+      await time.increaseTo(until); await vault.applyChange(owner.address, id);
+      expect((await vault.getStrict(owner.address)).noExit).to.equal(false);
+    });
+  });
+});

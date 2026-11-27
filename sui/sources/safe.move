@@ -4,7 +4,10 @@
 /// - you can cancel a waiting withdrawal at any time;
 /// - a rule that makes the Safe harder to empty applies at once; one that loosens it waits;
 /// - an optional guardian can release a withdrawal you already asked for, and approve a new trusted address early,
-///   and nothing else: they can't start a withdrawal, change its amount or where it goes.
+///   and nothing else: they can't start a withdrawal, change its amount or where it goes;
+/// - two strict options, each on at once and off only after the rule delay (never before a lock ends):
+///   "trusted sends also wait" (no instant sends at all) and "no emergency exit" (the guardian can't release).
+///   They live in a dynamic field on the Safe, so Safes made before they existed keep working (both off).
 ///
 /// One Safe per owner and coin type (the Registry keeps them apart). The Safe is a shared object that only its
 /// owner can move money out of; running a withdrawal whose time has come is open to anyone (the money goes to
@@ -15,6 +18,7 @@ use std::type_name::{Self, TypeName};
 use sui::balance::{Self, Balance};
 use sui::clock::Clock;
 use sui::coin::{Self, Coin};
+use sui::dynamic_field as df;
 use sui::event;
 use sui::table::{Self, Table};
 
@@ -44,6 +48,14 @@ const EInvalidValue: u64 = 12;
 const EOverflow: u64 = 13;
 /// This address already has a Safe for this coin.
 const EAlreadyHasSafe: u64 = 14;
+/// This Safe makes trusted sends wait too: request a withdrawal instead.
+const ETrustedWaits: u64 = 15;
+/// This Safe has no emergency exit: the guardian can't release early.
+const ENoExit: u64 = 16;
+
+/// Which strict option a change is about.
+const TRUSTED_WAITS: u8 = 0;
+const NO_EXIT: u8 = 1;
 
 /// Every Safe, by owner and coin, so one owner can't end up with two Safes for the same coin.
 public struct Registry has key {
@@ -105,6 +117,23 @@ public struct Safe<phantom T> has key {
     spent_today: u64,
 }
 
+/// Name of the dynamic field that holds a Safe's strict options.
+public struct StrictKey has copy, drop, store {}
+
+public struct Strict has copy, drop, store {
+    trusted_waits: bool,
+    no_exit: bool,
+    /// Turning an option off, waiting for its time.
+    pending: vector<PendingStrict>,
+}
+
+public struct PendingStrict has copy, drop, store {
+    id: u64,
+    which: u8,
+    on: bool,
+    ready_at: u64,
+}
+
 // Events: what the wallet's history and Ecrin's alerts follow.
 public struct SafeCreated has copy, drop { safe: ID, owner: address, coin: TypeName }
 public struct Deposited has copy, drop { safe: ID, amount: u64 }
@@ -114,6 +143,9 @@ public struct WithdrawalCancelled has copy, drop { safe: ID, id: u64 }
 public struct ChangeQueued has copy, drop { safe: ID, id: u64, change: Change, ready_at: u64 }
 public struct ChangeApplied has copy, drop { safe: ID, id: u64, change: Change }
 public struct ChangeCancelled has copy, drop { safe: ID, id: u64 }
+/// `which`: 0 = trusted sends also wait, 1 = no emergency exit.
+public struct StrictQueued has copy, drop { safe: ID, id: u64, which: u8, on: bool, ready_at: u64 }
+public struct StrictApplied has copy, drop { safe: ID, id: u64, which: u8, on: bool }
 
 fun init(ctx: &mut TxContext) {
     transfer::share_object(Registry { id: object::new(ctx), safes: table::new(ctx) });
@@ -137,6 +169,38 @@ public fun create<T>(
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
+    let safe = new_safe<T>(registry, withdraw_delay, rule_delay, daily_limit, locked_until, guardian, clock, ctx);
+    transfer::share_object(safe);
+}
+
+/// Like `create`, with the strict options set from the start. A lock with no exit needs no guardian.
+public fun create_strict<T>(
+    registry: &mut Registry,
+    withdraw_delay: u64,
+    rule_delay: u64,
+    daily_limit: Option<u64>,
+    locked_until: Option<u64>,
+    guardian: Option<address>,
+    trusted_waits: bool,
+    no_exit: bool,
+    clock: &Clock,
+    ctx: &mut TxContext,
+) {
+    let mut safe = new_safe<T>(registry, withdraw_delay, rule_delay, daily_limit, locked_until, guardian, clock, ctx);
+    df::add(&mut safe.id, StrictKey {}, Strict { trusted_waits, no_exit, pending: vector[] });
+    transfer::share_object(safe);
+}
+
+fun new_safe<T>(
+    registry: &mut Registry,
+    withdraw_delay: u64,
+    rule_delay: u64,
+    daily_limit: Option<u64>,
+    locked_until: Option<u64>,
+    guardian: Option<address>,
+    clock: &Clock,
+    ctx: &mut TxContext,
+): Safe<T> {
     let owner = ctx.sender();
     let policy = Policy { withdraw_delay, rule_delay, daily_limit, locked_until, guardian };
     validate(&policy);
@@ -160,7 +224,7 @@ public fun create<T>(
     let id = object::id(&safe);
     registry.safes.add(key, id);
     event::emit(SafeCreated { safe: id, owner, coin: key.coin });
-    transfer::share_object(safe);
+    safe
 }
 
 // ---- Money in and out
@@ -173,12 +237,14 @@ public fun deposit<T>(safe: &mut Safe<T>, coin: Coin<T>) {
     event::emit(Deposited { safe: object::id(safe), amount });
 }
 
-/// Instant send to an address the owner trusted earlier. Still blocked while locked.
+/// Instant send to an address the owner trusted earlier. Still blocked while locked, and refused when the
+/// owner chose "trusted sends also wait".
 public fun send_to_trusted<T>(safe: &mut Safe<T>, dest: address, amount: u64, clock: &Clock, ctx: &mut TxContext) {
     owner_only(safe, ctx);
     let now = now(clock);
     assert!(amount > 0, EZeroAmount);
     assert!(safe.trusted.contains(&dest), ENotTrusted);
+    assert!(!trusted_waits(safe), ETrustedWaits);
     assert!(!is_locked(safe, now), ELocked);
     assert!(amount <= available(safe), EInsufficientFunds);
     let out = spend(safe, amount, now);
@@ -227,8 +293,10 @@ public fun execute_withdrawal<T>(safe: &mut Safe<T>, id: u64, clock: &Clock, ctx
 
 /// Emergency exit: the guardian co-signs a withdrawal the owner already requested, and it runs now,
 /// lock and delay included. The guardian can't create one, change its amount or its destination.
+/// Refused when the owner chose "no emergency exit".
 public fun guardian_release<T>(safe: &mut Safe<T>, id: u64, clock: &Clock, ctx: &mut TxContext) {
     guardian_only(safe, ctx);
+    assert!(!no_exit(safe), ENoExit);
     let now = now(clock);
     let i = find_withdrawal(safe, id);
     let w = safe.withdrawals[i];
@@ -306,6 +374,85 @@ public fun guardian_approve_change<T>(safe: &mut Safe<T>, id: u64, ctx: &TxConte
     apply(safe, c.change);
     safe.changes.remove(i);
     event::emit(ChangeApplied { safe: object::id(safe), id, change: c.change });
+}
+
+// ---- Strict options: on at once, off after the rule delay (and never before a lock ends)
+
+public fun set_trusted_waits<T>(safe: &mut Safe<T>, on: bool, clock: &Clock, ctx: &TxContext) {
+    propose_strict(safe, TRUSTED_WAITS, on, clock, ctx)
+}
+public fun set_no_exit<T>(safe: &mut Safe<T>, on: bool, clock: &Clock, ctx: &TxContext) {
+    propose_strict(safe, NO_EXIT, on, clock, ctx)
+}
+
+fun propose_strict<T>(safe: &mut Safe<T>, which: u8, on: bool, clock: &Clock, ctx: &TxContext) {
+    owner_only(safe, ctx);
+    let now = now(clock);
+    let sid = object::id(safe);
+    let current = if (which == TRUSTED_WAITS) trusted_waits(safe) else no_exit(safe);
+    if (on || !current) {
+        set_flag(strict_mut(safe), which, on);
+        event::emit(StrictApplied { safe: sid, id: 0, which, on });
+        return
+    };
+    let ready_at = max(now + safe.policy.rule_delay, safe.policy.locked_until.get_with_default(0));
+    let id = next_id(safe);
+    let s = strict_mut(safe);
+    assert!(s.pending.length() < MAX_PENDING_CHANGES, ETooManyPending);
+    s.pending.push_back(PendingStrict { id, which, on, ready_at });
+    event::emit(StrictQueued { safe: sid, id, which, on, ready_at });
+}
+
+/// Applies a queued strict-option change once its time has come. Anyone may call it. The guardian can't hurry it.
+public fun apply_strict_change<T>(safe: &mut Safe<T>, id: u64, clock: &Clock) {
+    let sid = object::id(safe);
+    let s = strict_mut(safe);
+    let i = find_strict(s, id);
+    let c = s.pending[i];
+    assert!(now(clock) >= c.ready_at, ETooEarly);
+    s.pending.remove(i);
+    set_flag(s, c.which, c.on);
+    event::emit(StrictApplied { safe: sid, id, which: c.which, on: c.on });
+}
+
+public fun cancel_strict_change<T>(safe: &mut Safe<T>, id: u64, ctx: &TxContext) {
+    owner_only(safe, ctx);
+    let sid = object::id(safe);
+    let s = strict_mut(safe);
+    let i = find_strict(s, id);
+    s.pending.remove(i);
+    event::emit(ChangeCancelled { safe: sid, id });
+}
+
+public fun trusted_waits<T>(safe: &Safe<T>): bool {
+    df::exists_(&safe.id, StrictKey {}) && df::borrow<StrictKey, Strict>(&safe.id, StrictKey {}).trusted_waits
+}
+public fun no_exit<T>(safe: &Safe<T>): bool {
+    df::exists_(&safe.id, StrictKey {}) && df::borrow<StrictKey, Strict>(&safe.id, StrictKey {}).no_exit
+}
+public fun strict_pending_count<T>(safe: &Safe<T>): u64 {
+    if (df::exists_(&safe.id, StrictKey {})) df::borrow<StrictKey, Strict>(&safe.id, StrictKey {}).pending.length() else 0
+}
+
+fun strict_mut<T>(safe: &mut Safe<T>): &mut Strict {
+    if (!df::exists_(&safe.id, StrictKey {})) {
+        df::add(&mut safe.id, StrictKey {}, Strict { trusted_waits: false, no_exit: false, pending: vector[] });
+    };
+    df::borrow_mut(&mut safe.id, StrictKey {})
+}
+
+fun set_flag(s: &mut Strict, which: u8, on: bool) {
+    if (which == TRUSTED_WAITS) s.trusted_waits = on else s.no_exit = on
+}
+
+fun find_strict(s: &Strict, id: u64): u64 {
+    let mut i = 0;
+    let n = s.pending.length();
+    while (i < n) {
+        if (s.pending[i].id == id) return i;
+        i = i + 1;
+    };
+    abort ENotFound
 }
 
 // ---- Reading

@@ -15,6 +15,13 @@ Crypto puts a casino one tap away. DNS blockers are switched off in a minute, st
 | **Loosening a rule** (shorter delay, any guardian change) | Waits 3 to 7 days. Stricter rules apply at once. |
 | **Emergency** | Your guardian co-signs a withdrawal you requested and it runs now. The guardian can never start one or choose where it goes. |
 
+Two strict options, for when you want no shortcut at all. Each turns on at once; turning it off waits for the rule delay, and never before your lock ends.
+
+| Option | What it changes |
+| --- | --- |
+| **Trusted sends also wait** | Trusted addresses lose their instant send. Every way out waits for the withdrawal delay. |
+| **No emergency exit** | The guardian can't release anything early. With a lock, nothing leaves before your date, whoever asks. |
+
 There is no receipt token, so there is nothing to sell to get around the delay. Importing your key into another wallet changes nothing: the program enforces the rules.
 
 ### Presets
@@ -24,6 +31,9 @@ There is no receipt token, so there is nothing to sell to get around the delay. 
 | Gentle | 24 h | 3 days | optional |
 | Strong | 72 h | 7 days | notified of every request |
 | Locked | nothing leaves before your date | 7 days | required for an emergency exit |
+| Locked, no exit | nothing leaves before your date, no exception | 7 days | optional (can't release) |
+
+On Ethereum-style networks the strict options and the "Locked, no exit" preset come with the next contract deployment: the contract has no upgrade path, so Safes opened on the current one keep its rules. On Sui they arrive with a package upgrade and work for existing Safes too.
 
 ## Layout
 

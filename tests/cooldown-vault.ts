@@ -142,4 +142,46 @@ describe("cooldown-vault", () => {
       assert.ok(failed, "the settings must not be created twice");
     });
   });
+
+  // Strict options: a lock with no emergency exit, and trusted sends that wait like any other withdrawal.
+  describe("strict options", () => {
+    const me = anchor.web3.Keypair.generate();
+    const guardian = anchor.web3.Keypair.generate();
+    const bank = anchor.web3.Keypair.generate().publicKey;
+    const [mine] = anchor.web3.PublicKey.findProgramAddressSync([Buffer.from("vault"), me.publicKey.toBuffer()], program.programId);
+    const get = () => program.account.vaultAccount.fetch(mine);
+    const as = { owner: me.publicKey, vault: mine };
+
+    before(async () => {
+      const sig = await provider.connection.requestAirdrop(me.publicKey, 2 * SOL);
+      await provider.connection.confirmTransaction(sig);
+      await airdrop(guardian);
+    });
+
+    it("creates a lock with no exit, guardian or not, and the guardian can't release", async () => {
+      const until = Math.floor(Date.now() / 1000) + 30 * DAY;
+      await program.methods.initialize({ lockedNoExit: { until: new BN(until), guardian: guardian.publicKey } }).accountsPartial(as).signers([me]).rpc();
+      let v = await get();
+      assert.isTrue(v.noExit);
+      assert.isFalse(v.trustedWaits);
+      await program.methods.deposit(new BN(0.5 * SOL)).accountsPartial(as).signers([me]).rpc();
+      await program.methods.requestWithdrawal(bank, new BN(0.1 * SOL)).accountsPartial(as).signers([me]).rpc();
+      const id = (await get()).withdrawals[0].id;
+      await expectError(program.methods.guardianRelease(id).accountsPartial({ guardian: guardian.publicKey, vault: mine, dest: bank }).signers([guardian]).rpc(), "NoExit");
+      v = await get();
+      assert.equal(v.withdrawals.length, 1);
+      assert.equal(v.balance.toNumber(), 0.5 * SOL);
+    });
+
+    it("turns trusted waits on at once, and queues turning no exit off until the lock ends", async () => {
+      await program.methods.proposeChange({ setTrustedWaits: { on: true } }).accountsPartial(as).signers([me]).rpc();
+      assert.isTrue((await get()).trustedWaits);
+      await program.methods.proposeChange({ setNoExit: { on: false } }).accountsPartial(as).signers([me]).rpc();
+      const v = await get();
+      assert.isTrue(v.noExit);
+      assert.equal(v.changes.length, 1);
+      assert.ok(v.changes[0].readyAt.toNumber() >= v.lockedUntil.toNumber());
+      await expectError(program.methods.applyChange(v.changes[0].id).accountsPartial({ caller: me.publicKey, vault: mine }).rpc(), "TooEarly");
+    });
+  });
 });

@@ -462,3 +462,130 @@ fun the_safe_cant_trust_itself() {
     ts::return_shared(s);
     done(sc, c);
 }
+
+// ---- Strict options
+
+#[test, expected_failure(abort_code = 15, location = ecrin_safe::safe)]
+fun trusted_waits_refuses_instant_sends() {
+    let (mut sc, mut c) = start(option::none(), option::none());
+    sc.next_tx(OWNER);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    s.add_trusted(FRIEND, &c, sc.ctx());
+    later(&mut c, 3 * DAY);
+    s.apply_change(1, &c);
+    s.set_trusted_waits(true, &c, sc.ctx());
+    assert!(s.trusted_waits());
+    s.send_to_trusted(FRIEND, 10, &c, sc.ctx());
+    ts::return_shared(s);
+    done(sc, c);
+}
+
+#[test]
+fun turning_trusted_waits_off_waits_for_the_rule_delay() {
+    let (mut sc, mut c) = start(option::none(), option::none());
+    sc.next_tx(OWNER);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    s.add_trusted(FRIEND, &c, sc.ctx());
+    later(&mut c, 3 * DAY);
+    s.apply_change(1, &c);
+    s.set_trusted_waits(true, &c, sc.ctx());
+    s.set_trusted_waits(false, &c, sc.ctx()); // queued as id 2
+    assert!(s.trusted_waits());
+    assert!(s.strict_pending_count() == 1);
+    later(&mut c, 3 * DAY);
+    s.apply_strict_change(2, &c);
+    assert!(!s.trusted_waits());
+    s.send_to_trusted(FRIEND, 10, &c, sc.ctx());
+    ts::return_shared(s);
+    assert!(received(&mut sc, FRIEND) == 10);
+    done(sc, c);
+}
+
+#[test, expected_failure(abort_code = 7, location = ecrin_safe::safe)]
+fun trusted_waits_off_cant_apply_early() {
+    let (mut sc, mut c) = start(option::none(), option::none());
+    sc.next_tx(OWNER);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    s.set_trusted_waits(true, &c, sc.ctx());
+    s.set_trusted_waits(false, &c, sc.ctx()); // id 1
+    later(&mut c, 3 * DAY - 1);
+    s.apply_strict_change(1, &c);
+    ts::return_shared(s);
+    done(sc, c);
+}
+
+#[test, expected_failure(abort_code = 16, location = ecrin_safe::safe)]
+fun no_exit_stops_the_guardian_release() {
+    let (mut sc, c) = start(option::some(GUARD), option::none());
+    sc.next_tx(OWNER);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    s.set_no_exit(true, &c, sc.ctx());
+    s.request_withdrawal(FRIEND, 100, &c, sc.ctx());
+    ts::return_shared(s);
+    sc.next_tx(GUARD);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    s.guardian_release(1, &c, sc.ctx());
+    ts::return_shared(s);
+    done(sc, c);
+}
+
+#[test]
+fun a_strict_lock_needs_no_guardian_and_turning_no_exit_off_waits_for_the_lock() {
+    let mut sc = ts::begin(OWNER);
+    safe::init_for_testing(sc.ctx());
+    let mut c = clock::create_for_testing(sc.ctx());
+    c.set_for_testing(T0 * 1000);
+    sc.next_tx(OWNER);
+    let mut reg = sc.take_shared<Registry>();
+    safe::create_strict<SUI>(&mut reg, 72 * HOUR, 7 * DAY, option::none(), option::some(T0 + 30 * DAY), option::none(), false, true, &c, sc.ctx());
+    ts::return_shared(reg);
+    sc.next_tx(OWNER);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    assert!(s.no_exit());
+    assert!(s.guardian().is_none());
+    s.deposit(coin::mint_for_testing<SUI>(1000, sc.ctx()));
+    s.set_no_exit(false, &c, sc.ctx()); // id 1, waits for the lock
+    later(&mut c, 7 * DAY);
+    assert!(s.no_exit());
+    s.request_withdrawal(FRIEND, 400, &c, sc.ctx()); // id 2, ready when the lock ends
+    later(&mut c, 23 * DAY);
+    s.apply_strict_change(1, &c);
+    assert!(!s.no_exit());
+    s.execute_withdrawal(2, &c, sc.ctx());
+    ts::return_shared(s);
+    assert!(received(&mut sc, FRIEND) == 400);
+    done(sc, c);
+}
+
+#[test, expected_failure(abort_code = 7, location = ecrin_safe::safe)]
+fun no_exit_off_cant_apply_during_the_lock() {
+    let mut sc = ts::begin(OWNER);
+    safe::init_for_testing(sc.ctx());
+    let mut c = clock::create_for_testing(sc.ctx());
+    c.set_for_testing(T0 * 1000);
+    sc.next_tx(OWNER);
+    let mut reg = sc.take_shared<Registry>();
+    safe::create_strict<SUI>(&mut reg, HOUR, HOUR, option::none(), option::some(T0 + 30 * DAY), option::some(GUARD), false, true, &c, sc.ctx());
+    ts::return_shared(reg);
+    sc.next_tx(OWNER);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    s.set_no_exit(false, &c, sc.ctx()); // the rule delay is an hour, but the lock still holds it
+    later(&mut c, 2 * DAY);
+    s.apply_strict_change(1, &c);
+    ts::return_shared(s);
+    done(sc, c);
+}
+
+#[test, expected_failure(abort_code = 0, location = ecrin_safe::safe)]
+fun a_stranger_cant_turn_a_strict_option_off() {
+    let (mut sc, c) = start(option::none(), option::none());
+    sc.next_tx(OWNER);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    s.set_no_exit(true, &c, sc.ctx());
+    ts::return_shared(s);
+    sc.next_tx(STRANGER);
+    let mut s = sc.take_shared<Safe<SUI>>();
+    s.set_no_exit(false, &c, sc.ctx());
+    ts::return_shared(s);
+    done(sc, c);
+}

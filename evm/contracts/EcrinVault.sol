@@ -4,10 +4,13 @@ pragma solidity 0.8.24;
 /// @title Ecrin vault for Ethereum
 /// @notice The same rules as the Solana program (crates/vault-core): every way out of the vault is slower than
 /// an impulse or an attacker.
-/// - Sends to trusted addresses arrive at once (subject to the daily limit).
+/// - Sends to trusted addresses arrive at once (subject to the daily limit), unless the owner chose
+///   "trusted sends also wait": then they are refused and every way out waits.
 /// - Any other withdrawal waits for the owner's delay, and the owner can cancel it until it runs.
 /// - Making the rules stricter applies at once. Loosening them, and any guardian change, waits for the rule delay.
 /// - A guardian can never move funds on their own. They can only approve something the owner asked for.
+/// - "No emergency exit": the guardian can't release early either, so a lock really means nothing leaves.
+///   Both strict options turn on at once and take the rule delay to turn off (never before the lock ends).
 /// One contract holds one vault per owner address: their ETH, and any ERC-20 token (USDC) they put in.
 /// Each token keeps its own balance, daily limit and queue; the delays, the lock, the guardian and the trusted
 /// addresses are the vault's, so one set of rules covers every coin.
@@ -29,11 +32,13 @@ contract EcrinVault {
     /// Furthest a lock can reach: ten years. Past that it is a typo, or a key thief trying to freeze the money for good.
     uint64 public constant MAX_LOCK = 10 * 365 * DAY;
 
-    enum Kind { SetWithdrawDelay, SetRuleDelay, SetDailyLimit, SetLockedUntil, SetGuardian, AddTrusted, RemoveTrusted }
-    enum Preset { Gentle, Strong, Locked }
+    /// New kinds and presets go last, so the numbers the app already sends keep their meaning.
+    enum Kind { SetWithdrawDelay, SetRuleDelay, SetDailyLimit, SetLockedUntil, SetGuardian, AddTrusted, RemoveTrusted, SetTrustedWaits, SetNoExit }
+    enum Preset { Gentle, Strong, Locked, LockedNoExit }
 
     /// `value` carries a delay, a limit or a date (0 = none for the limit and the lock);
     /// `addr` carries a guardian or a trusted address (address(0) = no guardian).
+    /// For the two strict options, `value` is 1 (on) or 0 (off).
     struct Change { Kind kind; uint256 value; address addr; }
     struct Withdrawal { uint32 id; uint256 amount; address dest; uint64 readyAt; }
     struct PendingChange { uint32 id; Change change; uint64 readyAt; }
@@ -52,6 +57,8 @@ contract EcrinVault {
         address[] trusted;
         Withdrawal[] withdrawals;
         PendingChange[] changes;
+        bool trustedWaits; // trusted sends are refused; use a normal (delayed) withdrawal
+        bool noExit; // the guardian can't release early
     }
 
     /// One token inside a vault. `changes` only ever holds daily-limit changes for this token.
@@ -100,6 +107,8 @@ contract EcrinVault {
     error Reentered();
     error DepositsPaused();
     error NotPauser();
+    error TrustedWaits();
+    error NoExit();
 
     event VaultCreated(address indexed owner, Preset preset, address guardian, uint64 lockedUntil);
     event Deposited(address indexed owner, uint256 amount);
@@ -170,6 +179,7 @@ contract EcrinVault {
 
     /// Creates the caller's vault. Gentle: 24 h / 3 days, no guardian. Strong: 72 h / 7 days, guardian optional.
     /// Locked: like Strong, nothing leaves before `lockUntil`, guardian required for emergencies.
+    /// LockedNoExit: like Locked with no emergency exit at all; the guardian is optional.
     /// Any ETH sent along is deposited.
     function createVault(Preset preset, address guardian, uint64 lockUntil) external payable {
         Vault storage v = vaults[msg.sender];
@@ -183,9 +193,11 @@ contract EcrinVault {
         } else {
             (v.withdrawDelay, v.ruleDelay) = (72 * HOUR, 7 * DAY);
             v.guardian = guardian;
-            if (preset == Preset.Locked) {
-                if (guardian == address(0) || lockUntil <= block.timestamp || lockUntil > block.timestamp + MAX_LOCK) revert InvalidValue();
+            if (preset == Preset.Locked || preset == Preset.LockedNoExit) {
+                if (preset == Preset.Locked && guardian == address(0)) revert InvalidValue();
+                if (lockUntil <= block.timestamp || lockUntil > block.timestamp + MAX_LOCK) revert InvalidValue();
                 v.lockedUntil = lockUntil;
+                v.noExit = preset == Preset.LockedNoExit;
             } else if (lockUntil != 0) revert InvalidValue();
         }
         emit VaultCreated(msg.sender, preset, guardian, v.lockedUntil);
@@ -203,11 +215,13 @@ contract EcrinVault {
         emit Deposited(msg.sender, msg.value);
     }
 
-    /// Instant send to an address the owner trusted earlier. Still blocked while locked.
+    /// Instant send to an address the owner trusted earlier. Still blocked while locked, and refused when
+    /// the owner chose "trusted sends also wait".
     function sendToTrusted(address dest, uint256 amount) external nonReentrant {
         Vault storage v = _vault(msg.sender);
         if (amount == 0) revert ZeroAmount();
         if (!_isTrusted(v, dest)) revert NotTrusted();
+        if (v.trustedWaits) revert TrustedWaits();
         if (_isLocked(v)) revert Locked();
         if (amount > available(msg.sender)) revert InsufficientFunds();
         _spend(v, amount);
@@ -288,9 +302,11 @@ contract EcrinVault {
 
     /// Emergency exit: the guardian co-signs a withdrawal the owner already requested, and it runs now,
     /// lock and delay included. The guardian can't create one, change its amount or its destination.
+    /// Refused when the owner chose "no emergency exit".
     function guardianRelease(address owner, uint32 id) external nonReentrant {
         Vault storage v = _vault(owner);
         _guardianOnly(v);
+        if (v.noExit) revert NoExit();
         uint256 i = _findW(v.withdrawals, id);
         Withdrawal memory w = v.withdrawals[i];
         _spend(v, w.amount);
@@ -330,6 +346,7 @@ contract EcrinVault {
         TokenVault storage t = tokenVaults[msg.sender][token];
         if (amount == 0) revert ZeroAmount();
         if (!_isTrusted(v, dest)) revert NotTrusted();
+        if (v.trustedWaits) revert TrustedWaits();
         if (_isLocked(v)) revert Locked();
         if (amount > availableToken(msg.sender, token)) revert InsufficientFunds();
         _spendToken(t, amount);
@@ -374,6 +391,7 @@ contract EcrinVault {
     function guardianReleaseToken(address owner, address token, uint32 id) external nonReentrant {
         Vault storage v = _vault(owner);
         _guardianOnly(v);
+        if (v.noExit) revert NoExit();
         TokenVault storage t = tokenVaults[owner][token];
         uint256 i = _findW(t.withdrawals, id);
         Withdrawal memory w = t.withdrawals[i];
@@ -512,6 +530,12 @@ contract EcrinVault {
             v.trusted, v.withdrawals, v.changes);
     }
 
+    /// The strict options (kept out of getVault so its shape stays the same for older apps).
+    function getStrict(address owner) external view returns (bool trustedWaits, bool noExit) {
+        Vault storage v = _vault(owner);
+        return (v.trustedWaits, v.noExit);
+    }
+
     /// Funds not already promised to a queued withdrawal.
     function available(address owner) public view returns (uint256) {
         Vault storage v = vaults[owner];
@@ -533,6 +557,9 @@ contract EcrinVault {
             return v.lockedUntil == 0 || c.value >= v.lockedUntil;
         }
         if (c.kind == Kind.RemoveTrusted) return true;
+        // A strict option: turning it on is stricter; turning it off loosens, unless it was already off.
+        if (c.kind == Kind.SetTrustedWaits) return c.value == 1 || !v.trustedWaits;
+        if (c.kind == Kind.SetNoExit) return c.value == 1 || !v.noExit;
         return false; // SetGuardian, AddTrusted
     }
 
@@ -589,6 +616,7 @@ contract EcrinVault {
             if (c.addr == address(0) || c.addr == address(this) || _isTrusted(v, c.addr)) revert InvalidValue();
             if (v.trusted.length >= MAX_TRUSTED) revert TooManyTrusted();
         } else if (c.kind == Kind.RemoveTrusted) { if (!_isTrusted(v, c.addr)) revert NotFound(); }
+        else if (c.kind == Kind.SetTrustedWaits || c.kind == Kind.SetNoExit) { if (c.value > 1) revert InvalidValue(); }
         // SetDailyLimit: any value; 0 means no limit.
     }
 
@@ -604,6 +632,8 @@ contract EcrinVault {
         else if (c.kind == Kind.SetDailyLimit) v.dailyLimit = c.value;
         else if (c.kind == Kind.SetLockedUntil) v.lockedUntil = uint64(c.value);
         else if (c.kind == Kind.SetGuardian) v.guardian = c.addr;
+        else if (c.kind == Kind.SetTrustedWaits) v.trustedWaits = c.value == 1;
+        else if (c.kind == Kind.SetNoExit) v.noExit = c.value == 1;
         else if (c.kind == Kind.AddTrusted) {
             if (!_isTrusted(v, c.addr)) {
                 if (v.trusted.length >= MAX_TRUSTED) revert TooManyTrusted();
