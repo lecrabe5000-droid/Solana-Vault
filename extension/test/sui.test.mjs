@@ -51,3 +51,17 @@ console.log("sui ok");
     await assert.rejects(e.propose(c), (err) => !/isn't a Sui address/.test(err.message), `${c.kind} must not fail while encoding`);
   }
 }
+
+// An Ethereum address (40 hex digits) is never taken as a Sui address: zero-padded, it would be an address nobody
+// holds the key to, and the coins would be lost.
+{
+  const { suiEngine, SUI, fullSuiAddr } = await import("../src/sui.js");
+  const eth = "0xeF28981Dc9D5D7FfF7ed8075Ad8F990d9D8C3BCB", sui = "0x" + "ab".repeat(32);
+  assert.equal(fullSuiAddr(eth), false); assert.equal(fullSuiAddr(sui), true); assert.equal(fullSuiAddr("0x2"), false);
+  const e = suiEngine({ acct: { sui: new Uint8Array(32).fill(7) }, dev: { suiApi: "http://127.0.0.1:9/none" }, N: { ...SUI, safe: { package: "0x2", registry: "0x3" } } });
+  assert.equal(e.isAddress(eth), false); assert.equal(e.isAddress(sui), true);
+  await assert.rejects(e.send("native", eth, 1), /Ethereum address, not a Sui one/);
+  await assert.rejects(e.request("native", eth, 1), /full Sui address/);
+  await assert.rejects(e.propose({ kind: "AddTrusted", value: eth }), /full Sui address/);
+  console.log("sui: Ethereum addresses refused ✓");
+}

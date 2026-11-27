@@ -34,6 +34,9 @@ const h256 = (u8) => blake2b(u8, { dkLen: 32 });
 /** The 0x… address for an ed25519 public key: blake2b-256 of the scheme flag (0) and the key. */
 export const suiAddress = (pub) => "0x" + hex(h256(cat(Uint8Array.of(0), pub)));
 /** A 0x… address with 64 hex digits (shorter ones are zero-padded, like Sui does), or null. */
+/** An address someone types or pastes: the full 64 hex digits. A shorter one is refused, so an Ethereum address
+ *  (40 digits) can never be zero-padded into a Sui address that nobody holds the key to. */
+export const fullSuiAddr = (s) => /^0x[0-9a-fA-F]{64}$/.test(String(s || "").trim());
 export function normAddr(s) {
   const m = /^0x([0-9a-f]{1,64})$/i.exec(String(s || "").trim());
   return m ? "0x" + m[1].toLowerCase().padStart(64, "0") : null;
@@ -339,6 +342,7 @@ export function suiEngine({ acct, dev = {}, N = SUI }) {
       SetTrustedWaits: () => ["set_trusted_waits", Uint8Array.of(v ? 1 : 0)], SetNoExit: () => ["set_no_exit", Uint8Array.of(v ? 1 : 0)],
     }[c.kind];
     if (!make) throw new Error("Unknown rule change " + c.kind);
+    if ((c.kind === "AddTrusted" || (c.kind === "SetGuardian" && v != null)) && !fullSuiAddr(String(v))) throw new Error("That isn't a full Sui address (64 characters after 0x).");
     const s = await safeObj(), [fn, arg] = make();
     if (/^Set(TrustedWaits|NoExit)$/.test(c.kind) && !safeStrict) throw new Error("Your Sui Safe was opened before strict options existed, so it can't use them.");
     return safeRun(fn, [s, { pure: arg }, { clock: true }]);
@@ -354,7 +358,7 @@ export function suiEngine({ acct, dev = {}, N = SUI }) {
   }
   return {
     N, address: me, key: (s) => normAddr(s),
-    isAddress: (s) => !!normAddr(s),
+    isAddress: (s) => fullSuiAddr(s),
     explain: (e) => ({ message: String(e?.message || e) }),
     // Balances in the wallet's common units: the coin in 1e9 (mist already is), USDC in 1e6.
     async balances() {
@@ -372,8 +376,8 @@ export function suiEngine({ acct, dev = {}, N = SUI }) {
       safeId = null; await findSafe().catch(() => {}); return r;
     },
     async protect(asset, amount) { if (asset !== "native") throw new Error("On Sui, the Safe holds SUI for now."); return safeRun("deposit", [await safeObj(), { deposit: BigInt(Math.round(amount)) }], BigInt(Math.round(amount))); },
-    async request(asset, dest, amount) { if (asset !== "native") throw new Error("On Sui, the Safe holds SUI for now."); return safeRun("request_withdrawal", [await safeObj(), { pure: addr(String(dest)) }, { pure: u64(BigInt(Math.round(amount))) }, { clock: true }]); },
-    async sendTrusted(asset, dest, amount) { return safeRun("send_to_trusted", [await safeObj(), { pure: addr(String(dest)) }, { pure: u64(BigInt(Math.round(amount))) }, { clock: true }]); },
+    async request(asset, dest, amount) { if (!fullSuiAddr(dest)) throw new Error("That isn't a full Sui address (64 characters after 0x)."); if (asset !== "native") throw new Error("On Sui, the Safe holds SUI for now."); return safeRun("request_withdrawal", [await safeObj(), { pure: addr(String(dest)) }, { pure: u64(BigInt(Math.round(amount))) }, { clock: true }]); },
+    async sendTrusted(asset, dest, amount) { if (!fullSuiAddr(dest)) throw new Error("That isn't a full Sui address (64 characters after 0x)."); return safeRun("send_to_trusted", [await safeObj(), { pure: addr(String(dest)) }, { pure: u64(BigInt(Math.round(amount))) }, { clock: true }]); },
     async cancel(asset, id) { return safeRun("cancel_withdrawal", [await safeObj(), { pure: u64(id) }]); },
     async execute(asset, id) { return safeRun("execute_withdrawal", [await safeObj(), { pure: u64(id) }, { clock: true }]); },
     propose,
@@ -384,7 +388,7 @@ export function suiEngine({ acct, dev = {}, N = SUI }) {
     reserve: (asset) => (asset === "native" ? 10_000_000 : 0), // keep 0.01 SUI for fees
     feeText: () => "≈ 0.002 SUI",
     async send(asset, to, amount) {
-      if (!normAddr(to)) throw new Error("That isn't a Sui address.");
+      if (!fullSuiAddr(to)) throw new Error(/^0x[0-9a-fA-F]{40}$/.test(String(to).trim()) ? "That's an Ethereum address, not a Sui one. Sui addresses have 64 characters after 0x." : "That isn't a Sui address.");
       if (asset === "usdc") return execute(await plan(N.usdc, to, BigInt(Math.round(amount))));
       return execute(await plan(SUI_COIN, to, BigInt(Math.round(amount))));
     },
@@ -404,7 +408,7 @@ export function suiEngine({ acct, dev = {}, N = SUI }) {
     },
     async listTokens() { return []; },
     async sendToken(t, to, raw) {
-      if (!normAddr(to)) throw new Error("That isn't a Sui address.");
+      if (!fullSuiAddr(to)) throw new Error(/^0x[0-9a-fA-F]{40}$/.test(String(to).trim()) ? "That's an Ethereum address, not a Sui one. Sui addresses have 64 characters after 0x." : "That isn't a Sui address.");
       return execute(await plan(t.mint, to, BigInt(raw)));
     },
     plan, // for tests

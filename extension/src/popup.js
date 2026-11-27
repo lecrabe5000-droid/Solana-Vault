@@ -5444,7 +5444,9 @@ function bindTokChart(el) {
 
 /* ------------------------------------------------------------------ Safe rules and alerts, for every network at once */
 const validFor = (f, t) => (f === "evm" ? /^0x[0-9a-fA-F]{40}$/.test(t) : /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(t));
-const famOf = (k) => (NETS[k].fam === "sol" ? "sol" : "evm");
+// Sui is its own family: its addresses look like Ethereum ones (0x…) but are longer, so an Ethereum guardian or
+// trusted address must never be sent to a Sui Safe.
+const famOf = (k) => (NETS[k].fam === "sol" ? "sol" : NETS[k].fam === "sui" ? "sui" : "evm");
 const openVaults = () => (S.all || []).filter((r) => r.ok && r.v);
 
 /** Sends each change to every network with a Safe in that family ("all" = every network), one after another. */
