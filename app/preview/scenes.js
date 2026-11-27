@@ -26,12 +26,12 @@
   S.safe = () => svg(`
     ${blocks(540)}
     <g data-in="0" class="lift">${card(70, 170, 220, 180, `<text x="24" y="40" class="s" font-size="14" fill="#9aa3c7">Wallet</text><text x="24" y="86" class="h" font-size="34" fill="#fff">$1,608</text><text x="24" y="114" class="s" font-size="13" fill="#7f88ad">spend now</text><rect x="24" y="136" width="172" height="6" rx="3" fill="rgba(255,255,255,.08)"/><rect x="24" y="136" width="70" height="6" rx="3" fill="#8ea4ff"/>`)}</g>
-    <g data-in="0" class="lift d1">${card(510, 150, 230, 220, `${MARK(115, 78, .62)}<text x="115" y="160" class="h" font-size="30" fill="#fff" text-anchor="middle">$7,381</text><text x="115" y="190" class="s" font-size="13" fill="#9fb3ff" text-anchor="middle">Safe · on-chain</text>`)}</g>
-    <path d="M290 260 C 380 200, 430 320, 510 260" fill="none" stroke="rgba(150,170,255,.35)" stroke-dasharray="4 6"/>
-    <g data-in="1">${[0, 1, 2].map((i) => `<circle r="6" fill="#9fb3ff" class="flow f${i}"><animateMotion dur="1s" fill="freeze" begin="indefinite" path="M290 260 C 380 200, 430 320, 510 260"/></circle>`).join("")}
+    <g data-in="0" class="lift d1"><circle cx="625" cy="260" r="112" fill="url(#gCard)" stroke="url(#gEdge)" stroke-width="1.2"/><path d="M560 160 A112 112 0 0 1 690 160" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1" stroke-linecap="round" opacity=".6"/>${MARK(625, 214, .56)}<text x="625" y="290" class="h" font-size="30" fill="#fff" text-anchor="middle">$7,381</text><text x="625" y="318" class="s" font-size="13" fill="#9fb3ff" text-anchor="middle">Safe · on-chain</text></g>
+    <path d="M290 260 C 380 200, 430 320, 513 260" fill="none" stroke="rgba(150,170,255,.35)" stroke-dasharray="4 6"/>
+    <g data-in="1">${[0, 1, 2].map((i) => `<circle r="6" fill="#9fb3ff" class="flow f${i}"><animateMotion dur="1s" fill="freeze" begin="indefinite" path="M290 260 C 380 200, 430 320, 513 260"/></circle>`).join("")}
       <text x="400" y="140" text-anchor="middle" class="m" font-size="11" fill="#8ea4ff">tx 0x9c4e…a1f2 · deposit · confirmed</text></g>
-    <g data-in="1" class="pop">${pill(520, 470, 210, "Contract · 0x41f2…9be0", "", "rgba(61,99,255,.12)", "rgba(125,151,255,.4)", "#b9c6ff")}</g>
-    <g data-in="2">${ring(625, 260, 128, "draw a72")}<text x="625" y="430" text-anchor="middle" class="m" font-size="15" fill="#ffcf8a">withdrawal · 72:00:00</text></g>
+    <g data-in="1" class="pop">${pill(520, 482, 210, "Contract · 0x41f2…9be0", "", "rgba(61,99,255,.12)", "rgba(125,151,255,.4)", "#b9c6ff")}</g>
+    <g data-in="2">${ring(625, 260, 124, "draw a72", "url(#gA)", 5)}<text x="625" y="424" text-anchor="middle" class="m" font-size="15" fill="#ffcf8a">withdrawal · 72:00:00</text></g>
     <g data-in="3" class="pop">${pill(80, 400, 96, "24 h")}${pill(186, 400, 120, "72 h · Strong", "", "rgba(61,99,255,.2)", "rgba(125,151,255,.6)", "#fff")}${pill(316, 400, 110, "Locked")}</g>`);
 
   S.cancel = () => svg(`
