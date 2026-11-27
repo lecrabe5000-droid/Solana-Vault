@@ -105,7 +105,7 @@ jobs:
           # run out of gas. Wait until the new coin is visible to it (up to a minute).
           gas=""
           for i in $(seq 1 20); do
-            gas=$(sui client gas --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const c=JSON.parse(s).map((x)=>({id:x.gasCoinId,v:BigInt(x.mistBalance)})).sort((a,b)=>(b.v>a.v?1:-1))[0];console.log(c&&c.v>=550000000n?c.id:"")})')
+            gas=$(curl -sS https://graphql.$NET.sui.io/graphql -H 'content-type: application/json' --data "{\"query\":\"{address(address:\\\"$addr\\\"){objects(filter:{type:\\\"0x2::coin::Coin<0x2::sui::SUI>\\\"}){nodes{address contents{json}}}}}\"}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{let c=null;try{c=(JSON.parse(s).data?.address?.objects?.nodes||[]).map((x)=>({id:x.address,v:BigInt(x.contents?.json?.balance||0)})).sort((a,b)=>(b.v>a.v?1:-1))[0]}catch(e){}console.log(c&&c.v>=550000000n?c.id:"")})')
             [ -n "$gas" ] && break; sleep 3
           done
           if [ -z "$gas" ]; then echo "::error::No coin of 0.55 SUI or more appeared to pay the publish."; sui client gas; exit 1; fi
