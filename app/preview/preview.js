@@ -180,11 +180,16 @@
   };
   const close = (pop = false) => { if (viewer.hidden) return; viewer.classList.remove("on"); chIO?.disconnect(); setTimeout(() => { viewer.hidden = true; document.documentElement.style.overflow = ""; lenis?.start(); }, 450); if (!pop && location.hash) history.pushState({}, "", location.pathname + location.search); };
   const step = (d) => { const i = list.indexOf(openEl), n = list.length; open(list[(i + d + n) % n]); };
-  all.forEach((el) => { el.tabIndex = 0; el.setAttribute("role", "button"); el.setAttribute("aria-label", "Open " + el.querySelector("h3").textContent); el.addEventListener("click", () => open(el)); el.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(el); } }); });
+  all.forEach((el) => { el.tabIndex = 0; el.setAttribute("role", "button"); el.setAttribute("aria-label", "Open " + el.querySelector("h3").textContent); el.addEventListener("click", () => open(el)); el.addEventListener("keydown", (e) => { if (!viewer.hidden) return; if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(el); } }); });
   viewer.querySelector("[data-close]").addEventListener("click", () => close());
   viewer.querySelector("[data-vprev]").addEventListener("click", () => step(-1));
   viewer.querySelector("[data-vnext]").addEventListener("click", () => step(1));
-  addEventListener("keydown", (e) => { if (viewer.hidden) return; if (e.key === "Escape") close(); if (e.key === "ArrowRight") step(1); if (e.key === "ArrowLeft") step(-1); });
+  addEventListener("keydown", (e) => { if (viewer.hidden) return; if (e.key === "Escape") close(); if (e.key === "ArrowRight") step(1); if (e.key === "ArrowLeft") step(-1);
+    // the chapters scroll from the keyboard too, wherever the focus is
+    const k = { ArrowDown: 80, ArrowUp: -80, PageDown: 0.85, PageUp: -0.85, " ": e.shiftKey ? -0.85 : 0.85 }[e.key];
+    if (k && !vtext.contains(document.activeElement)) { e.preventDefault(); vtext.scrollBy({ top: Math.abs(k) < 1 ? k * vtext.clientHeight : k, behavior: "smooth" }); } });
+  // the wheel or trackpad over the scene moves the chapters too: the whole panel reads as one page
+  viewer.addEventListener("wheel", (e) => { if (vtext.contains(e.target) || e.ctrlKey) return; e.preventDefault(); vtext.scrollTop += e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? vtext.clientHeight : 1); }, { passive: false });
   addEventListener("popstate", () => { const el = location.hash && document.getElementById(location.hash.slice(1)); if (el?.classList.contains("subj")) open(el, false); else close(true); });
   if (location.hash) { const el = document.getElementById(location.hash.slice(1)); if (el?.classList.contains("subj")) setTimeout(() => open(el, false), 200); }
 })();
