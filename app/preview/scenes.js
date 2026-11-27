@@ -9,13 +9,16 @@
     <linearGradient id="gR" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8f86"/><stop offset="1" stop-color="#c3243a"/></linearGradient>
     <linearGradient id="gG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8af0b8"/><stop offset="1" stop-color="#21b46a"/></linearGradient>
     <radialGradient id="gGlow"><stop offset="0" stop-color="#3d63ff" stop-opacity=".55"/><stop offset="1" stop-color="#3d63ff" stop-opacity="0"/></radialGradient>
+    <linearGradient id="gCard" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a2150" stop-opacity=".92"/><stop offset="1" stop-color="#0b0e24" stop-opacity=".94"/></linearGradient>
+    <linearGradient id="gEdge" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9c6ff" stop-opacity=".42"/><stop offset=".4" stop-color="#8ea4ff" stop-opacity=".12"/><stop offset="1" stop-color="#8ea4ff" stop-opacity=".06"/></linearGradient>
+    <clipPath id="coinClip" clipPathUnits="objectBoundingBox"><circle cx=".5" cy=".5" r=".5"/></clipPath>
     <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="rgba(140,160,255,.07)" stroke-width="1"/></pattern>
   </defs>`;
   const bg = `<rect width="800" height="600" fill="url(#grid)"/><circle cx="400" cy="300" r="300" fill="url(#gGlow)" opacity=".5"/>`;
-  const blocks = (y, n = 9, from = 21404110) => Array.from({ length: n }, (_, i) => `<g transform="translate(${40 + i * 84} ${y})"><rect width="70" height="34" rx="8" fill="rgba(120,140,255,.06)" stroke="rgba(150,170,255,.22)"/><text x="35" y="21" class="m" text-anchor="middle" font-size="9.5">#${(from + i).toLocaleString("en-US")}</text></g>${i < n - 1 ? `<path d="M${110 + i * 84} ${y + 17}h14" stroke="rgba(150,170,255,.3)"/>` : ""}`).join("");
+  const blocks = (y, n = 9, from = 21404110) => `<g class="dt">` + Array.from({ length: n }, (_, i) => `<g transform="translate(${40 + i * 84} ${y})"><rect width="70" height="34" rx="8" fill="rgba(120,140,255,.06)" stroke="rgba(150,170,255,.22)"/><text x="35" y="21" class="m" text-anchor="middle" font-size="9.5">#${(from + i).toLocaleString("en-US")}</text></g>${i < n - 1 ? `<path d="M${110 + i * 84} ${y + 17}h14" stroke="rgba(150,170,255,.3)"/>` : ""}`).join("") + `</g>`;
   const ring = (cx, cy, r, cls, color = "url(#gA)", w = 6) => `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="${w}"/><circle class="${cls}" cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" pathLength="100" transform="rotate(-90 ${cx} ${cy})"/>`;
   const pill = (x, y, w, txt, cls = "", fill = "rgba(255,255,255,.06)", stroke = "rgba(255,255,255,.12)", tc = "#d9dcef") => `<g class="${cls}" transform="translate(${x} ${y})"><rect width="${w}" height="34" rx="17" fill="${fill}" stroke="${stroke}"/><text x="${w / 2}" y="22" text-anchor="middle" font-size="13" fill="${tc}" class="s">${txt}</text></g>`;
-  const card = (x, y, w, h, inner, attrs = "") => `<g transform="translate(${x} ${y})" ${attrs}><rect width="${w}" height="${h}" rx="18" fill="rgba(14,17,36,.86)" stroke="rgba(150,170,255,.2)"/>${inner}</g>`;
+  const card = (x, y, w, h, inner, attrs = "") => `<g transform="translate(${x} ${y})" ${attrs}><rect width="${w}" height="${h}" rx="18" fill="url(#gCard)" stroke="url(#gEdge)" stroke-width="1.2"/><path d="M18 .8H${w - 18}" stroke="rgba(255,255,255,.35)" stroke-width="1" stroke-linecap="round" opacity=".6"/>${inner}</g>`;
   const svg = (body) => `<svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet">${DEFS}${bg}${body}</svg>`;
 
   const S = {};
@@ -45,7 +48,7 @@
     <path d="M390 260 H 500" stroke="rgba(255,120,110,.5)" stroke-dasharray="5 6" data-in="0"/>
     <g data-in="1" class="pop"><path d="M600 120l100 38v80c0 66-43 117-100 140-57-23-100-74-100-140v-80z" fill="url(#gR)" fill-opacity=".14" stroke="url(#gR)" stroke-width="3"/><path d="M565 220l70 70M635 220l-70 70" stroke="#ffb3ad" stroke-width="9" stroke-linecap="round"/><text x="600" y="430" text-anchor="middle" class="s" font-size="15" fill="#ff8f86">Known scam site · blocked</text></g>
     <g data-in="1" class="pop d1">${card(430, 455, 340, 70, `<text x="20" y="30" class="s" font-size="12" fill="#9aa3c7">Would leave your wallet</text><text x="20" y="54" class="h" font-size="17" fill="#fff">24.5 SOL · 1,250 USDC · everything</text>`)}</g>
-    <g data-in="2" class="pop">${card(70, 440, 330, 100, `<text x="20" y="30" class="s" font-size="12" fill="#ffcf8a">Look-alike address</text><text x="20" y="58" class="m" font-size="14" fill="#fff">9cRt…X2pa <tspan fill="#7f88ad">you use</tspan></text><text x="20" y="82" class="m" font-size="14" fill="#ff8f86">9cRt…X2qa <tspan fill="#7f88ad">this one</tspan></text>`)}</g>`);
+    <g data-in="2" class="pop">${card(70, 440, 330, 100, `<text x="20" y="30" class="s" font-size="12" fill="#ffcf8a">Look-alike address</text><text x="20" y="58" class="m keep" font-size="14" fill="#fff">9cRt…X2pa <tspan fill="#7f88ad">you use</tspan></text><text x="20" y="82" class="m keep" font-size="14" fill="#ff8f86">9cRt…X2qa <tspan fill="#7f88ad">this one</tspan></text>`)}</g>`);
 
   S.sleep = () => svg(`
     ${Array.from({ length: 40 }, (_, i) => `<circle cx="${(i * 97) % 800}" cy="${(i * 53) % 300}" r="${i % 5 ? 1 : 1.6}" fill="#fff" opacity="${0.2 + (i % 4) * 0.15}" class="star"/>`).join("")}
@@ -91,7 +94,7 @@
     <g data-in="2" class="pop">${card(440, 450, 320, 110, `<text x="20" y="34" class="s" font-size="13" fill="#fff">Guardian</text><text x="20" y="62" class="s" font-size="13" fill="#8af0b8">✓ Release a withdrawal you asked for</text><text x="20" y="88" class="s" font-size="13" fill="#ff8f86">✕ Start one · choose where it goes</text>`)}</g>`);
 
   S.security = () => svg(`
-    <g data-in="0" class="pop">${card(70, 70, 400, 300, `<text x="24" y="38" class="m" font-size="11" fill="#9aa3c7">programs/vault/src/lib.rs</text>${["pub fn request_withdrawal(ctx, amount) {", "  let vault = &mut ctx.accounts.vault;", "  require!(!vault.paused, Paused);", "  vault.pending = Some(Pending {", "    amount, unlock_at: now + vault.delay,", "  });", "}"].map((l, i) => `<text x="24" y="${78 + i * 30}" class="m" font-size="12.5" fill="${i === 4 ? "#ffcf8a" : "#c7cde8"}">${l.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</text>`).join("")}`)}</g>
+    <g data-in="0" class="pop">${card(70, 70, 400, 300, `<text x="24" y="38" class="m" font-size="11" fill="#9aa3c7">programs/vault/src/lib.rs</text>${["pub fn request_withdrawal(ctx, amount) {", "  let vault = &mut ctx.accounts.vault;", "  require!(!vault.paused, Paused);", "  vault.pending = Some(Pending {", "    amount, unlock_at: now + vault.delay,", "  });", "}"].map((l, i) => `<text x="24" y="${78 + i * 30}" class="m keep" font-size="12.5" fill="${i === 4 ? "#ffcf8a" : "#c7cde8"}">${l.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</text>`).join("")}`)}</g>
     <g data-in="1" class="pop">${card(500, 90, 240, 180, `${["Solana program", "EVM contracts", "Wallet, end to end"].map((t, i) => `<circle cx="30" cy="${46 + i * 46}" r="11" fill="url(#gG)"/><path d="M24 ${46 + i * 46}l4 4 8-8" stroke="#05060c" stroke-width="2.6" fill="none"/><text x="52" y="${51 + i * 46}" class="s" font-size="14" fill="#fff">${t}</text>`).join("")}`)}</g>
     <g data-in="1" class="pop d1">${pill(500, 290, 240, "Base · 0x41f2…9be0", "", "rgba(61,99,255,.12)", "rgba(125,151,255,.4)", "#b9c6ff")}</g>
     <g data-in="2" class="pop">${pill(70, 420, 170, "Non-custodial ✓", "", "rgba(48,209,88,.12)", "rgba(48,209,88,.4)", "#8af0b8")}${pill(250, 420, 160, "Open source ✓", "", "rgba(48,209,88,.12)", "rgba(48,209,88,.4)", "#8af0b8")}${pill(420, 420, 190, "Audit · next", "", "rgba(255,181,71,.12)", "rgba(255,181,71,.45)", "#ffcf8a")}</g>`);
@@ -99,6 +102,6 @@
   S.faq = () => svg(`${MARK(400, 280, 2.2)}<text x="400" y="520" text-anchor="middle" class="s" font-size="15" fill="#9fb3ff">An écrin keeps something precious safe.</text>`);
 
   // network logos inside scenes come from the same set as the cards
-  const fillLogos = (root, list) => root.querySelectorAll("[data-logo]").forEach((g) => { const svgEl = g.querySelector("svg"); const hit = list.find(([n, , k]) => k === g.dataset.logo); if (hit && svgEl) { svgEl.outerHTML = hit[1].replace("<svg ", `<svg width="${svgEl.getAttribute("width")}" height="${svgEl.getAttribute("height")}" `); } });
+  const fillLogos = (root, list) => root.querySelectorAll("[data-logo]:not([data-filled])").forEach((g) => { g.dataset.filled = 1; g.setAttribute("clip-path", "url(#coinClip)"); const svgEl = g.querySelector("svg"); const hit = list.find(([n, , k]) => k === g.dataset.logo); if (hit && svgEl) { svgEl.outerHTML = hit[1].replace("<svg ", `<svg width="${svgEl.getAttribute("width")}" height="${svgEl.getAttribute("height")}" `); } });
   globalThis.EcrinScenes = { build: (id) => (S[id] ? S[id]() : S.faq()), fillLogos };
 })();
