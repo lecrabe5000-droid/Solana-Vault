@@ -54,8 +54,9 @@ const coins = [];
 const coinGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.085, 96, 1);
 const rimGeo = new THREE.TorusGeometry(0.4, 0.028, 16, 96);
 const steel = new THREE.MeshPhysicalMaterial({ color: 0xeef1f8, metalness: 1, roughness: 0.14 });
-const frost = new THREE.MeshPhysicalMaterial({ color: 0xcfdcff, metalness: 0.1, roughness: 0.12, transparent: true, opacity: 0, clearcoat: 1, clearcoatRoughness: 0.05, flatShading: true, depthWrite: false });
-const frostGeo = new THREE.CylinderGeometry(0.455, 0.455, 0.11, 6, 1); // a faceted ice shell (hexagonal, like a crystal)
+const frost = new THREE.MeshPhysicalMaterial({ color: 0xcfdcff, metalness: 0.1, roughness: 0.12, transparent: true, opacity: 0, clearcoat: 1, clearcoatRoughness: 0.05, flatShading: true, depthWrite: false, side: THREE.DoubleSide });
+// the ice: a faceted hexagonal ring around the coin's edge (open, so it never covers the logo)
+const frostGeo = new THREE.CylinderGeometry(0.47, 0.47, 0.13, 6, 1, true);
 async function logoTexture(svg) {
   const img = new Image(); img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg); await img.decode();
   const c = document.createElement("canvas"); c.width = c.height = 1024; const g = c.getContext("2d");
@@ -138,7 +139,7 @@ window.seat = {
       const spinning = (1 - freeze) * (1 - toRow);
       c.rotation.set(Math.PI / 2 * mix(0.55, 1, toRow) + u.spin[0] * spinning * 2 + t * 9 * spinning, u.spin[1] * 1.4 * (1 - toRow) + t * 5 * spinning, 0);
       const ice = freeze * (1 - seg(t, 0.7, 0.78));
-      c.userData.frost.material.opacity = 0.26 * ice; c.userData.frost.scale.setScalar(mix(0.6, 1, ice));
+      c.userData.frost.material.opacity = 0.7 * ice; c.userData.frost.scale.setScalar(mix(0.6, 1, ice));
       c.scale.setScalar(mix(0.95, 0.9, pull) * mix(1, 0.64, toRow) * mix(1, 0.86, ease(seg(t, 0.44, 0.54)) * (1 - ease(seg(t, 0.72, 0.8)))));
     });
 
@@ -163,7 +164,8 @@ window.seat = {
   for (const name of pick) {
     const svg = logos.find((l) => l[0] === name)?.[1]; if (!svg) continue;
     const tex = await logoTexture(svg);
-    const face = new THREE.MeshPhysicalMaterial({ map: tex, metalness: 0.2, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.08 });
+    // the logo is unlit: it shows in its exact colours whatever the light does (no glare, no shading); the steel rim catches the light
+    const face = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
     const edge = steel;
     const g = new THREE.Group();
     const body = new THREE.Mesh(coinGeo, [edge, face, face]); body.castShadow = true; g.add(body);
