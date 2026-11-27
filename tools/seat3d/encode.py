@@ -8,7 +8,7 @@ src, out, size = sys.argv[1], sys.argv[2], int(sys.argv[3])
 SETS = [("hi", size, 80), ("lo", size // 2, 74)]
 def one(path):
     im = Image.open(path); name = os.path.basename(path).replace(".png", ".webp")
-    for d, s, q in SETS: im.resize((s, s), Image.LANCZOS).save(os.path.join(out, d, name), "WEBP", quality=q, alpha_quality=70, method=6)
+    for d, s, q in SETS: im.resize((s, s), Image.LANCZOS).save(os.path.join(out, d, name), "WEBP", quality=q, alpha_quality=76, method=6)
 if __name__ == "__main__":
     for d, _, _ in SETS:
         os.makedirs(os.path.join(out, d), exist_ok=True)

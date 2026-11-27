@@ -87,6 +87,9 @@ const moon = (() => {
   const c = document.createElement("canvas"); c.width = c.height = 1024; const g = c.getContext("2d");
   const glow = g.createRadialGradient(512, 512, 120, 512, 512, 500); glow.addColorStop(0, "rgba(255,214,150,.55)"); glow.addColorStop(1, "rgba(255,190,110,0)");
   g.fillStyle = glow; g.fillRect(0, 0, 1024, 1024);
+  // dither the glow: a soft gradient stored in 8 bits shows rings; a touch of noise makes it fade smoothly
+  { const im = g.getImageData(0, 0, 1024, 1024), d = im.data; let sd = 7; const rn = () => ((sd = (sd * 16807) % 2147483647) / 2147483647 - 0.5) * 6;
+    for (let i = 0; i < d.length; i += 4) if (d[i + 3]) { const n = rn(); d[i + 3] = Math.max(0, Math.min(255, d[i + 3] + n)); } g.putImageData(im, 0, 0); }
   // the crescent is cut on its own canvas, then laid over the glow (cutting it here would punch a hole in the glow)
   const m2 = document.createElement("canvas"); m2.width = m2.height = 1024; const h = m2.getContext("2d");
   h.fillStyle = "#fff1d6"; h.beginPath(); h.arc(512, 512, 200, 0, Math.PI * 2); h.fill();

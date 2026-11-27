@@ -11,7 +11,7 @@
 
   // ---- frames: the light set first (everything playable fast), then the sharp set, nearest the current frame first
   const lo = new Array(N), hi = new Array(N);
-  const load = (set, dir, i) => new Promise((res) => { const im = new Image(); im.decoding = "async"; im.onload = () => { set[i] = im; res(); if (Math.abs(i - Math.round(cur)) < 2) draw(true); }; im.onerror = res; im.src = `/preview/seat/${dir}/f-${pad(i)}.webp?v=6`; });
+  const load = (set, dir, i) => new Promise((res) => { const im = new Image(); im.decoding = "async"; im.onload = () => { set[i] = im; res(); if (Math.abs(i - Math.round(cur)) < 2) draw(true); }; im.onerror = res; im.src = `/preview/seat/${dir}/f-${pad(i)}.webp?v=7`; });
   const queue = async (set, dir, order, par = 6) => { let k = 0; await Promise.all(Array.from({ length: par }, async () => { while (k < order.length) await load(set, dir, order[k++]); })); };
   const around = (c) => Array.from({ length: N }, (_, i) => i).sort((a, b) => Math.abs(a - c) - Math.abs(b - c));
   // desktop: every sharp frame, nearest first. Phones (sharp screens): only the sharp frames around where you are,
@@ -23,9 +23,9 @@
 
   // ---- the page colour through the film (light → ice → Ecrin blue → night)
   // light → ice → Ecrin blue → warm amber night → graphite → night
-  const STOPS = [[0, [238, 240, 245]], [0.1, [228, 234, 251]], [0.27, [228, 234, 251]], [0.31, [47, 91, 255]], [0.45, [47, 91, 255]], [0.5, [44, 26, 12]], [0.61, [44, 26, 12]], [0.65, [30, 33, 40]], [0.78, [30, 33, 40]], [0.82, [11, 13, 20]], [1, [11, 13, 20]]];
+  const STOPS = [[0, [238, 240, 245]], [0.1, [228, 234, 251]], [0.27, [228, 234, 251]], [0.31, [24, 44, 168]], [0.45, [24, 44, 168]], [0.5, [44, 26, 12]], [0.61, [44, 26, 12]], [0.65, [30, 33, 40]], [0.78, [30, 33, 40]], [0.82, [11, 13, 20]], [1, [11, 13, 20]]];
   // the studio light behind the tile, in each scene's own colour: [colour, strength]
-  const SPOTS = [[0, [255, 255, 255, 0.95]], [0.1, [255, 255, 255, 0.85]], [0.27, [255, 255, 255, 0.85]], [0.31, [150, 178, 255, 0.55]], [0.45, [150, 178, 255, 0.55]], [0.5, [255, 168, 80, 0.32]], [0.61, [255, 168, 80, 0.32]], [0.65, [170, 182, 210, 0.22]], [0.78, [170, 182, 210, 0.22]], [0.82, [80, 110, 255, 0.22]], [1, [80, 110, 255, 0.22]]];
+  const SPOTS = [[0, [255, 255, 255, 0.95]], [0.1, [255, 255, 255, 0.85]], [0.27, [255, 255, 255, 0.85]], [0.31, [120, 150, 255, 0.62]], [0.45, [120, 150, 255, 0.62]], [0.5, [255, 168, 80, 0.32]], [0.61, [255, 168, 80, 0.32]], [0.65, [170, 182, 210, 0.22]], [0.78, [170, 182, 210, 0.22]], [0.82, [80, 110, 255, 0.22]], [1, [80, 110, 255, 0.22]]];
   const lerpStops = (L, p) => { for (let i = 1; i < L.length; i++) if (p <= L[i][0]) { const [a, ca] = L[i - 1], [b, cb] = L[i], k = (p - a) / Math.max(1e-6, b - a); return ca.map((v, j) => v + (cb[j] - v) * k); } return L[L.length - 1][1]; };
   const colourAt = (p) => lerpStops(STOPS, p).map(Math.round);
   const WORDS = [[0, "ECRIN"], [0.11, "WAIT"], [0.29, "CANCEL"], [0.48, "SLEEP"], [0.63, "LOCKED"], [0.8, "EVERY"]];
