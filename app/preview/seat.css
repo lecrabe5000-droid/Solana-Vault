@@ -36,11 +36,14 @@ html, body, .nav { transition: background-color .25s linear, color .25s linear; 
 .beat.on { pointer-events: auto; }
 .beat h1, .beat h2 { font-weight: 600; letter-spacing: -.035em; line-height: .98; }
 .beat h1 { font-size: clamp(44px, 6.2vw, 96px); }
+.beat h1 em { font-style: normal; color: var(--blue); }
+/* the hero's live chip (phones): a withdrawal counting down, with the Cancel that makes Ecrin Ecrin */
+.live { display: none; }
 .beat h2 { font-size: clamp(36px, 4.6vw, 72px); }
 .beat .k { color: var(--soft); margin-bottom: 18px; }
 .beat .sub { margin-top: 18px; max-width: 34ch; color: var(--soft); font-size: clamp(16px, 1.25vw, 19px); line-height: 1.5; }
 .cta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 28px; }
-.btn { display: inline-flex; align-items: center; justify-content: center; min-height: 50px; padding: 0 24px; border-radius: 999px; font-weight: 600; font-size: 15.5px; }
+.btn { white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; min-height: 50px; padding: 0 24px; border-radius: 999px; font-weight: 600; font-size: 15.5px; }
 .btn.solid { background: var(--ink); color: var(--bg); }
 .btn.ghost { box-shadow: inset 0 0 0 1.5px var(--line); }
 .btn:active { scale: .98; }
@@ -71,8 +74,18 @@ html, body, .nav { transition: background-color .25s linear, color .25s linear; 
 @media (max-width: 860px) {
   .nav { padding: 16px 18px; } .nav nav a:not(.pill) { display: none; } .pill { padding: 9px 15px; font-size: 14px; }
   .film { height: 880vh; }
-  .stage canvas { top: 40%; }
-  .giant { place-items: start center; padding-top: 22vh; } .giant span { font-size: 31vw; }
+  /* the 3D takes all the room the words leave (measured in seat.js), centred in it */
+  .stage canvas { top: var(--cy, 40%); }
+  .giant { place-items: start center; padding-top: calc(var(--cy, 40vh) - 12.4vw); }
+  .giant span { font-size: 31vw; color: transparent; -webkit-text-stroke: 1.2px var(--giantS, rgba(11, 13, 20, .1)); }
+  .b1 .k { display: none; }
+  .live { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 16px; padding: 5px 5px 5px 12px; border-radius: 999px; text-transform: none; letter-spacing: 0; font-size: min(12px, 3.2vw); white-space: nowrap; color: var(--ink);
+    background: rgba(255, 255, 255, .78); box-shadow: inset 0 0 0 1px rgba(11, 13, 20, .07), 0 8px 24px rgba(30, 50, 140, .1); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+  .live i { width: 7px; height: 7px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 0 0 rgba(47, 91, 255, .45); animation: livePulse 1.8s ease-out infinite; }
+  .live b { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .live button { border: 0; border-radius: 999px; padding: 6px 12px; background: var(--ink); color: #fff; font: inherit; font-weight: 600; letter-spacing: .02em; cursor: pointer; }
+  .live.done i { background: #19b46b; animation: none; } .live.done button { visibility: hidden; width: 0; padding: 6px 0; }
+  .cta .btn { padding: 0 14px; }
   .beat h1 { font-size: clamp(40px, 11.5vw, 56px); } .beat h2 { font-size: clamp(32px, 9.4vw, 46px); }
   .b1, .b2.left, .b3, .b4, .b5.left, .b6.left { left: 20px; right: 20px; max-width: none; top: auto; bottom: max(22px, env(safe-area-inset-bottom)); margin-top: 0; text-align: left; translate: 0 calc(var(--y, 0) * 1px); }
   .b3 .sub { margin-inline: 0; }
@@ -83,7 +96,8 @@ html, body, .nav { transition: background-color .25s linear, color .25s linear; 
   .prog { display: none; }
   .foot { flex-direction: column; }
 }
-@media (prefers-reduced-motion: reduce) { html, body, .nav, .giant span { transition: none; } }
+@keyframes livePulse { 0% { box-shadow: 0 0 0 0 rgba(47, 91, 255, .45); } 100% { box-shadow: 0 0 0 9px rgba(47, 91, 255, 0); } }
+@media (prefers-reduced-motion: reduce) { .live i { animation: none; } html, body, .nav, .giant span { transition: none; } }
 
 /* ---- read everything: the ten subjects as a quiet list that opens ---- */
 .read { padding: clamp(80px, 12vh, 140px) clamp(20px, 5vw, 72px) clamp(60px, 9vh, 110px); max-width: 1180px; margin: 0 auto; }

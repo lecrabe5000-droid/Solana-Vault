@@ -45,7 +45,7 @@
     const [sr, sg, sb, sa] = lerpStops(SPOTS, p); stage.style.setProperty("--spot", `${Math.round(sr)},${Math.round(sg)},${Math.round(sb)}`); stage.style.setProperty("--spotA", sa.toFixed(3));
     if (dark !== lastDark) { lastDark = dark; root.classList.toggle("dark", dark);
       root.style.setProperty("--ink", dark ? "#f4f1ea" : "#0b0d14"); root.style.setProperty("--soft", dark ? "rgba(244,241,234,.7)" : "rgba(11,13,20,.62)");
-      root.style.setProperty("--line", dark ? "rgba(244,241,234,.22)" : "rgba(11,13,20,.12)"); root.style.setProperty("--giant", dark ? "rgba(255,255,255,.07)" : "rgba(11,13,20,.055)");
+      root.style.setProperty("--line", dark ? "rgba(244,241,234,.22)" : "rgba(11,13,20,.12)"); root.style.setProperty("--giant", dark ? "rgba(255,255,255,.07)" : "rgba(11,13,20,.055)"); root.style.setProperty("--giantS", dark ? "rgba(255,255,255,.14)" : "rgba(11,13,20,.1)");
       root.style.color = dark ? "#f4f1ea" : "#0b0d14"; document.querySelector('meta[name="theme-color"]').content = bg; }
     const w = [...WORDS].reverse().find(([a]) => p >= a)[1]; if (w !== lastWord) { lastWord = w; giant.textContent = w; }
     // the giant word fades out just before it changes and back in after, never a cut
@@ -54,7 +54,26 @@
 
   // ---- drawing: between two frames, blended, so slow scrolling stays smooth
   let cur = 0, target = 0, size = 0, dpr = 1, drawn = -1;
-  const resize = () => { dpr = Math.min(2, devicePixelRatio || 1); size = Math.round(phone ? Math.min(innerWidth * 1.04, innerHeight * 0.64) : Math.min(innerHeight * 1.08, innerWidth * 0.68)); cv.style.setProperty("--cv", size + "px"); cv.width = cv.height = Math.round(size * dpr); drawn = -1; draw(true); };
+  // phones: each scene's 3D gets all the height its own words leave, centred in it, as big as that scene's
+  // composition allows (the hero's loose coins sit well inside the frame; the coin rows reach its edges), and the
+  // film glides between those placements as you scroll. The frame's soft transparent edges may tuck under the words.
+  // where each resting scene actually sits in its square frame [left, top, right, bottom], measured from the frames'
+  // transparency (with a little room for the resting loops' motion), in the beats' order
+  const BOX = [[0.1, 0.165, 0.9, 0.74], [0.1, 0.27, 0.9, 0.67], [0.075, 0.3, 0.925, 0.65], [0.05, 0.06, 0.935, 0.84], [0.15, 0.12, 0.85, 0.8], [0.1, 0.21, 0.9, 0.79]];
+  let fits = [];
+  const fitAt = (p) => { if (!fits.length) return null; const qs = fits.map((f) => f.q); if (p <= qs[0]) return fits[0];
+    for (let i = 1; i < fits.length; i++) if (p <= qs[i]) { const a = fits[i - 1], b = fits[i], k0 = (p - a.q) / (b.q - a.q), k = k0 * k0 * (3 - 2 * k0); return { s: a.s + (b.s - a.s) * k, cy: a.cy + (b.cy - a.cy) * k }; }
+    return fits[fits.length - 1]; };
+  // the scene (not the whole square) fills the room its words leave: kept 12 px from the screen's sides and clear
+  // of the words, and centred in that room
+  const phoneFit = () => { const navH = 64, h = stage.clientHeight || innerHeight;
+    fits = beats.map(({ el, r }, i) => { const [x0, y0, x1, y1] = BOX[i] || [0.08, 0.08, 0.92, 0.92], avail = Math.max(200, h - navH - el.offsetHeight - 26);
+      const q = i === 0 ? 0 : r[1] > 1 ? 1 : (r[0] + r[1]) / 2;
+      const s = Math.max(240, Math.min((innerWidth / 2 - 12) / Math.max(0.5 - x0, x1 - 0.5), avail / (y1 - y0)));
+      return { q, s, cy: navH + avail / 2 + (0.5 - (y0 + y1) / 2) * s }; });
+    return Math.max(...fits.map((f) => f.s)); };
+  const placePhone = (p) => { const f = fitAt(p); if (!f) return; cv.style.setProperty("--cv", f.s.toFixed(1) + "px"); stage.style.setProperty("--cy", f.cy.toFixed(1) + "px"); };
+  const resize = () => { dpr = Math.min(2, devicePixelRatio || 1); size = Math.round(phone ? phoneFit() : Math.min(innerHeight * 1.08, innerWidth * 0.68)); cv.style.setProperty("--cv", size + "px"); cv.width = cv.height = Math.round(size * dpr); if (phone) placePhone(scroll()); drawn = -1; draw(true); };
   function pick(i) { return (wantXl() && xl[i]) || hi[i] || lo[i]; }
   // layers are mixed exactly ("lighter" adds the weighted images, weights summing to 1): no thickened edges or ghost
   // halos where two frames overlap, as plain stacking would give
@@ -76,7 +95,7 @@
 
   // ---- resting loops: where a scene comes to rest, it stays alive (rendered loops that start on the resting frame
   // itself and repeat without a seam); fetched only as you come near, played only once complete
-  const LOOPS = [{ at: 80, dir: "loop-cancel", n: 108, fps: 24 }].map((L) => ({ ...L, frames: new Array(L.n), got: 0, asked: false }));
+  const LOOPS = [{ at: 0, dir: "loop-hero", n: 108, fps: 24 }, { at: 80, dir: "loop-cancel", n: 108, fps: 24 }].map((L) => ({ ...L, frames: new Array(L.n), got: 0, asked: false }));
   let live = null, liveA = 0, liveStart = 0, idleSince = 0, lastTarget = -1, lastT = 0;
   const loopSet = () => (wantXl() ? "xl" : !phone || (devicePixelRatio || 1) > 1.5 ? "hi" : "lo");
   function ask(L) { if (L.asked) return; L.asked = true; const set = loopSet();
@@ -98,7 +117,7 @@
     const p = scroll(); target = p * (N - 1);
     // desktop: the smooth scroller already eases, so the film follows it exactly (one motion, not two layered)
     cur += (target - cur) * (still || glider ? 1 : 0.22); if (Math.abs(target - cur) < 0.01) cur = target;
-    loops(performance.now()); draw(false); paint(p);
+    loops(performance.now()); draw(false); paint(p); if (phone) placePhone(p);
     for (const { el, r } of beats) { const lin = r[0] <= 0 && p < r[1] ? clamp((r[1] - p) / 0.035) : r[1] > 1 ? clamp((p - r[0]) / 0.035) : fade(p, r), o = lin * lin * (3 - 2 * lin);
       el.style.opacity = o.toFixed(3); el.style.setProperty("--y", ((1 - o) * 26).toFixed(1)); el.classList.toggle("on", o > 0.5); }
     for (const { el, r } of counts) { const [from, to, a, b] = r; el.textContent = Math.round(from + (to - from) * clamp((p - a) / (b - a))); }
@@ -167,6 +186,14 @@
   const learn = document.querySelector(".read"), learnTop = () => (learn ? learn.offsetTop : Infinity);
   function placeSnaps() { const span = film.offsetHeight - innerHeight; for (const d of snaps) d.style.top = Math.round(Number(d.dataset.q) * span) + "px"; }
   if (snaps.length) { root.classList.add("snapping"); placeSnaps(); }
+  // the hero's live chip: a withdrawal counting down; Cancel shows what happens (the money stays), then it starts over
+  const chip = document.querySelector("[data-live]");
+  if (chip) { const text = chip.querySelector("[data-live-text]"), t0 = Date.now(), two = (n) => String(n).padStart(2, "0"); let paused = false;
+    const show = () => { const b = text.querySelector("b"); if (paused || !b) return; const left = 86399 - (Math.floor((Date.now() - t0) / 1000) % 86400);
+      b.textContent = `${two(Math.floor(left / 3600))}:${two(Math.floor(left / 60) % 60)}:${two(left % 60)}`; };
+    show(); setInterval(show, 1000);
+    chip.querySelector("[data-live-cancel]").addEventListener("click", () => { paused = true; chip.classList.add("done"); text.textContent = "Cancelled. The money stays.";
+      setTimeout(() => { text.innerHTML = "Leaving your Safe in <b></b>"; chip.classList.remove("done"); paused = false; show(); }, 2600); }); }
   // the lock's date: a month from today, written the way people say it
   const ld = document.querySelector("[data-lockdate]"); if (ld) ld.textContent = new Date(Date.now() + 30 * 864e5).toLocaleDateString("en-US", { month: "long", day: "numeric" });
   resize(); requestAnimationFrame(frame);
